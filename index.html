@@ -68,6 +68,7 @@
 
             <div class="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
                 
+                <!-- Humidity -->
                 <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-800/60 flex flex-col justify-between">
                     <div class="flex items-center justify-between text-slate-400 mb-2">
                         <span class="text-xs uppercase tracking-wider font-semibold">相對濕度</span>
@@ -79,6 +80,7 @@
                     </div>
                 </div>
 
+                <!-- Wind Speed -->
                 <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-800/60 flex flex-col justify-between">
                     <div class="flex items-center justify-between text-slate-400 mb-2">
                         <span class="text-xs uppercase tracking-wider font-semibold">風速</span>
@@ -91,6 +93,7 @@
                     <p id="wind-speed-desc" class="text-xs text-slate-400 mt-1"></p>
                 </div>
 
+                <!-- Wind Direction -->
                 <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-800/60 flex flex-col justify-between">
                     <div class="flex items-center justify-between text-slate-400 mb-2">
                         <span class="text-xs uppercase tracking-wider font-semibold">風向</span>
@@ -102,14 +105,15 @@
                     <p class="text-xs text-slate-400 mt-1 mono" id="wind-dir-val">--</p>
                 </div>
 
+                <!-- UV Index -->
                 <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-800/60 flex flex-col justify-between">
                     <div class="flex items-center justify-between text-slate-400 mb-2">
                         <span class="text-xs uppercase tracking-wider font-semibold">紫外線</span>
                         <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                     </div>
                     <div class="flex items-baseline gap-2">
-                        <span id="feels-like-level" class="text-2xl sm:text-3xl font-bold text-white mono">--</span>
-                        <span id="feels-like-desc" class="px-2 py-0.5 rounded text-xs font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30">--</span>
+                        <span id="uv-level" class="text-2xl sm:text-3xl font-bold text-white mono">--</span>
+                        <span id="uv-desc" class="px-2 py-0.5 rounded text-xs font-semibold border">--</span>
                     </div>
                 </div>
 
@@ -150,13 +154,35 @@
 
                 const iconUrl = xmlDoc.querySelector("IconURL")?.textContent || "";
                 
-                const feelsLevel = xmlDoc.querySelector("FeelsLikeLevel")?.textContent || "--";
-                const feelsDesc = xmlDoc.querySelector("FeelsLikeDescription")?.textContent || "--";
+                // UV Index Value from XML (mapped from FeelsLikeLevel node in your schema)
+                const uvValRaw = xmlDoc.querySelector("FeelsLikeLevel")?.textContent || "0";
+                const uvVal = parseInt(uvValRaw, 10) || 0;
 
-                // Safe element value assignments using optional chaining
-                document.getElementById("pub-date")?.setHTML ? null : (document.getElementById("pub-date").textContent = validFor);
-                document.getElementById("valid-time")?.setAttribute?.('textContent', validFor);
-                
+                // Determine UV level description and color style based on official chart tiers
+                let uvDesc = "低";
+                let badgeClass = "bg-green-500/20 text-green-400 border-green-500/30";
+
+                if (uvVal >= 11) {
+                    uvDesc = "極高";
+                    badgeClass = "bg-purple-500/20 text-purple-400 border-purple-500/30";
+                } else if (uvVal >= 8) {
+                    uvDesc = "甚高";
+                    badgeClass = "bg-red-500/20 text-red-400 border-red-500/30";
+                } else if (uvVal >= 6) {
+                    uvDesc = "高";
+                    badgeClass = "bg-orange-500/20 text-orange-400 border-orange-500/30";
+                } else if (uvVal >= 3) {
+                    uvDesc = "中等";
+                    badgeClass = "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+                } else {
+                    uvDesc = "低";
+                    badgeClass = "bg-green-500/20 text-green-400 border-green-500/30";
+                }
+
+                // Populate UI Elements Safely
+                const elPubDate = document.getElementById("pub-date");
+                if (elPubDate) elPubDate.textContent = validFor;
+
                 const elValidTime = document.getElementById("valid-time");
                 if (elValidTime) elValidTime.textContent = `Valid: ${validFor}`;
 
@@ -190,15 +216,19 @@
                 const elWeatherIcon = document.getElementById("weather-icon");
                 if (elWeatherIcon && iconUrl) elWeatherIcon.src = iconUrl;
 
-                const elFeelsLevel = document.getElementById("feels-like-level");
-                if (elFeelsLevel) elFeelsLevel.textContent = feelsLevel;
+                // Bind UV Index values and color classes
+                const elUvLevel = document.getElementById("uv-level");
+                if (elUvLevel) elUvLevel.textContent = uvValRaw;
 
-                const elFeelsDesc = document.getElementById("feels-like-desc");
-                if (elFeelsDesc) elFeelsDesc.textContent = feelsDesc;
+                const elUvDesc = document.getElementById("uv-desc");
+                if (elUvDesc) {
+                    elUvDesc.textContent = uvDesc;
+                    elUvDesc.className = `px-2 py-0.5 rounded text-xs font-semibold border ${badgeClass}`;
+                }
                 
                 const elBadge = document.getElementById("weather-status-badge");
-                if (elBadge && feelsDesc) {
-                    elBadge.textContent = `體感：${feelsDesc}`;
+                if (elBadge) {
+                    elBadge.textContent = `紫外線指數: ${uvValRaw}`;
                 }
 
                 const elSyncStatus = document.getElementById("sync-status");
