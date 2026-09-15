@@ -46,12 +46,11 @@
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 badge-pulse"></span>
                     <h1 class="text-xs uppercase tracking-widest text-emerald-400 font-semibold mono">實時天氣</h1>
                 </div>
-                <p id="pub-date" class="text-xl sm:text-2xl font-bold tracking-tight text-white">載入中</p>
+                <p id="pub-date" class="text-xl sm:text-2xl font-bold tracking-tight text-white">載入中...</p>
             </div>
             <div class="flex items-center gap-3">
-                <span class="px-3 py-1 rounded-full text-xs font-medium bg-slate-800/80 text-cyan-400 border border-cyan-500/20 mono" id="valid-time"></span>
-                
-                <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold" id="weather-status-badge"></span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-slate-800/80 text-cyan-400 border border-cyan-500/20 mono" id="valid-time">--</span>
+                <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold" id="weather-status-badge">--</span>
             </div>
         </div>
 
@@ -89,6 +88,7 @@
                         <span id="wind-speed-value" class="text-2xl sm:text-3xl font-bold text-white mono">--</span>
                         <span id="wind-speed-unit" class="text-slate-400 text-sm"></span>
                     </div>
+                    <p id="wind-speed-desc" class="text-xs text-slate-400 mt-1"></p>
                 </div>
 
                 <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-800/60 flex flex-col justify-between">
@@ -119,6 +119,7 @@
 
         <div class="mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 font-mono">
             <span>數據來源：地球物理氣象局</span>
+            <span id="sync-status">STATUS: ONLINE</span>
         </div>
 
     </div>
@@ -126,7 +127,6 @@
     <script>
         async function fetchWeatherData() {
             try {
-                // Fetch the auto-saved XML file from your repository data directory (No CORS issues!)
                 const response = await fetch('./data/actual_brief.xml?t=' + new Date().getTime());
                 if (!response.ok) throw new Error('Failed to load local XML telemetry');
                 
@@ -134,10 +134,7 @@
                 const parser = new DOMParser();
                 const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
-                // Extract values based on the SMG schema
-                const sysPubdate = xmlDoc.querySelector("SysPubdate")?.textContent || "";
                 const validFor = xmlDoc.querySelector("ValidFor")?.textContent || "";
-                
                 const tempVal = xmlDoc.querySelector("Temperature Value")?.textContent || "--";
                 const tempUnit = xmlDoc.querySelector("Temperature MeasureUnit")?.textContent || "°C";
 
@@ -156,41 +153,66 @@
                 const feelsLevel = xmlDoc.querySelector("FeelsLikeLevel")?.textContent || "--";
                 const feelsDesc = xmlDoc.querySelector("FeelsLikeDescription")?.textContent || "--";
 
-                // Populate UI Elements
-                document.getElementById("pub-date").textContent = validFor;
-                document.getElementById("valid-time").textContent = `Valid: ${validFor}`;
+                // Safe element value assignments using optional chaining
+                document.getElementById("pub-date")?.setHTML ? null : (document.getElementById("pub-date").textContent = validFor);
+                document.getElementById("valid-time")?.setAttribute?.('textContent', validFor);
                 
-                document.getElementById("temp-value").textContent = tempVal;
-                document.getElementById("temp-unit").textContent = tempUnit;
+                const elValidTime = document.getElementById("valid-time");
+                if (elValidTime) elValidTime.textContent = `Valid: ${validFor}`;
 
-                document.getElementById("humidity-value").textContent = humidityVal;
-                document.getElementById("humidity-unit").textContent = humidityUnit;
+                const elTempVal = document.getElementById("temp-value");
+                if (elTempVal) elTempVal.textContent = tempVal;
 
-                document.getElementById("wind-speed-value").textContent = windSpeedVal;
-                document.getElementById("wind-speed-unit").textContent = windSpeedUnit;
-                document.getElementById("wind-speed-desc").textContent = windSpeedDesc;
+                const elTempUnit = document.getElementById("temp-unit");
+                if (elTempUnit) elTempUnit.textContent = tempUnit;
 
-                document.getElementById("wind-desc").textContent = windDesc;
+                const elHumidityVal = document.getElementById("humidity-value");
+                if (elHumidityVal) elHumidityVal.textContent = humidityVal;
 
-                if (iconUrl) {
-                    document.getElementById("weather-icon").src = iconUrl;
+                const elHumidityUnit = document.getElementById("humidity-unit");
+                if (elHumidityUnit) elHumidityUnit.textContent = humidityUnit;
+
+                const elWindSpeedVal = document.getElementById("wind-speed-value");
+                if (elWindSpeedVal) elWindSpeedVal.textContent = windSpeedVal;
+
+                const elWindSpeedUnit = document.getElementById("wind-speed-unit");
+                if (elWindSpeedUnit) elWindSpeedUnit.textContent = windSpeedUnit;
+
+                const elWindSpeedDesc = document.getElementById("wind-speed-desc");
+                if (elWindSpeedDesc) elWindSpeedDesc.textContent = windSpeedDesc;
+
+                const elWindDesc = document.getElementById("wind-desc");
+                if (elWindDesc) elWindDesc.textContent = windDesc;
+
+                const elWindDirVal = document.getElementById("wind-dir-val");
+                if (elWindDirVal) elWindDirVal.textContent = `Direction: ${windDirVal}`;
+
+                const elWeatherIcon = document.getElementById("weather-icon");
+                if (elWeatherIcon && iconUrl) elWeatherIcon.src = iconUrl;
+
+                const elFeelsLevel = document.getElementById("feels-like-level");
+                if (elFeelsLevel) elFeelsLevel.textContent = feelsLevel;
+
+                const elFeelsDesc = document.getElementById("feels-like-desc");
+                if (elFeelsDesc) elFeelsDesc.textContent = feelsDesc;
+                
+                const elBadge = document.getElementById("weather-status-badge");
+                if (elBadge && feelsDesc) {
+                    elBadge.textContent = `體感：${feelsDesc}`;
                 }
 
-                document.getElementById("feels-like-level").textContent = feelsLevel;
-                document.getElementById("feels-like-desc").textContent = feelsDesc;
-                
-                if(feelsDesc) {
-                    document.getElementById("weather-status-badge").textContent = `體感：${feelsDesc}`;
-                }
+                const elSyncStatus = document.getElementById("sync-status");
+                if (elSyncStatus) elSyncStatus.textContent = "STATUS: ONLINE // SYNCED";
 
             } catch (error) {
                 console.error("Telemetry sync error:", error);
-                document.getElementById("pub-date").textContent = "Telemetry Synchronization Error";
-                document.getElementById("sync-status").textContent = "STATUS: OFFLINE // CHECK REPO PATH";
+                const elPubDate = document.getElementById("pub-date");
+                if (elPubDate) elPubDate.textContent = "Telemetry Synchronization Error";
+                const elSyncStatus = document.getElementById("sync-status");
+                if (elSyncStatus) elSyncStatus.textContent = "STATUS: OFFLINE // CHECK REPO PATH";
             }
         }
 
-        // Initialize on load
         fetchWeatherData();
     </script>
 </body>
