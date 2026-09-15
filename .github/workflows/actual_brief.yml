@@ -1,0 +1,29 @@
+name: Fetch SMG Weather XML
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Runs every hour
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  update-weather:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Data Directory
+        run: mkdir -p data
+
+      - name: Fetch Weather XML
+        run: |
+          curl -s "https://xml.smg.gov.mo/c_actual_brief.xml" -o data/actual_brief.xml
+
+      - name: Commit and Push if changed
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data/actual_brief.xml
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update weather XML [skip ci]" && git push)
