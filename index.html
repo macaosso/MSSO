@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>澳門天氣儀表板</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -13,79 +18,91 @@
             height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: rgba(100, 116, 139, 0.1);
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb {
-            background: #475569;
+            background: rgba(100, 116, 139, 0.4);
             border-radius: 4px;
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 transition-colors duration-200">
 
     <!-- 容器 -->
     <div class="w-full max-w-4xl space-y-6">
         
         <!-- 標頭 -->
-        <header class="flex justify-between items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
             <div>
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-                    <i class="fa-solid fa-location-dot text-cyan-400"></i> 澳門天氣
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-location-dot text-cyan-500 dark:text-cyan-400"></i> 澳門天氣
                 </h1>
             </div>
-            <div id="current-time" class="text-right text-xs md:text-sm text-cyan-300 font-medium">
-                載入中...
+            <div class="flex items-center gap-4">
+                <div id="current-time" class="text-right text-xs md:text-sm text-cyan-600 dark:text-cyan-300 font-medium">
+                    載入中...
+                </div>
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
             </div>
         </header>
 
         <!-- 載入狀態 -->
-        <div id="loading" class="text-center py-20 text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-400 mb-3"></i>
+        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
             <p>正在取得最新天氣數據...</p>
         </div>
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
 
+            <!-- 天氣提示區塊 (動態顯示) -->
+            <div id="alerts-container" class="space-y-3">
+                <!-- 動態注入提示框 -->
+            </div>
+
             <!-- 即時天氣 -->
-            <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h2 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-cloud-sun text-yellow-400"></i> 即時天氣
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-sun text-yellow-500 dark:text-yellow-400"></i> 即時天氣
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div class="flex items-center gap-6">
                         <div id="current-icon" class="text-6xl md:text-7xl"></div>
                         <div>
-                            <div class="text-5xl md:text-6xl font-extrabold tracking-tight text-white" id="current-temp">--°C</div>
-                            <div class="text-slate-400 font-medium text-lg mt-1" id="current-condition">--</div>
+                            <div class="text-5xl md:text-6xl font-extrabold tracking-tight dark:text-white" id="current-temp">--°C</div>
+                            <div class="text-slate-500 dark:text-slate-400 font-medium text-lg mt-1" id="current-condition">--</div>
                             <div class="text-sm mt-2 flex gap-3" id="current-high-low">
-                                <span class="text-white">高: --°</span>
-                                <span class="text-slate-500">低: --°</span>
+                                <span class="dark:text-white font-medium">高: --°</span>
+                                <span class="text-slate-400 dark:text-slate-500 font-medium">低: --°</span>
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
-                        <div class="bg-slate-950/50 p-4 rounded-xl border border-slate-800/60">
-                            <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                <i class="fa-solid fa-droplet text-blue-400"></i> 相對濕度
+                    <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-6">
+                        <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/60">
+                            <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-droplet text-blue-500 dark:text-blue-400"></i> 相對濕度
                             </div>
-                            <div class="text-xl font-bold mt-1 text-slate-100" id="current-humidity">--%</div>
+                            <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-humidity">--%</div>
                         </div>
-                        <div class="bg-slate-950/50 p-4 rounded-xl border border-slate-800/60">
-                            <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                <i class="fa-solid fa-wind text-teal-400"></i> 風速
+                        <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/60">
+                            <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-wind text-teal-500 dark:text-teal-400"></i> 風速
                             </div>
-                            <div class="text-xl font-bold mt-1 text-slate-100" id="current-wind-speed">-- km/h</div>
+                            <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-wind-speed">-- km/h</div>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- 分區天氣 (強制單行排列) -->
-            <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h2 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-map-location-dot text-emerald-400"></i> 分區天氣
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-map-location-dot text-emerald-500 dark:text-emerald-400"></i> 分區天氣
                 </h2>
                 <div class="grid grid-cols-3 gap-2 sm:gap-4" id="district-container">
                     <!-- 動態載入分區天氣 -->
@@ -93,17 +110,17 @@
             </section>
 
             <!-- 24小時天氣預報 -->
-            <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h2 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-clock text-cyan-400"></i> 24小時天氣預報
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-clock text-cyan-500 dark:text-cyan-400"></i> 24小時天氣預報
                 </h2>
                 <div id="hourly-container" class="flex gap-4 overflow-x-auto pb-2 pt-1"></div>
             </section>
 
             <!-- 7天天氣預報 -->
-            <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-                <h2 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-days text-purple-400"></i> 7天天氣預報
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-purple-500 dark:text-purple-400"></i> 7天天氣預報
                 </h2>
                 <div id="daily-container" class="space-y-3"></div>
             </section>
@@ -117,18 +134,37 @@
         const LAT = 22.1595;
         const LON = 113.5685;
 
+        // 主題切換邏輯
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        // 初始化主題設定
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+
         // 根據天氣代碼與日夜狀態回傳描述與圖示
         function getWeatherDetails(code, isNight = false) {
             switch (code) {
                 case 0: 
                     return isNight 
-                        ? { text: '晴朗', icon: 'fa-moon text-indigo-300' } 
-                        : { text: '晴朗', icon: 'fa-sun text-yellow-400' };
+                        ? { text: '晴朗', icon: 'fa-moon text-indigo-400' } 
+                        : { text: '晴朗', icon: 'fa-sun text-yellow-500 dark:text-yellow-400' };
                 case 1: 
                 case 2: 
                     return isNight 
-                        ? { text: '多雲', icon: 'fa-cloud-moon text-indigo-200' } 
-                        : { text: '局部多雲', icon: 'fa-cloud-sun text-yellow-200' };
+                        ? { text: '多雲', icon: 'fa-cloud-moon text-indigo-300' } 
+                        : { text: '局部多雲', icon: 'fa-cloud-sun text-yellow-300 dark:text-yellow-200' };
                 case 3: return { text: '陰天', icon: 'fa-cloud text-slate-400' };
                 case 45:
                 case 48: return { text: '有霧', icon: 'fa-smog text-slate-400' };
@@ -136,19 +172,19 @@
                 case 53:
                 case 55:
                 case 56:
-                case 57: return { text: '毛毛雨', icon: 'fa-cloud-rain text-blue-300' };
+                case 57: return { text: '毛毛雨', icon: 'fa-cloud-rain text-blue-400 dark:text-blue-300' };
                 case 61:
                 case 63:
                 case 65:
                 case 66:
-                case 67: return { text: '下雨', icon: 'fa-cloud-showers-heavy text-blue-400' };
+                case 67: return { text: '下雨', icon: 'fa-cloud-showers-heavy text-blue-500 dark:text-blue-400' };
                 case 71:
                 case 73:
                 case 75:
-                case 77: return { text: '下雪', icon: 'fa-snowflake text-blue-200' };
+                case 77: return { text: '下雪', icon: 'fa-snowflake text-blue-300 dark:text-blue-200' };
                 case 80:
                 case 81:
-                case 82: return { text: '驟雨', icon: 'fa-cloud-rain text-blue-400' };
+                case 82: return { text: '驟雨', icon: 'fa-cloud-rain text-blue-500 dark:text-blue-400' };
                 case 95:
                 case 96:
                 case 99: return { text: '雷暴', icon: 'fa-bolt text-yellow-500' };
@@ -169,10 +205,7 @@
 
         async function fetchWeatherData() {
             try {
-                // 主氣象數據 (含每日日出日落、最高最低溫、降雨機率)
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau`;
-                
-                // 分區天氣數據：澳門、氹仔、路環
                 const districtUrl = `https://api.open-meteo.com/v1/forecast?latitude=22.1957537,22.1595,22.1178268&longitude=113.5443291,113.5685,113.5524237&current=temperature_2m,weather_code&timezone=Asia/Macau`;
 
                 const [weatherRes, districtRes] = await Promise.all([
@@ -190,7 +223,7 @@
 
             } catch (error) {
                 console.error("無法載入天氣數據：", error);
-                document.getElementById('loading').innerHTML = `<p class="text-red-400">無法載入天氣數據，請檢查網絡連線。</p>`;
+                document.getElementById('loading').innerHTML = `<p class="text-red-500 dark:text-red-400">無法載入天氣數據，請檢查網絡連線。</p>`;
             }
         }
 
@@ -198,24 +231,73 @@
             const now = new Date();
             document.getElementById('current-time').innerText = now.toLocaleString('zh-TW', { timeZone: 'Asia/Macau', dateStyle: 'medium', timeStyle: 'short' });
 
-            // 1. 即時天氣
             const curr = data.current;
             const isNight = checkIfNight(now, data.daily, 0);
             const weatherInfo = getWeatherDetails(curr.weather_code, isNight);
             
-            // 取得今日最高溫與最低溫
             const todayMax = Math.round(data.daily.temperature_2m_max[0]);
             const todayMin = Math.round(data.daily.temperature_2m_min[0]);
 
+            // 1. 即時天氣
             document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
             document.getElementById('current-condition').innerText = weatherInfo.text;
             document.getElementById('current-high-low').innerHTML = `
-                <span class="text-white font-medium">高: ${todayMax}°</span>
-                <span class="text-slate-400 font-medium">低: ${todayMin}°</span>
+                <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
+                <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
             `;
             document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
             document.getElementById('current-wind-speed').innerText = `${curr.wind_speed_10m} km/h`;
+
+            // 計算未來24小時資料供提示使用
+            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= new Date()) || 0;
+            const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
+            const next24Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 24);
+
+            // 檢查提示條件
+            const isHot = curr.temperature_2m > 25 || next24Temps.some(t => t > 25);
+            const isCold = curr.temperature_2m < 14 || next24Temps.some(t => t < 14);
+            const isRainy = next24Pops.some(p => p > 60);
+
+            // 渲染提示區塊
+            const alertsContainer = document.getElementById('alerts-container');
+            alertsContainer.innerHTML = '';
+
+            if (isHot) {
+                const alertBox = document.createElement('div');
+                alertBox.className = "flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors";
+                alertBox.innerHTML = `
+                    <i class="fa-solid fa-fire text-xl"></i>
+                    <div>
+                        <span class="font-bold">炎熱提示：</span>氣溫偏高（超過25°C），請注意防暑降溫及補充水分。
+                    </div>
+                `;
+                alertsContainer.appendChild(alertBox);
+            }
+
+            if (isCold) {
+                const alertBox = document.createElement('div');
+                alertBox.className = "flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors";
+                alertBox.innerHTML = `
+                    <i class="fa-solid fa-snowflake text-xl"></i>
+                    <div>
+                        <span class="font-bold">寒冷提示：</span>氣溫偏低（低於14°C），請注意適時添衣保暖。
+                    </div>
+                `;
+                alertsContainer.appendChild(alertBox);
+            }
+
+            if (isRainy) {
+                const alertBox = document.createElement('div');
+                alertBox.className = "flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors";
+                alertBox.innerHTML = `
+                    <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
+                    <div>
+                        <span class="font-bold">降雨提示：</span>未來24小時內降雨機率高於60%，請外出時記得攜帶雨具。
+                    </div>
+                `;
+                alertsContainer.appendChild(alertBox);
+            }
 
             // 2. 分區天氣 (單行展示)
             const districtContainer = document.getElementById('district-container');
@@ -228,14 +310,14 @@
                 const dWeather = getWeatherDetails(loc.current.weather_code, isNight);
 
                 const card = document.createElement('div');
-                card.className = "bg-slate-950/50 border border-slate-800/60 p-3 sm:p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between text-center sm:text-left";
+                card.className = "bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/60 p-3 sm:p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between text-center sm:text-left transition-colors";
                 card.innerHTML = `
                     <div>
-                        <div class="text-slate-400 text-xs sm:text-sm">${dName}</div>
-                        <div class="text-base sm:text-lg font-bold text-white mt-0.5">${dTemp}°C</div>
+                        <div class="text-slate-500 dark:text-slate-400 text-xs sm:text-sm">${dName}</div>
+                        <div class="text-base sm:text-lg font-bold text-slate-800 dark:text-white mt-0.5">${dTemp}°C</div>
                     </div>
                     <div class="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 mt-2 sm:mt-0">
-                        <span class="text-[10px] sm:text-xs text-slate-300 hidden md:inline">${dWeather.text}</span>
+                        <span class="text-[10px] sm:text-xs text-slate-600 dark:text-slate-300 hidden md:inline">${dWeather.text}</span>
                         <i class="fa-solid ${dWeather.icon} text-xl sm:text-2xl"></i>
                     </div>
                 `;
@@ -246,7 +328,6 @@
             const hourlyContainer = document.getElementById('hourly-container');
             hourlyContainer.innerHTML = '';
             
-            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= new Date()) || 0;
             const limit = currentHourIndex + 24;
 
             for (let i = currentHourIndex; i < limit && i < data.hourly.time.length; i++) {
@@ -264,19 +345,19 @@
                 const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: true });
 
                 const card = document.createElement('div');
-                card.className = "flex flex-col items-center justify-between bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 min-w-[85px] flex-shrink-0 text-center";
+                card.className = "flex flex-col items-center justify-between bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 min-w-[85px] flex-shrink-0 text-center transition-colors";
                 card.innerHTML = `
-                    <span class="text-xs text-slate-400 font-medium">${hourLabel}</span>
+                    <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${hourLabel}</span>
                     <i class="fa-solid ${hourIcon.icon} text-xl my-2"></i>
-                    <span class="text-base font-bold text-white">${temp}°C</span>
-                    <div class="text-[11px] text-blue-400 mt-1 flex items-center gap-1">
+                    <span class="text-base font-bold text-slate-800 dark:text-white">${temp}°C</span>
+                    <div class="text-[11px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
                         <i class="fa-solid fa-droplet text-[9px]"></i> ${pop}%
                     </div>
                 `;
                 hourlyContainer.appendChild(card);
             }
 
-            // 4. 7天天氣預報 (顯示降雨機率)
+            // 4. 7天天氣預報
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
 
@@ -285,27 +366,26 @@
                 const maxTemp = Math.round(data.daily.temperature_2m_max[i]);
                 const minTemp = Math.round(data.daily.temperature_2m_min[i]);
                 const code = data.daily.weather_code[i];
-                const dayIcon = getWeatherDetails(code, false); // 每日預報以白天為主
+                const dayIcon = getWeatherDetails(code, false);
 
-                // 取得當天最高降雨機率
                 const popMax = data.daily.precipitation_probability_max ? Math.round(data.daily.precipitation_probability_max[i]) : 0;
 
                 const dateObj = new Date(dateStr);
                 const dayLabel = i === 0 ? '今天' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short', month: 'numeric', day: 'numeric' });
 
                 const row = document.createElement('div');
-                row.className = "flex items-center justify-between bg-slate-950/40 border border-slate-800/80 px-4 py-3 rounded-xl";
+                row.className = "flex items-center justify-between bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 px-4 py-3 rounded-xl transition-colors";
                 row.innerHTML = `
-                    <div class="w-28 text-sm font-medium text-slate-300">${dayLabel}</div>
-                    <div class="flex items-center gap-2 text-sm text-slate-200">
+                    <div class="w-28 text-sm font-medium text-slate-700 dark:text-slate-300">${dayLabel}</div>
+                    <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-200">
                         <i class="fa-solid ${dayIcon.icon} w-6 text-center"></i>
                         <span class="hidden md:inline">${dayIcon.text}</span>
                     </div>
                     <div class="flex items-center gap-4 text-sm">
-                        <span class="text-blue-400 text-xs flex items-center gap-1"><i class="fa-solid fa-droplet text-[10px]"></i> ${popMax}%</span>
+                        <span class="text-blue-600 dark:text-blue-400 text-xs flex items-center gap-1"><i class="fa-solid fa-droplet text-[10px]"></i> ${popMax}%</span>
                         <div class="font-semibold flex gap-3 text-right">
-                            <span class="text-white">${maxTemp}°</span>
-                            <span class="text-slate-500">${minTemp}°</span>
+                            <span class="text-slate-800 dark:text-white">${maxTemp}°</span>
+                            <span class="text-slate-400 dark:text-slate-500">${minTemp}°</span>
                         </div>
                     </div>
                 `;
