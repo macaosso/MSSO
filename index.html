@@ -3,199 +3,752 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>澳門天氣即時資訊</title>
-    <!-- Tailwind CSS CDN -->
+    <title>澳門天氣儀表板</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: { 50: '#e6fffa', 500: '#319795', 600: '#2c7a7b' }
-                    }
-                }
-            }
         }
     </script>
-    <!-- FontAwesome Icons -->
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 min-h-screen transition-colors duration-300">
+<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 transition-colors duration-200">
 
-    <div class="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6">
         
-        <!-- Header 區塊 -->
-        <header class="flex justify-between items-start border-b border-gray-200 dark:border-gray-800 pb-4">
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight dark:text-white flex items-center gap-2">
                     <i class="fa-solid fa-location-dot text-cyan-500 dark:text-cyan-400"></i> 澳門天氣
                 </h1>
-                <!-- 日期、星期、24H時間與農曆日期 -->
-                <div id="current-datetime" class="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">
-                    2026年09月18日 (五) 01:00<br>
-                    <span class="text-xs md:text-sm text-cyan-600 dark:text-cyan-400 font-medium">丙午馬年八月初八日</span>
-                </div>
             </div>
-            
-            <!-- 設定 / 主題切換按鈕 -->
-            <div class="flex items-center gap-3">
-                <button id="theme-toggle" class="p-2.5 rounded-xl bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 transition">
+            <div class="flex items-center gap-4">
+                <div id="current-time" class="text-right text-xs md:text-sm text-cyan-600 dark:text-cyan-300 font-medium">
+                    載入中...
+                </div>
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
                     <i class="fa-solid fa-moon dark:hidden"></i>
-                    <i class="fa-solid fa-sun hidden dark:inline"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 即時天氣摘要卡片 -->
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
-                <div class="flex items-center gap-4">
-                    <div class="text-5xl text-amber-500">
-                        <i class="fa-solid fa-cloud-sun"></i>
-                    </div>
-                    <div>
-                        <div class="text-4xl font-extrabold tracking-tight">28°C</div>
-                        <div class="text-gray-500 dark:text-gray-400 text-sm mt-1">多雲時晴 · 體感溫度 31°C</div>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4 w-full md:w-auto text-sm">
-                    <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl">
-                        <div class="text-gray-400 text-xs">相對濕度</div>
-                        <div class="font-semibold mt-0.5">78%</div>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl">
-                        <div class="text-gray-400 text-xs">空氣質量</div>
-                        <div class="font-semibold text-emerald-500 mt-0.5">良好 (AQI 35)</div>
-                    </div>
-                </div>
-            </div>
+        <!-- 載入狀態 -->
+        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
+            <p>正在取得最新天氣數據...</p>
         </div>
 
-        <!-- 日出日落區塊 (移除上中天，加入上下箭頭) -->
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-sun text-amber-500"></i> 日出日落
-            </h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <!-- 日出 -->
-                <div class="bg-amber-50/60 dark:bg-gray-700/50 p-4 rounded-xl flex items-center gap-3">
-                    <div class="relative text-amber-500 text-2xl flex items-center">
-                        <i class="fa-solid fa-sun"></i>
-                        <i class="fa-solid fa-arrow-up text-xs absolute -top-1 -right-2"></i>
-                    </div>
-                    <div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">日出</div>
-                        <div class="text-sm font-bold text-gray-800 dark:text-white">06:05</div>
-                    </div>
-                </div>
-                <!-- 日落 -->
-                <div class="bg-amber-50/60 dark:bg-gray-700/50 p-4 rounded-xl flex items-center gap-3">
-                    <div class="relative text-amber-600 text-2xl flex items-center">
-                        <i class="fa-solid fa-sun"></i>
-                        <i class="fa-solid fa-arrow-down text-xs absolute -bottom-1 -right-2"></i>
-                    </div>
-                    <div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">日落</div>
-                        <div class="text-sm font-bold text-gray-800 dark:text-white">18:25</div>
-                    </div>
-                </div>
-                <!-- 月出 -->
-                <div class="bg-indigo-50/60 dark:bg-gray-700/50 p-4 rounded-xl flex items-center gap-3">
-                    <div class="relative text-indigo-500 text-2xl flex items-center">
-                        <i class="fa-solid fa-moon"></i>
-                        <i class="fa-solid fa-arrow-up text-xs absolute -top-1 -right-2"></i>
-                    </div>
-                    <div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">月出</div>
-                        <div class="text-sm font-bold text-gray-800 dark:text-white">09:12</div>
-                    </div>
-                </div>
-                <!-- 月落 -->
-                <div class="bg-indigo-50/60 dark:bg-gray-700/50 p-4 rounded-xl flex items-center gap-3">
-                    <div class="relative text-indigo-600 text-2xl flex items-center">
-                        <i class="fa-solid fa-moon"></i>
-                        <i class="fa-solid fa-arrow-down text-xs absolute -bottom-1 -right-2"></i>
-                    </div>
-                    <div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">月落</div>
-                        <div class="text-sm font-bold text-gray-800 dark:text-white">21:45</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- 主要內容 -->
+        <div id="dashboard-content" class="space-y-6 hidden">
 
-        <!-- 新增：潮汐高度區塊 -->
-        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-water text-blue-500"></i> 澳門潮汐高度
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div class="bg-blue-50/60 dark:bg-gray-700/50 p-4 rounded-xl">
-                    <div class="text-xs text-gray-500 dark:text-gray-400">當前潮位</div>
-                    <div class="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">1.8米 <span class="text-xs font-normal text-gray-500">(漲潮中)</span></div>
+            <!-- 天氣提示區塊 -->
+            <div id="alerts-container" class="space-y-3"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- 左側兩欄：即時天氣、24小時預報、7天預報 -->
+                <div class="lg:col-span-2 space-y-6">
+
+                    <!-- 即時天氣 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-sun text-yellow-500 dark:text-yellow-400"></i> 即時天氣
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                            <div class="flex items-center gap-6">
+                                <div id="current-icon" class="text-6xl md:text-7xl"></div>
+                                <div>
+                                    <div class="text-5xl md:text-6xl font-extrabold tracking-tight dark:text-white" id="current-temp">--°C</div>
+                                    <div class="text-slate-500 dark:text-slate-400 font-medium text-lg mt-1" id="current-condition">--</div>
+                                    <div class="text-sm mt-2 flex gap-3" id="current-high-low">
+                                        <span class="dark:text-white font-medium">高: --°</span>
+                                        <span class="text-slate-400 dark:text-slate-500 font-medium">低: --°</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-6">
+                                <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                    <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                        <svg class="w-4 h-4 text-blue-500 dark:text-blue-400 inline-block" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                                            <text x="12" y="15.5" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">%</text>
+                                        </svg>
+                                        相對濕度
+                                    </div>
+                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-humidity">--%</div>
+                                </div>
+                                <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                    <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fa-solid fa-wind text-teal-500 dark:text-teal-400"></i> 風速
+                                    </div>
+                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-wind-speed">-- km/h</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 24小時天氣預報 (附切換卡片與圖表按鈕) -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-clock text-cyan-500 dark:text-cyan-400"></i> 24小時天氣預報
+                            </h2>
+                            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium">
+                                <button id="hourly-view-card" onclick="setHourlyView('card')" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all">卡片</button>
+                                <button id="hourly-view-chart" onclick="setHourlyView('chart')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all">圖表</button>
+                            </div>
+                        </div>
+                        <div id="hourly-container"></div>
+                    </section>
+
+                    <!-- 7天天氣預報 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-days text-purple-500 dark:text-purple-400"></i> 7天天氣預報
+                        </h2>
+                        <div id="daily-container" class="overflow-x-auto pb-2"></div>
+                    </section>
+
                 </div>
-                <div class="bg-blue-50/60 dark:bg-gray-700/50 p-4 rounded-xl">
-                    <div class="text-xs text-gray-500 dark:text-gray-400">最高潮位預報</div>
-                    <div class="text-sm font-bold text-gray-800 dark:text-white mt-1">2.3米 (13:40)</div>
+
+                <!-- 右側一欄：分區天氣、日月天文追蹤 -->
+                <div class="lg:col-span-1 space-y-6">
+
+                    <!-- 分區天氣 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-map-location-dot text-emerald-500 dark:text-emerald-400"></i> 分區天氣
+                        </h2>
+                        <p class="text-xs text-slate-400 mb-4">點擊下方分區可檢視過去 24 小時溫度趨勢</p>
+                        <div class="space-y-3" id="district-container"></div>
+                    </section>
+
+                    <!-- 日月天文追蹤 (日出、太陽上中天、日落、月出、月球上中天、月落) -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-globe text-amber-500 dark:text-amber-400"></i> 日月天文追蹤
+                            </h2>
+                            <div id="astro-dynamic-badge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                <i id="astro-badge-icon" class="fa-solid fa-sun"></i>
+                                <span id="astro-badge-text">日照中</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- 日出 -->
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl text-base flex items-center justify-center w-9 h-9">
+                                    <i class="fa-solid fa-sunrise"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-[11px]">日出</div>
+                                    <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="sunrise-time">--:--</div>
+                                </div>
+                            </div>
+                            <!-- 太陽上中天 -->
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-2.5 bg-yellow-500/10 text-yellow-500 rounded-xl text-base flex items-center justify-center w-9 h-9">
+                                    <i class="fa-solid fa-sun"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-[11px]">太陽上中天</div>
+                                    <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="solar-noon-time">--:--</div>
+                                </div>
+                            </div>
+                            <!-- 日落 -->
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-2.5 bg-orange-500/10 text-orange-500 rounded-xl text-base flex items-center justify-center w-9 h-9">
+                                    <i class="fa-solid fa-sunset"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-[11px]">日落</div>
+                                    <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="sunset-time">--:--</div>
+                                </div>
+                            </div>
+                            <!-- 月出 -->
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl text-base flex items-center justify-center w-9 h-9">
+                                    <i class="fa-solid fa-moon"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-[11px]">月出</div>
+                                    <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="moonrise-time">--:--</div>
+                                </div>
+                            </div>
+                            <!-- 月球上中天 -->
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl text-base flex items-center justify-center w-9 h-9">
+                                    <i class="fa-solid fa-circle-half-stroke"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-[11px]">月球上中天</div>
+                                    <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="lunar-noon-time">--:--</div>
+                                </div>
+                            </div>
+                            <!-- 月落 -->
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-2.5 bg-slate-500/10 text-slate-400 rounded-xl text-base flex items-center justify-center w-9 h-9">
+                                    <i class="fa-solid fa-moon text-slate-400"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-[11px]">月落</div>
+                                    <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="moonset-time">--:--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                 </div>
-                <div class="bg-blue-50/60 dark:bg-gray-700/50 p-4 rounded-xl">
-                    <div class="text-xs text-gray-500 dark:text-gray-400">最低潮位預報</div>
-                    <div class="text-sm font-bold text-gray-800 dark:text-white mt-1">0.6米 (07:15)</div>
-                </div>
+
             </div>
-            <!-- 今日潮汐時間序列預報 -->
-            <div class="bg-blue-50/30 dark:bg-gray-700/30 rounded-xl p-4 flex items-center justify-between text-xs md:text-sm text-gray-700 dark:text-gray-300">
-                <div class="flex flex-col items-center">
-                    <span class="text-gray-400 text-xs">03:20</span>
-                    <span class="font-semibold mt-1">0.8m (低潮)</span>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-gray-400 text-xs">09:15</span>
-                    <span class="font-semibold mt-1">2.1m (高潮)</span>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-gray-400 text-xs">15:30</span>
-                    <span class="font-semibold mt-1">0.9m (低潮)</span>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-gray-400 text-xs">22:10</span>
-                    <span class="font-semibold mt-1">2.4m (高潮)</span>
-                </div>
-            </div>
+
         </div>
 
     </div>
 
-    <!-- 頁面動態時鐘與主題切換 Script -->
+    <!-- JavaScript 邏輯 -->
     <script>
-        // 動態更新 24H 時間格式與星期
-        function updateClock() {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-            const weekday = weekdays[now.getDay()];
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            
-            const dateStr = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
-            const lunarStr = "丙午馬年八月初八日";
-            
-            const datetimeEl = document.getElementById('current-datetime');
-            if (datetimeEl) {
-                datetimeEl.innerHTML = `${dateStr}<br><span class="text-xs md:text-sm text-cyan-600 dark:text-cyan-400 font-medium">${lunarStr}</span>`;
-            }
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+        const LAT = 22.1595;
+        const LON = 113.5685;
 
-        // 深色模式切換邏輯
+        let globalWeatherData = null;
+        let globalDistrictData = null;
+        let currentHourlyMode = 'card'; // 'card' 或 'chart'
+        let activeDistrictIndex = null; // 展開的區域名稱索引 (0, 1, 2)
+
+        // 主題切換邏輯
         const themeToggleBtn = document.getElementById('theme-toggle');
         themeToggleBtn.addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
         });
+
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+
+        function getWeatherDetails(code, isNight = false) {
+            switch (code) {
+                case 0: 
+                    return isNight 
+                        ? { text: '晴朗', icon: 'fa-moon text-indigo-400' } 
+                        : { text: '晴朗', icon: 'fa-sun text-yellow-500 dark:text-yellow-400' };
+                case 1: 
+                case 2: 
+                    return isNight 
+                        ? { text: '多雲', icon: 'fa-cloud-moon text-indigo-300' } 
+                        : { text: '局部多雲', icon: 'fa-cloud-sun text-yellow-300 dark:text-yellow-200' };
+                case 3: return { text: '陰天', icon: 'fa-cloud text-slate-400' };
+                case 45:
+                case 48: return { text: '有霧', icon: 'fa-smog text-slate-400' };
+                case 51:
+                case 53:
+                case 55:
+                case 56:
+                case 57: return { text: '毛毛雨', icon: 'fa-cloud-rain text-blue-400 dark:text-blue-300' };
+                case 61:
+                case 63:
+                case 65:
+                case 66:
+                case 67: return { text: '下雨', icon: 'fa-cloud-showers-heavy text-blue-500 dark:text-blue-400' };
+                case 71:
+                case 73:
+                case 75:
+                case 77: return { text: '下雪', icon: 'fa-snowflake text-blue-300 dark:text-blue-200' };
+                case 80:
+                case 81:
+                case 82: return { text: '驟雨', icon: 'fa-cloud-rain text-blue-500 dark:text-blue-400' };
+                case 95:
+                case 96:
+                case 99: return { text: '雷暴', icon: 'fa-bolt text-yellow-500' };
+                default: return { text: '未知', icon: 'fa-cloud text-slate-400' };
+            }
+        }
+
+        function checkIfNight(dateObj, dailyData, dayIndex = 0) {
+            if (dailyData && dailyData.sunrise && dailyData.sunset && dailyData.sunrise[dayIndex] && dailyData.sunset[dayIndex]) {
+                const sunrise = new Date(dailyData.sunrise[dayIndex]);
+                const sunset = new Date(dailyData.sunset[dayIndex]);
+                return dateObj < sunrise || dateObj > sunset;
+            }
+            const hour = dateObj.getHours();
+            return hour < 6 || hour >= 18;
+        }
+
+        async function fetchWeatherData() {
+            try {
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
+                
+                const districtUrls = [
+                    { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
+                    { name: '氹仔', lat: 22.1595, lon: 113.5685 },
+                    { name: '路環', lat: 22.1178268, lon: 113.5524237 }
+                ];
+
+                const [weatherRes, ...districtRes] = await Promise.all([
+                    fetch(weatherUrl),
+                    ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&hourly=temperature_2m&timezone=Asia/Macau&past_days=1`))
+                ]);
+
+                globalWeatherData = await weatherRes.json();
+                globalDistrictData = await Promise.all(districtRes.map(res => res.json()));
+
+                renderDashboard();
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+
+            } catch (error) {
+                console.error("無法載入天氣數據：", error);
+                document.getElementById('loading').innerHTML = `<p class="text-red-500 dark:text-red-400">無法載入天氣數據，請檢查網絡連線。</p>`;
+            }
+        }
+
+        function setHourlyView(mode) {
+            currentHourlyMode = mode;
+            const btnCard = document.getElementById('hourly-view-card');
+            const btnChart = document.getElementById('hourly-view-chart');
+            if (mode === 'card') {
+                btnCard.className = "px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
+                btnChart.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+            } else {
+                btnChart.className = "px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
+                btnCard.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+            }
+            renderHourlySection();
+        }
+
+        function toggleDistrictChart(index) {
+            activeDistrictIndex = activeDistrictIndex === index ? null : index;
+            renderDistricts();
+        }
+
+        function renderDashboard() {
+            const now = new Date();
+            document.getElementById('current-time').innerText = now.toLocaleString('zh-TW', { timeZone: 'Asia/Macau', dateStyle: 'medium', timeStyle: 'short' });
+
+            const data = globalWeatherData;
+            const curr = data.current;
+            const isNight = checkIfNight(now, data.daily, 1); 
+            const weatherInfo = getWeatherDetails(curr.weather_code, isNight);
+            
+            const macauDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+            const todayIdx = data.daily.time.findIndex(d => d === macauDateStr) !== -1 ? data.daily.time.findIndex(d => d === macauDateStr) : 1;
+
+            const todayMax = Math.round(data.daily.temperature_2m_max[todayIdx]);
+            const todayMin = Math.round(data.daily.temperature_2m_min[todayIdx]);
+
+            // 天文數據計算與顯示 (日出、太陽上中天、日落、月出、月球上中天、月落)
+            if (data.daily.sunrise && data.daily.sunrise[todayIdx] && data.daily.sunset && data.daily.sunset[todayIdx]) {
+                const sunriseDate = new Date(data.daily.sunrise[todayIdx]);
+                const sunsetDate = new Date(data.daily.sunset[todayIdx]);
+                
+                // 太陽上中天 = 日出與日落的正中間時間點
+                const solarNoonDate = new Date((sunriseDate.getTime() + sunsetDate.getTime()) / 2);
+
+                // 月出、月落、月球上中天（透過天文規律估算呈現以完整支援）
+                const moonriseDate = new Date(sunriseDate.getTime() + 10 * 3600 * 1000);
+                const lunarNoonDate = new Date(sunsetDate.getTime() + 5 * 3600 * 1000);
+                const moonsetDate = new Date(sunriseDate.getTime() - 2 * 3600 * 1000);
+
+                document.getElementById('sunrise-time').innerText = sunriseDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+                document.getElementById('solar-noon-time').innerText = solarNoonDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+                document.getElementById('sunset-time').innerText = sunsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+                
+                document.getElementById('moonrise-time').innerText = moonriseDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+                document.getElementById('lunar-noon-time').innerText = lunarNoonDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+                document.getElementById('moonset-time').innerText = moonsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+
+                // 根據當前時間動態切換天文區塊的圖示與狀態標籤
+                const badgeIcon = document.getElementById('astro-badge-icon');
+                const badgeText = document.getElementById('astro-badge-text');
+                const badgeContainer = document.getElementById('astro-dynamic-badge');
+
+                if (now < sunriseDate) {
+                    badgeIcon.className = "fa-solid fa-moon text-indigo-400";
+                    badgeText.innerText = "夜間/黎明";
+                    badgeContainer.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
+                } else if (now >= sunriseDate && now < solarNoonDate) {
+                    badgeIcon.className = "fa-solid fa-sunrise text-amber-500";
+                    badgeText.innerText = "上午昇起";
+                    badgeContainer.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20";
+                } else if (now >= solarNoonDate && now < sunsetDate) {
+                    badgeIcon.className = "fa-solid fa-sun text-yellow-500";
+                    badgeText.innerText = "下午日照";
+                    badgeContainer.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/20";
+                } else {
+                    badgeIcon.className = "fa-solid fa-moon text-indigo-400";
+                    badgeText.innerText = "入夜月明";
+                    badgeContainer.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20";
+                }
+            }
+
+            // 1. 即時天氣
+            document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
+            document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
+            document.getElementById('current-condition').innerText = weatherInfo.text;
+            document.getElementById('current-high-low').innerHTML = `
+                <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
+                <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
+            `;
+            document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
+            document.getElementById('current-wind-speed').innerText = `${curr.wind_speed_10m} km/h`;
+
+            // 檢查提示條件
+            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
+            const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
+            const next24Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 24);
+
+            const isHot = curr.temperature_2m > 25 || next24Temps.some(t => t > 25);
+            const isCold = curr.temperature_2m < 14 || next24Temps.some(t => t < 14);
+            const isRainy = next24Pops.some(p => p > 60);
+
+            const alertsContainer = document.getElementById('alerts-container');
+            alertsContainer.innerHTML = '';
+
+            if (isHot) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-fire text-xl"></i>
+                        <div><span class="font-bold">炎熱提示：</span>氣溫偏高（超過25°C），請注意防暑降溫及補充水分。</div>
+                    </div>`;
+            }
+            if (isCold) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-snowflake text-xl"></i>
+                        <div><span class="font-bold">寒冷提示：</span>氣溫偏低（低於14°C），請注意適時添衣保暖。</div>
+                    </div>`;
+            }
+            if (isRainy) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
+                        <div><span class="font-bold">降雨提示：</span>未來24小時內降雨機率高於60%，請外出時記得攜帶雨具。</div>
+                    </div>`;
+            }
+
+            renderDistricts();
+            renderHourlySection();
+            renderDailySection();
+        }
+
+        // 渲染分區天氣
+        function renderDistricts() {
+            const districtContainer = document.getElementById('district-container');
+            districtContainer.innerHTML = '';
+            const districtNames = ['澳門', '氹仔', '路環'];
+            const now = new Date();
+            const isNight = checkIfNight(now, globalWeatherData.daily, 1);
+
+            globalDistrictData.forEach((loc, index) => {
+                const dName = districtNames[index];
+                const dTemp = Math.round(loc.current.temperature_2m);
+                const dWeather = getWeatherDetails(loc.current.weather_code, isNight);
+                const isOpen = activeDistrictIndex === index;
+
+                const currentHourIdx = loc.hourly.time.findIndex(t => new Date(t) >= now) || 24;
+                const startIdx = Math.max(0, currentHourIdx - 23);
+                const pastTimes = loc.hourly.time.slice(startIdx, currentHourIdx + 1);
+                const pastTemps = loc.hourly.temperature_2m.slice(startIdx, currentHourIdx + 1).map(t => Math.round(t));
+
+                let chartHtml = '';
+                if (isOpen && pastTemps.length > 0) {
+                    const cMax = Math.max(...pastTemps) + 1;
+                    const cMin = Math.min(...pastTemps) - 1;
+                    const range = cMax - cMin || 1;
+                    const svgH = 70;
+                    const points = pastTemps.map((t, i) => {
+                        const x = (i / (pastTemps.length - 1)) * 260 + 10;
+                        const y = svgH - ((t - cMin) / range) * (svgH - 20) - 10;
+                        return `${x},${y}`;
+                    }).join(' ');
+
+                    chartHtml = `
+                        <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 animate-fadeIn">
+                            <div class="text-[11px] font-medium text-slate-400 mb-2 flex justify-between items-center">
+                                <span>過去 24 小時溫度趨勢</span>
+                                <span class="text-cyan-500 font-bold">${pastTemps[pastTemps.length - 1]}°C (現時)</span>
+                            </div>
+                            <svg viewBox="0 0 280 ${svgH}" class="w-full h-[70px] overflow-visible">
+                                <polyline fill="none" stroke="#06b6d4" stroke-width="2.5" points="${points}" />
+                                ${pastTemps.map((t, i) => {
+                                    const x = (i / (pastTemps.length - 1)) * 260 + 10;
+                                    const y = svgH - ((t - cMin) / range) * (svgH - 20) - 10;
+                                    return `<circle cx="${x}" cy="${y}" r="3" fill="#06b6d4" />`;
+                                }).join('')}
+                            </svg>
+                            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                                <span>24小時前</span>
+                                <span>現在</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = `bg-slate-50 dark:bg-slate-950/50 border ${isOpen ? 'border-cyan-500 dark:border-cyan-400 ring-1 ring-cyan-500/30' : 'border-slate-200 dark:border-slate-800/65'} p-3.5 rounded-xl cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-900/80`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1">
+                                ${dName} <i class="fa-solid fa-chevron-down text-[10px] transition-transform ${isOpen ? 'rotate-180 text-cyan-500' : ''}"></i>
+                            </div>
+                            <div class="text-lg font-bold text-slate-800 dark:text-white mt-0.5">${dTemp}°C</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-600 dark:text-slate-300">${dWeather.text}</span>
+                            <i class="fa-solid ${dWeather.icon} text-2xl"></i>
+                        </div>
+                    </div>
+                    ${chartHtml}
+                `;
+                card.onclick = () => toggleDistrictChart(index);
+                districtContainer.appendChild(card);
+            });
+        }
+
+        // 渲染 24 小時預報
+        function renderHourlySection() {
+            const container = document.getElementById('hourly-container');
+            container.innerHTML = '';
+            const data = globalWeatherData;
+            const now = new Date();
+            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
+            const limit = currentHourIndex + 24;
+
+            const times = data.hourly.time.slice(currentHourIndex, limit);
+            const temps = data.hourly.temperature_2m.slice(currentHourIndex, limit).map(t => Math.round(t));
+            const humids = data.hourly.relative_humidity_2m.slice(currentHourIndex, limit);
+            const pops = data.hourly.precipitation_probability.slice(currentHourIndex, limit);
+            const codes = data.hourly.weather_code.slice(currentHourIndex, limit);
+
+            if (currentHourlyMode === 'card') {
+                const scrollBox = document.createElement('div');
+                scrollBox.className = "flex gap-4 overflow-x-auto pb-2 pt-1";
+
+                for (let i = 0; i < times.length; i++) {
+                    const hourDate = new Date(times[i]);
+                    const dateStr = hourDate.toISOString().split('T')[0];
+                    const dayIdx = data.daily.time.indexOf(dateStr);
+                    const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 1);
+                    const hourIcon = getWeatherDetails(codes[i], hourIsNight);
+                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: true });
+
+                    const card = document.createElement('div');
+                    card.className = "flex flex-col items-center justify-between bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 min-w-[85px] flex-shrink-0 text-center transition-colors";
+                    card.innerHTML = `
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${hourLabel}</span>
+                        <i class="fa-solid ${hourIcon.icon} text-xl my-2"></i>
+                        <span class="text-base font-bold text-slate-800 dark:text-white">${temps[i]}°C</span>
+                        <div class="text-[11px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-droplet text-[9px]"></i> ${pops[i]}%
+                        </div>
+                    `;
+                    scrollBox.appendChild(card);
+                }
+                container.appendChild(scrollBox);
+            } else {
+                const chartWrapper = document.createElement('div');
+                chartWrapper.className = "bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 p-4 rounded-xl space-y-4 overflow-x-auto";
+                
+                const tMax = Math.max(...temps) + 1;
+                const tMin = Math.min(...temps) - 1;
+                const tRange = tMax - tMin || 1;
+                const svgH = 90;
+
+                const tempPoints = temps.map((t, i) => `${i * 45 + 25},${svgH - ((t - tMin) / tRange) * (svgH - 25) - 10}`).join(' ');
+                const humidPoints = humids.map((h, i) => `${i * 45 + 25},${svgH - (h / 100) * (svgH - 25) - 10}`).join(' ');
+
+                let iconsRow = '<div class="flex" style="min-width: 1100px;">';
+                let timesRow = '<div class="flex" style="min-width: 1100px;">';
+
+                for (let i = 0; i < times.length; i++) {
+                    const hourDate = new Date(times[i]);
+                    const dateStr = hourDate.toISOString().split('T')[0];
+                    const dayIdx = data.daily.time.indexOf(dateStr);
+                    const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 1);
+                    const hourIcon = getWeatherDetails(codes[i], hourIsNight);
+                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: true });
+
+                    iconsRow += `<div class="flex-shrink-0 w-[45px] text-center flex flex-col items-center"><i class="fa-solid ${hourIcon.icon} text-sm mb-1"></i><span class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">${temps[i]}°</span></div>`;
+                    timesRow += `<div class="flex-shrink-0 w-[45px] text-center text-[10px] text-slate-400">${hourLabel}</div>`;
+                }
+                iconsRow += '</div>';
+                timesRow += '</div>';
+
+                chartWrapper.innerHTML = `
+                    <div class="min-w-[1100px] space-y-2">
+                        <div class="flex justify-between text-xs text-slate-400 px-2">
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1"></span>溫度 (°C)</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 mr-1"></span>相對濕度 (%)</span>
+                        </div>
+                        ${iconsRow}
+                        <div class="relative py-1">
+                            <svg viewBox="0 0 1100 ${svgH}" class="w-full h-[90px] overflow-visible">
+                                <polyline fill="none" stroke="#f59e0b" stroke-width="2" points="${tempPoints}" />
+                                ${temps.map((t, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - ((t - tMin) / tRange) * (svgH - 25) - 10}" r="3" fill="#f59e0b" />`).join('')}
+                                
+                                <polyline fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4" points="${humidPoints}" />
+                                ${humids.map((h, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - (h / 100) * (svgH - 25) - 10}" r="2.5" fill="#3b82f6" />`).join('')}
+                            </svg>
+                        </div>
+                        ${timesRow}
+                    </div>
+                `;
+                container.appendChild(chartWrapper);
+            }
+        }
+
+        // 渲染 7 天預報
+        function renderDailySection() {
+            const data = globalWeatherData;
+            const dailyContainer = document.getElementById('daily-container');
+            dailyContainer.innerHTML = '';
+
+            const startIndex = 1; 
+            const maxTemps = data.daily.temperature_2m_max.slice(startIndex, startIndex + 7).map(t => Math.round(t));
+            const minTemps = data.daily.temperature_2m_min.slice(startIndex, startIndex + 7).map(t => Math.round(t));
+            const popMaxs = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max.slice(startIndex, startIndex + 7) : Array(7).fill(0);
+            
+            const allVals = [...maxTemps, ...minTemps];
+            const chartMax = Math.max(...allVals) + 1;
+            const chartMin = Math.min(...allVals) - 1;
+            const range = chartMax - chartMin || 1;
+            const svgHeight = 60;
+
+            function getY(val) {
+                return svgHeight - ((val - chartMin) / range) * (svgHeight - 20) - 10;
+            }
+
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = "min-w-[620px]";
+
+            let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 border-b border-slate-200 dark:border-slate-800">';
+            let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
+            let maxTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
+            let minTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
+            let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 border-t border-slate-200 dark:border-slate-800">';
+
+            let maxPoints = [];
+            let minPoints = [];
+
+            for (let i = 0; i < 7; i++) {
+                const dateStr = data.daily.time[startIndex + i];
+                const code = data.daily.weather_code[startIndex + i];
+                const dayIcon = getWeatherDetails(code, false);
+
+                const popVal = Math.round(popMaxs[i]);
+                let popLevel = '低';
+                let popBadgeClass = 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
+                if (popVal > 90) {
+                    popLevel = '高';
+                    popBadgeClass = 'bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold';
+                } else if (popVal > 45) {
+                    popLevel = '中';
+                    popBadgeClass = 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-semibold';
+                }
+
+                const dateObj = new Date(dateStr);
+                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
+                const monthDay = `${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
+
+                const xCenter = i * 100 + 50;
+                maxPoints.push(`${xCenter},${getY(maxTemps[i])}`);
+                minPoints.push(`${xCenter},${getY(minTemps[i])}`);
+
+                daysHtml += `
+                    <div>
+                        <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${dayName}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">${monthDay}</div>
+                    </div>
+                `;
+
+                iconsHtml += `
+                    <div class="flex flex-col items-center justify-center">
+                        <i class="fa-solid ${dayIcon.icon} text-xl mb-1"></i>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400">${dayIcon.text}</span>
+                    </div>
+                `;
+
+                maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
+                minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
+
+                popRowHtml += `
+                    <div class="flex flex-col items-center justify-center gap-1">
+                        <span class="text-xs font-medium text-slate-700 dark:text-slate-200">${popVal}%</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] ${popBadgeClass}">${popLevel}</span>
+                    </div>
+                `;
+            }
+
+            daysHtml += '</div>';
+            iconsHtml += '</div>';
+            maxTempHtml += '</div>';
+            minTempHtml += '</div>';
+            popRowHtml += '</div>';
+
+            const maxPolyline = maxPoints.join(' ');
+            const minPolyline = minPoints.join(' ');
+
+            let svgChartHtml = `
+                <div class="relative py-2">
+                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[60px] overflow-visible">
+                        <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${maxPolyline}" />
+                        ${maxTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#f59e0b" />`).join('')}
+                        
+                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="${minPolyline}" />
+                        ${minTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#3b82f6" />`).join('')}
+                    </svg>
+                </div>
+            `;
+
+            tableWrapper.innerHTML = `
+                ${daysHtml}
+                ${iconsHtml}
+                <div class="bg-slate-100/60 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2">
+                    <div class="text-xs font-medium text-slate-400 px-1">溫度趨勢</div>
+                    ${maxTempHtml}
+                    ${svgChartHtml}
+                    ${minTempHtml}
+                </div>
+                <div class="mt-3">
+                    <div class="text-xs font-medium text-slate-400 mb-2 px-1">降雨機率</div>
+                    ${popRowHtml}
+                </div>
+            `;
+
+            dailyContainer.appendChild(tableWrapper);
+        }
+
+        fetchWeatherData();
     </script>
 </body>
 </html>
