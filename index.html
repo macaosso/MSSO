@@ -33,7 +33,7 @@
 <body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 transition-colors duration-200">
 
     <!-- 容器 -->
-    <div class="w-full max-w-7xl space-y-6">
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
         
         <!-- 標頭 -->
         <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
@@ -245,6 +245,12 @@
         </div>
 
     </div>
+
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
 
     <!-- JavaScript 邏輯 -->
     <script>
@@ -554,7 +560,6 @@
 
         async function fetchWeatherData() {
             try {
-                // 將 wind_speed_10m 換成 apparent_temperature 取得體感溫度
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
@@ -653,11 +658,11 @@
 
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
-            const next2Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 2);
+            const next24Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 24);
 
-            const isHot = curr.temperature_2m > 29 || next24Temps.some(t => t > 29);
+            const isHot = curr.temperature_2m > 25 || next24Temps.some(t => t > 25);
             const isCold = curr.temperature_2m < 14 || next24Temps.some(t => t < 14);
-            const isRainy = next2Pops.some(p => p > 60);
+            const isRainy = next24Pops.some(p => p > 60);
 
             const alertsContainer = document.getElementById('alerts-container');
             alertsContainer.innerHTML = '';
@@ -666,21 +671,21 @@
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-fire text-xl"></i>
-                        <div><span class="font-bold">高溫提示：</span>氣溫偏高，請提防中樞及補充水分。</div>
+                        <div><span class="font-bold">炎熱提示：</span>氣溫偏高（超過25°C），請注意防暑降溫及補充水分。</div>
                     </div>`;
             }
             if (isCold) {
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-snowflake text-xl"></i>
-                        <div><span class="font-bold">低溫提示：</span>氣溫偏低，請注意適時添衣保暖。</div>
+                        <div><span class="font-bold">寒冷提示：</span>氣溫偏低（低於14°C），請注意適時添衣保暖。</div>
                     </div>`;
             }
             if (isRainy) {
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
-                        <div><span class="font-bold">降雨提示：</span>未來2小時內有較高機會出現降雨情況，外出時記得攜帶雨具。</div>
+                        <div><span class="font-bold">降雨提示：</span>未來24小時內降雨機率高於60%，請外出時記得攜帶雨具。</div>
                     </div>`;
             }
 
