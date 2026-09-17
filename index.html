@@ -238,17 +238,21 @@
                         </div>
                     </section>
 
-                    <!-- 報告下載 -->
+                    <!-- 報告下載 (支援分類與篩選) -->
                     <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-file-pdf text-rose-500 dark:text-rose-400"></i> 報告下載
-                        </h2>
-                        <div class="space-y-3">
-                            <p class="text-xs text-slate-500 dark:text-slate-400">點擊下方按鈕即可下載 2026 年 8 月氣象觀測月報。</p>
-                            <a href="2026Mreport/2026年08月氣象觀測月報.pdf" download class="w-full py-2.5 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2 shadow-sm" style="text-decoration: none;">
-                                <i class="fa-solid fa-download"></i> 下載 2026年08月氣象觀測月報.pdf
-                            </a>
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-file-pdf text-rose-500 dark:text-rose-400"></i> 報告下載
+                            </h2>
+                            <!-- 分類切換按鈕 -->
+                            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium">
+                                <button onclick="filterReports('all')" id="btn-report-all" class="px-2.5 py-1 rounded-lg bg-cyan-500 text-white shadow-sm transition-all">全部</button>
+                                <button onclick="filterReports('monthly')" id="btn-report-monthly" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all">月報</button>
+                                <button onclick="filterReports('special')" id="btn-report-special" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all">特別報告</button>
+                            </div>
                         </div>
+                        <!-- 動態渲染報告清單的容器 -->
+                        <div class="space-y-3" id="reports-container"></div>
                     </section>
 
                 </div>
@@ -296,6 +300,75 @@
         let globalDistrictData = null;
         let currentHourlyMode = 'card'; // 'card' 或 'chart'
         let activeDistrictIndex = null; // 展開的區域名稱索引 (0, 1, 2)
+        let currentReportFilter = 'all'; // 報告下載分類過濾狀態
+
+        // 報告資料陣列（可在此自由擴充或修改各類報告）
+        const reportsData = [
+            {
+                title: "2026年08月氣象觀測月報.pdf",
+                category: "monthly",
+                categoryName: "氣象觀測月報",
+                badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
+                url: "2026Mreport/2026年08月氣象觀測月報.pdf"
+            },
+            {
+                title: "2026年08月豪雨特別報告.pdf",
+                category: "special",
+                categoryName: "豪雨特別報告",
+                badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+                url: "2026Mreport/2026年08月豪雨特別報告.pdf"
+            }
+        ];
+
+        // 切換報告分類篩選
+        function filterReports(category) {
+            currentReportFilter = category;
+            
+            ['all', 'monthly', 'special'].forEach(cat => {
+                const btn = document.getElementById(`btn-report-${cat}`);
+                if (btn) {
+                    if (cat === category) {
+                        btn.className = "px-2.5 py-1 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
+                    } else {
+                        btn.className = "px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+                    }
+                }
+            });
+            
+            renderReports();
+        }
+
+        // 渲染報告清單
+        function renderReports() {
+            const container = document.getElementById('reports-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const filtered = currentReportFilter === 'all' 
+                ? reportsData 
+                : reportsData.filter(r => r.category === currentReportFilter);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">目前沒有此類型的報告。</p>`;
+                return;
+            }
+
+            filtered.forEach(report => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex flex-col gap-2.5";
+                item.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${report.badgeClass}">${report.categoryName}</span>
+                        <span class="text-xs text-slate-400">PDF 文件</span>
+                    </div>
+                    <div class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">${report.title}</div>
+                    <a href="${report.url}" download class="w-full py-2 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm" style="text-decoration: none;">
+                        <i class="fa-solid fa-download"></i> 下載檔案
+                    </a>
+                `;
+                container.appendChild(item);
+            });
+        }
 
         // 溫度級別與顏色對照助手函數
         function getTempCategory(temp) {
@@ -612,6 +685,7 @@
                 globalDistrictData = await Promise.all(districtRes.map(res => res.json()));
 
                 renderDashboard();
+                renderReports();
 
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('dashboard-content').classList.remove('hidden');
