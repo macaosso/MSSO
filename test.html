@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>澳門氣象即時資訊台 | Macau Weather Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts - Inter & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0369a1 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .weather-scrollbar::-webkit-scrollbar {
+            height: 6px;
+        }
+        .weather-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-white p-4 sm:p-6 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-8 glass-card rounded-2xl p-6 shadow-2xl">
+            <div class="flex items-center gap-4 mb-4 md:mb-0">
+                <div class="bg-cyan-500/20 p-3 rounded-2xl border border-cyan-400/30 text-cyan-400 text-3xl">
+                    <i class="fas fa-cloud-sun-rain"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-wide">澳門即時氣象台</h1>
+                    <p class="text-xs sm:text-sm text-cyan-200">Macau Real-Time Weather & Environmental Dashboard</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="live-clock" class="text-right font-mono text-cyan-300 text-sm sm:text-base bg-black/30 px-4 py-2 rounded-xl border border-white/10">
+                    載入時間中...
+                </div>
+                <button onclick="location.reload()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-4 py-2 rounded-xl transition shadow-lg flex items-center gap-2 cursor-pointer">
+                    <i class="fas fa-sync-alt"></i> 更新
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left & Center Columns (Span 2) -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- 1. Current Weather Hero Card -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+                    <div class="absolute -right-10 -bottom-10 text-white/5 text-9xl pointer-events-none">
+                        <i class="fas fa-cloud-sun"></i>
+                    </div>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                        <div>
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-xs font-semibold mb-4 border border-cyan-400/30">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> 澳門半島即時實況
+                            </div>
+                            <div class="flex items-baseline gap-4">
+                                <span class="text-6xl sm:text-7xl font-extrabold tracking-tighter">28°C</span>
+                                <div class="text-lg text-cyan-100 font-medium">
+                                    <p>多雲轉晴</p>
+                                    <p class="text-xs text-cyan-300">體感溫度 31°C</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 w-full sm:w-auto">
+                            <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
+                                <i class="fas fa-droplet text-cyan-400 mb-1"></i>
+                                <p class="text-xs text-slate-300">相對濕度</p>
+                                <p class="text-lg font-bold">78%</p>
+                            </div>
+                            <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
+                                <i class="fas fa-wind text-cyan-400 mb-1"></i>
+                                <p class="text-xs text-slate-300">風向 / 風速</p>
+                                <p class="text-lg font-bold">東南 18 km/h</p>
+                            </div>
+                            <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
+                                <i class="fas fa-sun text-amber-400 mb-1"></i>
+                                <p class="text-xs text-slate-300">紫外線指數</p>
+                                <p class="text-lg font-bold">5 (中等)</p>
+                            </div>
+                            <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
+                                <i class="fas fa-gauge text-emerald-400 mb-1"></i>
+                                <p class="text-xs text-slate-300">空氣質量</p>
+                                <p class="text-lg font-bold text-emerald-300">良好 (35)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Hourly Forecast (24 Hours Slider) -->
+                <div class="glass-card rounded-2xl p-6 shadow-xl">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-clock text-cyan-400"></i> 24小時逐小時候氣預報
+                    </h2>
+                    <div class="flex gap-4 overflow-x-auto pb-2 weather-scrollbar">
+                        <!-- Hourly Item template loop simulation -->
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">現在</span>
+                            <i class="fas fa-cloud-sun text-amber-300 text-xl my-2"></i>
+                            <span class="font-bold text-lg">28°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 10%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">13:00</span>
+                            <i class="fas fa-sun text-amber-400 text-xl my-2"></i>
+                            <span class="font-bold text-lg">30°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 0%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">14:00</span>
+                            <i class="fas fa-sun text-amber-400 text-xl my-2"></i>
+                            <span class="font-bold text-lg">31°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 0%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">15:00</span>
+                            <i class="fas fa-cloud-sun text-amber-300 text-xl my-2"></i>
+                            <span class="font-bold text-lg">30°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 15%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">16:00</span>
+                            <i class="fas fa-cloud-sun text-amber-300 text-xl my-2"></i>
+                            <span class="font-bold text-lg">29°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 20%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">17:00</span>
+                            <i class="fas fa-cloud text-slate-300 text-xl my-2"></i>
+                            <span class="font-bold text-lg">28°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 25%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">18:00</span>
+                            <i class="fas fa-cloud-moon text-indigo-300 text-xl my-2"></i>
+                            <span class="font-bold text-lg">27°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 20%</span>
+                        </div>
+                        <div class="flex flex-col items-center justify-between min-w-[72px] bg-white/5 p-3 rounded-xl border border-white/10 hover:bg-white/15 transition">
+                            <span class="text-xs text-slate-300">19:00</span>
+                            <i class="fas fa-moon text-indigo-200 text-xl my-2"></i>
+                            <span class="font-bold text-lg">26°C</span>
+                            <span class="text-[10px] text-cyan-300 mt-1"><i class="fas fa-droplet"></i> 10%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 7-Day Weather Forecast -->
+                <div class="glass-card rounded-2xl p-6 shadow-xl">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-calendar-days text-cyan-400"></i> 7天天氣預報
+                    </h2>
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">今天 (週五)</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-cloud-sun text-amber-300"><span>多雲轉晴</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">31°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">26°C</span></div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">明天 (週六)</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-sun text-amber-400"><span>晴時多雲</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">32°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">26°C</span></div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">週日</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-cloud-rain text-blue-300"><span>陣雨</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">29°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">25°C</span></div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">週一</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-cloud text-slate-300"><span>多雲</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">30°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">25°C</span></div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">週二</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-cloud-sun text-amber-300"><span>短暫陽光</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">31°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">26°C</span></div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">週三</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-sun text-amber-400"><span>晴朗</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">32°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">27°C</span></div>
+                        </div>
+                        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                            <div class="w-1/3 font-medium">週四</div>
+                            <div class="w-1/3 flex items-center gap-2 text-cyan-200"><i class="fas fa-cloud-sun text-amber-300"><span>多雲</span></i></div>
+                            <div class="w-1/3 text-right font-mono"><span class="font-bold">31°C</span> <span class="text-slate-400 mx-1">/</span> <span class="text-cyan-200">26°C</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Himawari-9 Satellite API Auto Update Section (NEW) -->
+                <div class="glass-card rounded-2xl p-6 shadow-xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold flex items-center gap-2">
+                                <i class="fas fa-globe-asia text-cyan-400"></i> Himawari-9 衛星雲圖自動更新
+                            </h2>
+                            <p class="text-sm text-cyan-200">即時監測華南地區及澳門周邊雲層與颱風動態</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span id="sat-update-time" class="text-xs bg-black/30 px-3 py-1.5 rounded-full border border-white/10 text-cyan-300">
+                                更新中...
+                            </span>
+                            <button onclick="refreshSatelliteImage()" class="bg-cyan-500/30 hover:bg-cyan-500/50 text-cyan-200 px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1.5 border border-cyan-400/30 cursor-pointer">
+                                <i class="fas fa-sync-alt" id="refresh-icon"></i> 重新整理
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Layer Controls -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button onclick="changeSatLayer('geocolor')" class="sat-tab px-3 py-1 rounded-lg text-xs font-medium bg-cyan-500 text-slate-900 transition shadow cursor-pointer" data-layer="geocolor">真彩圖像 (GeoColor)</button>
+                        <button onclick="changeSatLayer('ir')" class="sat-tab px-3 py-1 rounded-lg text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition cursor-pointer" data-layer="ir">紅外線 (Infrared)</button>
+                        <button onclick="changeSatLayer('wv')" class="sat-tab px-3 py-1 rounded-lg text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition cursor-pointer" data-layer="wv">水汽圖像 (Water Vapor)</button>
+                    </div>
+
+                    <!-- Satellite Image Screen / Container -->
+                    <div class="relative w-full aspect-[16/10] bg-slate-950 rounded-xl overflow-hidden border border-white/10 flex items-center justify-center shadow-inner">
+                        <!-- Loading Overlay -->
+                        <div id="sat-loading" class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 z-10">
+                            <div class="flex flex-col items-center gap-2">
+                                <i class="fas fa-circle-notch fa-spin text-cyan-400 text-3xl"></i>
+                                <span class="text-xs text-cyan-200">正在載入 Himawari-9 衛星即時影像...</span>
+                            </div>
+                        </div>
+
+                        <!-- CIRA RAMMB Himawari-9 Real-time Embed -->
+                        <iframe id="sat-iframe" 
+                                src="https://rammb-slider.cira.colostate.edu/?sat=himawari&sec=regional_sector&p[0]=geocolor&speed=ds&motion=loop&hidden=0&pause=0&scale=0.5&x=1024&y=1024&z=0&opacity=1" 
+                                class="w-full h-full border-0"
+                                onload="hideSatLoading()"
+                                allowfullscreen>
+                        </iframe>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-3 text-xs text-slate-300 gap-2">
+                        <span>資料來源：日本氣象廳 (JMA) / CIRA RAMMB Himawari-9 衛星</span>
+                        <span class="text-cyan-300 font-medium"><i class="fas fa-circle text-[8px] text-emerald-400 animate-pulse mr-1"></i> API 串接每 10 分鐘自動更新</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column (Span 1) -->
+            <div class="space-y-6">
+                
+                <!-- Regional Weather / Districts -->
+                <div class="glass-card rounded-2xl p-6 shadow-xl">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-map-marked-alt text-cyan-400"></i> 澳門各區即時氣溫
+                    </h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span>澳門半島</span>
+                            <span class="font-bold font-mono text-cyan-300">28.5°C</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span>氹仔</span>
+                            <span class="font-bold font-mono text-cyan-300">28.1°C</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span>路環</span>
+                            <span class="font-bold font-mono text-cyan-300">27.8°C</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span>大潭山</span>
+                            <span class="font-bold font-mono text-cyan-300">27.4°C</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 rounded-xl bg-white/5 border border-white/5">
+                            <span>路氹城</span>
+                            <span class="font-bold font-mono text-cyan-300">28.3°C</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sun & Moon Info -->
+                <div class="glass-card rounded-2xl p-6 shadow-xl">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <i class="fas fa-sun text-amber-400"></i> 日出日落與潮汐
+                    </h2>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
+                            <i class="fas fa-sunrise text-amber-400 text-xl mb-1"></i>
+                            <p class="text-xs text-slate-300">日出時間</p>
+                            <p class="font-bold font-mono">06:08</p>
+                        </div>
+                        <div class="bg-black/20 p-3 rounded-xl border border-white/5 text-center">
+                            <i class="fas fa-sunset text-orange-400 text-xl mb-1"></i>
+                            <p class="text-xs text-slate-300">日落時間</p>
+                            <p class="font-bold font-mono">18:35</p>
+                        </div>
+                    </div>
+                    <div class="bg-white/5 p-4 rounded-xl border border-white/5">
+                        <div class="flex justify-between text-sm mb-1">
+                            <span class="text-slate-300">目前潮汐狀態</span>
+                            <span class="text-cyan-300 font-bold">漲潮中</span>
+                        </div>
+                        <p class="text-xs text-slate-400">預計最高潮位：2.1米 (16:45)</p>
+                    </div>
+                </div>
+
+                <!-- Warnings & Advisories -->
+                <div class="glass-card rounded-2xl p-6 shadow-xl border-amber-500/30">
+                    <h2 class="text-lg font-bold mb-3 flex items-center gap-2 text-amber-300">
+                        <i class="fas fa-triangle-exclamation"></i> 現行警告信號
+                    </h2>
+                    <div class="space-y-2">
+                        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200">
+                            <p class="font-bold mb-1"><i class="fas fa-info-circle mr-1"></i> 目前沒有生效的熱帶氣旋警告或暴雨警告。</p>
+                            天气狀況良好，適宜戶外活動。
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-8 text-center text-xs text-slate-400 pb-4">
+            <p>澳門氣象即時資訊台 &copy; 2026 | 數據整合自澳門地球物理氣象局與 Himawari-9 氣象衛星 API</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript logic -->
+    <script>
+        // Live Clock
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-HK');
+            const dateString = now.toLocaleDateString('zh-HK', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' });
+            document.getElementById('live-clock').innerText = `${dateString} ${timeString}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Himawari-9 Satellite Logic
+        let currentSatLayer = 'geocolor';
+
+        function changeSatLayer(layer) {
+            currentSatLayer = layer;
+            const iframe = document.getElementById('sat-iframe');
+            const loading = document.getElementById('sat-loading');
+            
+            loading.classList.remove('opacity-0', 'pointer-events-none');
+            loading.style.display = 'flex';
+
+            // Highlight active tab button
+            document.querySelectorAll('.sat-tab').forEach(btn => {
+                if(btn.getAttribute('data-layer') === layer) {
+                    btn.className = "sat-tab px-3 py-1 rounded-lg text-xs font-medium bg-cyan-500 text-slate-900 transition shadow cursor-pointer";
+                } else {
+                    btn.className = "sat-tab px-3 py-1 rounded-lg text-xs font-medium bg-white/20 text-white hover:bg-white/30 transition cursor-pointer";
+                }
+            });
+
+            let productParam = 'geocolor';
+            if(layer === 'ir') productParam = 'band_13'; // Clean Infrared band
+            if(layer === 'wv') productParam = 'band_08'; // Water Vapor band
+
+            // Update iframe source
+            iframe.src = `https://rammb-slider.cira.colostate.edu/?sat=himawari&sec=regional_sector&p[0]=${productParam}&speed=ds&motion=loop&hidden=0&pause=0&scale=0.5&x=1024&y=1024&z=0&opacity=1`;
+            
+            updateSatTimestamp();
+        }
+
+        function hideSatLoading() {
+            const loading = document.getElementById('sat-loading');
+            loading.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { loading.style.display = 'none'; }, 300);
+            updateSatTimestamp();
+        }
+
+        function refreshSatelliteImage() {
+            const icon = document.getElementById('refresh-icon');
+            icon.classList.add('fa-spin');
+            const iframe = document.getElementById('sat-iframe');
+            const loading = document.getElementById('sat-loading');
+            
+            loading.style.display = 'flex';
+            loading.classList.remove('opacity-0', 'pointer-events-none');
+
+            // Force reload iframe
+            iframe.src = iframe.src;
+
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+            }, 1000);
+        }
+
+        function updateSatTimestamp() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('sat-update-time').innerText = `最後更新: ${timeString}`;
+        }
+
+        // Auto update/refresh satellite image every 10 minutes (600,000 ms)
+        setInterval(() => {
+            refreshSatelliteImage();
+        }, 600000);
+
+        // Initial timestamp call
+        updateSatTimestamp();
+    </script>
+</body>
+</html>
