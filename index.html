@@ -59,6 +59,10 @@
                         <div>
                             <div class="text-5xl md:text-6xl font-extrabold tracking-tight text-white" id="current-temp">--°C</div>
                             <div class="text-slate-400 font-medium text-lg mt-1" id="current-condition">--</div>
+                            <div class="text-sm mt-2 flex gap-3" id="current-high-low">
+                                <span class="text-white">高: --°</span>
+                                <span class="text-slate-500">低: --°</span>
+                            </div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
@@ -78,12 +82,12 @@
                 </div>
             </section>
 
-            <!-- 分區天氣 -->
+            <!-- 分區天氣 (強制單行排列) -->
             <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
                 <h2 class="text-lg font-semibold mb-4 text-slate-300 flex items-center gap-2">
                     <i class="fa-solid fa-map-location-dot text-emerald-400"></i> 分區天氣
                 </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="district-container">
+                <div class="grid grid-cols-3 gap-2 sm:gap-4" id="district-container">
                     <!-- 動態載入分區天氣 -->
                 </div>
             </section>
@@ -113,11 +117,18 @@
         const LAT = 22.1595;
         const LON = 113.5685;
 
-        function getWeatherDetails(code) {
+        // 根據天氣代碼與日夜狀態回傳描述與圖示
+        function getWeatherDetails(code, isNight = false) {
             switch (code) {
-                case 0: return { text: '晴朗', icon: 'fa-sun text-yellow-400' };
+                case 0: 
+                    return isNight 
+                        ? { text: '晴朗', icon: 'fa-moon text-indigo-300' } 
+                        : { text: '晴朗', icon: 'fa-sun text-yellow-400' };
                 case 1: 
-                case 2: return { text: '局部多雲', icon: 'fa-cloud-sun text-yellow-200' };
+                case 2: 
+                    return isNight 
+                        ? { text: '多雲', icon: 'fa-cloud-moon text-indigo-200' } 
+                        : { text: '局部多雲', icon: 'fa-cloud-sun text-yellow-200' };
                 case 3: return { text: '陰天', icon: 'fa-cloud text-slate-400' };
                 case 45:
                 case 48: return { text: '有霧', icon: 'fa-smog text-slate-400' };
@@ -145,10 +156,21 @@
             }
         }
 
+        // 判斷是否為夜間 (根據日出日落時間)
+        function checkIfNight(dateObj, dailyData, dayIndex = 0) {
+            if (dailyData && dailyData.sunrise && dailyData.sunset && dailyData.sunrise[dayIndex] && dailyData.sunset[dayIndex]) {
+                const sunrise = new Date(dailyData.sunrise[dayIndex]);
+                const sunset = new Date(dailyData.sunset[dayIndex]);
+                return dateObj < sunrise || dateObj > sunset;
+            }
+            const hour = dateObj.getHours();
+            return hour < 6 || hour >= 18;
+        }
+
         async function fetchWeatherData() {
             try {
-                // 主氣象數據 (氹仔/通用)
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Macau`;
+                // 主氣象數據 (含每日日出日落、最高最低溫、降雨機率)
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau`;
                 
                 // 分區天氣數據：澳門、氹仔、路環
                 const districtUrl = `https://api.open-meteo.com/v1/forecast?latitude=22.1957537,22.1595,22.1178268&longitude=113.5443291,113.5685,113.5524237&current=temperature_2m,weather_code&timezone=Asia/Macau`;
@@ -178,15 +200,24 @@
 
             // 1. 即時天氣
             const curr = data.current;
-            const weatherInfo = getWeatherDetails(curr.weather_code);
+            const isNight = checkIfNight(now, data.daily, 0);
+            const weatherInfo = getWeatherDetails(curr.weather_code, isNight);
             
+            // 取得今日最高溫與最低溫
+            const todayMax = Math.round(data.daily.temperature_2m_max[0]);
+            const todayMin = Math.round(data.daily.temperature_2m_min[0]);
+
             document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
             document.getElementById('current-condition').innerText = weatherInfo.text;
+            document.getElementById('current-high-low').innerHTML = `
+                <span class="text-white font-medium">高: ${todayMax}°</span>
+                <span class="text-slate-400 font-medium">低: ${todayMin}°</span>
+            `;
             document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
             document.getElementById('current-wind-speed').innerText = `${curr.wind_speed_10m} km/h`;
 
-            // 2. 分區天氣
+            // 2. 分區天氣 (單行展示)
             const districtContainer = document.getElementById('district-container');
             districtContainer.innerHTML = '';
             const districtNames = ['澳門', '氹仔', '路環'];
@@ -194,18 +225,18 @@
             districtData.forEach((loc, index) => {
                 const dName = districtNames[index];
                 const dTemp = Math.round(loc.current.temperature_2m);
-                const dWeather = getWeatherDetails(loc.current.weather_code);
+                const dWeather = getWeatherDetails(loc.current.weather_code, isNight);
 
                 const card = document.createElement('div');
-                card.className = "bg-slate-950/50 border border-slate-800/60 p-4 rounded-xl flex items-center justify-between";
+                card.className = "bg-slate-950/50 border border-slate-800/60 p-3 sm:p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between text-center sm:text-left";
                 card.innerHTML = `
                     <div>
-                        <div class="text-slate-400 text-xs">${dName}</div>
-                        <div class="text-lg font-bold text-white mt-0.5">${dTemp}°C</div>
+                        <div class="text-slate-400 text-xs sm:text-sm">${dName}</div>
+                        <div class="text-base sm:text-lg font-bold text-white mt-0.5">${dTemp}°C</div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-300 hidden sm:inline">${dWeather.text}</span>
-                        <i class="fa-solid ${dWeather.icon} text-2xl"></i>
+                    <div class="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 mt-2 sm:mt-0">
+                        <span class="text-[10px] sm:text-xs text-slate-300 hidden md:inline">${dWeather.text}</span>
+                        <i class="fa-solid ${dWeather.icon} text-xl sm:text-2xl"></i>
                     </div>
                 `;
                 districtContainer.appendChild(card);
@@ -223,9 +254,14 @@
                 const temp = Math.round(data.hourly.temperature_2m[i]);
                 const pop = data.hourly.precipitation_probability[i];
                 const code = data.hourly.weather_code[i];
-                const hourIcon = getWeatherDetails(code);
                 
-                const hourLabel = new Date(timeStr).toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: true });
+                const hourDate = new Date(timeStr);
+                const dateStr = hourDate.toISOString().split('T')[0];
+                const dayIdx = data.daily.time.indexOf(dateStr);
+                const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 0);
+                const hourIcon = getWeatherDetails(code, hourIsNight);
+                
+                const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: true });
 
                 const card = document.createElement('div');
                 card.className = "flex flex-col items-center justify-between bg-slate-950/40 border border-slate-800/80 rounded-xl p-3 min-w-[85px] flex-shrink-0 text-center";
@@ -240,7 +276,7 @@
                 hourlyContainer.appendChild(card);
             }
 
-            // 4. 7天天氣預報 (含濕度)
+            // 4. 7天天氣預報 (顯示降雨機率)
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
 
@@ -249,11 +285,10 @@
                 const maxTemp = Math.round(data.daily.temperature_2m_max[i]);
                 const minTemp = Math.round(data.daily.temperature_2m_min[i]);
                 const code = data.daily.weather_code[i];
-                const dayIcon = getWeatherDetails(code);
+                const dayIcon = getWeatherDetails(code, false); // 每日預報以白天為主
 
-                // 計算當天每小時濕度的平均值
-                const dayHumidities = data.hourly.relative_humidity_2m.slice(i * 24, (i + 1) * 24);
-                const avgHum = Math.round(dayHumidities.reduce((a, b) => a + b, 0) / dayHumidities.length);
+                // 取得當天最高降雨機率
+                const popMax = data.daily.precipitation_probability_max ? Math.round(data.daily.precipitation_probability_max[i]) : 0;
 
                 const dateObj = new Date(dateStr);
                 const dayLabel = i === 0 ? '今天' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short', month: 'numeric', day: 'numeric' });
@@ -267,7 +302,7 @@
                         <span class="hidden md:inline">${dayIcon.text}</span>
                     </div>
                     <div class="flex items-center gap-4 text-sm">
-                        <span class="text-blue-400 text-xs flex items-center gap-1"><i class="fa-solid fa-droplet text-[10px]"></i> ${avgHum}%</span>
+                        <span class="text-blue-400 text-xs flex items-center gap-1"><i class="fa-solid fa-droplet text-[10px]"></i> ${popMax}%</span>
                         <div class="font-semibold flex gap-3 text-right">
                             <span class="text-white">${maxTemp}°</span>
                             <span class="text-slate-500">${minTemp}°</span>
