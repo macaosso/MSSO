@@ -81,7 +81,10 @@
                             <div class="flex items-center gap-6">
                                 <div id="current-icon" class="text-6xl md:text-7xl"></div>
                                 <div>
-                                    <div class="text-5xl md:text-6xl font-extrabold tracking-tight dark:text-white" id="current-temp">--°C</div>
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <div class="text-5xl md:text-6xl font-extrabold tracking-tight dark:text-white" id="current-temp">--°C</div>
+                                        <div id="current-temp-badge" class="px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm">--</div>
+                                    </div>
                                     <div class="text-slate-500 dark:text-slate-400 font-medium text-lg mt-1" id="current-condition">--</div>
                                     <div class="text-sm mt-2 flex gap-3" id="current-high-low">
                                         <span class="dark:text-white font-medium">高: --°</span>
@@ -102,9 +105,12 @@
                                 </div>
                                 <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
                                     <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                        <i class="fa-solid fa-wind text-teal-500 dark:text-teal-400"></i> 風速
+                                        <i class="fa-solid fa-temperature-half text-orange-500 dark:text-orange-400"></i> 體感溫度
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-wind-speed">-- km/h</div>
+                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                        <span id="current-apparent-temp">--°C</span>
+                                        <span id="current-apparent-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -249,6 +255,31 @@
         let globalDistrictData = null;
         let currentHourlyMode = 'card'; // 'card' 或 'chart'
         let activeDistrictIndex = null; // 展開的區域名稱索引 (0, 1, 2)
+
+        // 溫度級別與顏色對照助手函數
+        function getTempCategory(temp) {
+            if (temp >= 37.5) {
+                return { label: '極為酷熱', class: 'bg-rose-700 text-white' };
+            } else if (temp >= 35.5) {
+                return { label: '非常酷熱', class: 'bg-red-600 text-white' };
+            } else if (temp >= 32.5) {
+                return { label: '酷熱', class: 'bg-orange-600 text-white' };
+            } else if (temp >= 27.5) {
+                return { label: '炎熱', class: 'bg-amber-500 text-slate-900 font-bold' };
+            } else if (temp >= 22.5) {
+                return { label: '溫暖', class: 'bg-yellow-400 text-slate-900 font-bold' };
+            } else if (temp >= 17.5) {
+                return { label: '和暖', class: 'bg-emerald-500 text-white' };
+            } else if (temp >= 12.5) {
+                return { label: '清涼', class: 'bg-sky-400 text-slate-900 font-bold' };
+            } else if (temp >= 7.5) {
+                return { label: '寒冷', class: 'bg-blue-500 text-white' };
+            } else if (temp >= 4.5) {
+                return { label: '非常寒冷', class: 'bg-indigo-600 text-white' };
+            } else {
+                return { label: '極為寒冷', class: 'bg-purple-700 text-white' };
+            }
+        }
 
         // 主題切換邏輯
         const themeToggleBtn = document.getElementById('theme-toggle');
@@ -523,7 +554,8 @@
 
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
+                // 將 wind_speed_10m 換成 apparent_temperature 取得體感溫度
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
                     { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
@@ -596,15 +628,28 @@
                 document.getElementById('moonset-time').innerText = moonsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
             }
 
+            // 即時溫度與方塊標籤
+            const tempCat = getTempCategory(curr.temperature_2m);
             document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
+            const tempBadgeEl = document.getElementById('current-temp-badge');
+            tempBadgeEl.textContent = tempCat.label;
+            tempBadgeEl.className = `px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm ${tempCat.class}`;
+
             document.getElementById('current-condition').innerText = weatherInfo.text;
             document.getElementById('current-high-low').innerHTML = `
                 <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
                 <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
             `;
             document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
-            document.getElementById('current-wind-speed').innerText = `${curr.wind_speed_10m} km/h`;
+
+            // 體感溫度與方塊標籤
+            const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : curr.temperature_2m;
+            const apparentCat = getTempCategory(apparentTemp);
+            document.getElementById('current-apparent-temp').innerText = `${Math.round(apparentTemp)}°C`;
+            const apparentBadgeEl = document.getElementById('current-apparent-badge');
+            apparentBadgeEl.textContent = apparentCat.label;
+            apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentCat.class}`;
 
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
@@ -654,6 +699,7 @@
             globalDistrictData.forEach((loc, index) => {
                 const dName = districtNames[index];
                 const dTemp = Math.round(loc.current.temperature_2m);
+                const dCat = getTempCategory(loc.current.temperature_2m);
                 const dWeather = getWeatherDetails(loc.current.weather_code, isNight);
                 const isOpen = activeDistrictIndex === index;
 
@@ -704,7 +750,10 @@
                             <div class="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1">
                                 ${dName} <i class="fa-solid fa-chevron-down text-[10px] transition-transform ${isOpen ? 'rotate-180 text-cyan-500' : ''}"></i>
                             </div>
-                            <div class="text-lg font-bold text-slate-800 dark:text-white mt-0.5">${dTemp}°C</div>
+                            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span class="text-lg font-bold text-slate-800 dark:text-white">${dTemp}°C</span>
+                                <span class="px-2 py-0.5 rounded text-xs font-bold ${dCat.class}">${dCat.label}</span>
+                            </div>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-slate-600 dark:text-slate-300">${dWeather.text}</span>
