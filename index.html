@@ -131,15 +131,43 @@
 
                 </div>
 
-                <!-- 右側一欄：分區天氣 (點擊可展開過去24小時溫度圖表) -->
+                <!-- 右側一欄：分區天氣、日出與日落時間 -->
                 <div class="lg:col-span-1 space-y-6">
 
+                    <!-- 分區天氣 -->
                     <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                         <h2 class="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-300 flex items-center gap-2">
                             <i class="fa-solid fa-map-location-dot text-emerald-500 dark:text-emerald-400"></i> 分區天氣
                         </h2>
                         <p class="text-xs text-slate-400 mb-4">點擊下方分區可檢視過去 24 小時溫度趨勢</p>
                         <div class="space-y-3" id="district-container"></div>
+                    </section>
+
+                    <!-- 日出與日落時間 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-sun text-amber-500 dark:text-amber-400"></i> 日出與日落
+                        </h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-3 bg-amber-500/10 text-amber-500 rounded-xl text-xl flex items-center justify-center w-10 h-10">
+                                    <i class="fa-solid fa-sun"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-xs">日出時間</div>
+                                    <div class="text-base font-bold text-slate-800 dark:text-white mt-0.5" id="sunrise-time">--:--</div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                                <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl text-xl flex items-center justify-center w-10 h-10">
+                                    <i class="fa-solid fa-moon"></i>
+                                </div>
+                                <div>
+                                    <div class="text-slate-400 text-xs">日落時間</div>
+                                    <div class="text-base font-bold text-slate-800 dark:text-white mt-0.5" id="sunset-time">--:--</div>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                 </div>
@@ -285,9 +313,21 @@
             const isNight = checkIfNight(now, data.daily, 1); // past_days=1 使 today 索引偏移 1
             const weatherInfo = getWeatherDetails(curr.weather_code, isNight);
             
-            const todayIdx = data.daily.time.findIndex(d => d === now.toISOString().split('T')[0]) || 1;
+            const macauDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+            const todayIdx = data.daily.time.findIndex(d => d === macauDateStr) !== -1 ? data.daily.time.findIndex(d => d === macauDateStr) : 1;
+
             const todayMax = Math.round(data.daily.temperature_2m_max[todayIdx]);
             const todayMin = Math.round(data.daily.temperature_2m_min[todayIdx]);
+
+            // 更新日出與日落時間
+            if (data.daily.sunrise && data.daily.sunrise[todayIdx]) {
+                const sunriseDate = new Date(data.daily.sunrise[todayIdx]);
+                document.getElementById('sunrise-time').innerText = sunriseDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+            if (data.daily.sunset && data.daily.sunset[todayIdx]) {
+                const sunsetDate = new Date(data.daily.sunset[todayIdx]);
+                document.getElementById('sunset-time').innerText = sunsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
+            }
 
             // 1. 即時天氣
             document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
