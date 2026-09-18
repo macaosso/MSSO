@@ -103,11 +103,14 @@
                 <!-- 左側兩欄：地圖與圖例 -->
                 <div class="lg:col-span-2 space-y-6">
                     <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors flex flex-col items-center">
-                        <div class="w-full flex justify-between items-center mb-4">
+                        <div class="w-full flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
                             <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
                                 <i class="fa-solid fa-map-location-dot text-emerald-500 dark:text-emerald-400"></i> 澳門各監測站空氣質素分佈
                             </h2>
-                            <span id="current-var-badge" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">綜合空氣質量指數 (AQI)</span>
+                            <div class="flex items-center gap-3">
+                                <span id="map-update-time" class="text-xs text-slate-400 dark:text-slate-500">更新時間：--</span>
+                                <span id="current-var-badge" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">綜合空氣質量指數 (AQI)</span>
+                            </div>
                         </div>
 
                         <!-- 地圖容器（已綁定 1372x1110 等比例） -->
@@ -314,9 +317,11 @@
         }
 
         function getMockData(st) {
+            const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 19);
             return {
                 aqi: Math.floor(Math.random() * 80) + 25,
                 dominentpol: 'pm25',
+                time: { s: nowStr },
                 iaqi: {
                     pm25: { v: Math.floor(Math.random() * 40) + 15 },
                     pm10: { v: Math.floor(Math.random() * 60) + 25 },
@@ -332,7 +337,20 @@
             updateDateTime();
             document.getElementById('current-var-badge').innerHTML = varLabels[currentSelectedVar];
 
-            // 渲染地圖標記 (Pins) - 手機版字體更小更精準，荷蘭園與台山彈出視窗在右側
+            // 取得並更新地圖右上角的數據更新時間
+            let updateTimeStr = '--';
+            for (let st of stationsConfig) {
+                if (globalFetchedData[st.slug] && globalFetchedData[st.slug].time && globalFetchedData[st.slug].time.s) {
+                    updateTimeStr = globalFetchedData[st.slug].time.s;
+                    break;
+                }
+            }
+            const updateTimeEl = document.getElementById('map-update-time');
+            if (updateTimeEl) {
+                updateTimeEl.textContent = `更新時間：${updateTimeStr}`;
+            }
+
+            // 渲染地圖標記 (Pins)
             const mapImgContainer = document.getElementById('mapImageContainer');
             const existingPins = mapImgContainer.querySelectorAll('.map-pin');
             existingPins.forEach(p => p.remove());
@@ -341,11 +359,11 @@
                 const data = globalFetchedData[st.slug] || { aqi: 45, iaqi: {} };
                 const varInfo = getVarValueAndStyle(currentSelectedVar, data.iaqi, data.aqi);
 
-                // 判斷是否為荷蘭園或台山，將彈出視窗設在右側
-                const isRightPopup = (st.name === "荷蘭園" || st.name === "台山");
-                const popupPositionClass = isRightPopup 
-                    ? "absolute left-full ml-2.5 top-1/2 transform -translate-y-1/2" 
-                    : "absolute bottom-full mb-2.5 left-1/2 transform -translate-x-1/2";
+                // 根據需求設定彈出視窗左右方向：氹仔中心區與石排灣在左側，其餘（大潭山、九澳、荷蘭園、台山）在右側
+                const isLeftPopup = ["氹仔中心區", "石排灣"].includes(st.name);
+                const popupPositionClass = isLeftPopup 
+                    ? "absolute right-full mr-2.5 top-1/2 transform -translate-y-1/2" 
+                    : "absolute left-full ml-2.5 top-1/2 transform -translate-y-1/2";
 
                 const pin = document.createElement('div');
                 pin.className = "map-pin absolute flex flex-col items-center transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-10 transition-all hover:scale-110";
