@@ -297,51 +297,7 @@
         let currentHourlyMode = 'card'; // 'card' 或 'chart'
         let activeDistrictIndex = null; // 展開的區域名稱索引 (0, 1, 2)
         let currentReportFilter = 'all';
-        const expandedYears = new Set();
-        // 報告資料陣列（支援多個年份）
-        const reportsData = [
-            {
-                title: "2026年08月氣象觀測月報",
-                category: "monthly",
-                categoryName: "氣象觀測月報",
-                badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
-                url: "2026Mreport/2026年08月氣象觀測月報.pdf",
-                date: "2026-09-05"
-            },
-            {
-                title: "2026年08月2-3日豪雨特別報告",
-                category: "special",
-                categoryName: "豪雨特別報告",
-                badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
-                url: "2026Rreport/2026年8月2-3日 豪雨特別報告.pdf",
-                date: "2026-08-07"
-            },
-            {
-                title: "2026年07月氣象觀測月報",
-                category: "monthly",
-                categoryName: "氣象觀測月報",
-                badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
-                url: "2026Mreport/2026年07月氣象觀測月報.pdf",
-                date: "2026-08-01"
-            },
-            // 2025 年範例資料
-            {
-                title: "2025年08月豪雨特別報告",
-                category: "special",
-                categoryName: "豪雨特別報告",
-                badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
-                url: "2025Rreport/2025年08月豪雨特別報告.pdf",
-                date: "2025-08-15"
-            },
-            {
-                title: "2025年08月氣象觀測月報",
-                category: "monthly",
-                categoryName: "氣象觀測月報",
-                badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
-                url: "2025Mreport/2025年08月氣象觀測月報.pdf",
-                date: "2025-09-01"
-            }
-        ];
+        const expandedYears = new Set(); // 預設全部折疊
     
         // 切換年份展開/收合狀態
         function toggleYear(year) {
@@ -408,13 +364,13 @@
                 const headerHtml = `
                     <button onclick="toggleYear('${year}')" class="w-full flex justify-between items-center p-3.5 bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-colors text-left font-bold text-slate-800 dark:text-slate-200 text-sm">
                         <span class="flex items-center gap-2">
-                            <i class="fa-solid fa-folder${isExpanded ? '-open text-cyan-500' : ''}"></i> ${year} 年報告 (${groupedByYear[year].length})
+                            <i class="fa-solid fa-folder${isExpanded ? '-open text-cyan-500' : ''}"></i> ${year} (${groupedByYear[year].length})
                         </span>
                         <i class="fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-xs text-slate-400 transition-transform"></i>
                     </button>
                 `;
     
-                // 展開時顯示的報告列表
+                // 展開時顯示的報告列表（標題與下載按鈕並排）
                 let reportsHtml = '';
                 if (isExpanded) {
                     reportsHtml += `<div class="p-3 space-y-3 border-t border-slate-200 dark:border-slate-800">`;
@@ -425,10 +381,12 @@
                                     <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${report.badgeClass}">${report.categoryName}</span>
                                     <span class="text-xs text-slate-400">${report.date}</span>
                                 </div>
-                                <div class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">${report.title}</div>
-                                <a href="${report.url}" download class="w-full py-2 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm" style="text-decoration: none;">
-                                    <i class="fa-solid fa-download"></i> 下載檔案
-                                </a>
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate flex-1">${report.title}</div>
+                                    <a href="${report.url}" download class="py-1.5 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm shrink-0" style="text-decoration: none;">
+                                        <i class="fa-solid fa-download"></i> 下載檔案
+                                    </a>
+                                </div>
                             </div>
                         `;
                     });
@@ -439,7 +397,6 @@
                 container.appendChild(yearSection);
             });
         }
-
         // 溫度級別與顏色對照助手函數
         function getTempCategory(temp) {
             if (temp >= 37.5) {
