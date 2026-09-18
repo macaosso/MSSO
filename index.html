@@ -251,16 +251,12 @@
                                 <button onclick="filterReports('special')" id="btn-report-special" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all">特別報告</button>
                             </div>
                         </div>
-                        <!-- 動態渲染報告清單的容器 -->
+                        <!-- 動態渲染報告清單的容器（按年份群組） -->
                         <div class="space-y-3" id="reports-container"></div>
                     </section>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
 
     <!-- 頁尾免責聲明與版權 -->
@@ -300,9 +296,10 @@
         let globalDistrictData = null;
         let currentHourlyMode = 'card'; // 'card' 或 'chart'
         let activeDistrictIndex = null; // 展開的區域名稱索引 (0, 1, 2)
-        let currentReportFilter = 'all'; // 報告下載分類過濾狀態
-
-        // 報告資料陣列（可在此自由擴充或修改各類報告）
+        let currentReportFilter = 'all';
+        const expandedYears = new Set(['2025', '2026']); // 預設展開的年份
+    
+        // 報告資料陣列（支援多個年份）
         const reportsData = [
             {
                 title: "2026年08月氣象觀測月報",
@@ -310,7 +307,7 @@
                 categoryName: "氣象觀測月報",
                 badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
                 url: "2026Mreport/2026年08月氣象觀測月報.pdf",
-                date:"2026-09-05"
+                date: "2026-09-05"
             },
             {
                 title: "2026年08月2-3日豪雨特別報告",
@@ -318,7 +315,7 @@
                 categoryName: "豪雨特別報告",
                 badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
                 url: "2026Rreport/2026年8月2-3日 豪雨特別報告.pdf",
-                date:"2026-08-07"
+                date: "2026-08-07"
             },
             {
                 title: "2026年07月氣象觀測月報",
@@ -326,10 +323,37 @@
                 categoryName: "氣象觀測月報",
                 badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
                 url: "2026Mreport/2026年07月氣象觀測月報.pdf",
-                date:"2026-08-01"
+                date: "2026-08-01"
+            },
+            // 2025 年範例資料
+            {
+                title: "2025年08月豪雨特別報告",
+                category: "special",
+                categoryName: "豪雨特別報告",
+                badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+                url: "2025Rreport/2025年08月豪雨特別報告.pdf",
+                date: "2025-08-15"
+            },
+            {
+                title: "2025年08月氣象觀測月報",
+                category: "monthly",
+                categoryName: "氣象觀測月報",
+                badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
+                url: "2025Mreport/2025年08月氣象觀測月報.pdf",
+                date: "2025-09-01"
             }
         ];
-
+    
+        // 切換年份展開/收合狀態
+        function toggleYear(year) {
+            if (expandedYears.has(year)) {
+                expandedYears.delete(year);
+            } else {
+                expandedYears.add(year);
+            }
+            renderReports();
+        }
+    
         // 切換報告分類篩選
         function filterReports(category) {
             currentReportFilter = category;
@@ -347,36 +371,73 @@
             
             renderReports();
         }
-
-        // 渲染報告清單
+    
+        // 渲染報告清單（依年份群組並支援折疊）
         function renderReports() {
             const container = document.getElementById('reports-container');
             if (!container) return;
             container.innerHTML = '';
-
+    
             const filtered = currentReportFilter === 'all' 
                 ? reportsData 
                 : reportsData.filter(r => r.category === currentReportFilter);
-
+    
             if (filtered.length === 0) {
                 container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">目前沒有此類型的報告。</p>`;
                 return;
             }
-
+    
+            // 依據日期欄位自動擷取年份進行分組
+            const groupedByYear = {};
             filtered.forEach(report => {
-                const item = document.createElement('div');
-                item.className = "bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex flex-col gap-2.5";
-                item.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${report.badgeClass}">${report.categoryName}</span>
-                        <span class="text-xs text-slate-400">${report.date}</span>
-                    </div>
-                    <div class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">${report.title}</div>
-                    <a href="${report.url}" download class="w-full py-2 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm" style="text-decoration: none;">
-                        <i class="fa-solid fa-download"></i> 下載檔案
-                    </a>
+                const year = report.date ? report.date.substring(0, 4) : '其他';
+                if (!groupedByYear[year]) {
+                    groupedByYear[year] = [];
+                }
+                groupedByYear[year].push(report);
+            });
+    
+            // 將年份排序（最新的年份排在最前面）
+            const sortedYears = Object.keys(groupedByYear).sort((a, b) => b.localeCompare(a));
+    
+            sortedYears.forEach(year => {
+                const isExpanded = expandedYears.has(year);
+                const yearSection = document.createElement('div');
+                yearSection.className = "border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950/30";
+    
+                // 年份主標題（點擊可展開/收合）
+                const headerHtml = `
+                    <button onclick="toggleYear('${year}')" class="w-full flex justify-between items-center p-3.5 bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-colors text-left font-bold text-slate-800 dark:text-slate-200 text-sm">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid fa-folder${isExpanded ? '-open text-cyan-500' : ''}"></i> ${year} 年報告 (${groupedByYear[year].length})
+                        </span>
+                        <i class="fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-xs text-slate-400 transition-transform"></i>
+                    </button>
                 `;
-                container.appendChild(item);
+    
+                // 展開時顯示的報告列表
+                let reportsHtml = '';
+                if (isExpanded) {
+                    reportsHtml += `<div class="p-3 space-y-3 border-t border-slate-200 dark:border-slate-800">`;
+                    groupedByYear[year].forEach(report => {
+                        reportsHtml += `
+                            <div class="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex flex-col gap-2.5 shadow-sm">
+                                <div class="flex justify-between items-center">
+                                    <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${report.badgeClass}">${report.categoryName}</span>
+                                    <span class="text-xs text-slate-400">${report.date}</span>
+                                </div>
+                                <div class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">${report.title}</div>
+                                <a href="${report.url}" download class="w-full py-2 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm" style="text-decoration: none;">
+                                    <i class="fa-solid fa-download"></i> 下載檔案
+                                </a>
+                            </div>
+                        `;
+                    });
+                    reportsHtml += `</div>`;
+                }
+    
+                yearSection.innerHTML = headerHtml + reportsHtml;
+                container.appendChild(yearSection);
             });
         }
 
