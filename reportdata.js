@@ -1,5 +1,44 @@
-// reportdata.js
 const reportsData = [
+    {
+        title: "2025年8月1-3日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2025年8月1-3日 豪雨特別報告.pdf",
+        date: "2025-08-03"
+    },
+    {
+        title: "2025年8月4-6日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2025年8月4-6日 豪雨特別報告.pdf",
+        date: "2025-08-06"
+    },
+    {
+        title: "2025年8月14-15日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2025年8月14-15日 大豪雨特別報告.pdf",
+        date: "2025-08-15"
+    },
+    {
+        title: "2025年9月7-9日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2025年9月7-9日 豪雨特別報告.pdf",
+        date: "2025-09-09"
+    },
+    {
+        title: "2025年9月23-25日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2025年9月23-25日 豪雨特別報告.pdf",
+        date: "2025-09-25"
+    },
     {
         title: "2026年01月",
         category: "monthly",
@@ -41,12 +80,76 @@ const reportsData = [
         date: "2026-06-01"
     },
     {
+        title: "2026年6月6-9日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年6月6-9日 豪雨特別報告.pdf",
+        date: "2026-06-09"
+    },
+    {
+        title: "2026年6月13-19日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年6月13-19日 豪雨特別報告.pdf",
+        date: "2026-06-19"
+    },
+    {
         title: "2026年06月",
         category: "monthly",
         categoryName: "氣象觀測月報",
         badgeClass: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
         url: "Mreport/2026年06月氣象觀測月報.pdf",
         date: "2026-07-01"
+    },
+    {
+        title: "2026年7月4-8日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年7月4-8日 豪雨特別報告.pdf",
+        date: "2026-07-08"
+    },
+    {
+        title: "2026年7月15-17日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年7月15-17日 豪雨特別報告.pdf",
+        date: "2026-07-17"
+    },
+    {
+        title: "2026年7月20-21日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年7月20-21日 豪雨特別報告.pdf",
+        date: "2026-07-21"
+    },
+    {
+        title: "2026年7月26-28日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年7月26-28日 豪雨特別報告.pdf",
+        date: "2026-07-28"
+    },
+    {
+        title: "2026年7月29-30日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年7月29-30日 豪雨特別報告.pdf",
+        date: "2026-07-30"
+    },
+    {
+        title: "2026年7月31日-8月2日",
+        category: "special",
+        categoryName: "豪雨特別報告",
+        badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
+        url: "Rreport/2026年7月31日-8月2日 豪雨特別報告.pdf",
+        date: "2026-08-02"
     },
     {
         title: "2026年07月",
@@ -57,12 +160,12 @@ const reportsData = [
         date: "2026-08-01"
     },
     {
-        title: "2026年08月2-3日",
+        title: "2026年8月2-3日",
         category: "special",
         categoryName: "豪雨特別報告",
         badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800",
         url: "Rreport/2026年8月2-3日 豪雨特別報告.pdf",
-        date: "2026-08-07"
+        date: "2026-08-03"
     },
     {
         title: "2026年08月",
