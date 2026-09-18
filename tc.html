@@ -58,19 +58,27 @@
         <!-- 頁面主要內容包裝 -->
         <div class="page-wrapper space-y-6" id="dashboard-content">
           
-            <!-- 1. 熱帶氣旋主卡片 -->
+            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcNewsCard">
+                <div class="warning-header flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        熱帶氣旋警報
+                    </span>
+                </div>
+                <div id="tcNewsContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
+            </div>
+            
             <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcCard">
                 <div class="warning-header flex justify-between items-center mb-4">
                     <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 0-9 9c0 2.5 1 4.8 2.6 6.4"/><path d="M12 21a9 9 0 0 0 9-9c0-2.5-1-4.8-2.6-6.4"/></svg>
-                        熱帶氣旋
+                        熱帶氣旋資訊
                     </span>
                     <a href="https://macaosso.github.io/MSSOweb/tc_gis.html" class="tc-btn px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white transition-colors text-xs font-medium flex items-center gap-1.5 shadow-sm" style="text-decoration: none;">查看路徑</a>
                 </div>
                 <div id="tcContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
             </div>
 
-            <!-- 2. 預報警報表格卡片 -->
             <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcForecastTableCard" style="display: none;">
                 <div class="warning-header tc-forecast-header-row flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
                     <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -81,20 +89,7 @@
                 </div>
                 <div class="tc-table-wrap overflow-x-auto" id="tcTableContent"></div>
             </div>
-
-            <!-- 3. 熱帶氣旋消息卡片 -->
-            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcNewsCard">
-                <div class="warning-header flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        熱帶氣旋消息
-                    </span>
-                </div>
-                <div id="tcNewsContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
-            </div>
-
         </div>
-
     </div>
 
     <!-- 頁尾免責聲明與版權 -->
@@ -180,14 +175,29 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
-        // 頁面載入後自動套用純文字排版並渲染
+        // 頁面載入後自動套用條件邏輯與排版渲染
         window.addEventListener('DOMContentLoaded', () => {
-            if (typeof tcText !== 'undefined' && document.getElementById('tcContent')) {
-                document.getElementById('tcContent').innerHTML = formatTextToHtml(tcText);
+            // 規則 1：若 tcText 為空則隱藏熱帶氣旋主卡片
+            const tcCard = document.getElementById('tcCard');
+            if (typeof tcText === 'undefined' || !tcText || tcText.trim() === '') {
+                if (tcCard) tcCard.style.display = 'none';
+            } else {
+                if (tcCard) tcCard.style.display = 'block';
+                const tcContentEl = document.getElementById('tcContent');
+                if (tcContentEl) tcContentEl.innerHTML = formatTextToHtml(tcText);
             }
-            if (typeof tcWarnings !== 'undefined' && document.getElementById('tcNewsContent')) {
-                document.getElementById('tcNewsContent').innerHTML = formatTextToHtml(tcWarnings);
+
+            // 規則 3：若 tcWarnings 內容為空，則顯示指定提示文字
+            const tcNewsContentEl = document.getElementById('tcNewsContent');
+            if (tcNewsContentEl) {
+                if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
+                    tcNewsContentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400">現時沒有熱帶氣旋資訊及警報。</p>';
+                } else {
+                    tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
+                }
             }
+
+            // 規則 2：處理預報警報表格的機率過濾與區塊顯示
             if (typeof TC_WARNING_DATA !== 'undefined' && typeof renderTcForecastTable === 'function') {
                 renderTcForecastTable(TC_WARNING_DATA);
             }
