@@ -107,37 +107,40 @@
                     </div>
                 </div>
 
-                <!-- 圖表顯示主視窗 -->
+                <!-- 圖表顯示主視窗（已調整為完美契合氣象圖比例的響應式容器） -->
                 <div class="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-6 space-y-4">
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 rounded-full bg-cyan-500 animate-pulse"></span>
-                            <span id="active-chart-title" class="text-sm font-bold text-slate-800 dark:text-slate-200">chart_500hPa_0h.png</span>
+                            <span id="active-chart-title" class="text-sm font-bold text-slate-800 dark:text-slate-200">output/weather_chart/chart_500hPa_0h.png</span>
                         </div>
                         <span class="text-xs text-slate-400">狀態：已同步更新</span>
                     </div>
 
-                    <!-- 渲染畫布/圖示區域 -->
-                    <div class="w-full h-96 bg-slate-200 dark:bg-slate-900 rounded-xl flex flex-col items-center justify-center text-slate-400 relative overflow-hidden border border-slate-300 dark:border-slate-800 shadow-inner" id="chart-viewport">
-                        <div id="viewport-icon-container" class="mb-3">
-                            <i class="fa-solid fa-image text-5xl text-cyan-500 opacity-60"></i>
+                    <!-- 貼合圖表比例的預覽容器 (aspect-[4/3] 完美對應標準氣象圖比例) -->
+                    <div class="w-full aspect-[4/3] max-h-[75vh] bg-slate-200 dark:bg-slate-900 rounded-xl flex items-center justify-center relative overflow-hidden border border-slate-300 dark:border-slate-800 shadow-inner mx-auto" id="chart-viewport">
+                        <!-- 真實圖片標籤 -->
+                        <img id="active-chart-img" src="output/weather_chart/chart_500hPa_0h.png" alt="氣象預報圖" class="w-full h-full object-contain p-2 transition-opacity duration-200" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-size=\'14\' font-family=\'sans-serif\'>找不到圖片檔案或路徑錯誤...</text></svg>';">
+                        
+                        <!-- 浮動檔名標籤 -->
+                        <div class="absolute bottom-3 left-3 bg-slate-900/85 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-700/50 text-xs text-slate-200 font-mono flex items-center gap-2 shadow-lg">
+                            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                            <span id="viewport-filename">output/weather_chart/chart_500hPa_0h.png</span>
                         </div>
-                        <p id="viewport-filename" class="text-sm font-mono font-bold text-slate-700 dark:text-slate-200">chart_500hPa_0h.png</p>
-                        <p class="text-xs text-slate-400 mt-1">自動更新氣象圖表檔案 (2026-09-18 13:17:29)</p>
                     </div>
 
                     <!-- 底部操作列 -->
                     <div class="flex justify-between items-center pt-2">
                         <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                            <i class="fa-solid fa-circle-info text-cyan-500"></i> 提示：可透過上方按鈕切換不同高度與時效之預報圖。
+                            <i class="fa-solid fa-circle-info text-cyan-500"></i> 提示：請確保圖片位於專案的 `output/weather_chart/` 目錄下。
                         </div>
                         <div class="flex gap-2">
                             <button onclick="refreshChart()" class="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-xs font-medium flex items-center gap-1.5">
                                 <i class="fa-solid fa-rotate"></i> 重新載入
                             </button>
-                            <button onclick="downloadChart()" class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white transition-colors text-xs font-medium flex items-center gap-1.5 shadow-sm">
+                            <a id="download-btn" href="output/weather_chart/chart_500hPa_0h.png" download="chart_500hPa_0h.png" class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white transition-colors text-xs font-medium flex items-center gap-1.5 shadow-sm" style="text-decoration: none;">
                                 <i class="fa-solid fa-download"></i> 下載圖表
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -274,12 +277,19 @@
             updateChartDisplay();
         }
 
-        // 更新圖表顯示畫面
+        // 更新圖片顯示畫面與下載連結 (使用 output/weather_chart/ 目錄結構)
         function updateChartDisplay() {
-            const filename = `chart_${currentLevel}_${currentHour}.png`;
-            document.getElementById('active-chart-title').textContent = filename;
-            document.getElementById('viewport-filename').textContent = filename;
+            const filePath = `output/weather_chart/chart_${currentLevel}_${currentHour}.png`;
+            document.getElementById('active-chart-title').textContent = filePath;
+            document.getElementById('viewport-filename').textContent = filePath;
             
+            const imgElement = document.getElementById('active-chart-img');
+            imgElement.src = filePath;
+
+            const downloadBtn = document.getElementById('download-btn');
+            downloadBtn.href = filePath;
+            downloadBtn.setAttribute('download', `chart_${currentLevel}_${currentHour}.png`);
+
             const viewport = document.getElementById('chart-viewport');
             viewport.classList.add('opacity-40');
             setTimeout(() => {
@@ -289,12 +299,6 @@
 
         function refreshChart() {
             updateChartDisplay();
-            alert(`已重新加載圖表：chart_${currentLevel}_${currentHour}.png`);
-        }
-
-        function downloadChart() {
-            const filename = `chart_${currentLevel}_${currentHour}.png`;
-            alert(`正在下載檔案：${filename}`);
         }
 
         updateDateTime();
