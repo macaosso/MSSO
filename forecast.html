@@ -1,134 +1,515 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="dark">
+<html lang="zh-Hant" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高解析大氣高空氣象圖表</title>
+    <title>澳門天氣圖表與預報 - 澳門民間氣象台 MSSO</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: { extend: { colors: { slate: { 850: '#151f32', 905: '#0b1324' } } } }
         }
     </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
-    <div class="max-w-5xl mx-auto space-y-6">
+<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
+
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
         
-        <!-- Header -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl gap-4">
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
             <div>
-                <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-cloud-sun text-cyan-400"></i> 大氣高空與地面氣象監測
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-cyan-500 dark:text-cyan-400"></i> 天氣圖表分析
                 </h1>
-                <p id="update-time" class="text-xs text-slate-400 mt-1">資料更新中...</p>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
+                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+                </div>
             </div>
-            
-            <!-- Forecast Hour Selector (0H - 48H) -->
-            <div class="flex bg-slate-800 p-1 rounded-xl text-xs font-medium gap-1 flex-wrap" id="hour-selector">
-                <button onclick="setHour(0)" class="hour-btn px-3 py-1.5 rounded-lg bg-cyan-500 text-white transition-all">0H</button>
-                <button onclick="setHour(12)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">12H</button>
-                <button onclick="setHour(24)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">24H</button>
-                <button onclick="setHour(36)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">36H</button>
-                <button onclick="setHour(48)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">48H</button>
+            <div class="flex items-center gap-4">
+                <!-- 返回主頁按鈕 -->
+                <a href="index.html" class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm text-xs font-medium flex items-center gap-1.5" style="text-decoration: none;">
+                    <i class="fa-solid fa-house"></i> 返回實況
+                </a>
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
             </div>
         </header>
 
-        <!-- Layer Selector -->
-        <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-            <h2 class="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">選擇大氣垂直層級 (Layer)</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2" id="layer-selector">
-                <button onclick="setLayer('surface')" class="layer-btn p-3 rounded-xl border border-cyan-500 bg-cyan-500/10 text-cyan-400 font-bold text-center transition-all">地面 (Surface)</button>
-                <button onclick="setLayer('925hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">925 hPa</button>
-                <button onclick="setLayer('850hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">850 hPa</button>
-                <button onclick="setLayer('700hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">700 hPa</button>
-                <button onclick="setLayer('500hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">500 hPa</button>
-                <button onclick="setLayer('200hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">200 hPa</button>
-            </div>
-        </section>
+        <!-- 載入狀態 -->
+        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
+            <p>正在載入氣象圖表與趨勢數據...</p>
+        </div>
 
-        <!-- Data Display Area -->
-        <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/6ri">
-                <div class="text-xs text-slate-400">預报時間</div>
-                <div id="val-time" class="text-lg font-bold text-white mt-1">--</div>
+        <!-- 主要內容 -->
+        <div id="dashboard-content" class="space-y-6 hidden">
+
+            <!-- 天氣提示區塊 -->
+            <div id="alerts-container" class="space-y-3"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- 左側兩欄：24小時綜合圖表、7天趨勢圖 -->
+                <div class="lg:col-span-2 space-y-6">
+
+                    <!-- 24小時天氣趨勢圖表 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-clock text-cyan-500 dark:text-cyan-400"></i> 24小時逐小時氣溫與濕度趨勢
+                            </h2>
+                            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium">
+                                <button id="hourly-view-card" onclick="setHourlyView('card')" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all">卡片</button>
+                                <button id="hourly-view-chart" onclick="setHourlyView('chart')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all">圖表</button>
+                            </div>
+                        </div>
+                        <div id="hourly-container"></div>
+                    </section>
+
+                    <!-- 7天高低溫走勢圖 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-days text-purple-500 dark:text-purple-400"></i> 7天天氣預報與溫度走勢
+                            </h2>
+                            <span class="text-xs text-slate-400">高低溫曲線圖</span>
+                        </div>
+                        <div id="daily-container" class="overflow-x-auto pb-2"></div>
+                    </section>
+
+                </div>
+
+                <!-- 右側一欄：風速風向、氣壓、降雨機率分析 -->
+                <div class="lg:col-span-1 space-y-6">
+
+                    <!-- 風速與風向分析 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-wind text-emerald-500 dark:text-emerald-400"></i> 風速與風向監測
+                        </h2>
+                        <div class="space-y-4">
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65 flex justify-between items-center">
+                                <div>
+                                    <div class="text-xs text-slate-400">當前平均風速</div>
+                                    <div class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5" id="wind-speed">-- km/h</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-slate-400">風向</div>
+                                    <div class="text-lg font-bold text-slate-800 dark:text-white mt-0.5" id="wind-direction">--</div>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-xs text-slate-400 mb-1">陣風強度</div>
+                                <div class="text-base font-bold text-slate-800 dark:text-slate-200" id="wind-gusts">--</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 氣壓與能見度 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-gauge text-amber-500 dark:text-amber-400"></i> 大氣壓力與能見度
+                        </h2>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-[11px]">海平面氣壓</div>
+                                <div class="text-base font-bold text-slate-800 dark:text-white mt-1" id="pressure-val">-- hPa</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-[11px]">雲量覆蓋</div>
+                                <div class="text-base font-bold text-slate-800 dark:text-white mt-1" id="cloud-cover">--%</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 降雨機率分佈摘要 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-rain text-blue-500 dark:text-blue-400"></i> 降雨風險總覽
+                        </h2>
+                        <div class="space-y-3" id="rain-summary-container">
+                            <div class="text-sm text-slate-500 dark:text-slate-400">數據分析中...</div>
+                        </div>
+                    </section>
+
+                </div>
+
             </div>
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/60">
-                <div class="text-xs text-slate-400">該層氣溫 (Temperature)</div>
-                <div id="val-temp" class="text-lg font-bold text-cyan-400 mt-1">-- °C</div>
-            </div>
-            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/60">
-                <div class="text-xs text-slate-400" id="secondary-label">位勢高度 / 輔助數值</div>
-                <div id="val-secondary" class="text-lg font-bold text-purple-400 mt-1">--</div>
-            </div>
-        </section>
+
+        </div>
 
     </div>
 
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
+        <div class="max-w-xl mx-auto flex justify-around items-center">
+            <a href="index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="weather_chart.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-cyan-600 dark:text-cyan-400 font-semibold transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-[11px]">天氣預報</span>
+            </a>
+            <a href="AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span class="text-[11px]">空氣質素</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- JavaScript 邏輯 -->
     <script>
-        let weatherData = null;
-        let currentLayer = 'surface';
-        let currentHourIndex = 0;
+        const LAT = 22.1595;
+        const LON = 113.5685;
+        let globalWeatherData = null;
+        let currentHourlyMode = 'chart'; // 預設以圖表呈現
 
-        async function loadData() {
+        // 主題切換邏輯
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+
+        // 農曆簡體轉繁體
+        function toTraditionalLunar(text) {
+            if (!text) return '';
+            const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
+            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
+        }
+
+        // 氣象代碼對照
+        function getWeatherDetails(code, isNight = false) {
+            const symbols = {
+                0: isNight ? { text: '晴朗無雲', icon: 'fas fa-moon text-indigo-400' } : { text: '晴朗無雲', icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
+                1: isNight ? { text: '晴淡雲稀', icon: 'fas fa-cloud-moon text-indigo-300' } : { text: '晴空少雲', icon: 'fas fa-cloud-sun text-yellow-400' },
+                2: isNight ? { text: '多雲', icon: 'fas fa-cloud-moon text-indigo-200' } : { text: '局部多雲', icon: 'fas fa-cloud-sun text-yellow-400' },
+                3: { text: '陰天', icon: 'fas fa-cloud text-slate-400' },
+                51: { text: '輕毛毛雨', icon: 'fas fa-cloud-sun text-yellow-400' },
+                61: { text: '小雨', icon: 'fas fa-cloud-rain text-blue-400' },
+                63: { text: '中雨', icon: 'fas fa-cloud-rain text-blue-500' },
+                65: { text: '大雨', icon: 'fas fa-cloud-showers-heavy text-blue-600' },
+                80: { text: '陣雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
+                95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' }
+            };
+            return symbols[code] || { text: '一般天氣', icon: 'fas fa-cloud text-slate-400' };
+        }
+
+        function checkIfNight(dateObj, dailyData, dayIndex = 0) {
+            if (dailyData && dailyData.sunrise && dailyData.sunset && dailyData.sunrise[dayIndex] && dailyData.sunset[dayIndex]) {
+                const sunrise = new Date(dailyData.sunrise[dayIndex]);
+                const sunset = new Date(dailyData.sunset[dayIndex]);
+                return dateObj < sunrise || dateObj > sunset;
+            }
+            const hour = dateObj.getHours();
+            return hour < 6 || hour >= 18;
+        }
+
+        function getWindDirectionText(degrees) {
+            if (degrees === undefined) return '未知';
+            const val = Math.floor((degrees / 22.5) + 0.5);
+            const arr = ["北", "北北東", "東北", "東北東", "東", "東南東", "東南", "南南東", "南", "南南西", "西南", "西南西", "西", "西北西", "西北", "北北西"];
+            return arr[(val % 16)] + ` (${degrees}°)`;
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+
+            const lunarEl = document.getElementById('lunar-date');
+            if (lunarEl && typeof Solar !== 'undefined') {
+                try {
+                    const solar = Solar.fromDate(now);
+                    const lunar = solar.getLunar();
+                    lunarEl.textContent = `${lunar.getYearInGanZhi()}${toTraditionalLunar(lunar.getYearShengXiao())}年${toTraditionalLunar(lunar.getMonthInChinese())}月${toTraditionalLunar(lunar.getDayInChinese())}日`;
+                } catch (e) {
+                    lunarEl.textContent = '';
+                }
+            }
+        }
+
+        async function fetchWeatherData() {
             try {
-                const res = await fetch('weather_data.json');
-                weatherData = await res.json();
-                document.getElementById('update-time').innerText = `最後更新: ${new Date().toLocaleString()}`;
-                updateDisplay();
-            } catch (e) {
-                console.error("無法載入氣象資料", e);
-                document.getElementById('update-time').innerText = "載入 weather_data.json 失敗，請確認是否已執行 Python 腳本。";
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
+                
+                const res = await fetch(weatherUrl);
+                globalWeatherData = await res.json();
+
+                renderDashboard();
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+            } catch (error) {
+                console.error("無法載入數據：", error);
+                document.getElementById('loading').innerHTML = `<p class="text-red-500">無法載入天氣圖表數據，請檢查網絡連線。</p>`;
             }
         }
 
-        function setHour(hour) {
-            currentHourIndex = hour;
-            document.querySelectorAll('.hour-btn').forEach(btn => {
-                btn.className = btn.textContent.includes(hour + 'H') 
-                    ? "hour-btn px-3 py-1.5 rounded-lg bg-cyan-500 text-white transition-all"
-                    : "hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all";
-            });
-            updateDisplay();
+        function setHourlyView(mode) {
+            currentHourlyMode = mode;
+            const btnCard = document.getElementById('hourly-view-card');
+            const btnChart = document.getElementById('hourly-view-chart');
+            if (mode === 'card') {
+                btnCard.className = "px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
+                btnChart.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+            } else {
+                btnChart.className = "px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
+                btnCard.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+            }
+            renderHourlySection();
         }
 
-        function setLayer(layer) {
-            currentLayer = layer;
-            document.querySelectorAll('.layer-btn').forEach(btn => {
-                const active = btn.textContent.toLowerCase().includes(layer.toLowerCase());
-                btn.className = active 
-                    ? "layer-btn p-3 rounded-xl border border-cyan-500 bg-cyan-500/10 text-cyan-400 font-bold text-center transition-all"
-                    : "layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all";
-            });
-            updateDisplay();
+        function renderDashboard() {
+            updateDateTime();
+            const data = globalWeatherData;
+            const curr = data.current;
+
+            // 填入右側欄位
+            document.getElementById('wind-speed').textContent = `${curr.wind_speed_10m} km/h`;
+            document.getElementById('wind-direction').textContent = getWindDirectionText(curr.wind_direction_10m);
+            document.getElementById('wind-gusts').textContent = `陣風高達 ${curr.wind_gusts_10m !== undefined ? curr.wind_gusts_10m : '--'} km/h`;
+            document.getElementById('pressure-val').textContent = `${curr.surface_pressure !== undefined ? curr.surface_pressure : '--'} hPa`;
+            document.getElementById('cloud-cover').textContent = `${curr.cloud_cover !== undefined ? curr.cloud_cover : '--'}%`;
+
+            // 雨量風險摘要
+            const rainSummary = document.getElementById('rain-summary-container');
+            const nextPops = data.hourly.precipitation_probability.slice(0, 12);
+            const avgPop = Math.round(nextPops.reduce((a, b) => a + b, 0) / nextPops.length);
+            rainSummary.innerHTML = `
+                <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center justify-between">
+                    <span class="text-xs text-slate-400">未來12小時平均降雨機率</span>
+                    <span class="text-base font-bold text-blue-500">${avgPop}%</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">根據大氣數值模擬，近期降水趨勢保持平穩，請根據天氣變化適時攜帶雨具。</p>
+            `;
+
+            renderHourlySection();
+            renderDailySection();
         }
 
-        function updateDisplay() {
-            if (!weatherData || !weatherData.hourly) return;
-            const h = weatherData.hourly;
-            const idx = currentHourIndex;
+        function renderHourlySection() {
+            const container = document.getElementById('hourly-container');
+            container.innerHTML = '';
+            const data = globalWeatherData;
+            const now = new Date();
+            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
+            const limit = currentHourIndex + 24;
 
-            document.getElementById('val-time').innerText = h.time[idx] || '--';
+            const times = data.hourly.time.slice(currentHourIndex, limit);
+            const temps = data.hourly.temperature_2m.slice(currentHourIndex, limit).map(t => Math.round(t));
+            const humids = data.hourly.relative_humidity_2m.slice(currentHourIndex, limit);
+            const pops = data.hourly.precipitation_probability.slice(currentHourIndex, limit);
+            const codes = data.hourly.weather_code.slice(currentHourIndex, limit);
 
-            let tempKey = 'temperature_2m';
-            let secKey = 'relative_humidity_2m';
-            let secLabel = '相對濕度';
-            let secUnit = '%';
+            if (currentHourlyMode === 'card') {
+                const scrollBox = document.createElement('div');
+                scrollBox.className = "flex gap-4 overflow-x-auto pb-2 pt-1";
+                for (let i = 0; i < times.length; i++) {
+                    const hourDate = new Date(times[i]);
+                    const hourIcon = getWeatherDetails(codes[i], checkIfNight(hourDate, data.daily, 1));
+                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: false });
 
-            if (currentLayer !== 'surface') {
-                tempKey = `temperature_${currentLayer}`;
-                secKey = `geopotential_height_${currentLayer}`;
-                secLabel = '位勢高度';
-                secUnit = ' gpm';
+                    const card = document.createElement('div');
+                    card.className = "flex flex-col items-center justify-between bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 min-w-[85px] flex-shrink-0 text-center transition-colors";
+                    card.innerHTML = `
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${hourLabel}</span>
+                        <i class="fa-solid ${hourIcon.icon} text-xl my-2"></i>
+                        <span class="text-base font-bold text-slate-800 dark:text-white">${temps[i]}°C</span>
+                        <div class="text-[11px] text-blue-600 dark:text-blue-400 mt-1"><i class="fa-solid fa-droplet text-[9px]"></i> ${pops[i]}%</div>
+                    `;
+                    scrollBox.appendChild(card);
+                }
+                container.appendChild(scrollBox);
+            } else {
+                const chartWrapper = document.createElement('div');
+                chartWrapper.className = "bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 p-4 rounded-xl space-y-4 overflow-x-auto";
+                
+                const tMax = Math.max(...temps) + 1;
+                const tMin = Math.min(...temps) - 1;
+                const tRange = tMax - tMin || 1;
+                const svgH = 100;
+
+                const tempPoints = temps.map((t, i) => `${i * 45 + 25},${svgH - ((t - tMin) / tRange) * (svgH - 30) - 15}`).join(' ');
+                const humidPoints = humids.map((h, i) => `${i * 45 + 25},${svgH - (h / 100) * (svgH - 30) - 15}`).join(' ');
+
+                let iconsRow = '<div class="flex" style="min-width: 1100px;">';
+                let timesRow = '<div class="flex" style="min-width: 1100px;">';
+
+                for (let i = 0; i < times.length; i++) {
+                    const hourDate = new Date(times[i]);
+                    const hourIcon = getWeatherDetails(codes[i], checkIfNight(hourDate, data.daily, 1));
+                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: false });
+
+                    iconsRow += `<div class="flex-shrink-0 w-[45px] text-center flex flex-col items-center"><i class="fa-solid ${hourIcon.icon} text-sm mb-1"></i><span class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">${temps[i]}°</span></div>`;
+                    timesRow += `<div class="flex-shrink-0 w-[45px] text-center text-[10px] text-slate-400">${hourLabel}</div>`;
+                }
+                iconsRow += '</div>';
+                timesRow += '</div>';
+
+                chartWrapper.innerHTML = `
+                    <div class="min-w-[1100px] space-y-2">
+                        <div class="flex justify-between text-xs text-slate-400 px-2">
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1"></span>氣溫 (°C)</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 mr-1"></span>相對濕度 (%)</span>
+                        </div>
+                        ${iconsRow}
+                        <div class="relative py-1">
+                            <svg viewBox="0 0 1100 ${svgH}" class="w-full h-[100px] overflow-visible">
+                                <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${tempPoints}" />
+                                ${temps.map((t, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - ((t - tMin) / tRange) * (svgH - 30) - 15}" r="3.5" fill="#f59e0b" />`).join('')}
+                                <polyline fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4" points="${humidPoints}" />
+                            </svg>
+                        </div>
+                        ${timesRow}
+                    </div>
+                `;
+                container.appendChild(chartWrapper);
+            }
+        }
+
+        function renderDailySection() {
+            const data = globalWeatherData;
+            const dailyContainer = document.getElementById('daily-container');
+            dailyContainer.innerHTML = '';
+
+            const startIndex = 1; 
+            const maxTemps = data.daily.temperature_2m_max.slice(startIndex, startIndex + 7).map(t => Math.round(t));
+            const minTemps = data.daily.temperature_2m_min.slice(startIndex, startIndex + 7).map(t => Math.round(t));
+            const popMaxs = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max.slice(startIndex, startIndex + 7) : Array(7).fill(0);
+            
+            const allVals = [...maxTemps, ...minTemps];
+            const chartMax = Math.max(...allVals) + 1;
+            const chartMin = Math.min(...allVals) - 1;
+            const range = chartMax - chartMin || 1;
+            const svgHeight = 70;
+
+            function getY(val) {
+                return svgHeight - ((val - chartMin) / range) * (svgHeight - 25) - 12;
             }
 
-            document.getElementById('secondary-label').innerText = secLabel;
-            document.getElementById('val-temp').innerText = (h[tempKey] && h[tempKey][idx] !== undefined) ? h[tempKey][idx] + ' °C' : 'N/A';
-            document.getElementById('val-secondary').innerText = (h[secKey] && h[secKey][idx] !== undefined) ? h[secKey][idx] + secUnit : 'N/A';
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = "min-w-[620px]";
+
+            let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 border-b border-slate-200 dark:border-slate-800">';
+            let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
+            let maxTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
+            let minTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
+            let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 border-t border-slate-200 dark:border-slate-800">';
+
+            let maxPoints = [];
+            let minPoints = [];
+
+            for (let i = 0; i < 7; i++) {
+                const dateStr = data.daily.time[startIndex + i];
+                const code = data.daily.weather_code[startIndex + i];
+                const dayIcon = getWeatherDetails(code, false);
+                const popVal = Math.round(popMaxs[i]);
+
+                const dateObj = new Date(dateStr);
+                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
+                const monthDay = `${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
+
+                const xCenter = i * 100 + 50;
+                maxPoints.push(`${xCenter},${getY(maxTemps[i])}`);
+                minPoints.push(`${xCenter},${getY(minTemps[i])}`);
+
+                daysHtml += `<div><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${dayName}</div><div class="text-xs text-slate-400 mt-0.5">${monthDay}</div></div>`;
+                iconsHtml += `<div class="flex flex-col items-center justify-center"><i class="fa-solid ${dayIcon.icon} text-xl mb-1"></i><span class="text-[11px] text-slate-500 dark:text-slate-400">${dayIcon.text}</span></div>`;
+                maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
+                minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
+                popRowHtml += `<div class="flex flex-col items-center justify-center gap-1"><span class="text-xs font-medium text-slate-700 dark:text-slate-200">${popVal}%</span></div>`;
+            }
+
+            daysHtml += '</div>';
+            iconsHtml += '</div>';
+            maxTempHtml += '</div>';
+            minTempHtml += '</div>';
+            popRowHtml += '</div>';
+
+            const svgChartHtml = `
+                <div class="relative py-2">
+                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[70px] overflow-visible">
+                        <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${maxPoints.join(' ')}" />
+                        ${maxTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#f59e0b" />`).join('')}
+                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="${minPoints.join(' ')}" />
+                        ${minTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#3b82f6" />`).join('')}
+                    </svg>
+                </div>
+            `;
+
+            tableWrapper.innerHTML = `
+                ${daysHtml}
+                ${iconsHtml}
+                <div class="bg-slate-100/60 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2">
+                    <div class="text-xs font-medium text-slate-400 px-1">7天高低溫走勢趨勢圖</div>
+                    ${maxTempHtml}
+                    ${svgChartHtml}
+                    ${minTempHtml}
+                </div>
+                <div class="mt-3">
+                    <div class="text-xs font-medium text-slate-400 mb-2 px-1">每日最高降雨機率預報</div>
+                    ${popRowHtml}
+                </div>
+            `;
+            dailyContainer.appendChild(tableWrapper);
         }
 
-        loadData();
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        fetchWeatherData();
     </script>
 </body>
 </html>
