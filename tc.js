@@ -1,21 +1,15 @@
-const tcText = `預料高空反氣旋於未來兩日將持續影響廣東沿岸，天色仍以天晴為主及日間酷熱。
+const tcText = ``;
 
-展望下週初風力微弱，高空擾動將為本澳帶來幾陣驟雨及雷暴；隨後轉受偏東氣流影響，驟雨逐漸減少。`;
-
-const tcWarnings = `熱帶氣旋「沙德爾」正逐漸逼近華南沿岸，本澳氣象部門正密切監察其動向。
-
-氣象局將視乎其與本澳的距離及強度變化，在適當時機評估並考慮發出相關風暴信號。
-
-請廣大市民提前做好各項防風及低窪地區防水浸準備，並隨時留意本台發佈的最新天氣消息。`;
+const tcWarnings = ``;
 
 const TC_WARNING_DATA = {
   mainTitle: "受熱帶氣旋「沙德爾」可能發佈之警報",
   updateTimeText: "2026-09-02  14:20 MST 更新",
   tableRows: [
     { signal: "注意警報", period: "", probability: "" },
-    { signal: "戒備警報", period: "09月02日 14時20分", probability: "" },
-    { signal: "強風警報", period: "09月04日 日間", probability: "" },
-    { signal: "烈風警報", period: "09月01日", probability: "" },
+    { signal: "戒備警報", period: "", probability: "" },
+    { signal: "強風警報", period: "", probability: "" },
+    { signal: "烈風警報", period: "", probability: "" },
     { signal: "暴風警報", period: "", probability: "" },
     { signal: "颶風警報", period: "", probability: "" },
     { signal: "風暴潮觀察警報", period: "", probability: "" },
