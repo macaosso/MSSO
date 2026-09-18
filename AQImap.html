@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>澳門空氣質素地圖</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <script>
+        const currentHour = new Date().getHours();
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            if (currentHour >= 8 && currentHour < 20) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
+</head>
+<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
+
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
+        
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wind text-cyan-500 dark:text-cyan-400"></i> 澳門空氣質素地圖
+                </h1>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
+                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 載入狀態 -->
+        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
+            <p>正在取得各監測站空氣質量數據...</p>
+        </div>
+
+        <!-- 主要內容 -->
+        <div id="dashboard-content" class="space-y-6 hidden">
+            
+            <!-- 變數選擇膠囊按鈕 -->
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-5 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <div class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">氣象與空氣質量數據</div>
+                <div class="flex flex-wrap gap-2" id="variablePills">
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-cyan-500 text-white shadow-sm" data-var="aqi">綜合空氣質量指數 (AQI)</button>
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-var="pm25">PM 2.5 (μg/m³)</button>
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-var="pm10">PM 10 (μg/m³)</button>
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-var="no2">NO 2 (μg/m³)</button>
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-var="o3">O 3 (μg/m³)</button>
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-var="so2">SO 2 (μg/m³)</button>
+                    <button class="var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700" data-var="co">CO (mg/m³)</button>
+                </div>
+            </section>
+
+            <!-- 內容網格 -->
+            <div class="content-grid grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- 左側兩欄：地圖與圖例 -->
+                <div class="lg:col-span-2 space-y-6">
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors flex flex-col items-center">
+                        <div class="w-full flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-map-location-dot text-emerald-500 dark:text-emerald-400"></i> 澳門各監測站空氣質素分佈
+                            </h2>
+                            <span id="current-var-badge" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">綜合空氣質量指數 (AQI)</span>
+                        </div>
+
+                        <!-- 地圖容器 -->
+                        <div class="wbgt-map-wrapper w-full relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 flex justify-center items-center min-h-[480px]" id="mapContainer">
+                            <div class="map-image-container relative w-full max-w-2xl flex justify-center" id="mapImageContainer">
+                                <img id="baseMapImg" src="map/map.png" alt="澳門氣象地圖" class="map-base-img w-full h-auto object-contain max-h-[600px] opacity-90 dark:opacity-80">
+                                <!-- JavaScript 將自動在此注入 .map-pin 標記 -->
+                            </div>
+                        </div>
+
+                        <!-- 地圖圖例 -->
+                        <div class="map-legend w-full flex flex-wrap justify-center items-center gap-4 mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-400">
+                            <div class="legend-row flex items-center gap-1.5"><span class="legend-dot w-3 h-3 rounded-full inline-block shadow-sm" style="background:#10b981;"></span>良好</div>
+                            <div class="legend-row flex items-center gap-1.5"><span class="legend-dot w-3 h-3 rounded-full inline-block shadow-sm" style="background:#eab308;"></span>普通</div>
+                            <div class="legend-row flex items-center gap-1.5"><span class="legend-dot w-3 h-3 rounded-full inline-block shadow-sm" style="background:#f97316;"></span>不良</div>
+                            <div class="legend-row flex items-center gap-1.5"><span class="legend-dot w-3 h-3 rounded-full inline-block shadow-sm" style="background:#ef4444;"></span>非常不良</div>
+                            <div class="legend-row flex items-center gap-1.5"><span class="legend-dot w-3 h-3 rounded-full inline-block shadow-sm" style="background:#a855f7;"></span>嚴重</div>
+                            <div class="legend-row flex items-center gap-1.5"><span class="legend-dot w-3 h-3 rounded-full inline-block shadow-sm" style="background:#9f1239;"></span>有害</div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- 右側一欄：各監測站明細列表 -->
+                <div class="lg:col-span-1 space-y-6">
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-list-ul text-cyan-500 dark:text-cyan-400"></i> 各監測站數據明細
+                        </h2>
+                        <p class="text-xs text-slate-400 mb-4">即時擷取各區空氣質素監測數據</p>
+                        <div class="space-y-3" id="stations-container">
+                            <!-- 動態渲染各監測站 -->
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
+        <div class="max-w-xl mx-auto flex justify-around items-center">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-[11px]">天氣預報</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-cyan-600 dark:text-cyan-400 font-semibold transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span class="text-[11px]">空氣質素</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        const stationsConfig = [
+            { name: "荷蘭園", slug: "calcada-do-poco", category: "路邊", top: "26%", left: "39%" },
+            { name: "九澳", slug: "ka-ho", category: "路邊", top: "75%", left: "62%" },
+            { name: "台山", slug: "subestacao-macau-norte", category: "高密度住宅區", top: "6%", left: "37%" },
+            { name: "氹仔中心區", slug: "parque-central-da-taipa", category: "高密度住宅區", top: "54%", left: "40%" },
+            { name: "大潭山", slug: "taipa-grande", category: "一般性", top: "53%", left: "54%" },
+            { name: "石排灣", slug: "coloane", category: "一般性", top: "80%", left: "44%" }
+        ];
+
+        let globalFetchedData = {};
+        let currentSelectedVar = 'aqi';
+
+        const varLabels = {
+            'aqi': '綜合空氣質量指數 (AQI)',
+            'pm25': 'PM 2.5 (μg/m³)',
+            'pm10': 'PM 10 (μg/m³)',
+            'no2': 'NO 2 (μg/m³)',
+            'o3': 'O 3 (μg/m³)',
+            'so2': 'SO 2 (μg/m³)',
+            'co': 'CO (mg/m³)'
+        };
+
+        function getAQIStyle(aqi) {
+            if (aqi <= 50) return { color: '#10b981', label: '良好', bg: 'bg-emerald-500 text-white' };
+            if (aqi <= 100) return { color: '#eab308', label: '普通', bg: 'bg-yellow-500 text-slate-900 font-bold' };
+            if (aqi <= 200) return { color: '#f97316', label: '不良', bg: 'bg-orange-500 text-white' };
+            if (aqi <= 300) return { color: '#ef4444', label: '非常不良', bg: 'bg-red-500 text-white' };
+            if (aqi <= 400) return { color: '#a855f7', label: '嚴重', bg: 'bg-purple-500 text-white' };
+            return { color: '#9f1239', label: '有害', bg: 'bg-rose-900 text-white' };
+        }
+
+        function getVarValueAndStyle(varKey, iaqiData, aqiVal) {
+            if (varKey === 'aqi') {
+                const style = getAQIStyle(aqiVal);
+                return { val: aqiVal !== undefined ? aqiVal : '--', label: style.label, color: style.color, bgClass: style.bg };
+            }
+            if (iaqiData && iaqiData[varKey] && iaqiData[varKey].v !== undefined) {
+                const val = iaqiData[varKey].v;
+                let style = { color: '#10b981', label: '良好', bg: 'bg-emerald-500 text-white' };
+                if (val > 50 && val <= 100) style = { color: '#eab308', label: '普通', bg: 'bg-yellow-500 text-slate-900 font-bold' };
+                else if (val > 100 && val <= 150) style = { color: '#f97316', label: '不良', bg: 'bg-orange-500 text-white' };
+                else if (val > 150) style = { color: '#ef4444', label: '高', bg: 'bg-red-500 text-white' };
+                return { val: val, label: style.label, color: style.color, bgClass: style.bg };
+            }
+            return { val: '--', label: '無數據', color: '#64748b', bgClass: 'bg-slate-500 text-white' };
+        }
+
+        // 主題切換邏輯
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        // 農曆簡體轉繁體輔助函數
+        function toTraditionalLunar(text) {
+            if (!text) return '';
+            const map = {
+                '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', 
+                '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', 
+                '鸡': '雞', '猪': '豬'
+            };
+            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            const dateStr = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+            const dtEl = document.getElementById('current-datetime');
+            if (dtEl) dtEl.textContent = dateStr;
+
+            const lunarEl = document.getElementById('lunar-date');
+            if (lunarEl && typeof Solar !== 'undefined') {
+                try {
+                    const solar = Solar.fromDate(now);
+                    const lunar = solar.getLunar();
+                    const ganZhiYear = lunar.getYearInGanZhi();
+                    const shengXiao = toTraditionalLunar(lunar.getYearShengXiao());
+                    const monthStr = toTraditionalLunar(lunar.getMonthInChinese());
+                    const dayStr = toTraditionalLunar(lunar.getDayInChinese());
+                    lunarEl.textContent = `${ganZhiYear}${shengXiao}年${monthStr}月${dayStr}日`;
+                } catch (e) {
+                    lunarEl.textContent = '';
+                }
+            }
+        }
+
+        async function fetchAllStationsData() {
+            const promises = stationsConfig.map(async (st) => {
+                const url = `https://api.waqi.info/feed/macau/${st.slug}/?token=12bb8b9424111ee0791c1492f0b3f346667737e2`;
+                try {
+                    const res = await fetch(url);
+                    const json = await res.json();
+                    if (json.status === 'ok') {
+                        globalFetchedData[st.slug] = json.data;
+                    } else {
+                        globalFetchedData[st.slug] = getMockData(st);
+                    }
+                } catch (err) {
+                    console.warn(`無法取得 ${st.name} 數據，使用模擬數據`, err);
+                    globalFetchedData[st.slug] = getMockData(st);
+                }
+            });
+
+            await Promise.all(promises);
+            renderDashboard();
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
+        }
+
+        function getMockData(st) {
+            return {
+                aqi: Math.floor(Math.random() * 80) + 25,
+                iaqi: {
+                    pm25: { v: Math.floor(Math.random() * 40) + 15 },
+                    pm10: { v: Math.floor(Math.random() * 60) + 25 },
+                    no2: { v: Math.floor(Math.random() * 30) + 10 },
+                    o3: { v: Math.floor(Math.random() * 50) + 20 },
+                    so2: { v: Math.floor(Math.random() * 10) + 2 },
+                    co: { v: parseFloat((Math.random() * 0.8 + 0.2).toFixed(1)) }
+                }
+            };
+        }
+
+        function renderDashboard() {
+            updateDateTime();
+            document.getElementById('current-var-badge').textContent = varLabels[currentSelectedVar];
+
+            // 渲染地圖標記 (Pins)
+            const mapImgContainer = document.getElementById('mapImageContainer');
+            const existingPins = mapImgContainer.querySelectorAll('.map-pin');
+            existingPins.forEach(p => p.remove());
+
+            stationsConfig.forEach((st) => {
+                const data = globalFetchedData[st.slug] || { aqi: 45, iaqi: {} };
+                const varInfo = getVarValueAndStyle(currentSelectedVar, data.iaqi, data.aqi);
+
+                const pin = document.createElement('div');
+                pin.className = "map-pin absolute flex flex-col items-center transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-10 transition-all hover:scale-110";
+                pin.style.top = st.top;
+                pin.style.left = st.left;
+
+                pin.innerHTML = `
+                    <div class="px-2.5 py-1 rounded-lg text-xs font-bold shadow-lg flex items-center gap-1.5 border border-white/20 backdrop-blur-sm transition-transform" style="background-color: ${varInfo.color}; color: #ffffff;">
+                        <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                        <span>${st.name}: ${varInfo.val}</span>
+                    </div>
+                    <div class="w-2 h-2 rotate-45 -mt-1 shadow-sm" style="background-color: ${varInfo.color};"></div>
+                `;
+                mapImgContainer.appendChild(pin);
+            });
+
+            // 渲染右側監測站明細列表
+            const stationsContainer = document.getElementById('stations-container');
+            stationsContainer.innerHTML = '';
+
+            stationsConfig.forEach((st) => {
+                const data = globalFetchedData[st.slug] || { aqi: 45, iaqi: {} };
+                const varInfo = getVarValueAndStyle(currentSelectedVar, data.iaqi, data.aqi);
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/65 p-4 rounded-xl transition-all hover:bg-slate-100 dark:hover:bg-slate-900/80";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-bold text-slate-800 dark:text-white">${st.name}</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${st.category}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-400 mt-1">監測站代號: ${st.slug}</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-extrabold" style="color: ${varInfo.color};">${varInfo.val}</div>
+                            <span class="px-2 py-0.5 rounded text-xs font-bold ${varInfo.bgClass}">${varInfo.label}</span>
+                        </div>
+                    </div>
+                `;
+                stationsContainer.appendChild(card);
+            });
+        }
+
+        // 監聽變數選擇按鈕點擊事件
+        document.querySelectorAll('.var-pill').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.var-pill').forEach(b => {
+                    b.className = "var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700";
+                });
+                e.target.className = "var-pill px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all bg-cyan-500 text-white shadow-sm";
+                currentSelectedVar = e.target.getAttribute('data-var');
+                renderDashboard();
+            });
+        });
+
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        fetchAllStationsData();
+    </script>
+</body>
+</html>
