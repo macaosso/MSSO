@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高解析大氣高空氣象圖表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { slate: { 850: '#151f32', 905: '#0b1324' } } } }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-4 md:p-8 font-sans">
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl gap-4">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-sun text-cyan-400"></i> 大氣高空與地面氣象監測
+                </h1>
+                <p id="update-time" class="text-xs text-slate-400 mt-1">資料更新中...</p>
+            </div>
+            
+            <!-- Forecast Hour Selector (0H - 48H) -->
+            <div class="flex bg-slate-800 p-1 rounded-xl text-xs font-medium gap-1 flex-wrap" id="hour-selector">
+                <button onclick="setHour(0)" class="hour-btn px-3 py-1.5 rounded-lg bg-cyan-500 text-white transition-all">0H</button>
+                <button onclick="setHour(12)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">12H</button>
+                <button onclick="setHour(24)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">24H</button>
+                <button onclick="setHour(36)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">36H</button>
+                <button onclick="setHour(48)" class="hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all">48H</button>
+            </div>
+        </header>
+
+        <!-- Layer Selector -->
+        <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
+            <h2 class="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wider">選擇大氣垂直層級 (Layer)</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2" id="layer-selector">
+                <button onclick="setLayer('surface')" class="layer-btn p-3 rounded-xl border border-cyan-500 bg-cyan-500/10 text-cyan-400 font-bold text-center transition-all">地面 (Surface)</button>
+                <button onclick="setLayer('925hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">925 hPa</button>
+                <button onclick="setLayer('850hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">850 hPa</button>
+                <button onclick="setLayer('700hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">700 hPa</button>
+                <button onclick="setLayer('500hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">500 hPa</button>
+                <button onclick="setLayer('200hPa')" class="layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all">200 hPa</button>
+            </div>
+        </section>
+
+        <!-- Data Display Area -->
+        <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/6ri">
+                <div class="text-xs text-slate-400">預报時間</div>
+                <div id="val-time" class="text-lg font-bold text-white mt-1">--</div>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/60">
+                <div class="text-xs text-slate-400">該層氣溫 (Temperature)</div>
+                <div id="val-temp" class="text-lg font-bold text-cyan-400 mt-1">-- °C</div>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/60">
+                <div class="text-xs text-slate-400" id="secondary-label">位勢高度 / 輔助數值</div>
+                <div id="val-secondary" class="text-lg font-bold text-purple-400 mt-1">--</div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        let weatherData = null;
+        let currentLayer = 'surface';
+        let currentHourIndex = 0;
+
+        async function loadData() {
+            try {
+                const res = await fetch('weather_data.json');
+                weatherData = await res.json();
+                document.getElementById('update-time').innerText = `最後更新: ${new Date().toLocaleString()}`;
+                updateDisplay();
+            } catch (e) {
+                console.error("無法載入氣象資料", e);
+                document.getElementById('update-time').innerText = "載入 weather_data.json 失敗，請確認是否已執行 Python 腳本。";
+            }
+        }
+
+        function setHour(hour) {
+            currentHourIndex = hour;
+            document.querySelectorAll('.hour-btn').forEach(btn => {
+                btn.className = btn.textContent.includes(hour + 'H') 
+                    ? "hour-btn px-3 py-1.5 rounded-lg bg-cyan-500 text-white transition-all"
+                    : "hour-btn px-3 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-all";
+            });
+            updateDisplay();
+        }
+
+        function setLayer(layer) {
+            currentLayer = layer;
+            document.querySelectorAll('.layer-btn').forEach(btn => {
+                const active = btn.textContent.toLowerCase().includes(layer.toLowerCase());
+                btn.className = active 
+                    ? "layer-btn p-3 rounded-xl border border-cyan-500 bg-cyan-500/10 text-cyan-400 font-bold text-center transition-all"
+                    : "layer-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 text-slate-300 font-bold text-center hover:bg-slate-800 transition-all";
+            });
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            if (!weatherData || !weatherData.hourly) return;
+            const h = weatherData.hourly;
+            const idx = currentHourIndex;
+
+            document.getElementById('val-time').innerText = h.time[idx] || '--';
+
+            let tempKey = 'temperature_2m';
+            let secKey = 'relative_humidity_2m';
+            let secLabel = '相對濕度';
+            let secUnit = '%';
+
+            if (currentLayer !== 'surface') {
+                tempKey = `temperature_${currentLayer}`;
+                secKey = `geopotential_height_${currentLayer}`;
+                secLabel = '位勢高度';
+                secUnit = ' gpm';
+            }
+
+            document.getElementById('secondary-label').innerText = secLabel;
+            document.getElementById('val-temp').innerText = (h[tempKey] && h[tempKey][idx] !== undefined) ? h[tempKey][idx] + ' °C' : 'N/A';
+            document.getElementById('val-secondary').innerText = (h[secKey] && h[secKey][idx] !== undefined) ? h[secKey][idx] + secUnit : 'N/A';
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
