@@ -332,7 +332,7 @@
             updateDateTime();
             document.getElementById('current-var-badge').innerHTML = varLabels[currentSelectedVar];
 
-            // 渲染地圖標記 (Pins) - 放大字體、不顯示地名，點擊顯示站點名稱
+            // 渲染地圖標記 (Pins) - 手機版字體更小更精準，荷蘭園與台山彈出視窗在右側
             const mapImgContainer = document.getElementById('mapImageContainer');
             const existingPins = mapImgContainer.querySelectorAll('.map-pin');
             existingPins.forEach(p => p.remove());
@@ -341,18 +341,24 @@
                 const data = globalFetchedData[st.slug] || { aqi: 45, iaqi: {} };
                 const varInfo = getVarValueAndStyle(currentSelectedVar, data.iaqi, data.aqi);
 
+                // 判斷是否為荷蘭園或台山，將彈出視窗設在右側
+                const isRightPopup = (st.name === "荷蘭園" || st.name === "台山");
+                const popupPositionClass = isRightPopup 
+                    ? "absolute left-full ml-2.5 top-1/2 transform -translate-y-1/2" 
+                    : "absolute bottom-full mb-2.5 left-1/2 transform -translate-x-1/2";
+
                 const pin = document.createElement('div');
                 pin.className = "map-pin absolute flex flex-col items-center transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-10 transition-all hover:scale-110";
                 pin.style.top = st.top;
                 pin.style.left = st.left;
 
                 pin.innerHTML = `
-                    <div class="px-3.5 py-1.5 rounded-xl text-base md:text-lg font-black shadow-xl flex items-center border-2 border-white/40 backdrop-blur-md transition-transform" style="background-color: ${varInfo.color}; color: #ffffff;">
+                    <div class="px-2 py-0.5 md:px-3.5 md:py-1.5 rounded-lg md:rounded-xl text-xs md:text-lg font-bold md:font-black shadow-md md:shadow-xl flex items-center border border-white/30 backdrop-blur-md transition-transform" style="background-color: ${varInfo.color}; color: #ffffff;">
                         <span>${varInfo.val}</span>
                     </div>
-                    <div class="w-2.5 h-2.5 rotate-45 -mt-1 shadow-md" style="background-color: ${varInfo.color};"></div>
+                    <div class="w-1.5 h-1.5 md:w-2.5 md:h-2.5 rotate-45 -mt-0.5 md:-mt-1 shadow-sm" style="background-color: ${varInfo.color};"></div>
                     <!-- 點擊後彈出的站點名稱卡片 -->
-                    <div class="station-popup hidden absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-900 text-slate-800 dark:text-white px-3 py-1.5 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 text-xs whitespace-nowrap z-30 pointer-events-none">
+                    <div class="station-popup hidden ${popupPositionClass} bg-white dark:bg-slate-900 text-slate-800 dark:text-white px-3 py-1.5 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 text-xs whitespace-nowrap z-30 pointer-events-none">
                         <div class="font-bold text-cyan-600 dark:text-cyan-400">${st.name}</div>
                         <div class="text-[10px] text-slate-400">${st.category}監測站</div>
                     </div>
