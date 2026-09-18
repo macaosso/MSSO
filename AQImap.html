@@ -199,6 +199,19 @@
             'co': 'CO (mg/m³)'
         };
 
+        // 格式化主要污染物化學式下標
+        function formatPollutant(pol) {
+            if (!pol) return '無';
+            const p = pol.toLowerCase().replace('.', '').trim();
+            if (p === 'pm25' || p === 'pm2.5') return 'PM <sub>2.5</sub>';
+            if (p === 'pm10') return 'PM <sub>10</sub>';
+            if (p === 'no2') return 'NO <sub>2</sub>';
+            if (p === 'o3') return 'O <sub>3</sub>';
+            if (p === 'so2') return 'SO <sub>2</sub>';
+            if (p === 'co') return 'CO';
+            return pol.toUpperCase();
+        }
+
         function getAQIStyle(aqi) {
             if (aqi <= 50) return { color: '#10b981', label: '良好', bg: 'bg-emerald-500 text-white' };
             if (aqi <= 100) return { color: '#eab308', label: '普通', bg: 'bg-yellow-500 text-slate-900 font-bold' };
@@ -319,7 +332,7 @@
             updateDateTime();
             document.getElementById('current-var-badge').innerHTML = varLabels[currentSelectedVar];
 
-            // 渲染地圖標記 (Pins) - 無圓點
+            // 渲染地圖標記 (Pins) - 放大字體、不顯示地名，點擊顯示站點名稱
             const mapImgContainer = document.getElementById('mapImageContainer');
             const existingPins = mapImgContainer.querySelectorAll('.map-pin');
             existingPins.forEach(p => p.remove());
@@ -334,22 +347,41 @@
                 pin.style.left = st.left;
 
                 pin.innerHTML = `
-                    <div class="px-2.5 py-1 rounded-lg text-xs font-bold shadow-lg flex items-center border border-white/20 backdrop-blur-sm transition-transform" style="background-color: ${varInfo.color}; color: #ffffff;">
-                        <span>${st.name}: ${varInfo.val}</span>
+                    <div class="px-3.5 py-1.5 rounded-xl text-base md:text-lg font-black shadow-xl flex items-center border-2 border-white/40 backdrop-blur-md transition-transform" style="background-color: ${varInfo.color}; color: #ffffff;">
+                        <span>${varInfo.val}</span>
                     </div>
-                    <div class="w-2 h-2 rotate-45 -mt-1 shadow-sm" style="background-color: ${varInfo.color};"></div>
+                    <div class="w-2.5 h-2.5 rotate-45 -mt-1 shadow-md" style="background-color: ${varInfo.color};"></div>
+                    <!-- 點擊後彈出的站點名稱卡片 -->
+                    <div class="station-popup hidden absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-white dark:bg-slate-900 text-slate-800 dark:text-white px-3 py-1.5 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 text-xs whitespace-nowrap z-30 pointer-events-none">
+                        <div class="font-bold text-cyan-600 dark:text-cyan-400">${st.name}</div>
+                        <div class="text-[10px] text-slate-400">${st.category}監測站</div>
+                    </div>
                 `;
+
+                // 點擊標記觸發展開名稱
+                pin.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.station-popup').forEach(p => p.classList.add('hidden'));
+                    const popup = pin.querySelector('.station-popup');
+                    popup.classList.remove('hidden');
+                });
+
                 mapImgContainer.appendChild(pin);
             });
 
-            // 渲染右側監測站明細列表 - 顯示 dominentpol (主要污染物)
+            // 點擊地圖其他空白處關閉 popup
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.station-popup').forEach(p => p.classList.add('hidden'));
+            });
+
+            // 渲染右側監測站明細列表 - 使用帶下標格式的主要污染物
             const stationsContainer = document.getElementById('stations-container');
             stationsContainer.innerHTML = '';
 
             stationsConfig.forEach((st) => {
                 const data = globalFetchedData[st.slug] || { aqi: 45, dominentpol: 'pm25', iaqi: {} };
                 const varInfo = getVarValueAndStyle(currentSelectedVar, data.iaqi, data.aqi);
-                const dominant = data.dominentpol ? data.dominentpol.toUpperCase() : '無';
+                const dominantFormatted = formatPollutant(data.dominentpol);
 
                 const card = document.createElement('div');
                 card.className = "bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/65 p-4 rounded-xl transition-all hover:bg-slate-100 dark:hover:bg-slate-900/80";
@@ -360,7 +392,7 @@
                                 <span class="text-sm font-bold text-slate-800 dark:text-white">${st.name}</span>
                                 <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${st.category}</span>
                             </div>
-                            <div class="text-[11px] text-slate-400 mt-1">主要污染物：${dominant}</div>
+                            <div class="text-[11px] text-slate-400 mt-1">主要污染物：${dominantFormatted}</div>
                         </div>
                         <div class="text-right">
                             <div class="text-lg font-extrabold" style="color: ${varInfo.color};">${varInfo.val}</div>
