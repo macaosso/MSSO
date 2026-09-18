@@ -45,8 +45,10 @@ function renderTcForecastTable(data) {
     return;
   }
 
-  const validRows = data.tableRows.filter(row => (row.period && row.period.trim() !== '') || (row.probability && row.probability.trim() !== ''));
+  // 規則 2：只過濾出 probability 不為空的行
+  const validRows = data.tableRows.filter(row => row.probability && row.probability.trim() !== '');
 
+  // 規則 2：若全部行的 probability 都為空，隱藏整個表格區塊
   if (validRows.length === 0) {
     tableCard.style.display = 'none';
     return;
