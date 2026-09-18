@@ -13,7 +13,7 @@ const reportsData = [
     },
     {
         title: "2025年8月14-15日",
-        categoryName: "豪雨特別報告",        
+        categoryName: "大豪雨特別報告",        
         url: "Rreport/2025年8月14-15日 大豪雨特別報告.pdf",
         date: "2025-08-16"
     },
