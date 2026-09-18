@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>熱帶氣旋專區 - 澳門民間氣象台 MSSO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
+
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
+        
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-hurricane text-cyan-500 dark:text-cyan-400"></i> 熱帶氣旋專區
+                </h1>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
+                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 頁面主要內容包裝 -->
+        <div class="page-wrapper space-y-6" id="dashboard-content">
+          
+            <!-- 1. 熱帶氣旋主卡片 -->
+            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcCard">
+                <div class="warning-header flex justify-between items-center mb-4">
+                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 0-9 9c0 2.5 1 4.8 2.6 6.4"/><path d="M12 21a9 9 0 0 0 9-9c0-2.5-1-4.8-2.6-6.4"/></svg>
+                        熱帶氣旋
+                    </span>
+                    <a href="https://macaosso.github.io/MSSOweb/tc_gis.html" class="tc-btn px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white transition-colors text-xs font-medium flex items-center gap-1.5 shadow-sm" style="text-decoration: none;">查看路徑</a>
+                </div>
+                <div id="tcContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
+            </div>
+
+            <!-- 2. 預報警報表格卡片 -->
+            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcForecastTableCard" style="display: none;">
+                <div class="warning-header tc-forecast-header-row flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 0-9 9c0 2.5 1 4.8 2.6 6.4"/><path d="M12 21a9 9 0 0 0 9-9c0-2.5-1-4.8-2.6-6.4"/></svg>
+                        <span class="tc-forecast-title" id="tableMainTitle"></span>
+                    </span>
+                    <div class="tc-update-time text-xs text-slate-400 font-mono" id="tableUpdateTime"></div>
+                </div>
+                <div class="tc-table-wrap overflow-x-auto" id="tcTableContent"></div>
+            </div>
+
+            <!-- 3. 熱帶氣旋消息卡片 -->
+            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcNewsCard">
+                <div class="warning-header flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        熱帶氣旋消息
+                    </span>
+                </div>
+                <div id="tcNewsContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
+        <div class="max-w-xl mx-auto flex justify-around items-center">
+            <a href="index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="tc.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-cyan-600 dark:text-cyan-400 font-semibold transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="weather_chart.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-[11px]">天氣預報</span>
+            </a>
+            <a href="AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span class="text-[11px]">空氣質素</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 引入獨立的 tc.js 邏輯 -->
+    <script src="tc.js"></script>
+    <script>
+        // 主題切換邏輯
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+
+        // 農曆簡體轉繁體
+        function toTraditionalLunar(text) {
+            if (!text) return '';
+            const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
+            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+
+            const lunarEl = document.getElementById('lunar-date');
+            if (lunarEl && typeof Solar !== 'undefined') {
+                try {
+                    const solar = Solar.fromDate(now);
+                    const lunar = solar.getLunar();
+                    lunarEl.textContent = `${lunar.getYearInGanZhi()}${toTraditionalLunar(lunar.getYearShengXiao())}年${toTraditionalLunar(lunar.getMonthInChinese())}月${toTraditionalLunar(lunar.getDayInChinese())}日`;
+                } catch (e) {
+                    lunarEl.textContent = '';
+                }
+            }
+        }
+
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 頁面載入後自動渲染資料
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof tcText !== 'undefined' && document.getElementById('tcContent')) {
+                document.getElementById('tcContent').innerHTML = tcText;
+            }
+            if (typeof tcWarnings !== 'undefined' && document.getElementById('tcNewsContent')) {
+                document.getElementById('tcNewsContent').innerHTML = tcWarnings;
+            }
+            if (typeof TC_WARNING_DATA !== 'undefined' && typeof renderTcForecastTable === 'function') {
+                renderTcForecastTable(TC_WARNING_DATA);
+            }
+        });
+    </script>
+</body>
+</html>
