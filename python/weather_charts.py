@@ -68,7 +68,7 @@ def generate_weather_charts():
             fig.patch.set_facecolor('#0b1324')
             ax.set_facecolor('#151f32')
             
-            filename = f"weather_chart/chart_{layer}_{hour}h.png"
+            filename = f"output/weather_chart/chart_{layer}_{hour}h.png"
             plt.savefig(filename, bbox_inches='tight', dpi=150, facecolor=fig.get_facecolor())
             plt.close(fig)
             
