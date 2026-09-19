@@ -745,7 +745,7 @@
                 <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
             `;
             document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
-
+            
             const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : curr.temperature_2m;
             const apparentCat = getTempCategory(apparentTemp);
             document.getElementById('current-apparent-temp').innerText = `${Math.round(apparentTemp)}°C`;
@@ -761,96 +761,34 @@
             const isCold = curr.temperature_2m <= 14 || next24Temps.some(t => t <= 13);
             const isRainy = next2Pops.some(p => p >= 60);
 
-            // 更新警報狀態
-            updateAlertState('hot', isHot);
-            updateAlertState('cold', isCold);
-            updateAlertState('rainy', isRainy);
+            const alertsContainer = document.getElementById('alerts-container');
+            alertsContainer.innerHTML = '';
 
-            renderAlertsContainer();
+            if (isHot) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-fire text-xl"></i>
+                        <div><span class="font-bold">高溫提示：</span>請提防中暑及補充水分。</div>
+                    </div>`;
+            }
+            if (isCold) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-snowflake text-xl"></i>
+                        <div><span class="font-bold">低溫提示：</span>請適時添衣及注意保暖。</div>
+                    </div>`;
+            }
+            if (isRainy) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
+                        <div><span class="font-bold">降雨提示：</span>未來2小時內有較高機會出現降雨情況，外出時記得攜帶雨具。</div>
+                    </div>`;
+            }
+
             renderDistricts();
             renderHourlySection();
             renderDailySection();
-        }
-
-        // 警報狀態更新邏輯
-        function updateAlertState(type, conditionFulfilled) {
-            const alert = alertStates[type];
-            const currentTimeStr = formatMSTTime(); // 取得當前時間
-
-            if (conditionFulfilled) {
-                if (alert.removeTimer) {
-                    clearTimeout(alert.removeTimer);
-                    alert.removeTimer = null;
-                }
-                if (alert.status !== 'active') {
-                    alert.status = 'active';
-                    alert.issuedTime = currentTimeStr; // 鎖定發出時間
-                    alert.cancelTime = null;
-                }
-            } else {
-                if (alert.status === 'active') {
-                    alert.status = 'cancelling';
-                    alert.cancelTime = currentTimeStr; // 鎖定取消時間
-                    
-                    // 設定 1 小時後移除容器
-                    alert.removeTimer = setTimeout(() => {
-                        alert.status = 'removed';
-                        renderAlertsContainer();
-                    }, 3600000); // 1 小時 = 3,600,000 毫秒
-                }
-            }
-        }
-
-        // 渲染 alertsContainer
-        function renderAlertsContainer() {
-            const alertsContainer = document.getElementById('alerts-container');
-            if (!alertsContainer) return;
-            alertsContainer.innerHTML = '';
-
-            // 高溫提示
-            if (alertStates.hot.status === 'active') {
-                alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid fa-fire text-xl"></i>
-                        <div><span class="font-bold">高溫提示：</span>請提防中暑及補充水分。 <span class="text-xs opacity-80">（${alertStates.hot.issuedTime} MST 發出）</span></div>
-                    </div>`;
-            } else if (alertStates.hot.status === 'cancelling') {
-                alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid fa-fire text-xl"></i>
-                        <div>高溫提示 於 ${alertStates.hot.cancelTime} MST 取消</div>
-                    </div>`;
-            }
-
-            // 低溫提示
-            if (alertStates.cold.status === 'active') {
-                alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid fa-snowflake text-xl"></i>
-                        <div><span class="font-bold">低溫提示：</span>請適時添衣及注意保暖。 <span class="text-xs opacity-80">（${alertStates.cold.issuedTime} MST 發出）</span></div>
-                    </div>`;
-            } else if (alertStates.cold.status === 'cancelling') {
-                alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid fa-snowflake text-xl"></i>
-                        <div>低溫提示 於 ${alertStates.cold.cancelTime} MST 取消</div>
-                    </div>`;
-            }
-
-            // 降雨提示
-            if (alertStates.rainy.status === 'active') {
-                alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
-                        <div><span class="font-bold">降雨提示：</span>未來2小時內有較高機會出現降雨情況，外出時記得攜帶雨具。 <span class="text-xs opacity-80">（${alertStates.rainy.issuedTime} MST 發出）</span></div>
-                    </div>`;
-            } else if (alertStates.rainy.status === 'cancelling') {
-                alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
-                        <div>降雨提示 於 ${alertStates.rainy.cancelTime} MST 取消</div>
-                    </div>`;
-            }
         }
 
         function renderDistricts() {
@@ -1061,26 +999,26 @@
 
                 const popVal = Math.round(popMaxs[i]);
                 let popLevel = '極低';
-                let popBadgeClass = 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
+                let popBadgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
                 
                 if (popVal >= 95) {
                     popLevel = '極高';
-                    popBadgeClass = 'bg-indigo-600/20 text-indigo-700 dark:text-indigo-300 font-bold';
+                    popBadgeClass = 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold';
                 } else if (popVal >= 75) {
                     popLevel = '高';
-                    popBadgeClass = 'bg-blue-600/20 text-blue-700 dark:text-blue-300 font-bold';
+                    popBadgeClass = 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-bold';
                 } else if (popVal >= 60) {
                     popLevel = '偏高';
-                    popBadgeClass = 'bg-blue-500/15 text-blue-600 dark:text-blue-400';
+                    popBadgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 font-semibold';
                 } else if (popVal >= 40) {
                     popLevel = '中等';
-                    popBadgeClass = 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-semibold';
+                    popBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold';
                 } else if (popVal >= 25) {
                     popLevel = '偏低';
-                    popBadgeClass = 'bg-sky-500/10 text-sky-600 dark:text-sky-400';
+                    popBadgeClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
                 } else if (popVal >= 10) {
                     popLevel = '低';
-                    popBadgeClass = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+                    popBadgeClass = 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300';
                 }
 
                 const dateObj = new Date(dateStr);
