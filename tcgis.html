@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMCA GIS 颱風監控系統 - 動態 CSV 載入版</title>
+    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,9 +49,9 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">動態 CSV 引擎 v6.0</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.0</span>
                 </h1>
-                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與 CSV 資料自動掛載系統</p>
+                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與自動強度偵測系統</p>
             </div>
         </div>
 
@@ -84,7 +84,7 @@
             <div class="flex-1 overflow-y-auto p-4 space-y-5">
                 <!-- Storm Selector -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統 (CSV 載入)</label>
+                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統 (自動偵測)</label>
                     <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition">
                         <option value="all" selected>載入中...</option>
                     </select>
@@ -116,7 +116,7 @@
                         <label class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition">
                             <div class="flex items-center space-x-2.5">
                                 <i class="fa-solid fa-chart-line text-white w-4"></i>
-                                <span class="text-slate-200 font-medium">72小時預報路徑與線段 (白色)</span>
+                                <span class="text-slate-200 font-medium">預報路徑與線段 (白色)</span>
                             </div>
                             <input type="checkbox" id="layer-forecast" checked onchange="updateChartLayers()" class="rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-blue-500">
                         </label>
@@ -176,7 +176,7 @@
             <!-- 強度分級圖例 -->
             <div class="absolute bottom-6 right-6 z-20 bg-[#0b1322]/90 backdrop-blur-md border border-slate-800 p-3.5 rounded-xl shadow-xl text-xs space-y-2 pointer-events-none hidden sm:block max-w-xs">
                 <div class="font-bold text-slate-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <i class="fa-solid fa-palette text-blue-400"></i> 強度分級 (TC_INTENSITY_TABLE)
+                    <i class="fa-solid fa-palette text-blue-400"></i> 強度分級 (自動風速對應)
                 </div>
                 <div id="intensity-legend" class="grid grid-cols-1 gap-1.5 text-[11px]"></div>
             </div>
@@ -305,22 +305,18 @@
 
         function makeSplitCone(points) {
             const interpolated = generateConePoints(points, 25);
-            if (interpolated.length < 2) return { fullCone: null, cone72: null };
+            if (interpolated.length < 2) return { fullCone: null };
 
             let circlesFull = [];
-            let circles72 = [];
 
             for (let p of interpolated) {
                 if (p.radius > 0) {
                     const circle = turf.buffer(turf.point([p.lon, p.lat]), p.radius, { units: "kilometers", steps: 32 });
                     circlesFull.push(circle);
-                    if (p.hour <= 72) {
-                        circles72.push(circle);
-                    }
                 }
             }
 
-            if (circlesFull.length === 0) return { fullCone: null, cone72: null };
+            if (circlesFull.length === 0) return { fullCone: null };
 
             let fullCone = circlesFull[0];
             for (let i = 1; i < circlesFull.length; i++) {
@@ -336,75 +332,99 @@
         let myChart = null;
         let mapLoaded = false;
 
-        // 解析 CSV 轉換成颱風資料結構
+        // 解析新版簡化 CSV 轉換成颱風資料結構
         function parseCSVToTyphoon(csvText, letter) {
             const lines = csvText.split('\n');
-            let name = `Typhoon ${letter}`;
-            let category = "熱帶氣旋";
-            let wind = "0 km/h";
-            let movement = "未知";
-            let past = [];
-            let pastCoordsOnly = [];
-            let forecast = [];
-            let forecastPoints = [];
-            let nodes = [];
+            let currentMeta = null;
+            let rows = [];
 
             for (let line of lines) {
                 line = line.trim();
-                if (!line || line.startsWith('#')) continue;
+                if (!line || line.startsWith('#') || line.toLowerCase().startsWith('category')) continue;
                 const cols = line.split(',').map(c => c.trim());
-                const section = cols[0].toUpperCase();
+                if (cols.length < 6) continue;
 
-                if (section === 'META') {
-                    if (cols[1]) name = cols[1];
-                    if (cols[2]) category = cols[2];
-                    if (cols[3]) wind = cols[3];
-                    if (cols[4]) movement = cols[4];
-                } else if (section === 'PAST') {
-                    const lon = parseFloat(cols[6]);
-                    const lat = parseFloat(cols[7]);
-                    const w = parseFloat(cols[8]) || 35;
-                    if (!isNaN(lon) && !isNaN(lat)) {
-                        past.push({ coord: [lon, lat], wind: w });
-                        pastCoordsOnly.push([lon, lat]);
-                    }
-                } else if (section === 'NODE') {
-                    const time = cols[5] || '';
-                    const lon = parseFloat(cols[6]);
-                    const lat = parseFloat(cols[7]);
-                    const w = cols[8] || '35 km/h';
-                    const type = cols[10] || 'TD';
-                    if (!isNaN(lon) && !isNaN(lat)) {
-                        nodes.push({ coord: [lon, lat], time: time, wind: w, type: type });
-                    }
-                } else if (section === 'FORECAST') {
-                    const lon = parseFloat(cols[6]);
-                    const lat = parseFloat(cols[7]);
-                    const radius = parseFloat(cols[9]) || 50;
-                    const hour = parseFloat(cols[11]) || 0;
-                    if (!isNaN(lon) && !isNaN(lat)) {
-                        forecast.push([lon, lat]);
-                        forecastPoints.push({ lon, lat, hour, radius });
-                    }
+                const category = cols[0].toLowerCase();
+                const time = cols[1];
+                const rowName = cols[2];
+                const lat = parseFloat(cols[3]);
+                const lon = parseFloat(cols[4]);
+                const windVal = parseFloat(cols[5]) || 0;
+
+                if (isNaN(lat) || isNaN(lon)) continue;
+
+                if (category === 'current') {
+                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal };
                 }
+
+                rows.push({ category, time, name: rowName, lat, lon, wind: windVal });
             }
 
-            if (past.length === 0) return null;
+            if (rows.length === 0) return null;
+
+            if (!currentMeta) {
+                const last = rows[rows.length - 1];
+                currentMeta = { name: last.name || `Typhoon ${letter.toUpperCase()}`, time: last.time, lat: last.lat, lon: last.lon, wind: last.wind };
+            }
+
+            const name = currentMeta.name;
+            const wind = `${currentMeta.wind} km/h`;
+            const intensityObj = getIntensity(currentMeta.wind);
+            const categoryDesc = `${intensityObj.name} (${intensityObj.code})`;
+
+            let past = [];
+            let pastCoordsOnly = [];
+            let forecastCoords = [];
+            let forecastPoints = [];
+            let nodes = [];
+
+            // 1. 處理 past 與 current 軌跡 (current 也包含在 past 終點)
+            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current');
+            pastRows.forEach(pt => {
+                past.push({ coord: [pt.lon, pt.lat], wind: pt.wind });
+                pastCoordsOnly.push([pt.lon, pt.lat]);
+                nodes.push({ coord: [pt.lon, pt.lat], time: pt.time, wind: `${pt.wind} km/h`, type: getIntensity(pt.wind).code });
+            });
+
+            // 2. 處理 forecast 軌跡 (current 為 0H，加上所有 XH 預報)
+            let forecastRows = rows.filter(r => r.category === 'current' || r.category.includes('h'));
+            forecastRows.forEach(fr => {
+                let hour = 0;
+                if (fr.category !== 'current') {
+                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
+                }
+
+                forecastCoords.push([fr.lon, fr.lat]);
+
+                // HTML 中自動依預報時效賦予誤差半徑 (例如基礎 40km 隨小時遞增)
+                let defaultRadius = 45 + (hour * 0.6);
+
+                forecastPoints.push({
+                    lon: fr.lon,
+                    lat: fr.lat,
+                    hour: hour,
+                    radius: defaultRadius
+                });
+
+                if (fr.category !== 'current' && !nodes.some(n => n.time === fr.time)) {
+                    nodes.push({ coord: [fr.lon, fr.lat], time: fr.time, wind: `${fr.wind} km/h`, type: getIntensity(fr.wind).code });
+                }
+            });
 
             const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1];
             const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : '';
 
             return {
                 name,
-                category,
+                category: categoryDesc,
                 wind,
-                movement,
+                movement: "西北 @ 22 km/h",
                 coords: coordsStr,
                 past,
                 pastCoordsOnly,
-                forecast: forecast.length > 0 ? forecast : pastCoordsOnly.slice(-1),
+                forecast: forecastCoords.length > 0 ? forecastCoords : pastCoordsOnly.slice(-1),
                 forecastPoints,
-                nodes: nodes.length > 0 ? nodes : past.map((p, i) => ({ coord: p.coord, time: `階段 ${i+1}`, wind: `${p.wind} km/h`, type: 'TD' }))
+                nodes
             };
         }
 
@@ -415,7 +435,7 @@
 
             for (let f of files) {
                 try {
-                    const response = await fetch(`TCdata/${f}.csv`);
+                    const response = await fetch(`TC_data/${f}.csv`);
                     if (!response.ok) continue;
                     const text = await response.text();
                     if (!text || text.trim() === '') continue;
@@ -433,15 +453,15 @@
 
         function getStormBounds(stKey) {
             if (stKey === 'all' || Object.keys(typhoons).length === 0) {
-                return { center: [122, 20], zoom: 4.2 };
+                return { center: [130, 15], zoom: 4.2 };
             }
             const st = typhoons[stKey];
-            if (!st) return { center: [122, 20], zoom: 4.2 };
+            if (!st) return { center: [130, 15], zoom: 4.2 };
             
             let allCoords = [];
             if (st.pastCoordsOnly) allCoords = allCoords.concat(st.pastCoordsOnly);
             if (st.forecast) allCoords = allCoords.concat(st.forecast);
-            if (allCoords.length === 0) return { center: [122, 20], zoom: 5.5 };
+            if (allCoords.length === 0) return { center: [130, 15], zoom: 5.5 };
 
             let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
             allCoords.forEach(c => {
@@ -479,7 +499,6 @@
                 zlevel: 0
             });
 
-            // 非同步載入 CSV 與 地圖圖資
             try {
                 const [worldResp, csvTyphoons] = await Promise.all([
                     fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson'),
@@ -697,7 +716,7 @@
                     const pastScatterData = st.past.map(pt => {
                         const intensity = getIntensity(pt.wind);
                         return {
-                            name: `${st.name} 過往位置`,
+                            name: `${st.name} 軌跡點`,
                             value: [...pt.coord, 1],
                             itemStyle: { color: intensity.color },
                             symbolSize: 7,
@@ -809,7 +828,6 @@
 
             const bounds = getStormBounds(currentStormKey);
 
-            // 如果沒有任何熱帶氣旋資料，顯示無熱帶氣旋提示標語
             let graphicItems = [];
             if (keys.length === 0) {
                 graphicItems = [{
@@ -870,7 +888,7 @@
                         }
                         
                         if (d.windVal) {
-                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''} (過往位置)</div>
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''} (軌跡點)</div>
                                     <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#fbbf24; font-weight:bold;">${d.windVal} km/h</span></div>
                                     <div style="font-size:11px; color:#cbd5e1;">級別: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.intensityObj.code} - ${d.intensityObj.name}</span></div>`;
                         }
@@ -935,7 +953,7 @@
                 stormStatsContent.innerHTML = `
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">最大風速</span>
+                            <span class="text-slate-400 block text-[10px]">當前風速</span>
                             <span class="font-mono text-amber-400 font-bold text-sm">${storm.wind}</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
@@ -943,7 +961,7 @@
                             <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">移動路徑</span>
+                            <span class="text-slate-400 block text-[10px]">預報路徑</span>
                             <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
