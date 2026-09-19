@@ -51,7 +51,7 @@
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
                     SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.0</span>
                 </h1>
-                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與自動強度偵測系統</p>
+                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 平滑空間運算與自動強度偵測系統</p>
             </div>
         </div>
 
@@ -207,7 +207,7 @@
             return coords;
         }
 
-        // ================= 錐狀誤差圈邏輯 (Turf.js 整合) =================
+        // ================= 錐狀誤差圈邏輯 (Turf.js 平滑曲線整合) =================
         const ERROR_HOURS = [0, 24, 48, 72, 96, 120];
         const ERROR_RADII_KM = [15, 100, 170, 255, 345, 465];
 
@@ -226,29 +226,6 @@
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
         }
 
-        function generateConePoints(points, stepsPerSegment = 25) {
-            const valid = points.filter(p => p.radius !== null && p.radius !== undefined && !isNaN(p.radius));
-            if (valid.length < 2) return [];
-
-            let result = [];
-            for (let i = 0; i < valid.length - 1; i++) {
-                const p1 = valid[i];
-                const p2 = valid[i + 1];
-                const maxJ = (i === valid.length - 2) ? stepsPerSegment : stepsPerSegment - 1;
-
-                for (let j = 0; j <= maxJ; j++) {
-                    const t = j / stepsPerSegment;
-                    const lat = p1.lat + t * (p2.lat - p1.lat);
-                    const lon = p1.lon + t * (p2.lon - p1.lon);
-                    const hour = p1.hour + t * (p2.hour - p1.hour);
-                    const radius = getRadiusForHour(hour);
-
-                    result.push({ lat, lon, hour, radius });
-                }
-            }
-            return result;
-        }
-
         function safeUnion(p1, p2) {
             if (!p1) return p2;
             if (!p2) return p1;
@@ -259,15 +236,56 @@
             }
         }
 
-        function makeSplitCone(points) {
-            const interpolated = generateConePoints(points, 25);
-            if (interpolated.length < 2) return { fullCone: null };
+        function makeSplitCone(points, forecastCoords) {
+            if (!forecastCoords || forecastCoords.length < 2) return { fullCone: null };
+
+            let smoothCoords = forecastCoords;
+            try {
+                const line = turf.lineString(forecastCoords);
+                const smoothed = turf.lineSpline(line, { resolution: 50 });
+                smoothCoords = smoothed.geometry.coordinates;
+            } catch (e) {
+                smoothCoords = forecastCoords;
+            }
+
+            // 計算原始預報點的累積距離，以便將時間（Hour）對應到平滑曲線的各個位置
+            let origDistances = [0];
+            for (let i = 1; i < points.length; i++) {
+                const d = turf.distance(turf.point([points[i-1].lon, points[i-1].lat]), turf.point([points[i].lon, points[i].lat]), {units: 'kilometers'});
+                origDistances.push(origDistances[i-1] + d);
+            }
+            const totalOrigDist = origDistances[origDistances.length - 1] || 1;
+
+            let smoothDistances = [0];
+            for (let i = 1; i < smoothCoords.length; i++) {
+                const d = turf.distance(turf.point(smoothCoords[i-1]), turf.point(smoothCoords[i]), {units: 'kilometers'});
+                smoothDistances.push(smoothDistances[i-1] + d);
+            }
+            const totalSmoothDist = smoothDistances[smoothDistances.length - 1] || 1;
 
             let circlesFull = [];
 
-            for (let p of interpolated) {
-                if (p.radius > 0) {
-                    const circle = turf.buffer(turf.point([p.lon, p.lat]), p.radius, { units: "kilometers", steps: 32 });
+            for (let i = 0; i < smoothCoords.length; i++) {
+                const coord = smoothCoords[i];
+                const distAlong = smoothDistances[i];
+                const fraction = totalSmoothDist === 0 ? 0 : distAlong / totalSmoothDist;
+                const correspondingOrigDist = fraction * totalOrigDist;
+
+                let hour = 0;
+                for (let j = 0; j < points.length - 1; j++) {
+                    if (correspondingOrigDist >= origDistances[j] && correspondingOrigDist <= origDistances[j+1]) {
+                        const segDist = origDistances[j+1] - origDistances[j];
+                        const segFactor = segDist === 0 ? 0 : (correspondingOrigDist - origDistances[j]) / segDist;
+                        hour = points[j].hour + segFactor * (points[j+1].hour - points[j].hour);
+                        break;
+                    } else if (j === points.length - 2 && correspondingOrigDist > origDistances[j+1]) {
+                        hour = points[points.length - 1].hour;
+                    }
+                }
+
+                const radius = getRadiusForHour(hour);
+                if (radius > 0) {
+                    const circle = turf.buffer(turf.point(coord), radius, { units: "kilometers", steps: 32 });
                     circlesFull.push(circle);
                 }
             }
@@ -641,8 +659,21 @@
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
+                // 產生平滑曲線預報路徑座標
+                let smoothForecastCoords = st.forecast;
+                if (st.forecast && st.forecast.length >= 2) {
+                    try {
+                        const line = turf.lineString(st.forecast);
+                        const smoothed = turf.lineSpline(line, { resolution: 50 });
+                        smoothForecastCoords = smoothed.geometry.coordinates;
+                    } catch (e) {
+                        smoothForecastCoords = st.forecast;
+                    }
+                }
+
+                // 誤差圈跟隨平滑曲線路徑
                 if (showEnvelope && st.forecastPoints && st.forecastPoints.length > 1) {
-                    const cones = makeSplitCone(st.forecastPoints);
+                    const cones = makeSplitCone(st.forecastPoints, st.forecast);
                     if (cones.fullCone) {
                         addTurfPolygonSeries(cones.fullCone, seriesList, {
                             fill: 'rgba(56, 189, 248, 0.12)',
@@ -686,7 +717,8 @@
                     });
                 }
 
-                if (showForecast && st.forecast && st.forecast.length > 0) {
+                // 繪製平滑曲線預報路徑
+                if (showForecast && smoothForecastCoords && smoothForecastCoords.length > 0) {
                     seriesList.push({
                         type: 'lines',
                         coordinateSystem: 'geo',
@@ -701,7 +733,7 @@
                             symbolSize: 4
                         },
                         lineStyle: { color: '#ffffff', width: 2.2, type: 'dashed', opacity: 0.9 },
-                        data: [{ coords: st.forecast }],
+                        data: [{ coords: smoothForecastCoords }],
                         silent: true
                     });
                 }
@@ -904,7 +936,6 @@
                 if (!storm) return;
                 document.getElementById('storm-name').innerText = storm.name;
                 
-                // 單一颱風檢視的標題標籤動態配色
                 const catEl = document.getElementById('storm-category');
                 catEl.innerText = storm.category;
                 catEl.style.backgroundColor = `${storm.intensityObj.color}22`;
