@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>澳門民間氣象台</title>
     <!-- Tailwind CSS -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> <!-- 或者是原本的script -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -119,7 +119,10 @@
                                         </svg>
                                         相對濕度
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-humidity">--%</div>
+                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                        <span id="current-humidity">--%</span>
+                                        <span id="current-humidity-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                    </div>
                                 </div>
                                 <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
                                     <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -289,13 +292,6 @@
         const expandedYears = new Set();
         const reportCategories = ['all', 'monthly', 'special'];
 
-        // 警報狀態管理器（追蹤發出時間、取消時間與移除計時器）
-        const alertStates = {
-            hot: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
-            cold: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
-            rainy: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null }
-        };
-
         function formatMSTTime(date = new Date()) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -444,6 +440,36 @@
                 return { label: '非常寒冷', class: 'bg-indigo-600 text-white' };
             } else {
                 return { label: '極為寒冷', class: 'bg-purple-700 text-white' };
+            }
+        }
+
+        // 濕度分類級別（Brown < green < blue 色系邏輯）
+        function getHumidityCategory(humidity) {
+            if (humidity <= 30.4) {
+                return { label: '非常乾燥', class: 'bg-amber-900/10 text-amber-900 dark:text-amber-300 border border-amber-900/30' };
+            } else if (humidity <= 39.4) {
+                return { label: '乾燥', class: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30' };
+            } else if (humidity <= 79.4) {
+                return { label: '正常', class: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' };
+            } else if (humidity <= 94.4) {
+                return { label: '潮濕', class: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30' };
+            } else {
+                return { label: '非常潮濕', class: 'bg-indigo-600/10 text-indigo-700 dark:text-indigo-400 border border-indigo-600/30' };
+            }
+        }
+
+        // 紫外線 (UV) 分類級別
+        function getUvCategory(uv) {
+            if (uv <= 2) {
+                return { label: '低', class: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/30' };
+            } else if (uv <= 5) {
+                return { label: '中', class: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30' };
+            } else if (uv <= 7) {
+                return { label: '高', class: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30' };
+            } else if (uv <= 10) {
+                return { label: '甚高', class: 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30' };
+            } else {
+                return { label: '極高', class: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/30' };
             }
         }
 
@@ -658,7 +684,8 @@
 
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
+                // 加入 uv_index 參數以取得即時與每小時紫外線指數
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,uv_index&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
                     { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
@@ -744,7 +771,16 @@
                 <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
                 <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
             `;
-            document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
+            
+            // 相對濕度與濕度 Badge 渲染
+            const humidityVal = curr.relative_humidity_2m;
+            const humidityCat = getHumidityCategory(humidityVal);
+            document.getElementById('current-humidity').innerText = `${humidityVal}%`;
+            const humidityBadgeEl = document.getElementById('current-humidity-badge');
+            if (humidityBadgeEl) {
+                humidityBadgeEl.textContent = humidityCat.label;
+                humidityBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${humidityCat.class}`;
+            }
             
             const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : curr.temperature_2m;
             const apparentCat = getTempCategory(apparentTemp);
@@ -755,15 +791,22 @@
         
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 8);
-            const next2Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 2);
             
-            // 【已修正】在此處正確宣告並擷取風速資料
+            // 現時及未來兩小時降雨機率計算（當前小時 + 接下來 2 小時，共 3 個時間點）
+            const next3Pops = data.hourly.precipitation_probability ? data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 3) : [0, 0, 0];
+            const currentPop = next3Pops[0] !== undefined ? next3Pops[0] : 0;
+            const maxNext2HoursPop = Math.max(...next3Pops);
+
             const currentWindSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
             const next12WindSpeeds = data.hourly.wind_speed_10m ? data.hourly.wind_speed_10m.slice(currentHourIndex, currentHourIndex + 12) : [];
         
+            // 取得當前紫外線 (UV Index) 並四捨五入至整數
+            const currentUv = Math.round(curr.uv_index !== undefined ? curr.uv_index : (data.hourly.uv_index ? data.hourly.uv_index[currentHourIndex] : 0));
+            const uvCat = getUvCategory(currentUv);
+
             const isHot = curr.temperature_2m >= 28 || next24Temps.some(t => t >= 29);
             const isCold = curr.temperature_2m <= 14 || next24Temps.some(t => t <= 13);
-            const isRainy = next2Pops.some(p => p >= 60);
+            const isRainy = maxNext2HoursPop >= 60;
             const isWindy = currentWindSpeed >= 32 || next12WindSpeeds.some(w => w >= 30);
         
             const alertsContainer = document.getElementById('alerts-container');
@@ -783,13 +826,16 @@
                         <div><span class="font-bold">低溫提示：</span>請適時添衣及注意保暖。</div>
                     </div>`;
             }
+
+            // 天氣提示區塊 (2)：現時及未來兩小時降雨機率
             if (isRainy) {
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
-                        <div><span class="font-bold">降雨提示：</span>未來2小時內有較高機會出現降雨情況，外出時記得攜帶雨具。</div>
+                        <div><span class="font-bold">降雨提示：</span>現時降雨機率為 ${currentPop}%，未來兩小時內最高降雨機率達 <span class="font-bold">${maxNext2HoursPop}%</span>，外出請攜帶雨具。</div>
                     </div>`;
             }
+
             if (isWindy) {
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl shadow-sm transition-colors">
@@ -797,6 +843,16 @@
                         <div><span class="font-bold">大風提示：</span>進行高空工作或戶外活動人士要注意大風所帶來的威脅。</div>
                     </div>`;
             }
+
+            // 天氣提示區塊 (1)：當前 UV 紫外線指數與 Badge
+            alertsContainer.innerHTML += `
+                <div class="flex items-center justify-between bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300 p-4 rounded-2xl shadow-sm transition-colors">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-sun text-xl"></i>
+                        <div><span class="font-bold">紫外線指數：</span>現時數值為 ${currentUv} (${uvCat.label})</div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-md text-xs font-bold ${uvCat.class}">${uvCat.label}</span>
+                </div>`;
         
             renderDistricts();
             renderHourlySection();
@@ -1081,7 +1137,7 @@
                         <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${maxPolyline}" />
                         ${maxTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#f59e0b" />`).join('')}
                         
-                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="${minPolyline}" />
+                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="${minPoints}" />
                         ${minTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#3b82f6" />`).join('')}
                     </svg>
                 </div>
