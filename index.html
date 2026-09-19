@@ -762,9 +762,9 @@
             const isRainy = next2Pops.some(p => p >= 60);
 
             // 更新警報狀態
-            updateAlertState('hot', isHot, formatMSTTime());
-            updateAlertState('cold', isCold, formatMSTTime());
-            updateAlertState('rainy', isRainy, formatMSTTime());
+            updateAlertState('hot', isHot);
+            updateAlertState('cold', isCold);
+            updateAlertState('rainy', isRainy);
 
             renderAlertsContainer();
             renderDistricts();
@@ -773,8 +773,10 @@
         }
 
         // 警報狀態更新邏輯
-        function updateAlertState(type, conditionFulfilled, currentTimeStr) {
+        function updateAlertState(type, conditionFulfilled) {
             const alert = alertStates[type];
+            const currentTimeStr = formatMSTTime(); // 取得當前時間
+
             if (conditionFulfilled) {
                 if (alert.removeTimer) {
                     clearTimeout(alert.removeTimer);
@@ -782,13 +784,13 @@
                 }
                 if (alert.status !== 'active') {
                     alert.status = 'active';
-                    alert.issuedTime = currentTimeStr;
+                    alert.issuedTime = currentTimeStr; // 鎖定發出時間
                     alert.cancelTime = null;
                 }
             } else {
                 if (alert.status === 'active') {
                     alert.status = 'cancelling';
-                    alert.cancelTime = currentTimeStr;
+                    alert.cancelTime = currentTimeStr; // 鎖定取消時間
                     
                     // 設定 1 小時後移除容器
                     alert.removeTimer = setTimeout(() => {
