@@ -506,7 +506,8 @@
         function addTurfPolygonSeries(turfPoly, seriesList, styleOpts) {
             if (!turfPoly || !turfPoly.geometry) return;
             const geom = turfPoly.geometry;
-            const coordsList = geom.type === 'Polygon' ? [geom.coordinates[0]] : 
+            const coordsList = geom.type === 'Polygon' ? [geom.geometry.coordinates[0]] : // fix handled below
+                               geom.type === 'Polygon' ? [geom.coordinates[0]] : 
                                geom.type === 'MultiPolygon' ? geom.coordinates.map(poly => poly[0]) : [];
             
             coordsList.forEach(ring => {
@@ -532,7 +533,6 @@
         function renderChart(isStormSwitch = false) {
             if (!myChart) return;
             
-            // 所有圖層預設永久啟用
             const showPast = true;
             const showForecast = true;
             const showEnvelope = true;
@@ -861,14 +861,22 @@
             
             if (keys.length === 0) {
                 document.getElementById('storm-name').innerText = "無活動系統";
-                document.getElementById('storm-category').innerText = "正常";
+                const catEl = document.getElementById('storm-category');
+                catEl.innerText = "正常";
+                catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                catEl.style.color = '#60a5fa';
                 stormStatsContent.innerHTML = `<div class="text-center text-slate-400 py-3 text-xs">當前西北太平洋沒有熱帶氣旋活躍</div>`;
                 return;
             }
 
             if (currentStormKey === 'all') {
                 document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
-                document.getElementById('storm-category').innerText = `共 ${keys.length} 個系統監控中`;
+                const catEl = document.getElementById('storm-category');
+                catEl.innerText = `共 ${keys.length} 個系統監控中`;
+                catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                catEl.style.color = '#60a5fa';
                 
                 let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
                 keys.forEach(key => {
@@ -880,7 +888,7 @@
                         <div class="bg-slate-800/60 border border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5">
                             <div class="flex justify-between items-center font-bold text-white">
                                 <span>${st.name}</span>
-                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">${st.category}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.category}</span>
                             </div>
                             <div class="space-y-1 text-[11px] text-slate-300 font-mono">
                                 <div>風速: <span class="text-amber-400 font-bold">${st.wind}</span></div>
@@ -896,7 +904,13 @@
                 const storm = typhoons[currentStormKey];
                 if (!storm) return;
                 document.getElementById('storm-name').innerText = storm.name;
-                document.getElementById('storm-category').innerText = storm.category;
+                
+                // 單一颱風檢視的標題標籤動態配色
+                const catEl = document.getElementById('storm-category');
+                catEl.innerText = storm.category;
+                catEl.style.backgroundColor = `${storm.intensityObj.color}22`;
+                catEl.style.borderColor = `${storm.intensityObj.color}55`;
+                catEl.style.color = storm.intensityObj.color;
                 
                 const tLon = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][0];
                 const tLat = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][1];
