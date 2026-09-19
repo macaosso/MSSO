@@ -645,11 +645,12 @@
                             type: 'custom',
                             coordinateSystem: 'geo',
                             z: 2.5,
-                            data: [envelopeCoords],
+                            data: [[0]], // Pass a dummy data row so renderItem executes once
                             renderItem: function(params, api) {
-                                const polygonCoords = params.data;
-                                if (!polygonCoords || polygonCoords.length === 0) return;
-                                const points = polygonCoords.map(coord => api.coord(coord));
+                                // Map the pre-calculated envelope coordinates to pixel space
+                                const points = envelopeCoords.map(coord => api.coord(coord));
+                                if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) return;
+                                
                                 return {
                                     type: 'polygon',
                                     shape: { points: points },
