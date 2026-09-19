@@ -149,9 +149,8 @@
         ];
 
         function getIntensity(windKmh) {
-            const wind = Number(windKmh) || 0;
             for (let item of TC_INTENSITY_TABLE) {
-                if (wind <= item.max_wind) return item;
+                if (windKmh <= item.max_wind) return item;
             }
             return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
         }
@@ -204,7 +203,7 @@
         }
 
         function getDirection(lon1, lat1, lon2, lat2) {
-            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined || isNaN(lon1) || isNaN(lat1) || isNaN(lon2) || isNaN(lat2)) {
+            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) {
                 return "靜止";
             }
             const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -357,12 +356,18 @@
         }
         // =========================================================================
 
-        function calculateMovementStr(forecastPoints, forecastCoords) {
-            if (!forecastCoords || forecastCoords.length < 2) {
-                return "靜止 0 km/h";
+        // 計算移動距離與移動方向（具備備用回退機制）
+        function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
+            let coordsToUse = forecastCoords;
+            if (!coordsToUse || coordsToUse.length < 2) {
+                if (pastCoordsOnly && pastCoordsOnly.length >= 2) {
+                    coordsToUse = pastCoordsOnly.slice(-2);
+                } else {
+                    return "靜止 0 km/h";
+                }
             }
             const samplesPerSegment = 30;
-            const smoothCoords = smoothLineCatmullRom(forecastCoords, samplesPerSegment);
+            const smoothCoords = smoothLineCatmullRom(coordsToUse, samplesPerSegment);
             const segmentPoints = smoothCoords.slice(0, samplesPerSegment + 1);
             
             let curveDist = 0;
@@ -373,8 +378,8 @@
             }
             
             const speed = Math.round(curveDist / 24);
-            const pStart = forecastCoords[0];
-            const pEnd = forecastCoords[1] || forecastCoords[0];
+            const pStart = coordsToUse[0];
+            const pEnd = coordsToUse[1] || coordsToUse[0];
             
             const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
             
@@ -387,7 +392,6 @@
         let mapLoaded = false;
 
         function parseCSVToTyphoon(csvText, letter) {
-            if (!csvText || typeof csvText !== 'string') return null;
             const lines = csvText.split('\n');
             let currentMeta = null;
             let rows = [];
@@ -398,16 +402,16 @@
                 const cols = line.split(',').map(c => c.trim());
                 if (cols.length < 6) continue;
 
-                const category = (cols[0] || '').toLowerCase();
-                const time = cols[1] || '-';
-                const rowName = cols[2] || '';
+                const category = cols[0].toLowerCase();
+                const time = cols[1];
+                const rowName = cols[2];
                 const lat = parseFloat(cols[3]);
                 const lon = parseFloat(cols[4]);
                 const windVal = parseFloat(cols[5]) || 0;
 
                 if (isNaN(lat) || isNaN(lon)) continue;
 
-                if (category === 'current' || category === '0h') {
+                if (category === 'current' || category === '0h' || category === '0') {
                     currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal };
                 }
 
@@ -417,14 +421,8 @@
             if (rows.length === 0) return null;
 
             if (!currentMeta) {
-                const anchor = rows.find(r => r.category === '0h' || r.category === 'current') || rows[0];
-                currentMeta = { 
-                    name: anchor?.name || `Typhoon ${letter.toUpperCase()}`, 
-                    time: anchor?.time || '-', 
-                    lat: anchor?.lat || 0, 
-                    lon: anchor?.lon || 0, 
-                    wind: anchor?.wind || 0 
-                };
+                const anchor = rows.find(r => r.category === '0h' || r.category === 'current' || r.category === '0') || rows[0];
+                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind };
             }
 
             const name = currentMeta.name;
@@ -435,7 +433,6 @@
             let pastCoordsOnly = [];
             let forecastCoords = [];
             let forecastPoints = [];
-            let nodes = [];
             let pastNodes = [];
             let forecastNodes = [];
 
@@ -458,35 +455,35 @@
                     coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
                     lat: r.lat,
                     lon: r.lon,
+                    coord: [r.lon, r.lat],
                     movementDir: moveDir,
                     distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat)
                 };
 
-                if (r.category === 'past' || r.category === 'current' || r.category === '0h') {
+                if (r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0') {
                     pastNodes.push(nodeInfo);
                 }
-                if (r.category === 'current' || r.category === '0h' || r.category.toLowerCase().includes('h')) {
+                if (r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h')) {
                     forecastNodes.push(nodeInfo);
                 }
             });
 
-            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h');
+            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
             if (pastRows.length === 0 && rows.length > 0) {
                 pastRows = [rows[0]];
             }
             pastRows.forEach(pt => {
                 past.push({ coord: [pt.lon, pt.lat], wind: pt.wind });
                 pastCoordsOnly.push([pt.lon, pt.lat]);
-                nodes.push({ coord: [pt.lon, pt.lat], time: pt.time, wind: `${pt.wind} km/h`, type: getIntensity(pt.wind).code });
             });
 
-            let forecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category.toLowerCase().includes('h'));
+            let forecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
             if (forecastRows.length === 0 && rows.length > 0) {
                 forecastRows = rows;
             }
             forecastRows.forEach(fr => {
                 let hour = 0;
-                if (fr.category !== 'current' && fr.category !== '0h') {
+                if (fr.category !== 'current' && fr.category !== '0h' && fr.category !== '0') {
                     hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
                 }
 
@@ -499,16 +496,19 @@
                     hour: hour,
                     radius: defaultRadius
                 });
-
-                if (fr.category !== 'current' && fr.category !== '0h' && !nodes.some(n => n.time === fr.time)) {
-                    nodes.push({ coord: [fr.lon, fr.lat], time: fr.time, wind: `${fr.wind} km/h`, type: getIntensity(fr.wind).code });
-                }
             });
 
             const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1] || forecastCoords[0] || [currentMeta.lon, currentMeta.lat];
             const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : `${currentMeta.lat.toFixed(1)}°N, ${currentMeta.lon.toFixed(1)}°E`;
             const fCoordsForCalc = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
-            const movementStr = calculateMovementStr(forecastPoints, fCoordsForCalc);
+            const movementStr = calculateMovementStr(forecastPoints, fCoordsForCalc, pastCoordsOnly);
+
+            // 合併並去重節點，確保帶有完整坐標與距離資訊
+            let nodeMap = new Map();
+            [...pastNodes, ...forecastNodes].forEach(node => {
+                nodeMap.set(node.time + "_" + node.coordStr, node);
+            });
+            let nodes = Array.from(nodeMap.values());
 
             return {
                 name,
@@ -803,7 +803,7 @@
             }
 
             const renderTyphoonTracks = (st) => {
-                if (!st || !st.pastCoordsOnly) return;
+                if (!st.pastCoordsOnly) return;
 
                 const smoothForecastCoords = smoothLineCatmullRom(st.forecast, 30);
 
@@ -873,9 +873,9 @@
                 }
 
                 if (showNodes && st.nodes) {
-                    const scatterData = st.nodes.map((node, idx) => {
+                    const scatterData = st.nodes.map((node) => {
                         const intensity = getIntensity(parseInt(node.wind));
-                        const isEye = (idx === st.past.length - 1);
+                        const isEye = (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
 
                         return {
                             name: `${st.name} - ${node.time}`,
@@ -999,20 +999,17 @@
                         }
                         
                         if (d.nodeInfo) {
-                            const ni = d.nodeInfo;
-                            const intObj = d.intensityObj || { color: '#cbd5e1', code: 'N/A' };
-                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || '未知系統'}</div>
-                                    <div style="font-size:11px; color:#cbd5e1;">時間: <span style="color:#ffffff; font-weight:bold;">${ni.time || '-'}</span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:${intObj.color}; font-weight:bold;">${ni.wind || '0 km/h'} (${intObj.code}) </span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">位置: <span style="color:#ffffff; font-weight:bold;">${ni.coordStr || '未知'}</span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">移動方向: <span style="color:#ffffff; font-weight:bold;">${ni.movementDir || '靜止'}</span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">距離澳門: <span style="color:#ffffff; font-weight:bold;">${ni.distToMacau || '未知距離'}</span></div>`;
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''}</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">時間: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.time}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.nodeInfo.wind} (${d.intensityObj.code}) </span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">位置: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.coordStr}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">移動方向: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.movementDir}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">距離澳門: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.distToMacau}</span></div>`;
                         }
                         
-                        if (d.windVal !== undefined) {
-                            const intObj = d.intensityObj || { color: '#cbd5e1', code: 'N/A' };
-                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || '未知系統'} </div>
-                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:${intObj.color}; font-weight:bold;">${d.windVal} km/h (${intObj.code})</span></div>`;
+                        if (d.windVal) {
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''} </div>
+                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.windVal} km/h (${d.intensityObj.code})</span></div>`;
                         }
 
                         return params.name || '';
@@ -1051,20 +1048,18 @@
                 let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
                 keys.forEach(key => {
                     const st = typhoons[key];
-                    if (!st) return;
                     const lastCoord = (st.pastCoordsOnly && st.pastCoordsOnly.length > 0) ? st.pastCoordsOnly[st.pastCoordsOnly.length - 1] : (st.forecast && st.forecast.length > 0 ? st.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
                     const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
-                    const intColor = st.intensityObj?.color || '#cbd5e1';
                     listHtml += `
                         <div class="bg-slate-800/60 border border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5">
                             <div class="flex justify-between items-center font-bold text-white">
-                                <span>${st.name || '未知'}</span>
-                                <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${intColor}22; border-color: ${intColor}55; color: ${intColor};">${st.category || 'N/A'}</span>
+                                <span>${st.name}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.category}</span>
                             </div>
                             <div class="space-y-1 text-[11px] text-slate-300 font-mono">
                                 <div>時間: <span class="text-slate-200">${st.time || '-'}</span></div>
-                                <div>風速: <span class="text-slate-200">${st.wind || '-'}</span></div>
-                                <div>位置: <span class="text-slate-200">${st.coords || '-'}</span></div>
+                                <div>風速: <span class="text-slate-200">${st.wind}</span></div>
+                                <div>位置: <span class="text-slate-200">${st.coords}</span></div>
                                 <div>距離澳門: <span class="text-slate-200">${dist}</span></div>
                             </div>
                         </div>
@@ -1076,14 +1071,13 @@
                 const stormKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
                 const storm = typhoons[stormKey];
                 if (!storm) return;
-                document.getElementById('storm-name').innerText = storm.name || '未知系統';
+                document.getElementById('storm-name').innerText = storm.name;
                 
                 const catEl = document.getElementById('storm-category');
-                const intColor = storm.intensityObj?.color || '#cbd5e1';
-                catEl.innerText = storm.category || 'N/A';
-                catEl.style.backgroundColor = `${intColor}22`;
-                catEl.style.borderColor = `${intColor}55`;
-                catEl.style.color = intColor;
+                catEl.innerText = storm.category;
+                catEl.style.backgroundColor = `${storm.intensityObj.color}22`;
+                catEl.style.borderColor = `${storm.intensityObj.color}55`;
+                catEl.style.color = storm.intensityObj.color;
                 
                 const lastCoord = (storm.pastCoordsOnly && storm.pastCoordsOnly.length > 0) ? storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1] : (storm.forecast && storm.forecast.length > 0 ? storm.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
                 const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
@@ -1091,13 +1085,12 @@
                 let forecastTableRows = '';
                 if (storm.forecastNodes) {
                     storm.forecastNodes.forEach(node => {
-                        const nColor = node.color || '#cbd5e1';
                         forecastTableRows += `
                             <tr class="hover:bg-slate-800/40">
-                                <td class="py-1 px-1 text-slate-300">${node.time || '-'}</td>
-                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${nColor}22; border-color: ${nColor}55; color: ${nColor};">${node.categoryCode || 'N/A'}</span></td>
-                                <td class="py-1 px-1 text-slate-200">${node.wind || '-'}</td>
-                                <td class="py-1 px-1 text-slate-200">${node.coordStr || '-'}</td>
+                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
+                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
                             </tr>
                         `;
                     });
@@ -1106,13 +1099,12 @@
                 let pastTableRows = '';
                 if (storm.pastNodes) {
                     storm.pastNodes.forEach(node => {
-                        const nColor = node.color || '#cbd5e1';
                         pastTableRows += `
                             <tr class="hover:bg-slate-800/40">
-                                <td class="py-1 px-1 text-slate-300">${node.time || '-'}</td>
-                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${nColor}22; border-color: ${nColor}55; color: ${nColor};">${node.categoryCode || 'N/A'}</span></td>
-                                <td class="py-1 px-1 text-slate-200">${node.wind || '-'}</td>
-                                <td class="py-1 px-1 text-slate-200">${node.coordStr || '-'}</td>
+                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
+                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
                             </tr>
                         `;
                     });
@@ -1127,15 +1119,15 @@
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                                 <span class="text-slate-400 block text-[10px]">中心最大風速</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind || '-'}</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                                 <span class="text-slate-400 block text-[10px]">位置</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords || '-'}</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                                 <span class="text-slate-400 block text-[10px]">移動方向</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement || '-'}</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                                 <span class="text-slate-400 block text-[10px]">距離澳門</span>
