@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.0</title>
+    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,9 +49,9 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.0</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.1</span>
                 </h1>
-                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 平滑空間運算與自動強度偵測系統</p>
+                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、穩定貝茲平滑運算與自動強度偵測系統</p>
             </div>
         </div>
 
@@ -103,7 +103,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-800 text-center text-[11px] text-slate-500">
-                SMCA GIS 向量引擎 • Turf.js 空間拓樸運算
+                SMCA GIS 向量引擎 • 穩定平滑曲線運算
             </div>
         </aside>
 
@@ -124,7 +124,7 @@
     <script>
         setInterval(() => {
             const now = new Date();
-            document.getElementById('utc-clock').innerText = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Shanghai', hour12: false }) + " MST";
+            document.getElementById('utc-clock').innerText = now.toUTCString().slice(17, 25) + " UTC";
         }, 1000);
 
         function toggleMobileSidebar() {
@@ -207,7 +207,27 @@
             return coords;
         }
 
-        // ================= 錐狀誤差圈邏輯 (Turf.js 平滑曲線整合) =================
+        // ================= 穩定平滑曲線與誤差圈運算 (Chaikin's Algorithm) =================
+        function smoothLineChaikin(coords, iterations = 2) {
+            if (!coords || coords.length <= 2) return coords;
+            let current = coords;
+            for (let it = 0; it < iterations; it++) {
+                let next = [];
+                next.push(current[0]);
+                for (let i = 0; i < current.length - 1; i++) {
+                    let p0 = current[i];
+                    let p1 = current[i+1];
+                    let q = [0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]];
+                    let r = [0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]];
+                    next.push(q);
+                    next.push(r);
+                }
+                next.push(current[current.length - 1]);
+                current = next;
+            }
+            return current;
+        }
+
         const ERROR_HOURS = [0, 24, 48, 72, 96, 120];
         const ERROR_RADII_KM = [15, 100, 170, 255, 345, 465];
 
@@ -239,16 +259,9 @@
         function makeSplitCone(points, forecastCoords) {
             if (!forecastCoords || forecastCoords.length < 2) return { fullCone: null };
 
-            let smoothCoords = forecastCoords;
-            try {
-                const line = turf.lineString(forecastCoords);
-                const smoothed = turf.lineSpline(line, { resolution: 50 });
-                smoothCoords = smoothed.geometry.coordinates;
-            } catch (e) {
-                smoothCoords = forecastCoords;
-            }
+            // 使用相同的平滑演算法產生平滑路徑座標
+            const smoothCoords = smoothLineChaikin(forecastCoords, 2);
 
-            // 計算原始預報點的累積距離，以便將時間（Hour）對應到平滑曲線的各個位置
             let origDistances = [0];
             for (let i = 1; i < points.length; i++) {
                 const d = turf.distance(turf.point([points[i-1].lon, points[i-1].lat]), turf.point([points[i].lon, points[i].lat]), {units: 'kilometers'});
@@ -285,7 +298,7 @@
 
                 const radius = getRadiusForHour(hour);
                 if (radius > 0) {
-                    const circle = turf.buffer(turf.point(coord), radius, { units: "kilometers", steps: 32 });
+                    const circle = turf.buffer(turf.point(coord), radius, { units: "kilometers", steps: 24 });
                     circlesFull.push(circle);
                 }
             }
@@ -341,7 +354,6 @@
             }
 
             const name = currentMeta.name;
-            const wind = `${currentMeta.wind} km/h`;
             const intensityObj = getIntensity(currentMeta.wind);
             const categoryDesc = `${intensityObj.name} (${intensityObj.code})`;
 
@@ -387,7 +399,7 @@
                 name,
                 category: categoryDesc,
                 intensityObj,
-                wind,
+                wind: `${currentMeta.wind} km/h`,
                 movement: "西北 @ 22 km/h",
                 coords: coordsStr,
                 past,
@@ -660,16 +672,7 @@
                 if (!st.pastCoordsOnly) return;
 
                 // 產生平滑曲線預報路徑座標
-                let smoothForecastCoords = st.forecast;
-                if (st.forecast && st.forecast.length >= 2) {
-                    try {
-                        const line = turf.lineString(st.forecast);
-                        const smoothed = turf.lineSpline(line, { resolution: 50 });
-                        smoothForecastCoords = smoothed.geometry.coordinates;
-                    } catch (e) {
-                        smoothForecastCoords = st.forecast;
-                    }
-                }
+                const smoothForecastCoords = smoothLineChaikin(st.forecast, 2);
 
                 // 誤差圈跟隨平滑曲線路徑
                 if (showEnvelope && st.forecastPoints && st.forecastPoints.length > 1) {
