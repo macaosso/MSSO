@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMCA GIS 颱風監控系統 - 向量圖資版</title>
+    <title>SMCA GIS 颱風監控系統 - 動態 CSV 載入版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,9 +49,9 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.5 修正版</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">動態 CSV 引擎 v6.0</span>
                 </h1>
-                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與多級強度軌跡追蹤系統</p>
+                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與 CSV 資料自動掛載系統</p>
             </div>
         </div>
 
@@ -84,20 +84,17 @@
             <div class="flex-1 overflow-y-auto p-4 space-y-5">
                 <!-- Storm Selector -->
                 <div class="space-y-2">
-                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統</label>
+                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統 (CSV 載入)</label>
                     <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition">
-                        <option value="all" selected>活動颱風系統 (全部)</option>
-                        <option value="maliksi">2026-03 瑪莉亞 (MALIKSI) - 颱風 (TY)</option>
-                        <option value="gaemi">2026-04 格美 (GAEMI) - 超強颱風 (SuTY)</option>
-                        <option value="prapiroon">2026-05 派比安 (PRAPIROON) - 熱帶風暴 (TS)</option>
+                        <option value="all" selected>載入中...</option>
                     </select>
                 </div>
 
                 <!-- Storm Stats Card -->
                 <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-3.5 space-y-3 shadow-inner">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                        <span id="storm-name" class="font-bold text-white text-sm">活動颱風系統 (全部)</span>
-                        <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">多系統監控</span>
+                        <span id="storm-name" class="font-bold text-white text-sm">檢查中...</span>
+                        <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">狀態</span>
                     </div>
                     <div id="storm-stats-content">
                         <!-- 動態填充統計或清單 -->
@@ -330,134 +327,117 @@
                 fullCone = safeUnion(fullCone, circlesFull[i]);
             }
 
-            let cone72 = null;
-            if (circles72.length > 0) {
-                cone72 = circles72[0];
-                for (let i = 1; i < circles72.length; i++) {
-                    cone72 = safeUnion(cone72, circles72[i]);
-                }
-            }
-
-            return { fullCone, cone72 };
+            return { fullCone };
         }
         // =========================================================================
 
-        const typhoons = {
-            maliksi: {
-                name: "MALIKSI (2026-03)",
-                category: "颱風 (TY)",
-                wind: "166 km/h",
-                movement: "西北 @ 22 km/h",
-                coords: "21.4°N, 122.1°E",
-                past: [
-                    { coord: [128.5, 16.2], wind: 35 },
-                    { coord: [127.0, 17.0], wind: 58 },
-                    { coord: [125.2, 18.1], wind: 75 },
-                    { coord: [123.8, 19.3], wind: 105 },
-                    { coord: [122.9, 20.2], wind: 135 },
-                    { coord: [122.1, 21.4], wind: 166 }
-                ],
-                pastCoordsOnly: [
-                    [128.5, 16.2], [127.0, 17.0], [125.2, 18.1], [123.8, 19.3], [122.9, 20.2], [122.1, 21.4]
-                ],
-                forecast: [
-                    [122.1, 21.4], [120.5, 22.6], [118.8, 23.9], [117.0, 25.5], [115.2, 27.2]
-                ],
-                forecastPoints: [
-                    { lon: 122.1, lat: 21.4, hour: 0, radius: 15 },
-                    { lon: 120.5, lat: 22.6, hour: 24, radius: 100 },
-                    { lon: 118.8, lat: 23.9, hour: 48, radius: 170 },
-                    { lon: 117.0, lat: 25.5, hour: 72, radius: 255 },
-                    { lon: 115.2, lat: 27.2, hour: 96, radius: 345 }
-                ],
-                nodes: [
-                    { coord: [128.5, 16.2], time: "5月24日 06:00", wind: "35 km/h", type: "LPA" },
-                    { coord: [127.0, 17.0], time: "5月24日 18:00", wind: "58 km/h", type: "TD" },
-                    { coord: [125.2, 18.1], time: "5月25日 06:00", wind: "75 km/h", type: "TS" },
-                    { coord: [123.8, 19.3], time: "5月25日 18:00", wind: "105 km/h", type: "STS" },
-                    { coord: [122.9, 20.2], time: "5月26日 06:00", wind: "135 km/h", type: "TY" },
-                    { coord: [122.1, 21.4], time: "5月26日 12:00", wind: "166 km/h (中心)", type: "STY" },
-                    { coord: [120.5, 22.6], time: "5月27日 00:00 (預報)", wind: "140 km/h", type: "TY" },
-                    { coord: [118.8, 23.9], time: "5月27日 12:00 (預報)", wind: "110 km/h", type: "STS" },
-                    { coord: [117.0, 25.5], time: "5月28日 00:00 (預報)", wind: "80 km/h", type: "TS" },
-                    { coord: [115.2, 27.2], time: "5月28日 12:00 (預報)", wind: "50 km/h", type: "TD" }
-                ]
-            },
-            gaemi: {
-                name: "GAEMI (2026-04)",
-                category: "超強颱風 (SuTY)",
-                wind: "215 km/h",
-                movement: "西北西 @ 18 km/h",
-                coords: "15.8°N, 132.4°E",
-                past: [
-                    { coord: [138.0, 12.0], wind: 65 },
-                    { coord: [136.2, 13.1], wind: 110 },
-                    { coord: [134.5, 14.2], wind: 165 },
-                    { coord: [132.4, 15.8], wind: 215 }
-                ],
-                pastCoordsOnly: [
-                    [138.0, 12.0], [136.2, 13.1], [134.5, 14.2], [132.4, 15.8]
-                ],
-                forecast: [
-                    [132.4, 15.8], [130.0, 17.5], [127.5, 19.2], [125.0, 21.0]
-                ],
-                forecastPoints: [
-                    { lon: 132.4, lat: 15.8, hour: 0, radius: 15 },
-                    { lon: 130.0, lat: 17.5, hour: 24, radius: 110 },
-                    { lon: 127.5, lat: 19.2, hour: 48, radius: 190 },
-                    { lon: 125.0, lat: 21.0, hour: 72, radius: 280 }
-                ],
-                nodes: [
-                    { coord: [138.0, 12.0], time: "5月25日 00:00", wind: "65 km/h", type: "TS" },
-                    { coord: [136.2, 13.1], time: "5月25日 12:00", wind: "110 km/h", type: "STS" },
-                    { coord: [134.5, 14.2], time: "5月26日 00:00", wind: "165 km/h", type: "STY" },
-                    { coord: [132.4, 15.8], time: "5月26日 12:00", wind: "215 km/h (中心)", type: "SuTY" },
-                    { coord: [130.0, 17.5], time: "5月27日 00:00 (預報)", wind: "195 km/h", type: "SuTY" },
-                    { coord: [127.5, 19.2], time: "5月27日 12:00 (預報)", wind: "170 km/h", type: "STY" },
-                    { coord: [125.0, 21.0], time: "5月28日 00:00 (預報)", wind: "140 km/h", type: "TY" }
-                ]
-            },
-            prapiroon: {
-                name: "PRAPIROON (2026-05)",
-                category: "熱帶風暴 (TS)",
-                wind: "75 km/h",
-                movement: "西北 @ 25 km/h",
-                coords: "10.2°N, 138.5°E",
-                past: [
-                    { coord: [142.0, 8.0], wind: 35 },
-                    { coord: [140.2, 9.1], wind: 55 },
-                    { coord: [138.5, 10.2], wind: 75 }
-                ],
-                pastCoordsOnly: [
-                    [142.0, 8.0], [140.2, 9.1], [138.5, 10.2]
-                ],
-                forecast: [
-                    [138.5, 10.2], [136.0, 11.8], [133.5, 13.5]
-                ],
-                forecastPoints: [
-                    { lon: 138.5, lat: 10.2, hour: 0, radius: 15 },
-                    { lon: 136.0, lat: 11.8, hour: 24, radius: 90 },
-                    { lon: 133.5, lat: 13.5, hour: 48, radius: 150 }
-                ],
-                nodes: [
-                    { coord: [142.0, 8.0], time: "5月26日 00:00", wind: "35 km/h", type: "LPA" },
-                    { coord: [140.2, 9.1], time: "5月26日 06:00", wind: "55 km/h", type: "TD" },
-                    { coord: [138.5, 10.2], time: "5月26日 12:00", wind: "75 km/h (中心)", type: "TS" },
-                    { coord: [136.0, 11.8], time: "5月27日 00:00 (預報)", wind: "90 km/h", type: "STS" },
-                    { coord: [133.5, 13.5], time: "5月27日 12:00 (預報)", wind: "105 km/h", type: "STS" }
-                ]
-            }
-        };
-
+        let typhoons = {};
         let currentStormKey = 'all';
         let myChart = null;
         let mapLoaded = false;
 
+        // 解析 CSV 轉換成颱風資料結構
+        function parseCSVToTyphoon(csvText, letter) {
+            const lines = csvText.split('\n');
+            let name = `Typhoon ${letter}`;
+            let category = "熱帶氣旋";
+            let wind = "0 km/h";
+            let movement = "未知";
+            let past = [];
+            let pastCoordsOnly = [];
+            let forecast = [];
+            let forecastPoints = [];
+            let nodes = [];
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('#')) continue;
+                const cols = line.split(',').map(c => c.trim());
+                const section = cols[0].toUpperCase();
+
+                if (section === 'META') {
+                    if (cols[1]) name = cols[1];
+                    if (cols[2]) category = cols[2];
+                    if (cols[3]) wind = cols[3];
+                    if (cols[4]) movement = cols[4];
+                } else if (section === 'PAST') {
+                    const lon = parseFloat(cols[6]);
+                    const lat = parseFloat(cols[7]);
+                    const w = parseFloat(cols[8]) || 35;
+                    if (!isNaN(lon) && !isNaN(lat)) {
+                        past.push({ coord: [lon, lat], wind: w });
+                        pastCoordsOnly.push([lon, lat]);
+                    }
+                } else if (section === 'NODE') {
+                    const time = cols[5] || '';
+                    const lon = parseFloat(cols[6]);
+                    const lat = parseFloat(cols[7]);
+                    const w = cols[8] || '35 km/h';
+                    const type = cols[10] || 'TD';
+                    if (!isNaN(lon) && !isNaN(lat)) {
+                        nodes.push({ coord: [lon, lat], time: time, wind: w, type: type });
+                    }
+                } else if (section === 'FORECAST') {
+                    const lon = parseFloat(cols[6]);
+                    const lat = parseFloat(cols[7]);
+                    const radius = parseFloat(cols[9]) || 50;
+                    const hour = parseFloat(cols[11]) || 0;
+                    if (!isNaN(lon) && !isNaN(lat)) {
+                        forecast.push([lon, lat]);
+                        forecastPoints.push({ lon, lat, hour, radius });
+                    }
+                }
+            }
+
+            if (past.length === 0) return null;
+
+            const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1];
+            const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : '';
+
+            return {
+                name,
+                category,
+                wind,
+                movement,
+                coords: coordsStr,
+                past,
+                pastCoordsOnly,
+                forecast: forecast.length > 0 ? forecast : pastCoordsOnly.slice(-1),
+                forecastPoints,
+                nodes: nodes.length > 0 ? nodes : past.map((p, i) => ({ coord: p.coord, time: `階段 ${i+1}`, wind: `${p.wind} km/h`, type: 'TD' }))
+            };
+        }
+
+        // 載入 A 到 F 的 CSV 檔案
+        async function loadAllTyphoonCSVs() {
+            const files = ['A', 'B', 'C', 'D', 'E', 'F'];
+            let loaded = {};
+
+            for (let f of files) {
+                try {
+                    const response = await fetch(`TC_data/${f}.csv`);
+                    if (!response.ok) continue;
+                    const text = await response.text();
+                    if (!text || text.trim() === '') continue;
+
+                    const stormData = parseCSVToTyphoon(text, f);
+                    if (stormData) {
+                        loaded[f.toLowerCase()] = stormData;
+                    }
+                } catch (err) {
+                    console.log(`TC_data/${f}.csv 無內容或略過`);
+                }
+            }
+            return loaded;
+        }
+
         function getStormBounds(stKey) {
-            if (stKey === 'all') {
+            if (stKey === 'all' || Object.keys(typhoons).length === 0) {
                 return { center: [122, 20], zoom: 4.2 };
             }
             const st = typhoons[stKey];
+            if (!st) return { center: [122, 20], zoom: 4.2 };
+            
             let allCoords = [];
             if (st.pastCoordsOnly) allCoords = allCoords.concat(st.pastCoordsOnly);
             if (st.forecast) allCoords = allCoords.concat(st.forecast);
@@ -492,17 +472,21 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 GIS 向量圖資與 Turf.js 拓樸...',
+                text: '載入 GIS 向量圖資與解析 CSV 檔案...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(8, 16, 26, 0.9)',
                 zlevel: 0
             });
 
+            // 非同步載入 CSV 與 地圖圖資
             try {
-                const response = await fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson');
-                const worldJson = await response.json();
-                
+                const [worldResp, csvTyphoons] = await Promise.all([
+                    fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson'),
+                    loadAllTyphoonCSVs()
+                ]);
+
+                const worldJson = await worldResp.json();
                 if (worldJson && worldJson.features) {
                     worldJson.features.forEach(feat => {
                         if (feat.properties) {
@@ -513,29 +497,39 @@
                 }
 
                 echarts.registerMap('world50m', worldJson);
+                typhoons = csvTyphoons;
                 mapLoaded = true;
                 myChart.hideLoading();
+                
+                updateStormSelectUI();
                 renderChart(true);
             } catch (e) {
-                console.error('Failed to load Natural Earth GeoJSON, attempting fallback...', e);
-                try {
-                    const fallbackResp = await fetch('https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/json/world.json');
-                    const fallbackJson = await fallbackResp.json();
-                    echarts.registerMap('world50m', fallbackJson);
-                    mapLoaded = true;
-                    myChart.hideLoading();
-                    renderChart(true);
-                } catch (err2) {
-                    console.error('All map sources failed', err2);
-                    echarts.registerMap('world50m', { type: 'FeatureCollection', features: [] });
-                    mapLoaded = true;
-                    myChart.hideLoading();
-                    renderChart(true);
-                }
+                console.error('初始化失敗:', e);
+                myChart.hideLoading();
+                typhoons = {};
+                updateStormSelectUI();
+                renderChart(true);
             }
 
             window.addEventListener('resize', () => {
                 myChart.resize();
+            });
+        }
+
+        function updateStormSelectUI() {
+            const selectEl = document.getElementById('storm-select');
+            selectEl.innerHTML = '';
+
+            const keys = Object.keys(typhoons);
+            if (keys.length === 0) {
+                selectEl.innerHTML = `<option value="none">無活躍系統</option>`;
+                return;
+            }
+
+            selectEl.innerHTML = `<option value="all" selected>活動颱風系統 (全部 - ${keys.length}個)</option>`;
+            keys.forEach(k => {
+                const st = typhoons[k];
+                selectEl.innerHTML += `<option value="${k}">${st.name} - ${st.category}</option>`;
             });
         }
 
@@ -577,6 +571,7 @@
             const showGrid = document.getElementById('layer-grid').checked;
 
             const seriesList = [];
+            const keys = Object.keys(typhoons);
 
             // 1. 全球經緯網格
             if (showGrid) {
@@ -676,7 +671,7 @@
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
-                if (showEnvelope && st.forecastPoints) {
+                if (showEnvelope && st.forecastPoints && st.forecastPoints.length > 1) {
                     const cones = makeSplitCone(st.forecastPoints);
                     if (cones.fullCone) {
                         addTurfPolygonSeries(cones.fullCone, seriesList, {
@@ -721,7 +716,7 @@
                     });
                 }
 
-                if (showForecast && st.forecast) {
+                if (showForecast && st.forecast && st.forecast.length > 0) {
                     seriesList.push({
                         type: 'lines',
                         coordinateSystem: 'geo',
@@ -779,12 +774,12 @@
                 }
             };
 
-            if (currentStormKey === 'all') {
-                renderTyphoonTracks(typhoons.maliksi);
-                renderTyphoonTracks(typhoons.gaemi);
-                renderTyphoonTracks(typhoons.prapiroon);
-            } else if (typhoons[currentStormKey]) {
-                renderTyphoonTracks(typhoons[currentStormKey]);
+            if (keys.length > 0) {
+                if (currentStormKey === 'all') {
+                    keys.forEach(k => renderTyphoonTracks(typhoons[k]));
+                } else if (typhoons[currentStormKey]) {
+                    renderTyphoonTracks(typhoons[currentStormKey]);
+                }
             }
 
             if (showMacau) {
@@ -814,8 +809,26 @@
 
             const bounds = getStormBounds(currentStormKey);
 
+            // 如果沒有任何熱帶氣旋資料，顯示無熱帶氣旋提示標語
+            let graphicItems = [];
+            if (keys.length === 0) {
+                graphicItems = [{
+                    type: 'text',
+                    left: 'center',
+                    top: 'center',
+                    style: {
+                        text: '當前西北太平洋沒有熱帶氣旋活躍',
+                        fill: '#94a3b8',
+                        fontSize: 18,
+                        fontWeight: 'bold',
+                        fontFamily: 'sans-serif'
+                    }
+                }];
+            }
+
             const option = {
                 backgroundColor: '#08101a',
+                graphic: graphicItems,
                 geo: {
                     map: 'world50m',
                     roam: true,
@@ -876,12 +889,19 @@
 
             const stormStatsContent = document.getElementById('storm-stats-content');
             
+            if (keys.length === 0) {
+                document.getElementById('storm-name').innerText = "無活動系統";
+                document.getElementById('storm-category').innerText = "正常";
+                stormStatsContent.innerHTML = `<div class="text-center text-slate-400 py-3 text-xs">當前西北太平洋沒有熱帶氣旋活躍</div>`;
+                return;
+            }
+
             if (currentStormKey === 'all') {
                 document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
-                document.getElementById('storm-category').innerText = "共 3 個系統監控中";
+                document.getElementById('storm-category').innerText = `共 ${keys.length} 個系統監控中`;
                 
                 let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
-                ['maliksi', 'gaemi', 'prapiroon'].forEach(key => {
+                keys.forEach(key => {
                     const st = typhoons[key];
                     const tLon = st.pastCoordsOnly[st.pastCoordsOnly.length - 1][0];
                     const tLat = st.pastCoordsOnly[st.pastCoordsOnly.length - 1][1];
@@ -904,6 +924,7 @@
                 stormStatsContent.innerHTML = listHtml;
             } else {
                 const storm = typhoons[currentStormKey];
+                if (!storm) return;
                 document.getElementById('storm-name').innerText = storm.name;
                 document.getElementById('storm-category').innerText = storm.category;
                 
