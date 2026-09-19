@@ -49,7 +49,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.3 錐狀誤差版</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.4 動態清單版</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與多級強度軌跡追蹤系統</p>
             </div>
@@ -99,23 +99,8 @@
                         <span id="storm-name" class="font-bold text-white text-sm">活動颱風系統 (全部)</span>
                         <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">多系統監控</span>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">最大風速</span>
-                            <span id="stat-wind" class="font-mono text-amber-400 font-bold text-sm">綜合展示</span>
-                        </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">當前座標</span>
-                            <span id="stat-coords" class="font-mono text-slate-200 font-bold text-[11px]">區域預覽</span>
-                        </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">移動路徑</span>
-                            <span id="stat-movement" class="font-mono text-slate-200 font-bold text-[11px]">多路徑</span>
-                        </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">距離澳門</span>
-                            <span id="stat-distance" class="font-mono text-cyan-400 font-bold text-[11px]">多系統區域預覽</span>
-                        </div>
+                    <div id="storm-stats-content">
+                        <!-- 動態填充統計或清單 -->
                     </div>
                 </div>
 
@@ -287,7 +272,7 @@
             return coords;
         }
 
-        // ================= 用戶提供的錐狀誤差圈邏輯 (Turf.js 整合) =================
+        // ================= 錐狀誤差圈邏輯 (Turf.js 整合) =================
         function generateConePoints(points, stepsPerSegment = 25) {
             const valid = points.filter(p => p.radius !== null && p.radius !== undefined && !isNaN(p.radius));
             if (valid.length < 2) return [];
@@ -375,15 +360,6 @@
         // =========================================================================
 
         const typhoons = {
-            all: {
-                name: "活動颱風系統 (全部)",
-                category: "多系統監控",
-                wind: "綜合展示",
-                movement: "多路徑",
-                coords: "西北太平洋區域",
-                center: [122, 20],
-                zoom: 4.2  // 加大預設全覽縮放
-            },
             maliksi: {
                 name: "MALIKSI (2026-03)",
                 category: "颱風 (TY)",
@@ -404,7 +380,6 @@
                 forecast: [
                     [122.1, 21.4], [120.5, 22.6], [118.8, 23.9], [117.0, 25.5], [115.2, 27.2]
                 ],
-                // 帶有 radius 與 hour 的結構，供 makeSplitCone 使用
                 forecastPoints: [
                     { lon: 122.1, lat: 21.4, hour: 0, radius: 15 },
                     { lon: 120.5, lat: 22.6, hour: 24, radius: 100 },
@@ -497,7 +472,7 @@
 
         function getStormBounds(stKey) {
             if (stKey === 'all') {
-                return { center: [122, 20], zoom: 4.2 }; // 更大的預設全覽
+                return { center: [122, 20], zoom: 4.2 };
             }
             const st = typhoons[stKey];
             let allCoords = [];
@@ -517,7 +492,6 @@
             const latSpan = maxLat - minLat;
             const maxSpan = Math.max(lonSpan, latSpan, 1.0);
             
-            // 提高縮放系數，讓單一颱風預設顯示得更大更近
             let zoom = Math.min(10.0, Math.max(6.0, 360 / (maxSpan * 3.8)));
             return { center, zoom };
         }
@@ -582,7 +556,6 @@
             });
         }
 
-        // 協助將 Turf Polygon 轉換為 ECharts Custom Series 繪製
         function addTurfPolygonSeries(turfPoly, seriesList, styleOpts) {
             if (!turfPoly || !turfPoly.geometry) return;
             const geom = turfPoly.geometry;
@@ -612,7 +585,6 @@
         function renderChart(isStormSwitch = false) {
             if (!myChart) return;
             
-            const storm = typhoons[currentStormKey];
             const showPast = document.getElementById('layer-past').checked;
             const showForecast = document.getElementById('layer-forecast').checked;
             const showEnvelope = document.getElementById('layer-envelope').checked;
@@ -623,7 +595,7 @@
 
             const seriesList = [];
 
-            // 1. 全球經緯網格 (填滿整張地圖)
+            // 1. 全球經緯網格
             if (showGrid) {
                 const minorLines = [];
                 for (let lon = -180; lon <= 180; lon += 5) {
@@ -721,7 +693,6 @@
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
-                // 使用使用者提供的 makeSplitCone 繪製錐狀誤差範圍
                 if (showEnvelope && st.forecastPoints) {
                     const cones = makeSplitCone(st.forecastPoints);
                     if (cones.fullCone) {
@@ -847,12 +818,13 @@
                 }
             };
 
+            // 嚴格控制：僅當選定 'all' 時渲染全部；若選定特定系統則【只渲染該特定系統】
             if (currentStormKey === 'all') {
                 renderTyphoonTracks(typhoons.maliksi);
                 renderTyphoonTracks(typhoons.gaemi);
                 renderTyphoonTracks(typhoons.prapiroon);
-            } else {
-                renderTyphoonTracks(storm);
+            } else if (typhoons[currentStormKey]) {
+                renderTyphoonTracks(typhoons[currentStormKey]);
             }
 
             if (showMacau) {
@@ -935,18 +907,64 @@
                 console.error("ECharts setOption error:", err);
             }
 
-            document.getElementById('storm-name').innerText = storm.name;
-            document.getElementById('storm-category').innerText = storm.category;
-            document.getElementById('stat-wind').innerText = storm.wind;
-            document.getElementById('stat-coords').innerText = storm.coords;
-            document.getElementById('stat-movement').innerText = storm.movement;
-
+            // 動態更新側邊欄控制面板數據（區分「全部」與「單一系統」）
+            const stormStatsContent = document.getElementById('storm-stats-content');
+            
             if (currentStormKey === 'all') {
-                document.getElementById('stat-distance').innerText = "多系統區域預覽";
+                document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
+                document.getElementById('storm-category').innerText = "共 3 個系統監控中";
+                
+                let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
+                ['maliksi', 'gaemi', 'prapiroon'].forEach(key => {
+                    const st = typhoons[key];
+                    const tLon = st.pastCoordsOnly[st.pastCoordsOnly.length - 1][0];
+                    const tLat = st.pastCoordsOnly[st.pastCoordsOnly.length - 1][1];
+                    const dist = getDistanceAndDirectionToMacau(tLon, tLat);
+                    listHtml += `
+                        <div class="bg-slate-800/60 border border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1">
+                            <div class="flex justify-between items-center font-bold text-white">
+                                <span>${st.name}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">${st.category}</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 text-[10px] text-slate-300 font-mono">
+                                <div>風速: <span class="text-amber-400 font-bold">${st.wind}</span></div>
+                                <div>座標: <span class="text-slate-200">${st.coords}</span></div>
+                                <div>距澳: <span class="text-cyan-400 font-bold">${dist}</span></div>
+                            </div>
+                        </div>
+                    `;
+                });
+                listHtml += '</div>';
+                stormStatsContent.innerHTML = listHtml;
             } else {
+                const storm = typhoons[currentStormKey];
+                document.getElementById('storm-name').innerText = storm.name;
+                document.getElementById('storm-category').innerText = storm.category;
+                
                 const tLon = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][0];
                 const tLat = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][1];
-                document.getElementById('stat-distance').innerText = getDistanceAndDirectionToMacau(tLon, tLat);
+                const dist = getDistanceAndDirectionToMacau(tLon, tLat);
+
+                stormStatsContent.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">最大風速</span>
+                            <span class="font-mono text-amber-400 font-bold text-sm">${storm.wind}</span>
+                        </div>
+                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">當前座標</span>
+                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
+                        </div>
+                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">移動路徑</span>
+                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
+                        </div>
+                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">距離澳門</span>
+                            <span class="font-mono text-cyan-400 font-bold text-[11px]">${dist}</span>
+                        </div>
+                    </div>
+                `;
             }
         }
 
