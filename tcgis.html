@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- Turf.js Spatial Analysis Library for Cone Envelopes -->
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <style>
         body {
             background-color: #08101a;
@@ -47,9 +49,9 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.2 繁體中文版</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.3 錐狀誤差版</span>
                 </h1>
-                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Plate Carrée 投影與多級強度軌跡追蹤系統</p>
+                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與多級強度軌跡追蹤系統</p>
             </div>
         </div>
 
@@ -140,7 +142,7 @@
                         <label class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition">
                             <div class="flex items-center space-x-2.5">
                                 <i class="fa-solid fa-shield-halved text-blue-400 w-4"></i>
-                                <span class="text-slate-200 font-medium">72小時預報誤差範圍 (Error Envelope)</span>
+                                <span class="text-slate-200 font-medium">Turf.js 錐狀誤差範圍 (Cone Envelope)</span>
                             </div>
                             <input type="checkbox" id="layer-envelope" checked onchange="updateChartLayers()" class="rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-blue-500">
                         </label>
@@ -181,15 +183,15 @@
             </div>
 
             <div class="p-3 border-t border-slate-800 text-center text-[11px] text-slate-500">
-                SMCA GIS 向量引擎 • 嚴格單一國家懸停高亮
+                SMCA GIS 向量引擎 • Turf.js 空間拓樸運算
             </div>
         </aside>
 
-        <!-- 加入 min-h-0 min-w-0 確保 flex 子元件正確撐滿全螢幕 -->
+        <!-- 主地圖畫布區 -->
         <main class="flex-1 relative h-full bg-[#08101a] min-h-0 min-w-0 flex flex-col">
             <div id="echarts-map" class="w-full h-full flex-1"></div>
 
-            <!-- Intensity Table Legend Overlay -->
+            <!-- 強度分級圖例 -->
             <div class="absolute bottom-6 right-6 z-20 bg-[#0b1322]/90 backdrop-blur-md border border-slate-800 p-3.5 rounded-xl shadow-xl text-xs space-y-2 pointer-events-none hidden sm:block max-w-xs">
                 <div class="font-bold text-slate-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                     <i class="fa-solid fa-palette text-blue-400"></i> 強度分級 (TC_INTENSITY_TABLE)
@@ -219,8 +221,6 @@
             {"code": "STY",  "name": "強颱風",           "engName": "Severe Typhoon",         "max_wind": 184,  "rangeText": "150 - 184 km/h","color": "#FF6F6F"},
             {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#DE82FF"}
         ];
-
-        const FORECAST_RADII_KM = [15, 100, 170, 255, 345, 465];
 
         function getIntensity(windKmh) {
             for (let item of TC_INTENSITY_TABLE) {
@@ -287,47 +287,92 @@
             return coords;
         }
 
-        function generateErrorEnvelopePolygon(forecastCoords, radii) {
-            if (!forecastCoords || forecastCoords.length === 0) return [];
-            const leftSide = [];
-            const rightSide = [];
-            const R_earth = 6371;
-            const highResPoints = 64;
+        // ================= 用戶提供的錐狀誤差圈邏輯 (Turf.js 整合) =================
+        function generateConePoints(points, stepsPerSegment = 25) {
+            const valid = points.filter(p => p.radius !== null && p.radius !== undefined && !isNaN(p.radius));
+            if (valid.length < 2) return [];
 
-            for (let i = 0; i < forecastCoords.length; i++) {
-                const [lon, lat] = forecastCoords[i];
-                const r = radii[i] || radii[radii.length - 1];
-                
-                let angle = 0;
-                if (i < forecastCoords.length - 1) {
-                    const [nextLon, nextLat] = forecastCoords[i+1];
-                    angle = Math.atan2(nextLat - lat, nextLon - lon);
-                } else if (i > 0) {
-                    const [prevLon, prevLat] = forecastCoords[i-1];
-                    angle = Math.atan2(lat - prevLat, lon - prevLon);
+            let result = [];
+            for (let i = 0; i < valid.length - 1; i++) {
+                const p1 = valid[i];
+                const p2 = valid[i + 1];
+                const maxJ = (i === valid.length - 2) ? stepsPerSegment : stepsPerSegment - 1;
+
+                for (let j = 0; j <= maxJ; j++) {
+                    const t = j / stepsPerSegment;
+                    const lat = p1.lat + t * (p2.lat - p1.lat);
+                    const lon = p1.lon + t * (p2.lon - p1.lon);
+                    const hour = p1.hour + t * (p2.hour - p1.hour);
+                    const radius = p1.radius + t * (p2.radius - p1.radius);
+
+                    result.push({ lat, lon, hour, radius });
                 }
-                
-                const perpAngle = angle + Math.PI / 2;
-                const dLat = (r / R_earth) * (180 / Math.PI);
-                const dLon = (r / R_earth) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
-                
-                leftSide.push([
-                    lon + dLon * Math.cos(perpAngle),
-                    lat + dLat * Math.sin(perpAngle)
-                ]);
-                rightSide.unshift([
-                    lon - dLon * Math.cos(perpAngle),
-                    lat - dLat * Math.sin(perpAngle)
-                ]);
             }
-            
-            const startPoint = forecastCoords[0];
-            const startCircle = generateCircleCoords(startPoint[0], startPoint[1], radii[0] || 15, highResPoints);
-            const endPoint = forecastCoords[forecastCoords.length - 1];
-            const endCircle = generateCircleCoords(endPoint[0], endPoint[1], radii[forecastCoords.length - 1] || 465, highResPoints);
-            
-            return [...leftSide, ...endCircle, ...rightSide, ...startCircle];
+            return result;
         }
+
+        function catmullRom2bezier(points) {
+            if (!points || points.length === 0) return [];
+            let path = ["M", [points[0].lat, points[0].lon]];
+
+            for (let i = 0; i < points.length - 1; i++) {
+                let p0 = points[i - 1] || points[i];
+                let p1 = points[i];
+                let p2 = points[i + 1];
+                let p3 = points[i + 2] || p2;
+
+                let cp1 = [p1.lat + (p2.lat - p0.lat) / 6, p1.lon + (p2.lon - p0.lon) / 6];
+                let cp2 = [p2.lat - (p3.lat - p1.lat) / 6, p2.lon - (p3.lon - p1.lon) / 6];
+                path.push("C", cp1, cp2, [p2.lat, p2.lon]);
+            }
+            return path;
+        }
+
+        function safeUnion(p1, p2) {
+            if (!p1) return p2;
+            if (!p2) return p1;
+            try {
+                return turf.union(turf.featureCollection([p1, p2]));
+            } catch (e) {
+                try { return turf.union(p1, p2); } catch (err) { return p1; }
+            }
+        }
+
+        function makeSplitCone(points) {
+            const interpolated = generateConePoints(points, 25);
+            if (interpolated.length < 2) return { fullCone: null, cone72: null };
+
+            let circlesFull = [];
+            let circles72 = [];
+
+            for (let p of interpolated) {
+                if (p.radius > 0) {
+                    const circle = turf.buffer(turf.point([p.lon, p.lat]), p.radius, { units: "kilometers", steps: 32 });
+                    circlesFull.push(circle);
+                    if (p.hour <= 72) {
+                        circles72.push(circle);
+                    }
+                }
+            }
+
+            if (circlesFull.length === 0) return { fullCone: null, cone72: null };
+
+            let fullCone = circlesFull[0];
+            for (let i = 1; i < circlesFull.length; i++) {
+                fullCone = safeUnion(fullCone, circlesFull[i]);
+            }
+
+            let cone72 = null;
+            if (circles72.length > 0) {
+                cone72 = circles72[0];
+                for (let i = 1; i < circles72.length; i++) {
+                    cone72 = safeUnion(cone72, circles72[i]);
+                }
+            }
+
+            return { fullCone, cone72 };
+        }
+        // =========================================================================
 
         const typhoons = {
             all: {
@@ -336,8 +381,8 @@
                 wind: "綜合展示",
                 movement: "多路徑",
                 coords: "西北太平洋區域",
-                center: [126, 20],
-                zoom: 2.8  // 提高預設全覽縮放，避免看起來太小
+                center: [122, 20],
+                zoom: 4.2  // 加大預設全覽縮放
             },
             maliksi: {
                 name: "MALIKSI (2026-03)",
@@ -358,6 +403,14 @@
                 ],
                 forecast: [
                     [122.1, 21.4], [120.5, 22.6], [118.8, 23.9], [117.0, 25.5], [115.2, 27.2]
+                ],
+                // 帶有 radius 與 hour 的結構，供 makeSplitCone 使用
+                forecastPoints: [
+                    { lon: 122.1, lat: 21.4, hour: 0, radius: 15 },
+                    { lon: 120.5, lat: 22.6, hour: 24, radius: 100 },
+                    { lon: 118.8, lat: 23.9, hour: 48, radius: 170 },
+                    { lon: 117.0, lat: 25.5, hour: 72, radius: 255 },
+                    { lon: 115.2, lat: 27.2, hour: 96, radius: 345 }
                 ],
                 nodes: [
                     { coord: [128.5, 16.2], time: "5月24日 06:00", wind: "35 km/h", type: "LPA" },
@@ -390,6 +443,12 @@
                 forecast: [
                     [132.4, 15.8], [130.0, 17.5], [127.5, 19.2], [125.0, 21.0]
                 ],
+                forecastPoints: [
+                    { lon: 132.4, lat: 15.8, hour: 0, radius: 15 },
+                    { lon: 130.0, lat: 17.5, hour: 24, radius: 110 },
+                    { lon: 127.5, lat: 19.2, hour: 48, radius: 190 },
+                    { lon: 125.0, lat: 21.0, hour: 72, radius: 280 }
+                ],
                 nodes: [
                     { coord: [138.0, 12.0], time: "5月25日 00:00", wind: "65 km/h", type: "TS" },
                     { coord: [136.2, 13.1], time: "5月25日 12:00", wind: "110 km/h", type: "STS" },
@@ -417,6 +476,11 @@
                 forecast: [
                     [138.5, 10.2], [136.0, 11.8], [133.5, 13.5]
                 ],
+                forecastPoints: [
+                    { lon: 138.5, lat: 10.2, hour: 0, radius: 15 },
+                    { lon: 136.0, lat: 11.8, hour: 24, radius: 90 },
+                    { lon: 133.5, lat: 13.5, hour: 48, radius: 150 }
+                ],
                 nodes: [
                     { coord: [142.0, 8.0], time: "5月26日 00:00", wind: "35 km/h", type: "LPA" },
                     { coord: [140.2, 9.1], time: "5月26日 06:00", wind: "55 km/h", type: "TD" },
@@ -433,13 +497,13 @@
 
         function getStormBounds(stKey) {
             if (stKey === 'all') {
-                return { center: [126, 20], zoom: 2.8 }; // 舒適的預設全覽大小
+                return { center: [122, 20], zoom: 4.2 }; // 更大的預設全覽
             }
             const st = typhoons[stKey];
             let allCoords = [];
             if (st.pastCoordsOnly) allCoords = allCoords.concat(st.pastCoordsOnly);
             if (st.forecast) allCoords = allCoords.concat(st.forecast);
-            if (allCoords.length === 0) return { center: [126, 20], zoom: 3.5 };
+            if (allCoords.length === 0) return { center: [122, 20], zoom: 5.5 };
 
             let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
             allCoords.forEach(c => {
@@ -452,7 +516,9 @@
             const lonSpan = maxLon - minLon;
             const latSpan = maxLat - minLat;
             const maxSpan = Math.max(lonSpan, latSpan, 1.0);
-            let zoom = Math.min(8.0, Math.max(4.0, 360 / (maxSpan * 7))); // 提高預設縮放係數，避免太小
+            
+            // 提高縮放系數，讓單一颱風預設顯示得更大更近
+            let zoom = Math.min(10.0, Math.max(6.0, 360 / (maxSpan * 3.8)));
             return { center, zoom };
         }
 
@@ -469,7 +535,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 GIS 向量圖資 (50m 高解析度)...',
+                text: '載入 GIS 向量圖資與 Turf.js 拓樸...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(8, 16, 26, 0.9)',
@@ -513,6 +579,33 @@
 
             window.addEventListener('resize', () => {
                 myChart.resize();
+            });
+        }
+
+        // 協助將 Turf Polygon 轉換為 ECharts Custom Series 繪製
+        function addTurfPolygonSeries(turfPoly, seriesList, styleOpts) {
+            if (!turfPoly || !turfPoly.geometry) return;
+            const geom = turfPoly.geometry;
+            const coordsList = geom.type === 'Polygon' ? [geom.coordinates[0]] : 
+                               geom.type === 'MultiPolygon' ? geom.coordinates.map(poly => poly[0]) : [];
+            
+            coordsList.forEach(ring => {
+                seriesList.push({
+                    type: 'custom',
+                    coordinateSystem: 'geo',
+                    z: 2.5,
+                    data: [[0]],
+                    renderItem: function(params, api) {
+                        const points = ring.map(coord => api.coord(coord));
+                        if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) return;
+                        return {
+                            type: 'polygon',
+                            shape: { points: points },
+                            style: styleOpts
+                        };
+                    },
+                    silent: true
+                });
             });
         }
 
@@ -628,30 +721,15 @@
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
-                if (showEnvelope && st.forecast) {
-                    const envelopeCoords = generateErrorEnvelopePolygon(st.forecast, FORECAST_RADII_KM);
-                    if (envelopeCoords.length > 0) {
-                        seriesList.push({
-                            type: 'custom',
-                            coordinateSystem: 'geo',
-                            z: 2.5,
-                            data: [[0]],
-                            renderItem: function(params, api) {
-                                const points = envelopeCoords.map(coord => api.coord(coord));
-                                if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) return;
-                                
-                                return {
-                                    type: 'polygon',
-                                    shape: { points: points },
-                                    style: {
-                                        fill: 'rgba(56, 189, 248, 0.12)',
-                                        stroke: 'rgba(56, 189, 248, 0.4)',
-                                        lineWidth: 1.0,
-                                        lineDash: [3, 3]
-                                    }
-                                };
-                            },
-                            silent: true
+                // 使用使用者提供的 makeSplitCone 繪製錐狀誤差範圍
+                if (showEnvelope && st.forecastPoints) {
+                    const cones = makeSplitCone(st.forecastPoints);
+                    if (cones.fullCone) {
+                        addTurfPolygonSeries(cones.fullCone, seriesList, {
+                            fill: 'rgba(56, 189, 248, 0.12)',
+                            stroke: 'rgba(56, 189, 248, 0.45)',
+                            lineWidth: 1.2,
+                            lineDash: [3, 3]
                         });
                     }
                 }
