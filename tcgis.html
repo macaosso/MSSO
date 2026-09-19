@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.2</title>
+    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,7 +49,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.2</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.3</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -58,7 +58,7 @@
         <div class="flex items-center space-x-4">
             <div class="hidden md:flex items-center space-x-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-slate-300 font-medium">系統時間: <span id="utc-clock" class="font-mono text-cyan-400">00:00:00 UTC</span></span>
+                <span class="text-slate-300 font-medium">系統時間: <span id="utc-clock" class="font-mono text-cyan-400">00:00 MST</span></span>
             </div>
             <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm border border-slate-700 transition">
                 <i class="fa-solid fa-bars mr-1"></i> 控制面板
@@ -122,10 +122,16 @@
     </div>
 
     <script>
-        setInterval(() => {
+        function updateClock() {
             const now = new Date();
-            document.getElementById('utc-clock').innerText = now.toUTCString().slice(17, 25) + " UTC";
-        }, 1000);
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const gmt8 = new Date(utc + (3600000 * 8));
+            const hours = String(gmt8.getHours()).padStart(2, '0');
+            const minutes = String(gmt8.getMinutes()).padStart(2, '0');
+            document.getElementById('utc-clock').innerText = `${hours}:${minutes} MST`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
 
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -211,7 +217,6 @@
         function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
             if (!coords || coords.length < 2) return coords;
             
-            // 擴充頭尾以支援奇異點內插
             let pts = [coords[0], ...coords, coords[coords.length - 1]];
             let smooth = [];
 
@@ -239,7 +244,6 @@
                     smooth.push([x, y]);
                 }
             }
-            // 確保最後一點準確到達
             smooth.push(coords[coords.length - 1]);
             return smooth;
         }
@@ -275,7 +279,6 @@
         function makeSplitCone(points, forecastCoords) {
             if (!forecastCoords || forecastCoords.length < 2) return { fullCone: null };
 
-            // 使用極高密度的平滑曲線座標，讓誤差圈極度滑順
             const smoothCoords = smoothLineCatmullRom(forecastCoords, 30);
 
             let origDistances = [0];
@@ -314,7 +317,6 @@
 
                 const radius = getRadiusForHour(hour);
                 if (radius > 0) {
-                    // steps 設定為 64，確保每一個圓圈的邊緣極度平滑無鋸齒
                     const circle = turf.buffer(turf.point(coord), radius, { units: "kilometers", steps: 64 });
                     circlesFull.push(circle);
                 }
@@ -417,6 +419,7 @@
                 category: categoryDesc,
                 intensityObj,
                 wind: `${currentMeta.wind} km/h`,
+                time: currentMeta.time,
                 movement: "西北 @ 22 km/h",
                 coords: coordsStr,
                 past,
@@ -688,10 +691,8 @@
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
-                // 產生精準穿過預報節點的平滑曲線座標
                 const smoothForecastCoords = smoothLineCatmullRom(st.forecast, 30);
 
-                // 誤差圈跟隨平滑曲線路徑
                 if (showEnvelope && st.forecastPoints && st.forecastPoints.length > 1) {
                     const cones = makeSplitCone(st.forecastPoints, st.forecast);
                     if (cones.fullCone) {
@@ -737,7 +738,6 @@
                     });
                 }
 
-                // 繪製平滑曲線預報路徑
                 if (showForecast && smoothForecastCoords && smoothForecastCoords.length > 0) {
                     seriesList.push({
                         type: 'lines',
@@ -942,9 +942,10 @@
                                 <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.category}</span>
                             </div>
                             <div class="space-y-1 text-[11px] text-slate-300 font-mono">
-                                <div>風速: <span class="text-amber-400 font-bold">${st.wind}</span></div>
+                                <div>時間: <span class="text-slate-200">${st.time || '-'}</span></div>
+                                <div>風速: <span class="text-slate-200">${st.wind}</span></div>
                                 <div>座標: <span class="text-slate-200">${st.coords}</span></div>
-                                <div>距澳: <span class="text-cyan-400 font-bold">${dist}</span></div>
+                                <div>距離澳門: <span class="text-slate-200">${dist}</span></div>
                             </div>
                         </div>
                     `;
@@ -969,8 +970,12 @@
                 stormStatsContent.innerHTML = `
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">資料時間</span>
+                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
+                        </div>
+                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                             <span class="text-slate-400 block text-[10px]">當前風速</span>
-                            <span class="font-mono text-amber-400 font-bold text-sm">${storm.wind}</span>
+                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind}</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                             <span class="text-slate-400 block text-[10px]">當前座標</span>
@@ -980,9 +985,9 @@
                             <span class="text-slate-400 block text-[10px]">預報路徑</span>
                             <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                         </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800 col-span-2">
                             <span class="text-slate-400 block text-[10px]">距離澳門</span>
-                            <span class="font-mono text-cyan-400 font-bold text-[11px]">${dist}</span>
+                            <span class="font-mono text-slate-200 font-bold text-[11px]">${dist}</span>
                         </div>
                     </div>
                 `;
