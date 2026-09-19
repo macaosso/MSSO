@@ -47,7 +47,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.0 繁體中文版</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.1 繁體中文版</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Plate Carrée 投影與多級強度軌跡追蹤系統</p>
             </div>
@@ -294,12 +294,13 @@
             return coords;
         }
 
-        // Helper to generate Error Envelope Polygon along forecast track
+        // 升級版：高解析度與平滑圓弧邊緣的預報誤差範圍（Error Envelope）生成函數
         function generateErrorEnvelopePolygon(forecastCoords, radii) {
             if (!forecastCoords || forecastCoords.length === 0) return [];
             const leftSide = [];
             const rightSide = [];
             const R_earth = 6371;
+            const highResPoints = 64; // 提高圓弧平滑度
 
             for (let i = 0; i < forecastCoords.length; i++) {
                 const [lon, lat] = forecastCoords[i];
@@ -318,19 +319,20 @@
                 const dLat = (r / R_earth) * (180 / Math.PI);
                 const dLon = (r / R_earth) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
                 
-                const leftLon = lon + dLon * Math.cos(perpAngle);
-                const leftLat = lat + dLat * Math.sin(perpAngle);
-                const rightLon = lon - dLon * Math.cos(perpAngle);
-                const rightLat = lat - dLat * Math.sin(perpAngle);
-                
-                leftSide.push([leftLon, leftLat]);
-                rightSide.unshift([rightLon, rightLat]);
+                leftSide.push([
+                    lon + dLon * Math.cos(perpAngle),
+                    lat + dLat * Math.sin(perpAngle)
+                ]);
+                rightSide.unshift([
+                    lon - dLon * Math.cos(perpAngle),
+                    lat - dLat * Math.sin(perpAngle)
+                ]);
             }
             
             const startPoint = forecastCoords[0];
-            const startCircle = generateCircleCoords(startPoint[0], startPoint[1], radii[0] || 15, 16);
+            const startCircle = generateCircleCoords(startPoint[0], startPoint[1], radii[0] || 15, highResPoints);
             const endPoint = forecastCoords[forecastCoords.length - 1];
-            const endCircle = generateCircleCoords(endPoint[0], endPoint[1], radii[forecastCoords.length - 1] || 465, 16);
+            const endCircle = generateCircleCoords(endPoint[0], endPoint[1], radii[forecastCoords.length - 1] || 465, highResPoints);
             
             return [...leftSide, ...endCircle, ...rightSide, ...startCircle];
         }
@@ -433,12 +435,10 @@
             }
         };
 
-        // 預設為全部系統
         let currentStormKey = 'all';
         let myChart = null;
         let mapLoaded = false;
 
-        // 計算特定颱風包含過往與預報軌跡的最適邊界與最大縮放
         function getStormBounds(stKey) {
             if (stKey === 'all') {
                 return { center: [135, 25], zoom: 1.2 };
@@ -460,7 +460,6 @@
             const lonSpan = maxLon - minLon;
             const latSpan = maxLat - minLat;
             const maxSpan = Math.max(lonSpan, latSpan, 1.5);
-            // 螢幕最大化容納過往與預報軌跡
             let zoom = Math.min(6.0, Math.max(2.2, 360 / (maxSpan * 11)));
             return { center, zoom };
         }
@@ -501,7 +500,7 @@
                 echarts.registerMap('world50m', worldJson);
                 mapLoaded = true;
                 myChart.hideLoading();
-                renderChart(true); // 初始化時採用預設視圖
+                renderChart(true);
             } catch (e) {
                 console.error('Failed to load Natural Earth GeoJSON, attempting fallback...', e);
                 try {
@@ -539,7 +538,7 @@
 
             const seriesList = [];
 
-            // 1. Gridlines (1° minor dashed and 5° major gridlines spanning 90°E-180°E, 0°N-50°N)
+            // 1. Gridlines
             if (showGrid) {
                 const minorLines = [];
                 for (let lon = 90; lon <= 180; lon += 1) {
@@ -593,7 +592,7 @@
                 });
             }
 
-            // 2. Macau Distance Rings (100 km, 200 km, 400 km, 800 km)
+            // 2. Macau Distance Rings
             if (showRings) {
                 const ringDistances = [100, 200, 400, 800];
                 const ringLines = [];
@@ -637,7 +636,7 @@
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
-                // Error Envelope (Cone of Uncertainty) using FORECAST_RADII_KM
+                // Error Envelope (Cone of Uncertainty) - Smooth & High-Res
                 if (showEnvelope && st.forecast) {
                     const envelopeCoords = generateErrorEnvelopePolygon(st.forecast, FORECAST_RADII_KM);
                     if (envelopeCoords.length > 0) {
@@ -645,9 +644,8 @@
                             type: 'custom',
                             coordinateSystem: 'geo',
                             z: 2.5,
-                            data: [[0]], // Pass a dummy data row so renderItem executes once
+                            data: [[0]],
                             renderItem: function(params, api) {
-                                // Map the pre-calculated envelope coordinates to pixel space
                                 const points = envelopeCoords.map(coord => api.coord(coord));
                                 if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) return;
                                 
@@ -655,10 +653,10 @@
                                     type: 'polygon',
                                     shape: { points: points },
                                     style: {
-                                        fill: 'rgba(59, 130, 246, 0.15)',
-                                        stroke: 'rgba(59, 130, 246, 0.45)',
-                                        lineWidth: 1.2,
-                                        lineDash: [4, 4]
+                                        fill: 'rgba(56, 189, 248, 0.12)',   // 柔和專業的冰藍色半透明
+                                        stroke: 'rgba(56, 189, 248, 0.4)', // 精緻滑順邊框
+                                        lineWidth: 1.0,
+                                        lineDash: [3, 3]
                                     }
                                 };
                             },
@@ -830,7 +828,6 @@
                 geo: {
                     map: 'world50m',
                     roam: true,
-                    // 僅在明確切換颱風或重置視圖時更新 center/zoom，切換圖層時保持使用者當前互動縮放
                     ...(isStormSwitch ? { center: bounds.center, zoom: bounds.zoom } : {}),
                     aspectScale: 1.0,
                     label: { show: false },
@@ -868,12 +865,11 @@
             };
 
             try {
-                myChart.setOption(option, false); // false 確保不重置未更新的設定與當前 roam 狀態
+                myChart.setOption(option, false);
             } catch (err) {
                 console.error("ECharts setOption error:", err);
             }
 
-            // Update Sidebar Stats Card
             document.getElementById('storm-name').innerText = storm.name;
             document.getElementById('storm-category').innerText = storm.category;
             document.getElementById('stat-wind').innerText = storm.wind;
@@ -891,11 +887,11 @@
 
         function switchStorm(key) {
             currentStormKey = key;
-            renderChart(true); // 切換颱風時觸發自適應最大化縮放
+            renderChart(true);
         }
 
         function updateChartLayers() {
-            renderChart(false); // 切換圖層時保持當前縮放等級不變
+            renderChart(false);
         }
 
         function resetMapView() {
