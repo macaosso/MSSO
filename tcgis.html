@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - 簡化 CSV 引擎 v8.0.2</title>
+    <title>MSSO GIS 颱風監控系統 - v8.0.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,7 +49,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v8.0.2</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30"> v8.0.3</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -103,7 +103,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-800 text-center text-[11px] text-slate-500">
-                MSSO GIS 向量引擎 • v8.0.2 嚴格穿過節點平滑運算
+                MSSO GIS 向量引擎 • v8.0.3 節點動態時速運算
             </div>
         </aside>
 
@@ -236,7 +236,6 @@
             return coords;
         }
 
-        // ================= 嚴格穿過節點的平滑與超高密度誤差圈運算 (Catmull-Rom) =================
         function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
             if (!coords || coords.length < 2) return coords;
             
@@ -354,9 +353,7 @@
 
             return { fullCone };
         }
-        // =========================================================================
 
-        // 計算移動距離與移動方向（具備備用回退機制）
         function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
             let coordsToUse = forecastCoords;
             if (!coordsToUse || coordsToUse.length < 2) {
@@ -366,23 +363,26 @@
                     return "靜止 0 km/h";
                 }
             }
-            const samplesPerSegment = 30;
-            const smoothCoords = smoothLineCatmullRom(coordsToUse, samplesPerSegment);
-            const segmentPoints = smoothCoords.slice(0, samplesPerSegment + 1);
             
-            let curveDist = 0;
-            for (let i = 0; i < segmentPoints.length - 1; i++) {
-                const p1 = segmentPoints[i];
-                const p2 = segmentPoints[i+1];
-                curveDist += turf.distance(turf.point(p1), turf.point(p2), {units: 'kilometers'});
-            }
-            
-            const speed = Math.round(curveDist / 24);
             const pStart = coordsToUse[0];
             const pEnd = coordsToUse[1] || coordsToUse[0];
-            
             const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
+
+            const samplesPerSegment = 30;
+            const smoothCoords = smoothLineCatmullRom(coordsToUse, samplesPerSegment);
+            let curveDist = 0;
+            for (let i = 0; i < smoothCoords.length - 1; i++) {
+                curveDist += turf.distance(turf.point(smoothCoords[i]), turf.point(smoothCoords[i+1]), {units: 'kilometers'});
+            }
             
+            let totalHours = 24;
+            if (forecastPoints && forecastPoints.length >= 2) {
+                const hStart = forecastPoints[0].hour || 0;
+                const hEnd = forecastPoints[forecastPoints.length - 1].hour || 24;
+                if (hEnd > hStart) totalHours = hEnd - hStart;
+            }
+            
+            const speed = Math.round(curveDist / (totalHours > 0 ? totalHours : 24));
             return `${direction} ${speed} km/h`;
         }
 
@@ -439,12 +439,29 @@
             rows.forEach((r, idx) => {
                 const intensity = getIntensity(r.wind);
                 
+                // 動態計算節點移動方向與時速 (movementDir)
                 let moveDir = '靜止';
-                if (idx < rows.length - 1) {
-                    moveDir = getDirection(r.lon, r.lat, rows[idx+1].lon, rows[idx+1].lat);
-                } else if (idx > 0) {
-                    moveDir = getDirection(rows[idx-1].lon, rows[idx-1].lat, r.lon, r.lat);
+                let speedKmh = 0;
+                const nextRow = rows[idx + 1] || rows[idx - 1];
+                if (nextRow) {
+                    const lon1 = idx < rows.length - 1 ? r.lon : rows[idx - 1].lon;
+                    const lat1 = idx < rows.length - 1 ? r.lat : rows[idx - 1].lat;
+                    const lon2 = idx < rows.length - 1 ? rows[idx + 1].lon : r.lon;
+                    const lat2 = idx < rows.length - 1 ? rows[idx + 1].lat : r.lat;
+                    
+                    moveDir = getDirection(lon1, lat1, lon2, lat2);
+                    const dist = turf.distance(turf.point([lon1, lat1]), turf.point([lon2, lat2]), {units: 'kilometers'});
+                    
+                    let hours = 24;
+                    if (idx < rows.length - 1 && rows[idx+1].category && r.category) {
+                        const h1 = parseInt(r.category.replace(/[^0-9]/g, '')) || 0;
+                        const h2 = parseInt(rows[idx+1].category.replace(/[^0-9]/g, '')) || 0;
+                        if (h2 > h1) hours = h2 - h1;
+                    }
+                    if (hours <= 0) hours = 24;
+                    speedKmh = Math.round(dist / hours);
                 }
+                const movementStr = `${moveDir} ${speedKmh} km/h`;
 
                 const nodeInfo = {
                     time: r.time,
@@ -456,7 +473,7 @@
                     lat: r.lat,
                     lon: r.lon,
                     coord: [r.lon, r.lat],
-                    movementDir: moveDir,
+                    movementDir: movementStr,
                     distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat)
                 };
 
@@ -503,7 +520,6 @@
             const fCoordsForCalc = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
             const movementStr = calculateMovementStr(forecastPoints, fCoordsForCalc, pastCoordsOnly);
 
-            // 合併並去重節點，確保帶有完整坐標與距離資訊
             let nodeMap = new Map();
             [...pastNodes, ...forecastNodes].forEach(node => {
                 nodeMap.set(node.time + "_" + node.coordStr, node);
@@ -707,7 +723,6 @@
             const seriesList = [];
             const keys = Object.keys(typhoons);
 
-            // 1. 全球經緯網格
             if (showGrid) {
                 const minorLines = [];
                 for (let lon = -180; lon <= 180; lon += 5) {
@@ -762,7 +777,6 @@
                 });
             }
 
-            // 2. Macau Distance Rings
             if (showRings) {
                 const ringDistances = [100, 200, 400, 800];
                 const ringLines = [];
@@ -1126,7 +1140,7 @@
                                 <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">移動方向</span>
+                                <span class="text-slate-400 block text-[10px]">移動方向 (時速)</span>
                                 <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
