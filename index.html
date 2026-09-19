@@ -708,7 +708,7 @@
         function renderDashboard() {
             const now = new Date();
             updateDateTime();
-
+        
             const data = globalWeatherData;
             const curr = data.current;
             const isNight = checkIfNight(now, data.daily, 1); 
@@ -716,29 +716,29 @@
             
             const macauDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
             const todayIdx = data.daily.time.findIndex(d => d === macauDateStr) !== -1 ? data.daily.time.findIndex(d => d === macauDateStr) : 1;
-
+        
             const todayMax = Math.round(data.daily.temperature_2m_max[todayIdx]);
             const todayMin = Math.round(data.daily.temperature_2m_min[todayIdx]);
-
+        
             if (data.daily.sunrise && data.daily.sunrise[todayIdx] && data.daily.sunset && data.daily.sunset[todayIdx]) {
                 const sunriseDate = new Date(data.daily.sunrise[todayIdx]);
                 const sunsetDate = new Date(data.daily.sunset[todayIdx]);
                 const moonriseDate = new Date(sunriseDate.getTime() + 10 * 3600 * 1000);
                 const moonsetDate = new Date(sunriseDate.getTime() - 2 * 3600 * 1000);
-
+        
                 document.getElementById('sunrise-time').innerText = sunriseDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
                 document.getElementById('sunset-time').innerText = sunsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
                 document.getElementById('moonrise-time').innerText = moonriseDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
                 document.getElementById('moonset-time').innerText = moonsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
             }
-
+        
             const tempCat = getTempCategory(curr.temperature_2m);
             document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
             const tempBadgeEl = document.getElementById('current-temp-badge');
             tempBadgeEl.textContent = tempCat.label;
             tempBadgeEl.className = `px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm ${tempCat.class}`;
-
+        
             document.getElementById('current-condition').innerText = weatherInfo.text;
             document.getElementById('current-high-low').innerHTML = `
                 <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
@@ -752,19 +752,23 @@
             const apparentBadgeEl = document.getElementById('current-apparent-badge');
             apparentBadgeEl.textContent = apparentCat.label;
             apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentCat.class}`;
-
+        
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 8);
             const next2Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 2);
-
+            
+            // 【已修正】在此處正確宣告並擷取風速資料
+            const currentWindSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
+            const next12WindSpeeds = data.hourly.wind_speed_10m ? data.hourly.wind_speed_10m.slice(currentHourIndex, currentHourIndex + 12) : [];
+        
             const isHot = curr.temperature_2m >= 28 || next24Temps.some(t => t >= 29);
             const isCold = curr.temperature_2m <= 14 || next24Temps.some(t => t <= 13);
             const isRainy = next2Pops.some(p => p >= 60);
             const isWindy = currentWindSpeed >= 32 || next12WindSpeeds.some(w => w >= 30);
-
+        
             const alertsContainer = document.getElementById('alerts-container');
             alertsContainer.innerHTML = '';
-
+        
             if (isHot) {
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
@@ -793,7 +797,7 @@
                         <div><span class="font-bold">大風提示：</span>進行高空工作或戶外活動人士要注意大風所帶來的威脅。</div>
                     </div>`;
             }
-
+        
             renderDistricts();
             renderHourlySection();
             renderDailySection();
