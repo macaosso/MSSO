@@ -1,4 +1,4 @@
-const tcText = ``;
+const tcText = `下午2時，強烈熱帶風暴杜鵑集結在本澳東北偏東2700公里，預料向西北移動，時速約15公里，橫過日本以南海域。`;
 
 const tcWarnings = ``;
 
