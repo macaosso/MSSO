@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>澳門民間氣象台</title>
     <!-- Tailwind CSS -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> <!-- 或者是原本的script -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -109,7 +109,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <!-- 天氣提示區塊（已調整為 4 欄排版，包含相對濕度、體感溫度、紫外線指數、降雨機率） -->
+                            <!-- 天氣提示區塊（包含相對濕度、體感溫度、紫外線指數、降雨機率） -->
                             <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-6">
                                 <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
                                     <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -119,7 +119,10 @@
                                         </svg>
                                         相對濕度
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100" id="current-humidity">--%</div>
+                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                        <span id="current-humidity">--%</span>
+                                        <span id="current-humidity-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                    </div>
                                 </div>
                                 <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
                                     <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
@@ -307,7 +310,6 @@
         const expandedYears = new Set();
         const reportCategories = ['all', 'monthly', 'special'];
 
-        // 警報狀態管理器（追蹤發出時間、取消時間與移除計時器）
         const alertStates = {
             hot: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
             cold: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
@@ -465,14 +467,31 @@
             }
         }
 
+        // 相對濕度分級 (色彩順序: Brown < green < blue)
+        function getHumidityCategory(humidity) {
+            if (humidity >= 94.5) {
+                return { label: '非常潮濕', class: 'bg-blue-200 text-blue-900 dark:bg-blue-950 dark:text-blue-300 font-bold' };
+            } else if (humidity >= 79.5) {
+                return { label: '潮濕', class: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 font-semibold' };
+            } else if (humidity >= 39.5) {
+                return { label: '正常', class: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 font-semibold' };
+            } else if (humidity >= 30.5) {
+                return { label: '乾燥', class: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-semibold' };
+            } else {
+                return { label: '非常乾燥', class: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 font-bold' };
+            }
+        }
+
+        // 紫外線指數分級（UV >= 8 時判定為甚高）
         function getUvCategory(uv) {
-            if (uv >= 11) {
+            const roundedUv = Math.round(uv);
+            if (roundedUv >= 11) {
                 return { label: '極高', class: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-bold' };
-            } else if (uv >= 8) {
-                return { label: '非常高', class: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-bold' };
-            } else if (uv >= 6) {
+            } else if (roundedUv >= 8) {
+                return { label: '甚高', class: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-bold' };
+            } else if (roundedUv >= 6) {
                 return { label: '高', class: 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 font-semibold' };
-            } else if (uv >= 3) {
+            } else if (roundedUv >= 3) {
                 return { label: '中等', class: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold' };
             } else {
                 return { label: '低', class: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' };
@@ -505,6 +524,7 @@
             };
             return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
         }
+
         function getWeatherDetails(code, isNight = false) {
             const symbols = {
                 0: isNight ? { text: '天晴', icon: 'fas fa-moon text-indigo-400' } : { text: '天晴', icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
@@ -690,7 +710,6 @@
 
         async function fetchWeatherData() {
             try {
-                // 已於 current 參數中加入 uv_index
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
@@ -777,7 +796,14 @@
                 <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
                 <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
             `;
-            document.getElementById('current-humidity').innerText = `${curr.relative_humidity_2m}%`;
+
+            // 渲染現時相對濕度及對應分級
+            const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
+            const humidityCat = getHumidityCategory(humidityVal);
+            document.getElementById('current-humidity').innerText = `${humidityVal}%`;
+            const humidityBadgeEl = document.getElementById('current-humidity-badge');
+            humidityBadgeEl.textContent = humidityCat.label;
+            humidityBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${humidityCat.class}`;
             
             const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : curr.temperature_2m;
             const apparentCat = getTempCategory(apparentTemp);
@@ -786,15 +812,14 @@
             apparentBadgeEl.textContent = apparentCat.label;
             apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentCat.class}`;
 
-            // 渲染現時紫外線指數
-            const uvValue = curr.uv_index !== undefined ? curr.uv_index : 0;
+            // 渲染現時紫外線指數（四捨五入至整數）
+            const uvValue = curr.uv_index !== undefined ? Math.round(curr.uv_index) : 0;
             const uvCat = getUvCategory(uvValue);
             document.getElementById('current-uv').innerText = uvValue;
             const uvBadgeEl = document.getElementById('current-uv-badge');
             uvBadgeEl.textContent = uvCat.label;
             uvBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${uvCat.class}`;
 
-            // 渲染現時及未來兩小時降雨機率（popVal 及其等級判定）
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next2Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 2);
             const popVal = next2Pops.length > 0 ? Math.max(...next2Pops) : (data.hourly.precipitation_probability[currentHourIndex] || 0);
@@ -829,7 +854,6 @@
             
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 8);
             
-            // 風速資料宣告與擷取
             const currentWindSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
             const next12WindSpeeds = data.hourly.wind_speed_10m ? data.hourly.wind_speed_10m.slice(currentHourIndex, currentHourIndex + 12) : [];
         
