@@ -702,23 +702,22 @@
                     const pastScatterData = st.past.map(pt => {
                         const intensity = getIntensity(pt.wind);
                         return {
-                            name: `${st.name} 過往位置 - ${pt.wind} km/h`,
+                            name: `${st.name} 過往位置`,
                             value: [...pt.coord, 1],
                             itemStyle: { color: intensity.color },
                             symbolSize: 7,
                             windVal: pt.wind,
+                            stormName: st.name,
                             intensityObj: intensity
                         };
                     });
 
-                    // 移除過往點的 tooltip 互動
                     seriesList.push({
                         type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 4,
                         data: pastScatterData,
-                        symbol: 'circle',
-                        silent: true
+                        symbol: 'circle'
                     });
                 }
 
@@ -754,22 +753,20 @@
                             symbolSize: isEye ? 16 : 9,
                             isEye: isEye,
                             nodeInfo: node,
+                            stormName: st.name,
                             intensityObj: intensity
                         };
                     });
 
-                    // 移除一般預報節點的 tooltip 互動
                     seriesList.push({
                         type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 5,
                         data: scatterData.filter(d => !d.isEye),
-                        symbol: 'circle',
-                        silent: true
+                        symbol: 'circle'
                     });
 
                     const eyeData = scatterData.filter(d => d.isEye);
-                    // 移除颱風眼脈衝點的 tooltip 互動
                     seriesList.push({
                         type: 'effectScatter',
                         coordinateSystem: 'geo',
@@ -777,8 +774,7 @@
                         data: eyeData,
                         symbolSize: 20,
                         rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                        itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' },
-                        silent: true
+                        itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' }
                     });
                 }
             };
@@ -812,12 +808,6 @@
                         backgroundColor: 'rgba(11, 19, 34, 0.85)',
                         padding: [3, 6],
                         borderRadius: 4
-                    },
-                    tooltip: {
-                        formatter: function(params) {
-                            return `<div style="font-weight:bold; color:#ffffff;"><i class="fa-solid fa-location-dot text-cyan-400"></i> 澳門</div>
-                                    <div style="font-size:11px; color:#cbd5e1; font-family:monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
-                        }
                     }
                 });
             }
@@ -851,6 +841,27 @@
                             if (!countryName) return '';
                             return `<div style="font-weight:bold; color:#38bdf8; font-size:13px;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
                         }
+                        const d = params.data;
+                        if (!d) return params.name || '';
+                        
+                        if (d.name === '澳門') {
+                            return `<div style="font-weight:bold; color:#ffffff;"><i class="fa-solid fa-location-dot text-cyan-400"></i> 澳門</div>
+                                    <div style="font-size:11px; color:#cbd5e1; font-family:monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
+                        }
+                        
+                        if (d.nodeInfo) {
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''}</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">時間: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.time}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#fbbf24; font-weight:bold;">${d.nodeInfo.wind}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">級別: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.intensityObj.code} - ${d.intensityObj.name}</span></div>`;
+                        }
+                        
+                        if (d.windVal) {
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''} (過往位置)</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#fbbf24; font-weight:bold;">${d.windVal} km/h</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">級別: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.intensityObj.code} - ${d.intensityObj.name}</span></div>`;
+                        }
+
                         return params.name || '';
                     }
                 },
