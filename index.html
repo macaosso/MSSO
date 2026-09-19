@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>澳門天氣儀表板</title>
+    <title>澳門民間氣象台</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script> <!-- 或者是原本的script -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -658,7 +658,7 @@
 
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
                     { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
@@ -760,6 +760,7 @@
             const isHot = curr.temperature_2m >= 28 || next24Temps.some(t => t >= 29);
             const isCold = curr.temperature_2m <= 14 || next24Temps.some(t => t <= 13);
             const isRainy = next2Pops.some(p => p >= 60);
+            const isWindy = currentWindSpeed >= 32 || next12WindSpeeds.some(w => w >= 30);
 
             const alertsContainer = document.getElementById('alerts-container');
             alertsContainer.innerHTML = '';
@@ -783,6 +784,13 @@
                     <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
                         <div><span class="font-bold">降雨提示：</span>未來2小時內有較高機會出現降雨情況，外出時記得攜帶雨具。</div>
+                    </div>`;
+            }
+            if (isWindy) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-wind text-xl"></i>
+                        <div><span class="font-bold">大風提示：</span>進行高空工作或戶外活動人士要注意大風所帶來的威脅。</div>
                     </div>`;
             }
 
