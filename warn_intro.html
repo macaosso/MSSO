@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>澳門氣象警告與信號說明 - 澳門民間氣象台 MSSO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <script>
+        const currentHour = new Date().getHours();
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            if (currentHour >= 8 && currentHour < 20) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
+</head>
+<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
+
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
+        
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> 氣象警告與信號說明
+                </h1>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">澳門民間氣象台 MSSO 警告系統指引</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 主要內容區塊 -->
+        <div class="space-y-6">
+
+            <!-- 導覽快速跳轉 -->
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
+                <div class="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">快速導覽</div>
+                <div class="flex flex-wrap gap-2">
+                    <a href="#general-alerts" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">即時天氣提示</a>
+                    <a href="#tc-warnings" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">熱帶氣旋警告</a>
+                    <a href="#storm-surge" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">風暴潮警告</a>
+                    <a href="#rainstorm" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">暴雨警告</a>
+                    <a href="#hot-weather" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">酷熱天氣警告</a>
+                    <a href="#cold-weather" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">寒冷天氣警告</a>
+                    <a href="#tsunami" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white dark:hover:bg-cyan-500 text-xs font-medium transition-colors" style="text-decoration:none;">海嘯警告</a>
+                </div>
+            </section>
+
+            <!-- 1. 三項即時天氣提示 (General Alerts) -->
+            <section id="general-alerts" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-bell text-cyan-500"></i> 三項即時天氣提示
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div class="font-bold text-orange-600 dark:text-orange-400 mb-1 flex items-center gap-2"><i class="fa-solid fa-fire"></i> 高溫提示</div>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">當氣溫或預測未來24小時內將達高溫水平時發出，提醒市民提防中暑並適時補充水分。</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div class="font-bold text-cyan-600 dark:text-cyan-400 mb-1 flex items-center gap-2"><i class="fa-solid fa-snowflake"></i> 低溫提示</div>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">當氣溫顯著下降或達寒冷水平時發出，提醒公眾適時添衣及注意保暖。</p>
+                    </div>
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div class="font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-2"><i class="fa-solid fa-cloud-showers-heavy"></i> 降雨提示</div>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">當預測未來數小時內有較高降雨機率時發出，提醒外出時攜帶雨具防範。</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 六項熱帶氣旋警告 (Tropical Cyclone Warnings) -->
+            <section id="tc-warnings" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-hurricane text-cyan-500"></i> 六項熱帶氣旋警告
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- T1 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/t1.jpg" alt="注意警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=T1'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">注意警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">熱帶氣旋進入澳門特區周邊警戒範圍，可能對當地構成注意影響。</p>
+                        </div>
+                    </div>
+                    <!-- T2 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/t2.jpg" alt="戒備警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=T2'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">戒備警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">熱帶氣旋正走近澳門，本澳可能受其環流影響，需開始採取戒備措施。</p>
+                        </div>
+                    </div>
+                    <!-- T3 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/t3.jpg" alt="強風警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=T3'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">強風警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">預期澳門普遍吹強風，陣風顯著，市民應固定易受風吹物件。</p>
+                        </div>
+                    </div>
+                    <!-- T4 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/t4.jpg" alt="烈風警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=T4'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">烈風警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">受熱帶氣旋影響，澳門風力顯著加強至烈風程度，市民應留在室內安全地方。</p>
+                        </div>
+                    </div>
+                    <!-- T5 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/t5.jpg" alt="暴風警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=T5'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">暴風警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">本澳正受暴風吹襲，風力極強，對戶外構成嚴重威脅。</p>
+                        </div>
+                    </div>
+                    <!-- T6 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/t6.jpg" alt="颶風警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=T6'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">颶風警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">威力極強之熱帶氣旋中心或其眼壁掠過附近，本澳將吹颶風，破壞力極大。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 三項風暴潮警告 (Storm Surge Warnings) -->
+            <section id="storm-surge" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-water text-blue-500"></i> 三項風暴潮警告
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- S1 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/s1.jpg" alt="風暴潮觀察警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=S1'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">風暴潮觀察警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">預期受天文大潮及風暴潮共同影響，低窪地區可能出現輕微水浸。</p>
+                        </div>
+                    </div>
+                    <!-- S2 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/s2.jpg" alt="風暴潮戒備警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=S2'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">風暴潮戒備警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">預期水浸情況將較為顯著，內港及低窪地區市民應做好防洪及移走財物準備。</p>
+                        </div>
+                    </div>
+                    <!-- S3 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/s3.jpg" alt="風暴潮危險警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=S3'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">風暴潮危險警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">預期將出現嚴重水浸，低窪地區水深可能迅速上升，威脅生命安全，需立即疏散。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 三項暴雨警告 (Rainstorm Warnings) -->
+            <section id="rainstorm" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-cloud-rain text-cyan-500"></i> 三項暴雨警告
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- R1 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/r1.jpg" alt="黃色暴雨警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=R1'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">黃色暴雨警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">澳門廣泛地區錄得或預料錄得每小時雨量達到一定標準之強降雨。</p>
+                        </div>
+                    </div>
+                    <!-- R2 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/r2.jpg" alt="紅色暴雨警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=R2'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">紅色暴雨警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">暴雨持續，雨勢急劇加劇，道路及低窪地區可能出現嚴重積水。</p>
+                        </div>
+                    </div>
+                    <!-- R3 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/r3.jpg" alt="黑色暴雨警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=R3'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">黑色暴雨警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">極其嚴重的暴雨，廣泛地區出現嚴重水浸及交通癱瘓，市民應留在安全室內。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. 三項酷熱天氣警告 (Hot Weather Warnings) -->
+            <section id="hot-weather" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-temperature-arrow-up text-amber-500"></i> 三項酷熱天氣警告
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- H1 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/h1.jpg" alt="黃色酷熱天氣警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=H1'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">黃色酷熱天氣警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">天氣炎熱，日間最高氣溫達指定酷熱門檻，提醒注意防曬及補充水分。</p>
+                        </div>
+                    </div>
+                    <!-- H2 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/h2.jpg" alt="橙色酷熱天氣警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=H2'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">橙色酷熱天氣警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">持續高溫，氣溫顯著偏高，戶外活動容易引發中暑或熱衰竭。</p>
+                        </div>
+                    </div>
+                    <!-- H3 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/h3.jpg" alt="紅色酷熱天氣警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=H3'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">紅色酷熱天氣警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">極端酷熱天氣，氣溫達到極高水平，強烈建議避免長時間戶外曝曬。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 6. 三項寒冷天氣警告 (Cold Weather Warnings) -->
+            <section id="cold-weather" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-temperature-arrow-down text-blue-400"></i> 三項寒冷天氣警告
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- C1 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/c1.jpg" alt="黃色寒冷天氣警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=C1'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">黃色寒冷天氣警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">受冷空氣影響，氣溫下降至清涼或寒冷水平，市民需注意保暖。</p>
+                        </div>
+                    </div>
+                    <!-- C2 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/c2.jpg" alt="橙色寒冷天氣警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=C2'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">橙色寒冷天氣警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">寒潮襲澳，氣溫顯著偏低，對長者及慢性病患者健康構成威脅。</p>
+                        </div>
+                    </div>
+                    <!-- C3 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/c3.jpg" alt="紅色寒冷天氣警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=C3'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">紅色寒冷天氣警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">極端嚴寒天氣，氣溫降至極低水平，需加倍防範低溫症及照顧弱勢社群。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 7. 兩項海嘯警告 (Tsunami Warnings) -->
+            <section id="tsunami" class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors space-y-4">
+                <h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <i class="fa-solid fa-water text-indigo-500"></i> 兩項海嘯警告
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- E1 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/e1.jpg" alt="海嘯戒備警告" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=E1'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">海嘯戒備警告</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">鄰近海域發生強烈地震或海底活動，可能引發海嘯並對沿岸構成潛在威脅。</p>
+                        </div>
+                    </div>
+                    <!-- E2 -->
+                    <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-start gap-4">
+                        <img src="warn_icon/e2.jpg" alt="海嘯警報" class="w-[80px] h-[80px] object-cover rounded-lg border border-slate-300 dark:border-slate-700 shrink-0" onerror="this.src='https://via.placeholder.com/125?text=E2'">
+                        <div>
+                            <div class="font-bold text-slate-800 dark:text-white text-sm">海嘯警報</div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">確認海嘯波將抵達本澳或珠江口沿岸，沿海及低窪地區居民應迅速向高處轉移。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 (與其他頁面一致) -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
+        <div class="max-w-xl mx-auto flex justify-around items-center">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-[11px]">天氣預報</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span class="text-[11px]">空氣質素</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- JavaScript：時間與主題切換控制 -->
+    <script>
+        function formatMSTTime(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[date.getDay()];
+            return `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+        }
+
+        function updateDateTime() {
+            const dtEl = document.getElementById('current-datetime');
+            if (dtEl) dtEl.textContent = formatMSTTime();
+        }
+
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 主題切換邏輯
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
