@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.3</title>
+    <title>SMCA GIS 颱風監控系統 - 簡化 CSV 引擎 v7.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,7 +49,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.3</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v7.4</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -81,9 +81,9 @@
                 </button>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-4 space-y-5">
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
                 <!-- Storm Selector -->
-                <div class="space-y-2">
+                <div class="space-y-1.5">
                     <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統 (自動偵測)</label>
                     <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition">
                         <option value="all" selected>載入中...</option>
@@ -91,7 +91,7 @@
                 </div>
 
                 <!-- Storm Stats Card -->
-                <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-3.5 space-y-3 shadow-inner">
+                <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-3 space-y-3 shadow-inner">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2">
                         <span id="storm-name" class="font-bold text-white text-sm">檢查中...</span>
                         <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">狀態</span>
@@ -381,6 +381,28 @@
             let forecastCoords = [];
             let forecastPoints = [];
             let nodes = [];
+            let pastNodes = [];
+            let forecastNodes = [];
+
+            rows.forEach(r => {
+                const intensity = getIntensity(r.wind);
+                const nodeInfo = {
+                    time: r.time,
+                    categoryCode: intensity.code,
+                    categoryName: intensity.name,
+                    color: intensity.color,
+                    wind: `${r.wind} km/h`,
+                    coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
+                    lat: r.lat,
+                    lon: r.lon
+                };
+                if (r.category === 'past' || r.category === 'current') {
+                    pastNodes.push(nodeInfo);
+                }
+                if (r.category === 'current' || r.category.toLowerCase().includes('h')) {
+                    forecastNodes.push(nodeInfo);
+                }
+            });
 
             let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current');
             pastRows.forEach(pt => {
@@ -389,7 +411,7 @@
                 nodes.push({ coord: [pt.lon, pt.lat], time: pt.time, wind: `${pt.wind} km/h`, type: getIntensity(pt.wind).code });
             });
 
-            let forecastRows = rows.filter(r => r.category === 'current' || r.category.includes('h'));
+            let forecastRows = rows.filter(r => r.category === 'current' || r.category.toLowerCase().includes('h'));
             forecastRows.forEach(fr => {
                 let hour = 0;
                 if (fr.category !== 'current') {
@@ -426,7 +448,9 @@
                 pastCoordsOnly,
                 forecast: forecastCoords.length > 0 ? forecastCoords : pastCoordsOnly.slice(-1),
                 forecastPoints,
-                nodes
+                nodes,
+                pastNodes,
+                forecastNodes
             };
         }
 
@@ -453,10 +477,11 @@
         }
 
         function getStormBounds(stKey) {
-            if (stKey === 'all' || Object.keys(typhoons).length === 0) {
+            const keys = Object.keys(typhoons);
+            if (stKey === 'all' || keys.length === 0) {
                 return { center: [130, 15], zoom: 4.2 };
             }
-            const st = typhoons[stKey];
+            const st = typhoons[stKey] || typhoons[keys[0]];
             if (!st) return { center: [130, 15], zoom: 4.2 };
             
             let allCoords = [];
@@ -521,6 +546,13 @@
                 mapLoaded = true;
                 myChart.hideLoading();
                 
+                const keys = Object.keys(typhoons);
+                if (keys.length === 1) {
+                    currentStormKey = keys[0];
+                } else {
+                    currentStormKey = 'all';
+                }
+
                 updateStormSelectUI();
                 renderChart(true);
             } catch (e) {
@@ -546,11 +578,19 @@
                 return;
             }
 
-            selectEl.innerHTML = `<option value="all" selected>活動颱風系統 (全部 - ${keys.length}個)</option>`;
+            if (keys.length === 1) {
+                if (!typhoons[currentStormKey]) currentStormKey = keys[0];
+                const st = typhoons[keys[0]];
+                selectEl.innerHTML = `<option value="${keys[0]}" selected>${st.name} - ${st.category}</option>`;
+                return;
+            }
+
+            let html = `<option value="all" ${currentStormKey === 'all' ? 'selected' : ''}>活動颱風系統 (全部 - ${keys.length}個)</option>`;
             keys.forEach(k => {
                 const st = typhoons[k];
-                selectEl.innerHTML += `<option value="${k}">${st.name} - ${st.category}</option>`;
+                html += `<option value="${k}" ${currentStormKey === k ? 'selected' : ''}>${st.name} - ${st.category}</option>`;
             });
+            selectEl.innerHTML = html;
         }
 
         function addTurfPolygonSeries(turfPoly, seriesList, styleOpts) {
@@ -797,10 +837,11 @@
             };
 
             if (keys.length > 0) {
-                if (currentStormKey === 'all') {
+                if (currentStormKey === 'all' && keys.length > 1) {
                     keys.forEach(k => renderTyphoonTracks(typhoons[k]));
-                } else if (typhoons[currentStormKey]) {
-                    renderTyphoonTracks(typhoons[currentStormKey]);
+                } else {
+                    const targetKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
+                    renderTyphoonTracks(typhoons[targetKey]);
                 }
             }
 
@@ -921,7 +962,7 @@
                 return;
             }
 
-            if (currentStormKey === 'all') {
+            if (currentStormKey === 'all' && keys.length > 1) {
                 document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
                 const catEl = document.getElementById('storm-category');
                 catEl.innerText = `共 ${keys.length} 個系統監控中`;
@@ -953,7 +994,8 @@
                 listHtml += '</div>';
                 stormStatsContent.innerHTML = listHtml;
             } else {
-                const storm = typhoons[currentStormKey];
+                const stormKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
+                const storm = typhoons[stormKey];
                 if (!storm) return;
                 document.getElementById('storm-name').innerText = storm.name;
                 
@@ -967,28 +1009,106 @@
                 const tLat = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][1];
                 const dist = getDistanceAndDirectionToMacau(tLon, tLat);
 
+                // 生成預報路徑表內容
+                let forecastTableRows = '';
+                if (storm.forecastNodes) {
+                    storm.forecastNodes.forEach(node => {
+                        forecastTableRows += `
+                            <tr class="hover:bg-slate-800/40">
+                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
+                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                // 生成歷史軌跡表內容
+                let pastTableRows = '';
+                if (storm.pastNodes) {
+                    storm.pastNodes.forEach(node => {
+                        pastTableRows += `
+                            <tr class="hover:bg-slate-800/40">
+                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
+                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
                 stormStatsContent.innerHTML = `
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">資料時間</span>
-                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                                <span class="text-slate-400 block text-[10px]">資料時間</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
+                            </div>
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                                <span class="text-slate-400 block text-[10px]">當前風速</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind}</span>
+                            </div>
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                                <span class="text-slate-400 block text-[10px]">當前座標</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
+                            </div>
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                                <span class="text-slate-400 block text-[10px]">預報路徑</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
+                            </div>
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800 col-span-2">
+                                <span class="text-slate-400 block text-[10px]">距離澳門</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${dist}</span>
+                            </div>
                         </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">當前風速</span>
-                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind}</span>
-                        </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">當前座標</span>
-                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
-                        </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                            <span class="text-slate-400 block text-[10px]">預報路徑</span>
-                            <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
-                        </div>
-                        <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800 col-span-2">
-                            <span class="text-slate-400 block text-[10px]">距離澳門</span>
-                            <span class="font-mono text-slate-200 font-bold text-[11px]">${dist}</span>
-                        </div>
+
+                        <!-- 預報路徑表 (預設開啟) -->
+                        <details open class="group bg-slate-800/40 border border-slate-800/80 rounded-lg overflow-hidden">
+                            <summary class="p-2 text-xs font-bold text-slate-200 cursor-pointer select-none bg-slate-800/70 hover:bg-slate-700/70 flex justify-between items-center transition">
+                                <span><i class="fa-solid fa-route text-blue-400 mr-1.5"></i> 預報路徑表</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-2 overflow-x-auto max-h-40 overflow-y-auto">
+                                <table class="w-full text-left text-[11px] font-mono">
+                                    <thead>
+                                        <tr class="border-b border-slate-700/60 text-slate-400 text-[10px]">
+                                            <th class="pb-1 px-1">時間</th>
+                                            <th class="pb-1 px-1">級別</th>
+                                            <th class="pb-1 px-1">風速</th>
+                                            <th class="pb-1 px-1">座標</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800/50">
+                                        ${forecastTableRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+
+                        <!-- 歷史軌跡表 (預設關閉) -->
+                        <details class="group bg-slate-800/40 border border-slate-800/80 rounded-lg overflow-hidden">
+                            <summary class="p-2 text-xs font-bold text-slate-200 cursor-pointer select-none bg-slate-800/70 hover:bg-slate-700/70 flex justify-between items-center transition">
+                                <span><i class="fa-solid fa-history text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-2 overflow-x-auto max-h-40 overflow-y-auto">
+                                <table class="w-full text-left text-[11px] font-mono">
+                                    <thead>
+                                        <tr class="border-b border-slate-700/60 text-slate-400 text-[10px]">
+                                            <th class="pb-1 px-1">時間</th>
+                                            <th class="pb-1 px-1">級別</th>
+                                            <th class="pb-1 px-1">風速</th>
+                                            <th class="pb-1 px-1">座標</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800/50">
+                                        ${pastTableRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
                     </div>
                 `;
             }
