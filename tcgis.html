@@ -47,7 +47,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v4.9 繁體中文版</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.0 繁體中文版</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Plate Carrée 投影與多級強度軌跡追蹤系統</p>
             </div>
@@ -84,8 +84,8 @@
                 <div class="space-y-2">
                     <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統</label>
                     <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition">
-                        <option value="all">活動颱風系統 (全部)</option>
-                        <option value="maliksi" selected>2026-03 瑪莉亞 (MALIKSI) - 颱風 (TY)</option>
+                        <option value="all" selected>活動颱風系統 (全部)</option>
+                        <option value="maliksi">2026-03 瑪莉亞 (MALIKSI) - 颱風 (TY)</option>
                         <option value="gaemi">2026-04 格美 (GAEMI) - 超強颱風 (SuTY)</option>
                         <option value="prapiroon">2026-05 派比安 (PRAPIROON) - 熱帶風暴 (TS)</option>
                     </select>
@@ -94,25 +94,25 @@
                 <!-- Storm Stats Card -->
                 <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-3.5 space-y-3 shadow-inner">
                     <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                        <span id="storm-name" class="font-bold text-white text-sm">MALIKSI (2026)</span>
-                        <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">颱風 TY</span>
+                        <span id="storm-name" class="font-bold text-white text-sm">活動颱風系統 (全部)</span>
+                        <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">多系統監控</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                             <span class="text-slate-400 block text-[10px]">最大風速</span>
-                            <span id="stat-wind" class="font-mono text-amber-400 font-bold text-sm">166 km/h</span>
+                            <span id="stat-wind" class="font-mono text-amber-400 font-bold text-sm">綜合展示</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                             <span class="text-slate-400 block text-[10px]">當前座標</span>
-                            <span id="stat-coords" class="font-mono text-slate-200 font-bold text-[11px]">21.4°N, 122.1°E</span>
+                            <span id="stat-coords" class="font-mono text-slate-200 font-bold text-[11px]">0–50°N, 90–180°E</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                             <span class="text-slate-400 block text-[10px]">移動路徑</span>
-                            <span id="stat-movement" class="font-mono text-slate-200 font-bold text-[11px]">西北 @ 22 km/h</span>
+                            <span id="stat-movement" class="font-mono text-slate-200 font-bold text-[11px]">多路徑</span>
                         </div>
                         <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
                             <span class="text-slate-400 block text-[10px]">距離澳門</span>
-                            <span id="stat-distance" class="font-mono text-cyan-400 font-bold text-[11px]">東南偏東 820公里</span>
+                            <span id="stat-distance" class="font-mono text-cyan-400 font-bold text-[11px]">多系統區域預覽</span>
                         </div>
                     </div>
                 </div>
@@ -135,6 +135,14 @@
                                 <span class="text-slate-200 font-medium">72小時預報路徑與線段 (白色)</span>
                             </div>
                             <input type="checkbox" id="layer-forecast" checked onchange="updateChartLayers()" class="rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-blue-500">
+                        </label>
+
+                        <label class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition">
+                            <div class="flex items-center space-x-2.5">
+                                <i class="fa-solid fa-shield-halved text-blue-400 w-4"></i>
+                                <span class="text-slate-200 font-medium">72小時預報誤差範圍 (Error Envelope)</span>
+                            </div>
+                            <input type="checkbox" id="layer-envelope" checked onchange="updateChartLayers()" class="rounded bg-slate-800 border-slate-700 text-blue-600 focus:ring-blue-500">
                         </label>
 
                         <label class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition">
@@ -214,6 +222,9 @@
             {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#DE82FF"}
         ];
 
+        // 72小時預報誤差半徑 (km) 對應級距
+        const FORECAST_RADII_KM = [15, 100, 170, 255, 345, 465];
+
         function getIntensity(windKmh) {
             for (let item of TC_INTENSITY_TABLE) {
                 if (windKmh <= item.max_wind) return item;
@@ -249,7 +260,7 @@
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             let dist = R * c;
-            dist = Math.round(dist / 10) * 10; // round off to 10km
+            dist = Math.round(dist / 10) * 10;
 
             const lat1Rad = MACAU_COORDS[1] * Math.PI / 180;
             const lat2Rad = tLat * Math.PI / 180;
@@ -283,6 +294,47 @@
             return coords;
         }
 
+        // Helper to generate Error Envelope Polygon along forecast track
+        function generateErrorEnvelopePolygon(forecastCoords, radii) {
+            if (!forecastCoords || forecastCoords.length === 0) return [];
+            const leftSide = [];
+            const rightSide = [];
+            const R_earth = 6371;
+
+            for (let i = 0; i < forecastCoords.length; i++) {
+                const [lon, lat] = forecastCoords[i];
+                const r = radii[i] || radii[radii.length - 1];
+                
+                let angle = 0;
+                if (i < forecastCoords.length - 1) {
+                    const [nextLon, nextLat] = forecastCoords[i+1];
+                    angle = Math.atan2(nextLat - lat, nextLon - lon);
+                } else if (i > 0) {
+                    const [prevLon, prevLat] = forecastCoords[i-1];
+                    angle = Math.atan2(lat - prevLat, lon - prevLon);
+                }
+                
+                const perpAngle = angle + Math.PI / 2;
+                const dLat = (r / R_earth) * (180 / Math.PI);
+                const dLon = (r / R_earth) * (180 / Math.PI) / Math.cos(lat * Math.PI / 180);
+                
+                const leftLon = lon + dLon * Math.cos(perpAngle);
+                const leftLat = lat + dLat * Math.sin(perpAngle);
+                const rightLon = lon - dLon * Math.cos(perpAngle);
+                const rightLat = lat - dLat * Math.sin(perpAngle);
+                
+                leftSide.push([leftLon, leftLat]);
+                rightSide.unshift([rightLon, rightLat]);
+            }
+            
+            const startPoint = forecastCoords[0];
+            const startCircle = generateCircleCoords(startPoint[0], startPoint[1], radii[0] || 15, 16);
+            const endPoint = forecastCoords[forecastCoords.length - 1];
+            const endCircle = generateCircleCoords(endPoint[0], endPoint[1], radii[forecastCoords.length - 1] || 465, 16);
+            
+            return [...leftSide, ...endCircle, ...rightSide, ...startCircle];
+        }
+
         const typhoons = {
             all: {
                 name: "活動颱風系統 (全部)",
@@ -299,8 +351,6 @@
                 wind: "166 km/h",
                 movement: "西北 @ 22 km/h",
                 coords: "21.4°N, 122.1°E",
-                center: [122.1, 21.4],
-                zoom: 2.5,
                 past: [
                     { coord: [128.5, 16.2], wind: 35 },
                     { coord: [127.0, 17.0], wind: 58 },
@@ -334,8 +384,6 @@
                 wind: "215 km/h",
                 movement: "西北西 @ 18 km/h",
                 coords: "15.8°N, 132.4°E",
-                center: [132.4, 15.8],
-                zoom: 2.5,
                 past: [
                     { coord: [138.0, 12.0], wind: 65 },
                     { coord: [136.2, 13.1], wind: 110 },
@@ -364,8 +412,6 @@
                 wind: "75 km/h",
                 movement: "西北 @ 25 km/h",
                 coords: "10.2°N, 138.5°E",
-                center: [138.5, 10.2],
-                zoom: 2.5,
                 past: [
                     { coord: [142.0, 8.0], wind: 35 },
                     { coord: [140.2, 9.1], wind: 55 },
@@ -387,31 +433,44 @@
             }
         };
 
-        let currentStormKey = 'maliksi';
+        // 預設為全部系統
+        let currentStormKey = 'all';
         let myChart = null;
         let mapLoaded = false;
 
-        // Traditional Chinese Country Name Dictionary (Separating China & Taiwan distinctly)
+        // 計算特定颱風包含過往與預報軌跡的最適邊界與最大縮放
+        function getStormBounds(stKey) {
+            if (stKey === 'all') {
+                return { center: [135, 25], zoom: 1.2 };
+            }
+            const st = typhoons[stKey];
+            let allCoords = [];
+            if (st.pastCoordsOnly) allCoords = allCoords.concat(st.pastCoordsOnly);
+            if (st.forecast) allCoords = allCoords.concat(st.forecast);
+            if (allCoords.length === 0) return { center: [135, 25], zoom: 2.5 };
+
+            let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+            allCoords.forEach(c => {
+                if (c[0] < minLon) minLon = c[0];
+                if (c[0] > maxLon) maxLon = c[0];
+                if (c[1] < minLat) minLat = c[1];
+                if (c[1] > maxLat) maxLat = c[1];
+            });
+            const center = [(minLon + maxLon) / 2, (minLat + maxLat) / 2];
+            const lonSpan = maxLon - minLon;
+            const latSpan = maxLat - minLat;
+            const maxSpan = Math.max(lonSpan, latSpan, 1.5);
+            // 螢幕最大化容納過往與預報軌跡
+            let zoom = Math.min(6.0, Math.max(2.2, 360 / (maxSpan * 11)));
+            return { center, zoom };
+        }
+
         const tcCountryMap = {
-            "China": "中國",
-            "Taiwan": "台灣",
-            "Japan": "日本",
-            "Philippines": "菲律賓",
-            "Vietnam": "越南",
-            "South Korea": "韓國",
-            "North Korea": "朝鮮",
-            "Russia": "俄羅斯",
-            "India": "印度",
-            "Thailand": "泰國",
-            "Malaysia": "馬來西亞",
-            "Indonesia": "印尼",
-            "Cambodia": "柬埔寨",
-            "Laos": "寮國",
-            "Myanmar": "緬甸",
-            "Singapore": "新加坡",
-            "Brunei": "汶萊",
-            "Australia": "澳洲",
-            "New Zealand": "紐西蘭"
+            "China": "中國", "Taiwan": "台灣", "Japan": "日本", "Philippines": "菲律賓",
+            "Vietnam": "越南", "South Korea": "韓國", "North Korea": "朝鮮", "Russia": "俄羅斯",
+            "India": "印度", "Thailand": "泰國", "Malaysia": "馬來西亞", "Indonesia": "印尼",
+            "Cambodia": "柬埔寨", "Laos": "寮國", "Myanmar": "緬甸", "Singapore": "新加坡",
+            "Brunei": "汶萊", "Australia": "澳洲", "New Zealand": "紐西蘭"
         };
 
         async function initVectorMap() {
@@ -442,7 +501,7 @@
                 echarts.registerMap('world50m', worldJson);
                 mapLoaded = true;
                 myChart.hideLoading();
-                renderChart();
+                renderChart(true); // 初始化時採用預設視圖
             } catch (e) {
                 console.error('Failed to load Natural Earth GeoJSON, attempting fallback...', e);
                 try {
@@ -451,13 +510,13 @@
                     echarts.registerMap('world50m', fallbackJson);
                     mapLoaded = true;
                     myChart.hideLoading();
-                    renderChart();
+                    renderChart(true);
                 } catch (err2) {
                     console.error('All map sources failed', err2);
                     echarts.registerMap('world50m', { type: 'FeatureCollection', features: [] });
                     mapLoaded = true;
                     myChart.hideLoading();
-                    renderChart();
+                    renderChart(true);
                 }
             }
 
@@ -466,12 +525,13 @@
             });
         }
 
-        function renderChart() {
+        function renderChart(isStormSwitch = false) {
             if (!myChart) return;
             
             const storm = typhoons[currentStormKey];
             const showPast = document.getElementById('layer-past').checked;
             const showForecast = document.getElementById('layer-forecast').checked;
+            const showEnvelope = document.getElementById('layer-envelope').checked;
             const showNodes = document.getElementById('layer-nodes').checked;
             const showRings = document.getElementById('layer-rings').checked;
             const showMacau = document.getElementById('layer-macau').checked;
@@ -479,7 +539,7 @@
 
             const seriesList = [];
 
-            // 1. Gridlines (1° minor dashed and 5° major gridlines spanning 90°E-180°E, 0°N-50°N) with labels
+            // 1. Gridlines (1° minor dashed and 5° major gridlines spanning 90°E-180°E, 0°N-50°N)
             if (showGrid) {
                 const minorLines = [];
                 for (let lon = 90; lon <= 180; lon += 1) {
@@ -493,11 +553,7 @@
                     coordinateSystem: 'geo',
                     z: 1,
                     polyline: true,
-                    lineStyle: {
-                        color: 'rgba(255, 255, 255, 0.08)',
-                        width: 0.15,
-                        type: 'dashed'
-                    },
+                    lineStyle: { color: 'rgba(255, 255, 255, 0.08)', width: 0.15, type: 'dashed' },
                     data: minorLines,
                     silent: true
                 });
@@ -514,44 +570,25 @@
                     coordinateSystem: 'geo',
                     z: 2,
                     polyline: true,
-                    lineStyle: {
-                        color: 'rgba(255, 255, 255, 0.22)',
-                        width: 0.6,
-                        type: 'dashed'
-                    },
+                    lineStyle: { color: 'rgba(255, 255, 255, 0.22)', width: 0.6, type: 'dashed' },
                     data: majorLines,
                     silent: true
                 });
 
-                // Grid Axis Labels
                 const gridLabels = [];
                 for (let lon = 90; lon <= 180; lon += 10) {
-                    gridLabels.push({
-                        name: `${lon}°E`,
-                        value: [lon, 1, 1],
-                        itemStyle: { opacity: 0 }
-                    });
+                    gridLabels.push({ name: `${lon}°E`, value: [lon, 1, 1], itemStyle: { opacity: 0 } });
                 }
                 for (let lat = 0; lat <= 50; lat += 10) {
                     if (lat === 0) continue;
-                    gridLabels.push({
-                        name: `${lat}°N`,
-                        value: [91, lat, 1],
-                        itemStyle: { opacity: 0 }
-                    });
+                    gridLabels.push({ name: `${lat}°N`, value: [91, lat, 1], itemStyle: { opacity: 0 } });
                 }
                 seriesList.push({
                     type: 'scatter',
                     coordinateSystem: 'geo',
                     z: 3,
                     data: gridLabels,
-                    label: {
-                        show: true,
-                        formatter: '{b}',
-                        color: 'rgba(255, 255, 255, 0.5)',
-                        fontSize: 9,
-                        fontFamily: 'monospace'
-                    },
+                    label: { show: true, formatter: '{b}', color: 'rgba(255, 255, 255, 0.5)', fontSize: 9, fontFamily: 'monospace' },
                     silent: true
                 });
             }
@@ -566,15 +603,9 @@
                     const coords = generateCircleCoords(MACAU_COORDS[0], MACAU_COORDS[1], dist, 64);
                     ringLines.push({
                         coords: coords,
-                        lineStyle: {
-                            color: '#949494',
-                            width: 0.8,
-                            type: 'dashed',
-                            opacity: 0.7
-                        }
+                        lineStyle: { color: '#949494', width: 0.8, type: 'dashed', opacity: 0.7 }
                     });
 
-                    // Label at bottom of each circle
                     const latOffset = (dist / 6371) * (180 / Math.PI);
                     ringLabels.push({
                         name: `${dist}公里`,
@@ -587,7 +618,7 @@
                     type: 'lines',
                     coordinateSystem: 'geo',
                     z: 2,
-                    polyline: true, // 修正：確保多點圓形路徑正確渲染
+                    polyline: true,
                     data: ringLines,
                     silent: true
                 });
@@ -597,42 +628,56 @@
                     coordinateSystem: 'geo',
                     z: 3,
                     data: ringLabels,
-                    label: {
-                        show: true,
-                        formatter: '{b}',
-                        color: '#cbd5e1',
-                        opacity: 0.8,
-                        fontSize: 9,
-                        fontFamily: 'sans-serif',
-                        position: 'bottom'
-                    },
+                    label: { show: true, formatter: '{b}', color: '#cbd5e1', opacity: 0.8, fontSize: 9, fontFamily: 'sans-serif', position: 'bottom' },
                     silent: true
                 });
             }
 
-            // Helper to render typhoon tracks
+            // Helper to render typhoon tracks & error envelopes
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
 
-                // Past Track Connecting Line (White)
+                // Error Envelope (Cone of Uncertainty) using FORECAST_RADII_KM
+                if (showEnvelope && st.forecast) {
+                    const envelopeCoords = generateErrorEnvelopePolygon(st.forecast, FORECAST_RADII_KM);
+                    if (envelopeCoords.length > 0) {
+                        seriesList.push({
+                            type: 'custom',
+                            coordinateSystem: 'geo',
+                            z: 2.5,
+                            data: [envelopeCoords],
+                            renderItem: function(params, api) {
+                                const polygonCoords = params.data;
+                                if (!polygonCoords || polygonCoords.length === 0) return;
+                                const points = polygonCoords.map(coord => api.coord(coord));
+                                return {
+                                    type: 'polygon',
+                                    shape: { points: points },
+                                    style: {
+                                        fill: 'rgba(59, 130, 246, 0.15)',
+                                        stroke: 'rgba(59, 130, 246, 0.45)',
+                                        lineWidth: 1.2,
+                                        lineDash: [4, 4]
+                                    }
+                                };
+                            },
+                            silent: true
+                        });
+                    }
+                }
+
+                // Past Track Line (White)
                 if (showPast) {
                     seriesList.push({
                         type: 'lines',
                         coordinateSystem: 'geo',
                         z: 3,
                         polyline: true,
-                        lineStyle: {
-                            color: '#ffffff', // 修正：過去路徑統一為白色
-                            width: 1.8,
-                            opacity: 0.95
-                        },
-                        data: [{
-                            coords: st.pastCoordsOnly
-                        }],
+                        lineStyle: { color: '#ffffff', width: 1.8, opacity: 0.95 },
+                        data: [{ coords: st.pastCoordsOnly }],
                         silent: true
                     });
 
-                    // Past Track Nodes colored by TC_INTENSITY_TABLE
                     const pastScatterData = st.past.map(pt => {
                         const intensity = getIntensity(pt.wind);
                         return {
@@ -662,7 +707,7 @@
                     });
                 }
 
-                // Forecast Track Line (White, Dashed) & Nodes
+                // Forecast Track Line (White, Dashed)
                 if (showForecast && st.forecast) {
                     seriesList.push({
                         type: 'lines',
@@ -677,15 +722,8 @@
                             symbol: 'circle',
                             symbolSize: 4
                         },
-                        lineStyle: {
-                            color: '#ffffff', // 修正：預報路徑也改為白色
-                            width: 2.2,
-                            type: 'dashed',
-                            opacity: 0.9
-                        },
-                        data: [{
-                            coords: st.forecast
-                        }],
+                        lineStyle: { color: '#ffffff', width: 2.2, type: 'dashed', opacity: 0.9 },
+                        data: [{ coords: st.forecast }],
                         silent: true
                     });
                 }
@@ -730,16 +768,8 @@
                         z: 6,
                         data: eyeData,
                         symbolSize: 20,
-                        rippleEffect: {
-                            brushType: 'stroke',
-                            scale: 4,
-                            period: 2
-                        },
-                        itemStyle: {
-                            color: '#ef4444',
-                            shadowBlur: 12,
-                            shadowColor: '#ef4444'
-                        },
+                        rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
+                        itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' },
                         tooltip: {
                             formatter: function(params) {
                                 if (!params.data || !params.data.nodeInfo) return '';
@@ -760,7 +790,7 @@
                 renderTyphoonTracks(storm);
             }
 
-            // 3. Macau Reference Point Marker [113.5685, 22.1595] labeled as "澳門"
+            // Macau Reference Point Marker
             if (showMacau) {
                 seriesList.push({
                     type: 'scatter',
@@ -792,34 +822,24 @@
                 });
             }
 
+            const bounds = getStormBounds(currentStormKey);
+
             const option = {
                 backgroundColor: '#08101a',
                 geo: {
                     map: 'world50m',
                     roam: true,
-                    zoom: storm.zoom,
-                    center: storm.center,
-                    aspectScale: 1.0, // Plate Carrée projection aspect ratio
-                    label: {
-                        show: false
-                    },
-                    itemStyle: {
-                        areaColor: '#132238',
-                        borderColor: '#4d729d',
-                        borderWidth: 0.8
-                    },
+                    // 僅在明確切換颱風或重置視圖時更新 center/zoom，切換圖層時保持使用者當前互動縮放
+                    ...(isStormSwitch ? { center: bounds.center, zoom: bounds.zoom } : {}),
+                    aspectScale: 1.0,
+                    label: { show: false },
+                    itemStyle: { areaColor: '#132238', borderColor: '#4d729d', borderWidth: 0.8 },
                     emphasis: {
-                        focus: 'self', // Strict single-country hover highlighting
-                        itemStyle: {
-                            areaColor: '#1c3354',
-                            borderColor: '#7ea9db',
-                            borderWidth: 1.2
-                        },
+                        focus: 'self',
+                        itemStyle: { areaColor: '#1c3354', borderColor: '#7ea9db', borderWidth: 1.2 },
                         label: { show: false }
                     },
-                    select: {
-                        disabled: true
-                    }
+                    select: { disabled: true }
                 },
                 tooltip: {
                     trigger: 'item',
@@ -847,7 +867,7 @@
             };
 
             try {
-                myChart.setOption(option, true);
+                myChart.setOption(option, false); // false 確保不重置未更新的設定與當前 roam 狀態
             } catch (err) {
                 console.error("ECharts setOption error:", err);
             }
@@ -862,28 +882,28 @@
             if (currentStormKey === 'all') {
                 document.getElementById('stat-distance').innerText = "多系統區域預覽";
             } else {
-                const tLon = storm.center[0];
-                const tLat = storm.center[1];
+                const tLon = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][0];
+                const tLat = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][1];
                 document.getElementById('stat-distance').innerText = getDistanceAndDirectionToMacau(tLon, tLat);
             }
         }
 
         function switchStorm(key) {
             currentStormKey = key;
-            renderChart();
+            renderChart(true); // 切換颱風時觸發自適應最大化縮放
         }
 
         function updateChartLayers() {
-            renderChart();
+            renderChart(false); // 切換圖層時保持當前縮放等級不變
         }
 
         function resetMapView() {
-            const storm = typhoons[currentStormKey];
+            const bounds = getStormBounds(currentStormKey);
             if (myChart) {
                 myChart.setOption({
                     geo: {
-                        center: storm.center,
-                        zoom: storm.zoom
+                        center: bounds.center,
+                        zoom: bounds.zoom
                     }
                 });
             }
