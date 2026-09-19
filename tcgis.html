@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - 簡化 CSV 引擎 v8.0.0</title>
+    <title>MSSO GIS 颱風監控系統 - 簡化 CSV 引擎 v8.0.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -49,7 +49,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v8.0.0</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">簡化 CSV 引擎 v8.0.1</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -103,7 +103,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-800 text-center text-[11px] text-slate-500">
-                MSSO GIS 向量引擎 • v8.0.0 嚴格穿過節點平滑運算
+                MSSO GIS 向量引擎 • v8.0.1 嚴格穿過節點平滑運算
             </div>
         </aside>
 
@@ -172,6 +172,9 @@
         const MACAU_COORDS = [113.5685, 22.1595];
 
         function getDistanceAndDirectionToMacau(tLon, tLat) {
+            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) {
+                return "未知距離";
+            }
             const R = 6371;
             const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
             const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
@@ -200,6 +203,9 @@
         }
 
         function getDirection(lon1, lat1, lon2, lat2) {
+            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) {
+                return "靜止";
+            }
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const lat1Rad = lat1 * Math.PI / 180;
             const lat2Rad = lat2 * Math.PI / 180;
@@ -350,7 +356,7 @@
         }
         // =========================================================================
 
-        // 計算 0H 到 24H 曲線軌跡距離與移動方向
+        // 計算移動距離與移動方向
         function calculateMovementStr(forecastPoints, forecastCoords) {
             if (!forecastCoords || forecastCoords.length < 2) {
                 return "靜止 0 km/h";
@@ -368,7 +374,7 @@
             
             const speed = Math.round(curveDist / 24);
             const pStart = forecastCoords[0];
-            const pEnd = forecastCoords[1];
+            const pEnd = forecastCoords[1] || forecastCoords[0];
             
             const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
             
@@ -400,7 +406,7 @@
 
                 if (isNaN(lat) || isNaN(lon)) continue;
 
-                if (category === 'current') {
+                if (category === 'current' || category === '0h' || category === '0h') {
                     currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal };
                 }
 
@@ -410,8 +416,8 @@
             if (rows.length === 0) return null;
 
             if (!currentMeta) {
-                const last = rows[rows.length - 1];
-                currentMeta = { name: last.name || `Typhoon ${letter.toUpperCase()}`, time: last.time, lat: last.lat, lon: last.lon, wind: last.wind };
+                const anchor = rows.find(r => r.category === '0h' || r.category === 'current') || rows[0];
+                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind };
             }
 
             const name = currentMeta.name;
@@ -449,25 +455,31 @@
                     distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat)
                 };
 
-                if (r.category === 'past' || r.category === 'current') {
+                if (r.category === 'past' || r.category === 'current' || r.category === '0h') {
                     pastNodes.push(nodeInfo);
                 }
-                if (r.category === 'current' || r.category.toLowerCase().includes('h')) {
+                if (r.category === 'current' || r.category === '0h' || r.category.toLowerCase().includes('h')) {
                     forecastNodes.push(nodeInfo);
                 }
             });
 
-            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current');
+            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h');
+            if (pastRows.length === 0 && rows.length > 0) {
+                pastRows = [rows[0]];
+            }
             pastRows.forEach(pt => {
                 past.push({ coord: [pt.lon, pt.lat], wind: pt.wind });
                 pastCoordsOnly.push([pt.lon, pt.lat]);
                 nodes.push({ coord: [pt.lon, pt.lat], time: pt.time, wind: `${pt.wind} km/h`, type: getIntensity(pt.wind).code });
             });
 
-            let forecastRows = rows.filter(r => r.category === 'current' || r.category.toLowerCase().includes('h'));
+            let forecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category.toLowerCase().includes('h'));
+            if (forecastRows.length === 0 && rows.length > 0) {
+                forecastRows = rows;
+            }
             forecastRows.forEach(fr => {
                 let hour = 0;
-                if (fr.category !== 'current') {
+                if (fr.category !== 'current' && fr.category !== '0h') {
                     hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
                 }
 
@@ -481,14 +493,14 @@
                     radius: defaultRadius
                 });
 
-                if (fr.category !== 'current' && !nodes.some(n => n.time === fr.time)) {
+                if (fr.category !== 'current' && fr.category !== '0h' && !nodes.some(n => n.time === fr.time)) {
                     nodes.push({ coord: [fr.lon, fr.lat], time: fr.time, wind: `${fr.wind} km/h`, type: getIntensity(fr.wind).code });
                 }
             });
 
-            const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1];
-            const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : '';
-            const fCoordsForCalc = forecastCoords.length > 0 ? forecastCoords : pastCoordsOnly.slice(-1);
+            const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1] || forecastCoords[0] || [currentMeta.lon, currentMeta.lat];
+            const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : `${currentMeta.lat.toFixed(1)}°N, ${currentMeta.lon.toFixed(1)}°E`;
+            const fCoordsForCalc = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
             const movementStr = calculateMovementStr(forecastPoints, fCoordsForCalc);
 
             return {
@@ -501,7 +513,7 @@
                 coords: coordsStr,
                 past,
                 pastCoordsOnly,
-                forecast: forecastCoords.length > 0 ? forecastCoords : pastCoordsOnly.slice(-1),
+                forecast: forecastCoords.length > 0 ? forecastCoords : [lastCoord],
                 forecastPoints,
                 nodes,
                 pastNodes,
@@ -1029,9 +1041,8 @@
                 let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
                 keys.forEach(key => {
                     const st = typhoons[key];
-                    const tLon = st.pastCoordsOnly[st.pastCoordsOnly.length - 1][0];
-                    const tLat = st.pastCoordsOnly[st.pastCoordsOnly.length - 1][1];
-                    const dist = getDistanceAndDirectionToMacau(tLon, tLat);
+                    const lastCoord = (st.pastCoordsOnly && st.pastCoordsOnly.length > 0) ? st.pastCoordsOnly[st.pastCoordsOnly.length - 1] : (st.forecast && st.forecast.length > 0 ? st.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
+                    const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
                     listHtml += `
                         <div class="bg-slate-800/60 border border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5">
                             <div class="flex justify-between items-center font-bold text-white">
@@ -1061,9 +1072,8 @@
                 catEl.style.borderColor = `${storm.intensityObj.color}55`;
                 catEl.style.color = storm.intensityObj.color;
                 
-                const tLon = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][0];
-                const tLat = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][1];
-                const dist = getDistanceAndDirectionToMacau(tLon, tLat);
+                const lastCoord = (storm.pastCoordsOnly && storm.pastCoordsOnly.length > 0) ? storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1] : (storm.forecast && storm.forecast.length > 0 ? storm.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
+                const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
 
                 // 生成預報路徑表內容
                 let forecastTableRows = '';
