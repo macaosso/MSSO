@@ -171,10 +171,19 @@
 
         const MACAU_COORDS = [113.5685, 22.1595];
 
-        function getBearingDirection(lon1, lat1, lon2, lat2) {
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const lat1Rad = lat1 * Math.PI / 180;
-            const lat2Rad = lat2 * Math.PI / 180;
+        function getDistanceAndDirectionToMacau(tLon, tLat) {
+            const R = 6371;
+            const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
+            const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            let dist = R * c;
+            dist = Math.round(dist / 10) * 10;
+
+            const lat1Rad = MACAU_COORDS[1] * Math.PI / 180;
+            const lat2Rad = tLat * Math.PI / 180;
             const y = Math.sin(dLon) * Math.cos(lat2Rad);
             const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
             let brng = Math.atan2(y, x) * 180 / Math.PI;
@@ -187,63 +196,7 @@
                 "正西", "西北偏西", "西北", "北北西"
             ];
             const index = Math.round((brng % 360) / 22.5) % 16;
-            return directions[index];
-        }
-
-        function getDistanceAndDirectionToMacau(tLon, tLat) {
-            const R = 6371;
-            const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
-            const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            let dist = R * c;
-            dist = Math.round(dist / 10) * 10;
-            const direction = getBearingDirection(MACAU_COORDS[0], MACAU_COORDS[1], tLon, tLat);
-            return `${direction} ${dist}公里`;
-        }
-
-        // ================= 動態計算 0H 至 24H 曲線路徑移動方向與速度 =================
-        function calculateDynamicMovement(forecastPoints, forecastCoords) {
-            if (!forecastPoints || forecastPoints.length < 2) return "西北 @ 22 km/h";
-
-            const p0 = forecastPoints.find(p => p.hour === 0) || forecastPoints[0];
-            const p24 = forecastPoints.find(p => p.hour === 24) || forecastPoints[1];
-
-            if (!p0 || !p24) return "西北 @ 22 km/h";
-
-            // 使用平滑曲線計算軌跡
-            const smoothCoords = smoothLineCatmullRom(forecastCoords, 30);
-            let foundStart = false;
-            let subCoords = [];
-
-            for (let coord of smoothCoords) {
-                if (!foundStart) {
-                    if (Math.abs(coord[0] - p0.lon) < 0.02 && Math.abs(coord[1] - p0.lat) < 0.02) {
-                        foundStart = true;
-                        subCoords.push(coord);
-                    }
-                } else {
-                    subCoords.push(coord);
-                    if (Math.abs(coord[0] - p24.lon) < 0.02 && Math.abs(coord[1] - p24.lat) < 0.02) {
-                        break;
-                    }
-                }
-            }
-
-            let dist = 0;
-            if (subCoords.length < 2) {
-                dist = turf.distance(turf.point([p0.lon, p0.lat]), turf.point([p24.lon, p24.lat]), { units: 'kilometers' });
-            } else {
-                for (let i = 1; i < subCoords.length; i++) {
-                    dist += turf.distance(turf.point(subCoords[i-1]), turf.point(subCoords[i]), { units: 'kilometers' });
-                }
-            }
-
-            const speed = Math.round(dist / 24);
-            const direction = getBearingDirection(p0.lon, p0.lat, p24.lon, p24.lat);
-            return `${direction} @ ${speed} km/h`;
+            return `${directions[index]} ${dist}公里`;
         }
 
         function generateCircleCoords(centerLon, centerLat, radiusKm, numPoints = 64) {
@@ -260,17 +213,34 @@
             return coords;
         }
 
+        // ================= 嚴格穿過節點的平滑與超高密度誤差圈運算 (Catmull-Rom) =================
         function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
             if (!coords || coords.length < 2) return coords;
+            
             let pts = [coords[0], ...coords, coords[coords.length - 1]];
             let smooth = [];
 
             for (let i = 1; i < pts.length - 2; i++) {
-                let p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
+                let p0 = pts[i - 1];
+                let p1 = pts[i];
+                let p2 = pts[i + 1];
+                let p3 = pts[i + 2];
+
                 for (let t = 0; t < samplesPerSegment; t++) {
-                    let st = t / samplesPerSegment, t2 = st * st, t3 = t2 * st;
-                    let x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * st + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
-                    let y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * st + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                    let st = t / samplesPerSegment;
+                    let t2 = st * st;
+                    let t3 = t2 * st;
+
+                    let x = 0.5 * ((2 * p1[0]) +
+                        (-p0[0] + p2[0]) * st +
+                        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+
+                    let y = 0.5 * ((2 * p1[1]) +
+                        (-p0[1] + p2[1]) * st +
+                        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+
                     smooth.push([x, y]);
                 }
             }
@@ -284,11 +254,13 @@
         function getRadiusForHour(hour) {
             if (hour <= ERROR_HOURS[0]) return ERROR_RADII_KM[0];
             if (hour >= ERROR_HOURS[ERROR_HOURS.length - 1]) return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
+
             for (let i = 0; i < ERROR_HOURS.length - 1; i++) {
                 if (hour >= ERROR_HOURS[i] && hour <= ERROR_HOURS[i + 1]) {
                     const h1 = ERROR_HOURS[i], h2 = ERROR_HOURS[i + 1];
                     const r1 = ERROR_RADII_KM[i], r2 = ERROR_RADII_KM[i + 1];
-                    return r1 + ((hour - h1) / (h2 - h1)) * (r2 - r1);
+                    const factor = (hour - h1) / (h2 - h1);
+                    return r1 + factor * (r2 - r1);
                 }
             }
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
@@ -297,20 +269,25 @@
         function safeUnion(p1, p2) {
             if (!p1) return p2;
             if (!p2) return p1;
-            try { return turf.union(turf.featureCollection([p1, p2])); } catch (e) {
+            try {
+                return turf.union(turf.featureCollection([p1, p2]));
+            } catch (e) {
                 try { return turf.union(p1, p2); } catch (err) { return p1; }
             }
         }
 
         function makeSplitCone(points, forecastCoords) {
             if (!forecastCoords || forecastCoords.length < 2) return { fullCone: null };
+
             const smoothCoords = smoothLineCatmullRom(forecastCoords, 30);
+
             let origDistances = [0];
             for (let i = 1; i < points.length; i++) {
                 const d = turf.distance(turf.point([points[i-1].lon, points[i-1].lat]), turf.point([points[i].lon, points[i].lat]), {units: 'kilometers'});
                 origDistances.push(origDistances[i-1] + d);
             }
             const totalOrigDist = origDistances[origDistances.length - 1] || 1;
+
             let smoothDistances = [0];
             for (let i = 1; i < smoothCoords.length; i++) {
                 const d = turf.distance(turf.point(smoothCoords[i-1]), turf.point(smoothCoords[i]), {units: 'kilometers'});
@@ -319,10 +296,13 @@
             const totalSmoothDist = smoothDistances[smoothDistances.length - 1] || 1;
 
             let circlesFull = [];
+
             for (let i = 0; i < smoothCoords.length; i++) {
                 const coord = smoothCoords[i];
-                const fraction = totalSmoothDist === 0 ? 0 : smoothDistances[i] / totalSmoothDist;
+                const distAlong = smoothDistances[i];
+                const fraction = totalSmoothDist === 0 ? 0 : distAlong / totalSmoothDist;
                 const correspondingOrigDist = fraction * totalOrigDist;
+
                 let hour = 0;
                 for (let j = 0; j < points.length - 1; j++) {
                     if (correspondingOrigDist >= origDistances[j] && correspondingOrigDist <= origDistances[j+1]) {
@@ -330,20 +310,74 @@
                         const segFactor = segDist === 0 ? 0 : (correspondingOrigDist - origDistances[j]) / segDist;
                         hour = points[j].hour + segFactor * (points[j+1].hour - points[j].hour);
                         break;
+                    } else if (j === points.length - 2 && correspondingOrigDist > origDistances[j+1]) {
+                        hour = points[points.length - 1].hour;
                     }
                 }
+
                 const radius = getRadiusForHour(hour);
-                if (radius > 0) circlesFull.push(turf.buffer(turf.point(coord), radius, { units: "kilometers", steps: 64 }));
+                if (radius > 0) {
+                    const circle = turf.buffer(turf.point(coord), radius, { units: "kilometers", steps: 64 });
+                    circlesFull.push(circle);
+                }
             }
+
             if (circlesFull.length === 0) return { fullCone: null };
+
             let fullCone = circlesFull[0];
-            for (let i = 1; i < circlesFull.length; i++) fullCone = safeUnion(fullCone, circlesFull[i]);
+            for (let i = 1; i < circlesFull.length; i++) {
+                fullCone = safeUnion(fullCone, circlesFull[i]);
+            }
+
             return { fullCone };
+        }
+        // =========================================================================
+
+        // 計算 0H 到 24H 曲線軌跡距離與移動方向
+        function calculateMovementStr(forecastPoints, forecastCoords) {
+            if (!forecastCoords || forecastCoords.length < 2) {
+                return "靜止 @ 0 km/h";
+            }
+            const samplesPerSegment = 30;
+            const smoothCoords = smoothLineCatmullRom(forecastCoords, samplesPerSegment);
+            const segmentPoints = smoothCoords.slice(0, samplesPerSegment + 1);
+            
+            let curveDist = 0;
+            for (let i = 0; i < segmentPoints.length - 1; i++) {
+                const p1 = segmentPoints[i];
+                const p2 = segmentPoints[i+1];
+                curveDist += turf.distance(turf.point(p1), turf.point(p2), {units: 'kilometers'});
+            }
+            
+            const speed = Math.round(curveDist / 24);
+            const pStart = forecastCoords[0];
+            const pEnd = forecastCoords[1];
+            
+            const dLon = (pEnd[0] - pStart[0]) * Math.PI / 180;
+            const lat1Rad = pStart[1] * Math.PI / 180;
+            const lat2Rad = pEnd[1] * Math.PI / 180;
+            
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+            
+            const directions = [
+                "正北", "北北東", "東北", "東北偏東",
+                "正東", "東南偏東", "東南", "南南東",
+                "正南", "南南西", "西南", "西南偏西",
+                "正西", "西北偏西", "西北", "北北西"
+            ];
+            const index = Math.round((brng % 360) / 22.5) % 16;
+            const direction = directions[index];
+            
+            return `${direction} @ ${speed} km/h`;
         }
 
         let typhoons = {};
         let currentStormKey = 'all';
         let myChart = null;
+        let mapLoaded = false;
 
         function parseCSVToTyphoon(csvText, letter) {
             const lines = csvText.split('\n');
@@ -364,13 +398,16 @@
                 const windVal = parseFloat(cols[5]) || 0;
 
                 if (isNaN(lat) || isNaN(lon)) continue;
+
                 if (category === 'current') {
                     currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal };
                 }
+
                 rows.push({ category, time, name: rowName, lat, lon, wind: windVal });
             }
 
             if (rows.length === 0) return null;
+
             if (!currentMeta) {
                 const last = rows[rows.length - 1];
                 currentMeta = { name: last.name || `Typhoon ${letter.toUpperCase()}`, time: last.time, lat: last.lat, lon: last.lon, wind: last.wind };
@@ -380,7 +417,13 @@
             const intensityObj = getIntensity(currentMeta.wind);
             const categoryDesc = `${intensityObj.name} (${intensityObj.code})`;
 
-            let past = [], pastCoordsOnly = [], forecastCoords = [], forecastPoints = [], nodes = [], pastNodes = [], forecastNodes = [];
+            let past = [];
+            let pastCoordsOnly = [];
+            let forecastCoords = [];
+            let forecastPoints = [];
+            let nodes = [];
+            let pastNodes = [];
+            let forecastNodes = [];
 
             rows.forEach(r => {
                 const intensity = getIntensity(r.wind);
@@ -394,20 +437,38 @@
                     lat: r.lat,
                     lon: r.lon
                 };
-                if (r.category === 'past' || r.category === 'current') pastNodes.push(nodeInfo);
-                if (r.category === 'current' || r.category.toLowerCase().includes('h')) forecastNodes.push(nodeInfo);
+                if (r.category === 'past' || r.category === 'current') {
+                    pastNodes.push(nodeInfo);
+                }
+                if (r.category === 'current' || r.category.toLowerCase().includes('h')) {
+                    forecastNodes.push(nodeInfo);
+                }
             });
 
-            rows.filter(r => r.category === 'past' || r.category === 'current').forEach(pt => {
+            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current');
+            pastRows.forEach(pt => {
                 past.push({ coord: [pt.lon, pt.lat], wind: pt.wind });
                 pastCoordsOnly.push([pt.lon, pt.lat]);
                 nodes.push({ coord: [pt.lon, pt.lat], time: pt.time, wind: `${pt.wind} km/h`, type: getIntensity(pt.wind).code });
             });
 
-            rows.filter(r => r.category === 'current' || r.category.toLowerCase().includes('h')).forEach(fr => {
-                let hour = fr.category === 'current' ? 0 : (parseInt(fr.category.replace(/h/gi, '')) || 0);
+            let forecastRows = rows.filter(r => r.category === 'current' || r.category.toLowerCase().includes('h'));
+            forecastRows.forEach(fr => {
+                let hour = 0;
+                if (fr.category !== 'current') {
+                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
+                }
+
                 forecastCoords.push([fr.lon, fr.lat]);
-                forecastPoints.push({ lon: fr.lon, lat: fr.lat, hour: hour, radius: getRadiusForHour(hour) });
+                let defaultRadius = getRadiusForHour(hour);
+
+                forecastPoints.push({
+                    lon: fr.lon,
+                    lat: fr.lat,
+                    hour: hour,
+                    radius: defaultRadius
+                });
+
                 if (fr.category !== 'current' && !nodes.some(n => n.time === fr.time)) {
                     nodes.push({ coord: [fr.lon, fr.lat], time: fr.time, wind: `${fr.wind} km/h`, type: getIntensity(fr.wind).code });
                 }
@@ -415,9 +476,8 @@
 
             const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1];
             const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : '';
-            
-            // 動態計算移動方向與速度 (0H 至 24H 曲線路徑)
-            const calculatedMovement = calculateDynamicMovement(forecastPoints, forecastCoords);
+            const fCoordsForCalc = forecastCoords.length > 0 ? forecastCoords : pastCoordsOnly.slice(-1);
+            const movementStr = calculateMovementStr(forecastPoints, fCoordsForCalc);
 
             return {
                 name,
@@ -425,7 +485,7 @@
                 intensityObj,
                 wind: `${currentMeta.wind} km/h`,
                 time: currentMeta.time,
-                movement: calculatedMovement,
+                movement: movementStr,
                 coords: coordsStr,
                 past,
                 pastCoordsOnly,
@@ -440,83 +500,134 @@
         async function loadAllTyphoonCSVs() {
             const files = ['A', 'B', 'C', 'D', 'E', 'F'];
             let loaded = {};
+
             for (let f of files) {
                 try {
                     const response = await fetch(`TCdata/${f}.csv`);
                     if (!response.ok) continue;
                     const text = await response.text();
                     if (!text || text.trim() === '') continue;
+
                     const stormData = parseCSVToTyphoon(text, f);
-                    if (stormData) loaded[f.toLowerCase()] = stormData;
-                } catch (err) { console.log(`TCdata/${f}.csv 無內容或略過`); }
+                    if (stormData) {
+                        loaded[f.toLowerCase()] = stormData;
+                    }
+                } catch (err) {
+                    console.log(`TCdata/${f}.csv 無內容或略過`);
+                }
             }
             return loaded;
         }
 
         function getStormBounds(stKey) {
             const keys = Object.keys(typhoons);
-            if (stKey === 'all' || keys.length === 0) return { center: [130, 15], zoom: 4.2 };
+            if (stKey === 'all' || keys.length === 0) {
+                return { center: [130, 15], zoom: 4.2 };
+            }
             const st = typhoons[stKey] || typhoons[keys[0]];
             if (!st) return { center: [130, 15], zoom: 4.2 };
-            let allCoords = [...(st.pastCoordsOnly || []), ...(st.forecast || [])];
+            
+            let allCoords = [];
+            if (st.pastCoordsOnly) allCoords = allCoords.concat(st.pastCoordsOnly);
+            if (st.forecast) allCoords = allCoords.concat(st.forecast);
             if (allCoords.length === 0) return { center: [130, 15], zoom: 5.5 };
+
             let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
             allCoords.forEach(c => {
-                minLon = Math.min(minLon, c[0]); maxLon = Math.max(maxLon, c[0]);
-                minLat = Math.min(minLat, c[1]); maxLat = Math.max(maxLat, c[1]);
+                if (c[0] < minLon) minLon = c[0];
+                if (c[0] > maxLon) maxLon = c[0];
+                if (c[1] < minLat) minLat = c[1];
+                if (c[1] > maxLat) maxLat = c[1];
             });
-            const maxSpan = Math.max(maxLon - minLon, maxLat - minLat, 1.0);
-            return { center: [(minLon + maxLon) / 2, (minLat + maxLat) / 2], zoom: Math.min(10.0, Math.max(6.0, 360 / (maxSpan * 3.8))) };
+            const center = [(minLon + maxLon) / 2, (minLat + maxLat) / 2];
+            const lonSpan = maxLon - minLon;
+            const latSpan = maxLat - minLat;
+            const maxSpan = Math.max(lonSpan, latSpan, 1.0);
+            
+            let zoom = Math.min(10.0, Math.max(6.0, 360 / (maxSpan * 3.8)));
+            return { center, zoom };
         }
 
         const tcCountryMap = {
             "China": "中國", "Taiwan": "台灣", "Japan": "日本", "Philippines": "菲律賓",
-            "Vietnam": "越南", "South Korea": "韓國", "North Korea": "朝鮮", "Russia": "俄羅斯"
+            "Vietnam": "越南", "South Korea": "韓國", "North Korea": "朝鮮", "Russia": "俄羅斯",
+            "India": "印度", "Thailand": "泰國", "Malaysia": "馬來西亞", "Indonesia": "印尼",
+            "Cambodia": "柬埔寨", "Laos": "寮國", "Myanmar": "緬甸", "Singapore": "新加坡",
+            "Brunei": "汶萊", "Australia": "澳洲", "New Zealand": "紐西蘭"
         };
 
         async function initVectorMap() {
             const chartDom = document.getElementById('echarts-map');
             myChart = echarts.init(chartDom);
-            myChart.showLoading({ text: '載入 GIS 向量圖資與解析 CSV 檔案...', color: '#3b82f6', textColor: '#cbd5e1', maskColor: 'rgba(8, 16, 26, 0.9)' });
+
+            myChart.showLoading({
+                text: '載入 GIS 向量圖資與解析 CSV 檔案...',
+                color: '#3b82f6',
+                textColor: '#cbd5e1',
+                maskColor: 'rgba(8, 16, 26, 0.9)',
+                zlevel: 0
+            });
 
             try {
                 const [worldResp, csvTyphoons] = await Promise.all([
                     fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson'),
                     loadAllTyphoonCSVs()
                 ]);
+
                 const worldJson = await worldResp.json();
                 if (worldJson && worldJson.features) {
                     worldJson.features.forEach(feat => {
                         if (feat.properties) {
-                            const engName = feat.properties.ADMIN || feat.properties.name || '';
+                            const engName = feat.properties.ADMIN || feat.properties.name || feat.properties.NAME || '';
                             feat.properties.name = tcCountryMap[engName] || engName;
                         }
                     });
                 }
+
                 echarts.registerMap('world50m', worldJson);
                 typhoons = csvTyphoons;
+                mapLoaded = true;
                 myChart.hideLoading();
-                currentStormKey = Object.keys(typhoons).length === 1 ? Object.keys(typhoons)[0] : 'all';
+                
+                const keys = Object.keys(typhoons);
+                if (keys.length === 1) {
+                    currentStormKey = keys[0];
+                } else {
+                    currentStormKey = 'all';
+                }
+
                 updateStormSelectUI();
                 renderChart(true);
             } catch (e) {
+                console.error('初始化失敗:', e);
                 myChart.hideLoading();
                 typhoons = {};
                 updateStormSelectUI();
                 renderChart(true);
             }
-            window.addEventListener('resize', () => myChart.resize());
+
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
         }
 
         function updateStormSelectUI() {
             const selectEl = document.getElementById('storm-select');
+            selectEl.innerHTML = '';
+
             const keys = Object.keys(typhoons);
-            if (keys.length === 0) { selectEl.innerHTML = `<option value="none">無活躍系統</option>`; return; }
+            if (keys.length === 0) {
+                selectEl.innerHTML = `<option value="none">無活躍系統</option>`;
+                return;
+            }
+
             if (keys.length === 1) {
+                if (!typhoons[currentStormKey]) currentStormKey = keys[0];
                 const st = typhoons[keys[0]];
                 selectEl.innerHTML = `<option value="${keys[0]}" selected>${st.name} - ${st.category}</option>`;
                 return;
             }
+
             let html = `<option value="all" ${currentStormKey === 'all' ? 'selected' : ''}>活動颱風系統 (全部 - ${keys.length}個)</option>`;
             keys.forEach(k => {
                 const st = typhoons[k];
@@ -528,7 +639,9 @@
         function addTurfPolygonSeries(turfPoly, seriesList, styleOpts) {
             if (!turfPoly || !turfPoly.geometry) return;
             const geom = turfPoly.geometry;
-            const coordsList = geom.type === 'Polygon' ? [geom.coordinates[0]] : geom.type === 'MultiPolygon' ? geom.coordinates.map(p => p[0]) : [];
+            const coordsList = geom.type === 'Polygon' ? [geom.coordinates[0]] : 
+                               geom.type === 'MultiPolygon' ? geom.coordinates.map(poly => poly[0]) : [];
+            
             coordsList.forEach(ring => {
                 seriesList.push({
                     type: 'custom',
@@ -538,7 +651,11 @@
                     renderItem: function(params, api) {
                         const points = ring.map(coord => api.coord(coord));
                         if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) return;
-                        return { type: 'polygon', shape: { points: points }, style: styleOpts };
+                        return {
+                            type: 'polygon',
+                            shape: { points: points },
+                            style: styleOpts
+                        };
                     },
                     silent: true
                 });
@@ -547,48 +664,218 @@
 
         function renderChart(isStormSwitch = false) {
             if (!myChart) return;
+            
+            const showPast = true;
+            const showForecast = true;
+            const showEnvelope = true;
+            const showNodes = true;
+            const showRings = true;
+            const showMacau = true;
+            const showGrid = true;
+
             const seriesList = [];
             const keys = Object.keys(typhoons);
 
-            // 渲染軌跡與誤差圈
+            // 1. 全球經緯網格
+            if (showGrid) {
+                const minorLines = [];
+                for (let lon = -180; lon <= 180; lon += 5) {
+                    minorLines.push({ coords: [[lon, -90], [lon, 90]] });
+                }
+                for (let lat = -90; lat <= 90; lat += 5) {
+                    minorLines.push({ coords: [[-180, lat], [180, lat]] });
+                }
+                seriesList.push({
+                    type: 'lines',
+                    coordinateSystem: 'geo',
+                    z: 1,
+                    polyline: true,
+                    lineStyle: { color: 'rgba(255, 255, 255, 0.05)', width: 0.15, type: 'dashed' },
+                    data: minorLines,
+                    silent: true
+                });
+
+                const majorLines = [];
+                for (let lon = -180; lon <= 180; lon += 30) {
+                    majorLines.push({ coords: [[lon, -90], [lon, 90]] });
+                }
+                for (let lat = -90; lat <= 90; lat += 15) {
+                    majorLines.push({ coords: [[-180, lat], [180, lat]] });
+                }
+                seriesList.push({
+                    type: 'lines',
+                    coordinateSystem: 'geo',
+                    z: 2,
+                    polyline: true,
+                    lineStyle: { color: 'rgba(255, 255, 255, 0.18)', width: 0.6, type: 'dashed' },
+                    data: majorLines,
+                    silent: true
+                });
+
+                const gridLabels = [];
+                for (let lon = -180; lon <= 180; lon += 30) {
+                    if (lon === 180 || lon === -180) continue;
+                    gridLabels.push({ name: `${Math.abs(lon)}°${lon < 0 ? 'W' : 'E'}`, value: [lon, 0, 1], itemStyle: { opacity: 0 } });
+                }
+                for (let lat = -90; lat <= 90; lat += 15) {
+                    if (lat === 0 || lat === 90 || lat === -90) continue;
+                    gridLabels.push({ name: `${Math.abs(lat)}°${lat < 0 ? 'S' : 'N'}`, value: [0, lat, 1], itemStyle: { opacity: 0 } });
+                }
+                seriesList.push({
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    z: 3,
+                    data: gridLabels,
+                    label: { show: true, formatter: '{b}', color: 'rgba(255, 255, 255, 0.4)', fontSize: 9, fontFamily: 'monospace' },
+                    silent: true
+                });
+            }
+
+            // 2. Macau Distance Rings
+            if (showRings) {
+                const ringDistances = [100, 200, 400, 800];
+                const ringLines = [];
+                const ringLabels = [];
+
+                ringDistances.forEach(dist => {
+                    const coords = generateCircleCoords(MACAU_COORDS[0], MACAU_COORDS[1], dist, 64);
+                    ringLines.push({
+                        coords: coords,
+                        lineStyle: { color: '#949494', width: 0.8, type: 'dashed', opacity: 0.7 }
+                    });
+
+                    const latOffset = (dist / 6371) * (180 / Math.PI);
+                    ringLabels.push({
+                        name: `${dist}公里`,
+                        value: [MACAU_COORDS[0], MACAU_COORDS[1] - latOffset, 1],
+                        itemStyle: { opacity: 0 }
+                    });
+                });
+
+                seriesList.push({
+                    type: 'lines',
+                    coordinateSystem: 'geo',
+                    z: 2,
+                    polyline: true,
+                    data: ringLines,
+                    silent: true
+                });
+
+                seriesList.push({
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    z: 3,
+                    data: ringLabels,
+                    label: { show: true, formatter: '{b}', color: '#cbd5e1', opacity: 0.8, fontSize: 9, fontFamily: 'sans-serif', position: 'bottom' },
+                    silent: true
+                });
+            }
+
             const renderTyphoonTracks = (st) => {
                 if (!st.pastCoordsOnly) return;
+
                 const smoothForecastCoords = smoothLineCatmullRom(st.forecast, 30);
-                if (st.forecastPoints && st.forecastPoints.length > 1) {
+
+                if (showEnvelope && st.forecastPoints && st.forecastPoints.length > 1) {
                     const cones = makeSplitCone(st.forecastPoints, st.forecast);
                     if (cones.fullCone) {
-                        addTurfPolygonSeries(cones.fullCone, seriesList, { fill: 'rgba(56, 189, 248, 0.12)', stroke: 'rgba(56, 189, 248, 0.45)', lineWidth: 1.2, lineDash: [3, 3] });
+                        addTurfPolygonSeries(cones.fullCone, seriesList, {
+                            fill: 'rgba(56, 189, 248, 0.12)',
+                            stroke: 'rgba(56, 189, 248, 0.45)',
+                            lineWidth: 1.2,
+                            lineDash: [3, 3]
+                        });
                     }
                 }
-                seriesList.push({
-                    type: 'lines', coordinateSystem: 'geo', z: 3, polyline: true,
-                    lineStyle: { color: '#ffffff', width: 1.8, opacity: 0.95 },
-                    data: [{ coords: st.pastCoordsOnly }], silent: true
-                });
-                seriesList.push({
-                    type: 'scatter', coordinateSystem: 'geo', z: 4,
-                    data: st.past.map(pt => ({ value: [...pt.coord, 1], itemStyle: { color: getIntensity(pt.wind).color }, symbolSize: 7, windVal: pt.wind, stormName: st.name, intensityObj: getIntensity(pt.wind) }))
-                });
-                if (smoothForecastCoords && smoothForecastCoords.length > 0) {
+
+                if (showPast) {
                     seriesList.push({
-                        type: 'lines', coordinateSystem: 'geo', z: 3, polyline: true,
-                        effect: { show: true, period: 4, trailLength: 0.2, color: '#ffffff', symbol: 'circle', symbolSize: 4 },
-                        lineStyle: { color: '#ffffff', width: 2.2, type: 'dashed', opacity: 0.9 },
-                        data: [{ coords: smoothForecastCoords }], silent: true
+                        type: 'lines',
+                        coordinateSystem: 'geo',
+                        z: 3,
+                        polyline: true,
+                        lineStyle: { color: '#ffffff', width: 1.8, opacity: 0.95 },
+                        data: [{ coords: st.pastCoordsOnly }],
+                        silent: true
+                    });
+
+                    const pastScatterData = st.past.map(pt => {
+                        const intensity = getIntensity(pt.wind);
+                        return {
+                            name: `${st.name} 軌跡點`,
+                            value: [...pt.coord, 1],
+                            itemStyle: { color: intensity.color },
+                            symbolSize: 7,
+                            windVal: pt.wind,
+                            stormName: st.name,
+                            intensityObj: intensity
+                        };
+                    });
+
+                    seriesList.push({
+                        type: 'scatter',
+                        coordinateSystem: 'geo',
+                        z: 4,
+                        data: pastScatterData,
+                        symbol: 'circle'
                     });
                 }
-                if (st.nodes) {
-                    const scatterData = st.nodes.map((node, idx) => ({
-                        value: [...node.coord, 1],
-                        itemStyle: { color: getIntensity(parseInt(node.wind)).color },
-                        symbolSize: (idx === st.past.length - 1) ? 16 : 9,
-                        isEye: (idx === st.past.length - 1),
-                        nodeInfo: node,
-                        stormName: st.name,
-                        intensityObj: getIntensity(parseInt(node.wind))
-                    }));
-                    seriesList.push({ type: 'scatter', coordinateSystem: 'geo', z: 5, data: scatterData.filter(d => !d.isEye), symbol: 'circle' });
-                    seriesList.push({ type: 'effectScatter', coordinateSystem: 'geo', z: 6, data: scatterData.filter(d => d.isEye), symbolSize: 20, rippleEffect: { brushType: 'stroke', scale: 4, period: 2 }, itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' } });
+
+                if (showForecast && smoothForecastCoords && smoothForecastCoords.length > 0) {
+                    seriesList.push({
+                        type: 'lines',
+                        coordinateSystem: 'geo',
+                        z: 3,
+                        polyline: true,
+                        effect: {
+                            show: true,
+                            period: 4,
+                            trailLength: 0.2,
+                            color: '#ffffff',
+                            symbol: 'circle',
+                            symbolSize: 4
+                        },
+                        lineStyle: { color: '#ffffff', width: 2.2, type: 'dashed', opacity: 0.9 },
+                        data: [{ coords: smoothForecastCoords }],
+                        silent: true
+                    });
+                }
+
+                if (showNodes && st.nodes) {
+                    const scatterData = st.nodes.map((node, idx) => {
+                        const intensity = getIntensity(parseInt(node.wind));
+                        const isEye = (idx === st.past.length - 1);
+
+                        return {
+                            name: `${st.name} - ${node.time}`,
+                            value: [...node.coord, 1],
+                            itemStyle: { color: intensity.color },
+                            symbolSize: isEye ? 16 : 9,
+                            isEye: isEye,
+                            nodeInfo: node,
+                            stormName: st.name,
+                            intensityObj: intensity
+                        };
+                    });
+
+                    seriesList.push({
+                        type: 'scatter',
+                        coordinateSystem: 'geo',
+                        z: 5,
+                        data: scatterData.filter(d => !d.isEye),
+                        symbol: 'circle'
+                    });
+
+                    const eyeData = scatterData.filter(d => d.isEye);
+                    seriesList.push({
+                        type: 'effectScatter',
+                        coordinateSystem: 'geo',
+                        z: 6,
+                        data: eyeData,
+                        symbolSize: 20,
+                        rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
+                        itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' }
+                    });
                 }
             };
 
@@ -596,49 +883,136 @@
                 if (currentStormKey === 'all' && keys.length > 1) {
                     keys.forEach(k => renderTyphoonTracks(typhoons[k]));
                 } else {
-                    renderTyphoonTracks(typhoons[typhoons[currentStormKey] ? currentStormKey : keys[0]]);
+                    const targetKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
+                    renderTyphoonTracks(typhoons[targetKey]);
                 }
             }
 
-            // 澳門位置標註
-            seriesList.push({
-                type: 'scatter', coordinateSystem: 'geo', z: 7,
-                data: [{ name: '澳門', value: [113.5685, 22.1595, 1], itemStyle: { color: '#ffffff' }, symbolSize: 7 }],
-                label: { show: true, formatter: '{b}', position: 'right', color: '#ffffff', fontSize: 11, fontWeight: 'bold', backgroundColor: 'rgba(11, 19, 34, 0.85)', padding: [3, 6], borderRadius: 4 }
-            });
+            if (showMacau) {
+                seriesList.push({
+                    type: 'scatter',
+                    coordinateSystem: 'geo',
+                    z: 7,
+                    data: [{
+                        name: '澳門',
+                        value: [113.5685, 22.1595, 1],
+                        itemStyle: { color: '#ffffff' },
+                        symbolSize: 7
+                    }],
+                    label: {
+                        show: true,
+                        formatter: '{b}',
+                        position: 'right',
+                        color: '#ffffff',
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        backgroundColor: 'rgba(11, 19, 34, 0.85)',
+                        padding: [3, 6],
+                        borderRadius: 4
+                    }
+                });
+            }
 
             const bounds = getStormBounds(currentStormKey);
+
+            let graphicItems = [];
+            if (keys.length === 0) {
+                graphicItems = [{
+                    type: 'text',
+                    left: 'center',
+                    top: 'center',
+                    style: {
+                        text: '當前西北太平洋沒有熱帶氣旋活躍',
+                        fill: '#94a3b8',
+                        fontSize: 18,
+                        fontWeight: 'bold',
+                        fontFamily: 'sans-serif'
+                    }
+                }];
+            }
+
             const option = {
                 backgroundColor: '#08101a',
-                geo: { map: 'world50m', roam: true, ...(isStormSwitch ? { center: bounds.center, zoom: bounds.zoom } : {}), itemStyle: { areaColor: '#132238', borderColor: '#4d729d', borderWidth: 0.8 } },
+                graphic: graphicItems,
+                geo: {
+                    map: 'world50m',
+                    roam: true,
+                    ...(isStormSwitch ? { center: bounds.center, zoom: bounds.zoom } : {}),
+                    aspectScale: 1.0,
+                    label: { show: false },
+                    itemStyle: { areaColor: '#132238', borderColor: '#4d729d', borderWidth: 0.8 },
+                    emphasis: {
+                        focus: 'self',
+                        itemStyle: { areaColor: '#1c3354', borderColor: '#7ea9db', borderWidth: 1.2 },
+                        label: { show: false }
+                    },
+                    select: { disabled: true }
+                },
                 tooltip: {
                     trigger: 'item',
                     backgroundColor: '#0b1322',
                     borderColor: '#334155',
                     textStyle: { color: '#f8fafc', fontSize: 12 },
                     formatter: function(params) {
+                        if (params.componentType === 'geo') {
+                            const countryName = params.name || '';
+                            if (!countryName) return '';
+                            return `<div style="font-weight:bold; color:#38bdf8; font-size:13px;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
+                        }
                         const d = params.data;
                         if (!d) return params.name || '';
-                        if (d.name === '澳門') return `<div style="font-weight:bold; color:#ffffff;">澳門</div>`;
-                        if (d.nodeInfo) return `<div style="font-weight:bold; color:#38bdf8;">${d.stormName}</div>時間: ${d.nodeInfo.time}<br>風速: ${d.nodeInfo.wind}`;
+                        
+                        if (d.name === '澳門') {
+                            return `<div style="font-weight:bold; color:#ffffff;"><i class="fa-solid fa-location-dot text-cyan-400"></i> 澳門</div>
+                                    <div style="font-size:11px; color:#cbd5e1; font-family:monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
+                        }
+                        
+                        if (d.nodeInfo) {
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''}</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">時間: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.time}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#cbd5e1; font-weight:bold;">${d.nodeInfo.wind}</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">級別: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.intensityObj.code} - ${d.intensityObj.name}</span></div>`;
+                        }
+                        
+                        if (d.windVal) {
+                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''} (軌跡點)</div>
+                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#cbd5e1; font-weight:bold;">${d.windVal} km/h</span></div>
+                                    <div style="font-size:11px; color:#cbd5e1;">級別: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.intensityObj.code} - ${d.intensityObj.name}</span></div>`;
+                        }
+
                         return params.name || '';
                     }
                 },
                 series: seriesList
             };
-            myChart.setOption(option, true);
 
-            // 更新側邊欄面板資訊（套用對應名稱）
+            try {
+                myChart.setOption(option, true);
+            } catch (err) {
+                console.error("ECharts setOption error:", err);
+            }
+
             const stormStatsContent = document.getElementById('storm-stats-content');
+            
             if (keys.length === 0) {
                 document.getElementById('storm-name').innerText = "無活動系統";
-                stormStatsContent.innerHTML = `<div class="text-center text-slate-400 py-3 text-xs">當前沒有熱帶氣旋活躍</div>`;
+                const catEl = document.getElementById('storm-category');
+                catEl.innerText = "正常";
+                catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                catEl.style.color = '#60a5fa';
+                stormStatsContent.innerHTML = `<div class="text-center text-slate-400 py-3 text-xs">當前西北太平洋沒有熱帶氣旋活躍</div>`;
                 return;
             }
 
             if (currentStormKey === 'all' && keys.length > 1) {
                 document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
-                document.getElementById('storm-category').innerText = `共 ${keys.length} 個系統`;
+                const catEl = document.getElementById('storm-category');
+                catEl.innerText = `共 ${keys.length} 個系統監控中`;
+                catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                catEl.style.color = '#60a5fa';
+                
                 let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
                 keys.forEach(key => {
                     const st = typhoons[key];
@@ -647,24 +1021,66 @@
                     const dist = getDistanceAndDirectionToMacau(tLon, tLat);
                     listHtml += `
                         <div class="bg-slate-800/60 border border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5">
-                            <div class="font-bold text-white">${st.name}</div>
-                            <div class="font-mono text-[11px] text-slate-300">
-                                預報時間: ${st.time || '-'}<br>
-                                中心最大風速: ${st.wind}<br>
-                                位置: ${st.coords}<br>
-                                移動方向: ${st.movement}
+                            <div class="flex justify-between items-center font-bold text-white">
+                                <span>${st.name}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.category}</span>
                             </div>
-                        </div>`;
+                            <div class="space-y-1 text-[11px] text-slate-300 font-mono">
+                                <div>時間: <span class="text-slate-200">${st.time || '-'}</span></div>
+                                <div>風速: <span class="text-slate-200">${st.wind}</span></div>
+                                <div>位置: <span class="text-slate-200">${st.coords}</span></div>
+                                <div>距離澳門: <span class="text-slate-200">${dist}</span></div>
+                            </div>
+                        </div>
+                    `;
                 });
-                stormStatsContent.innerHTML = listHtml + '</div>';
+                listHtml += '</div>';
+                stormStatsContent.innerHTML = listHtml;
             } else {
-                const storm = typhoons[typhoons[currentStormKey] ? currentStormKey : keys[0]];
+                const stormKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
+                const storm = typhoons[stormKey];
                 if (!storm) return;
                 document.getElementById('storm-name').innerText = storm.name;
+                
                 const catEl = document.getElementById('storm-category');
                 catEl.innerText = storm.category;
                 catEl.style.backgroundColor = `${storm.intensityObj.color}22`;
+                catEl.style.borderColor = `${storm.intensityObj.color}55`;
                 catEl.style.color = storm.intensityObj.color;
+                
+                const tLon = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][0];
+                const tLat = storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1][1];
+                const dist = getDistanceAndDirectionToMacau(tLon, tLat);
+
+                // 生成預報路徑表內容
+                let forecastTableRows = '';
+                if (storm.forecastNodes) {
+                    storm.forecastNodes.forEach(node => {
+                        forecastTableRows += `
+                            <tr class="hover:bg-slate-800/40">
+                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
+                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                // 生成歷史軌跡表內容
+                let pastTableRows = '';
+                if (storm.pastNodes) {
+                    storm.pastNodes.forEach(node => {
+                        pastTableRows += `
+                            <tr class="hover:bg-slate-800/40">
+                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                                <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
+                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
+                            </tr>
+                        `;
+                    });
+                }
 
                 stormStatsContent.innerHTML = `
                     <div class="space-y-3">
@@ -685,15 +1101,82 @@
                                 <span class="text-slate-400 block text-[10px]">移動方向</span>
                                 <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                             </div>
+                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800 col-span-2">
+                                <span class="text-slate-400 block text-[10px]">距離澳門</span>
+                                <span class="font-mono text-slate-200 font-bold text-[11px]">${dist}</span>
+                            </div>
                         </div>
+
+                        <!-- 預報路徑表 (預設開啟) -->
+                        <details open class="group bg-slate-800/40 border border-slate-800/80 rounded-lg overflow-hidden">
+                            <summary class="p-2 text-xs font-bold text-slate-200 cursor-pointer select-none bg-slate-800/70 hover:bg-slate-700/70 flex justify-between items-center transition">
+                                <span><i class="fa-solid fa-route text-blue-400 mr-1.5"></i> 預報路徑表</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-2 overflow-x-auto max-h-40 overflow-y-auto">
+                                <table class="w-full text-left text-[11px] font-mono">
+                                    <thead>
+                                        <tr class="border-b border-slate-700/60 text-slate-400 text-[10px]">
+                                            <th class="pb-1 px-1">時間</th>
+                                            <th class="pb-1 px-1">級別</th>
+                                            <th class="pb-1 px-1">風速</th>
+                                            <th class="pb-1 px-1">座標</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800/50">
+                                        ${forecastTableRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+
+                        <!-- 歷史軌跡表 (預設關閉) -->
+                        <details class="group bg-slate-800/40 border border-slate-800/80 rounded-lg overflow-hidden">
+                            <summary class="p-2 text-xs font-bold text-slate-200 cursor-pointer select-none bg-slate-800/70 hover:bg-slate-700/70 flex justify-between items-center transition">
+                                <span><i class="fa-solid fa-history text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-2 overflow-x-auto max-h-40 overflow-y-auto">
+                                <table class="w-full text-left text-[11px] font-mono">
+                                    <thead>
+                                        <tr class="border-b border-slate-700/60 text-slate-400 text-[10px]">
+                                            <th class="pb-1 px-1">時間</th>
+                                            <th class="pb-1 px-1">級別</th>
+                                            <th class="pb-1 px-1">風速</th>
+                                            <th class="pb-1 px-1">座標</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800/50">
+                                        ${pastTableRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
                     </div>
                 `;
             }
         }
 
-        function switchStorm(key) { currentStormKey = key; renderChart(true); }
-        function resetMapView() { const bounds = getStormBounds(currentStormKey); myChart.setOption({ geo: { center: bounds.center, zoom: bounds.zoom } }, false); }
-        window.onload = function() { initVectorMap(); };
+        function switchStorm(key) {
+            currentStormKey = key;
+            renderChart(true);
+        }
+
+        function resetMapView() {
+            const bounds = getStormBounds(currentStormKey);
+            if (myChart) {
+                myChart.setOption({
+                    geo: {
+                        center: bounds.center,
+                        zoom: bounds.zoom
+                    }
+                }, false);
+            }
+        }
+
+        window.onload = function() {
+            initVectorMap();
+        };
     </script>
 </body>
 </html>
