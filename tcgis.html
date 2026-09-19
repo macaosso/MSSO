@@ -49,7 +49,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.4 動態清單版</span>
+                    SMCA GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">向量引擎 v5.5 修正版</span>
                 </h1>
                 <p class="text-xs text-slate-400 hidden sm:block">氣象監視、Turf.js 空間運算與多級強度軌跡追蹤系統</p>
             </div>
@@ -294,23 +294,6 @@
                 }
             }
             return result;
-        }
-
-        function catmullRom2bezier(points) {
-            if (!points || points.length === 0) return [];
-            let path = ["M", [points[0].lat, points[0].lon]];
-
-            for (let i = 0; i < points.length - 1; i++) {
-                let p0 = points[i - 1] || points[i];
-                let p1 = points[i];
-                let p2 = points[i + 1];
-                let p3 = points[i + 2] || p2;
-
-                let cp1 = [p1.lat + (p2.lat - p0.lat) / 6, p1.lon + (p2.lon - p0.lon) / 6];
-                let cp2 = [p2.lat - (p3.lat - p1.lat) / 6, p2.lon - (p3.lon - p1.lon) / 6];
-                path.push("C", cp1, cp2, [p2.lat, p2.lon]);
-            }
-            return path;
         }
 
         function safeUnion(p1, p2) {
@@ -728,20 +711,14 @@
                         };
                     });
 
+                    // 移除過往點的 tooltip 互動
                     seriesList.push({
                         type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 4,
                         data: pastScatterData,
                         symbol: 'circle',
-                        tooltip: {
-                            formatter: function(params) {
-                                if (!params.data || !params.data.intensityObj) return '';
-                                return `<div style="font-weight:bold; color:#f8fafc; margin-bottom:4px;">${st.name}</div>
-                                        <div style="font-size:11px; color:#cbd5e1;">強度等級: <span style="color:${params.data.itemStyle.color}; font-weight:bold;">${params.data.intensityObj.code} (${params.data.intensityObj.name})</span></div>
-                                        <div style="font-size:11px; color:#cbd5e1;">持續風速: <span style="color:#f59e0b; font-family:monospace;">${params.data.windVal} km/h</span></div>`;
-                            }
-                        }
+                        silent: true
                     });
                 }
 
@@ -781,23 +758,18 @@
                         };
                     });
 
+                    // 移除一般預報節點的 tooltip 互動
                     seriesList.push({
                         type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 5,
                         data: scatterData.filter(d => !d.isEye),
                         symbol: 'circle',
-                        tooltip: {
-                            formatter: function(params) {
-                                if (!params.data || !params.data.nodeInfo) return '';
-                                return `<div style="font-weight:bold; color:#f8fafc; margin-bottom:4px;">${params.data.name}</div>
-                                        <div style="font-size:11px; color:#cbd5e1;">強度: <span style="color:${params.data.itemStyle.color}; font-weight:bold;">${params.data.intensityObj.code} (${params.data.intensityObj.name})</span></div>
-                                        <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#f59e0b; font-family:monospace;">${params.data.nodeInfo.wind}</span></div>`;
-                            }
-                        }
+                        silent: true
                     });
 
                     const eyeData = scatterData.filter(d => d.isEye);
+                    // 移除颱風眼脈衝點的 tooltip 互動
                     seriesList.push({
                         type: 'effectScatter',
                         coordinateSystem: 'geo',
@@ -806,19 +778,11 @@
                         symbolSize: 20,
                         rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
                         itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' },
-                        tooltip: {
-                            formatter: function(params) {
-                                if (!params.data || !params.data.nodeInfo) return '';
-                                return `<div style="font-weight:bold; color:#ef4444; margin-bottom:4px;"><i class="fa-solid fa-hurricane"></i> ${params.data.name} (中心)</div>
-                                        <div style="font-size:11px; color:#cbd5e1;">強度: <span style="color:${params.data.itemStyle.color}; font-weight:bold;">${params.data.intensityObj.code} (${params.data.intensityObj.name})</span></div>
-                                        <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:#f59e0b; font-family:monospace;">${params.data.nodeInfo.wind}</span></div>`;
-                            }
-                        }
+                        silent: true
                     });
                 }
             };
 
-            // 嚴格控制：僅當選定 'all' 時渲染全部；若選定特定系統則【只渲染該特定系統】
             if (currentStormKey === 'all') {
                 renderTyphoonTracks(typhoons.maliksi);
                 renderTyphoonTracks(typhoons.gaemi);
@@ -887,14 +851,6 @@
                             if (!countryName) return '';
                             return `<div style="font-weight:bold; color:#38bdf8; font-size:13px;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
                         }
-                        if (params.seriesType === 'scatter' || params.seriesType === 'effectScatter') {
-                            if (params.data && params.data.tooltip && typeof params.data.tooltip.formatter === 'function') {
-                                return params.data.tooltip.formatter(params);
-                            }
-                            if (params.tooltip && typeof params.tooltip.formatter === 'function') {
-                                return params.tooltip.formatter(params);
-                            }
-                        }
                         return params.name || '';
                     }
                 },
@@ -902,12 +858,11 @@
             };
 
             try {
-                myChart.setOption(option, false);
+                myChart.setOption(option, true);
             } catch (err) {
                 console.error("ECharts setOption error:", err);
             }
 
-            // 動態更新側邊欄控制面板數據（區分「全部」與「單一系統」）
             const stormStatsContent = document.getElementById('storm-stats-content');
             
             if (currentStormKey === 'all') {
@@ -985,7 +940,7 @@
                         center: bounds.center,
                         zoom: bounds.zoom
                     }
-                });
+                }, false);
             }
         }
 
