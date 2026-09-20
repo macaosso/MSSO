@@ -209,40 +209,47 @@
             }
         }
 
-        // 動態加載氣旋按鈕與檢查圖片（改用 onerror 檢測以適應本地與伺服器環境）
+        // 檢查 A-F 圖片是否存在並建立對應按鈕（使用 CSV 內的名稱）
         function initTrackButtons() {
             const container = document.getElementById('trackImageButtons');
             if (!container) return;
 
             container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this)" class="px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors">全部熱帶氣旋</button>`;
 
-            if (typeof TC_WARNING_DATA === 'undefined' || !TC_WARNING_DATA || TC_WARNING_DATA.length === 0) {
-                checkAllPngAndHandleMessage();
-                return;
-            }
+            const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-            const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-
-            TC_WARNING_DATA.forEach((tc, index) => {
-                const letter = tc.id || tc.letter || letters[index] || String.fromCharCode(65 + index);
-                const name = tc.name || tc.stormName || `氣旋 ${letter}`;
+            letters.forEach((letter, index) => {
                 const imgPath = `output/TC/${letter}.png`;
+                
+                // 從 CSV 數據 (TC_WARNING_DATA) 取得對應名稱
+                let stormName = `氣旋 ${letter}`;
+                if (typeof TC_WARNING_DATA !== 'undefined' && Array.isArray(TC_WARNING_DATA)) {
+                    const found = TC_WARNING_DATA[index] || TC_WARNING_DATA.find(tc => (tc.id === letter || tc.letter === letter));
+                    if (found) {
+                        stormName = found.name || found.stormName || found.chineseName || `氣旋 ${letter}`;
+                    }
+                }
 
-                // 先建立按鈕，若圖片載入失敗則自動隱藏按鈕
+                // 建立按鈕（預設隱藏，待圖片確認存在後顯示）
                 const btn = document.createElement('button');
                 btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
-                btn.textContent = name;
+                btn.textContent = stormName;
                 btn.onclick = function() { switchTrackImage(imgPath, this); };
+                btn.style.display = 'none';
                 container.appendChild(btn);
 
+                // 檢查圖片是否存在
                 const checkImg = new Image();
+                checkImg.onload = function() {
+                    btn.style.display = 'inline-block';
+                };
                 checkImg.onerror = function() {
                     btn.style.display = 'none';
                 };
                 checkImg.src = imgPath;
             });
 
-            setTimeout(checkAllPngAndHandleMessage, 400);
+            checkAllPngAndHandleMessage();
         }
 
         function checkAllPngAndHandleMessage() {
