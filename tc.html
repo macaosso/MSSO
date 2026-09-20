@@ -194,14 +194,12 @@
             const imgEl = document.getElementById('tcTrackImageViewer');
             const mapContainer = document.getElementById('tcMapContainer');
             
-            // 確保容器回復圖片檢視結構
             if (mapContainer && !document.getElementById('tcTrackImageViewer')) {
                 mapContainer.innerHTML = `<img id="tcTrackImageViewer" src="${imagePath}" alt="熱帶氣旋路徑圖" class="w-full max-w-4xl h-auto object-contain rounded-xl shadow-md">`;
             } else if (imgEl) {
                 imgEl.src = imagePath + '?' + new Date().getTime();
             }
 
-            // 更新按鈕樣式狀態
             const buttons = document.querySelectorAll('#trackImageButtons button');
             buttons.forEach(btn => {
                 btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
@@ -211,12 +209,11 @@
             }
         }
 
-        // 動態加載氣旋按鈕與檢查圖片
+        // 動態加載氣旋按鈕與檢查圖片（改用 onerror 檢測以適應本地與伺服器環境）
         function initTrackButtons() {
             const container = document.getElementById('trackImageButtons');
             if (!container) return;
 
-            // 保留「全部熱帶氣旋」按鈕
             container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this)" class="px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors">全部熱帶氣旋</button>`;
 
             if (typeof TC_WARNING_DATA === 'undefined' || !TC_WARNING_DATA || TC_WARNING_DATA.length === 0) {
@@ -231,16 +228,18 @@
                 const name = tc.name || tc.stormName || `氣旋 ${letter}`;
                 const imgPath = `output/TC/${letter}.png`;
 
-                // 檢查圖片是否存在
-                const img = new Image();
-                img.src = imgPath;
-                img.onload = function() {
-                    const btn = document.createElement('button');
-                    btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
-                    btn.textContent = name;
-                    btn.onclick = function() { switchTrackImage(imgPath, this); };
-                    container.appendChild(btn);
+                // 先建立按鈕，若圖片載入失敗則自動隱藏按鈕
+                const btn = document.createElement('button');
+                btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                btn.textContent = name;
+                btn.onclick = function() { switchTrackImage(imgPath, this); };
+                container.appendChild(btn);
+
+                const checkImg = new Image();
+                checkImg.onerror = function() {
+                    btn.style.display = 'none';
                 };
+                checkImg.src = imgPath;
             });
 
             setTimeout(checkAllPngAndHandleMessage, 400);
@@ -249,16 +248,12 @@
         function checkAllPngAndHandleMessage() {
             const mapContainer = document.getElementById('tcMapContainer');
             const allImg = new Image();
-            allImg.src = 'output/TC/all.png';
-            allImg.onload = function() {
-                // all.png 存在，正常顯示
-            };
             allImg.onerror = function() {
-                // 如果 all.png 不存在或沒有活躍氣旋
                 if (mapContainer) {
                     mapContainer.innerHTML = '<div class="text-slate-400 py-12 text-center text-sm">現時沒有熱帶氣旋活躍</div>';
                 }
             };
+            allImg.src = 'output/TC/all.png';
         }
 
         // 農曆簡體轉繁體
@@ -295,7 +290,6 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
-        // 頁面載入後自動套用條件邏輯與排版渲染
         window.addEventListener('DOMContentLoaded', () => {
             const tcCard = document.getElementById('tcCard');
             if (typeof tcText === 'undefined' || !tcText || tcText.trim() === '') {
@@ -319,7 +313,6 @@
                 renderTcForecastTable(TC_WARNING_DATA);
             }
 
-            // 初始化動態氣旋按鈕與檢查
             initTrackButtons();
         });
     </script>
