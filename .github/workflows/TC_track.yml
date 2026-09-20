@@ -2,9 +2,9 @@ name: Auto Update Typhoon Tracks
 
 on:
   schedule:
-    # 預設每 3 小時執行一次，您可以根據需求自行調整 cron 時間
+    # 預設每 3 小時執行一次
     - cron: '0 */3 * * *'
-  workflow_dispatch: # 允許在 GitHub 介面上手動觸發
+  workflow_dispatch: # 允許手動觸發
 
 jobs:
   update-tracks:
@@ -22,18 +22,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # 如果您的指令碼需要額外套件，可以在此安裝，例如：
-          # pip install pandas matplotlib numpy
+          # 直接安裝您 Python 腳本中引用到的所有相依套件
+          pip install pandas numpy matplotlib cartopy scipy shapely
 
       - name: Run typhoon track generation script
         run: |
-          # 請將 'generate_track.py' 替換為您實際執行生成圖片的 Python 指令碼檔名
+          # 請確認這裡的指令碼檔名與您實際執行的檔案一致
           python python/TC_track.py
 
       - name: Commit and push changes
@@ -44,7 +42,7 @@ jobs:
           # 將產生的路徑圖檔案加入版控
           git add output/TC/
           
-          # 提交變更，若沒有新檔案變更則直接略過不報錯
+          # 提交變更，若沒有新檔案則直接結束
           git commit -m "Auto-update typhoon track maps [skip ci]" || exit 0
           
           # 推送前先拉取遠端最新變更並進行 rebase，避免拒絕推送錯誤
