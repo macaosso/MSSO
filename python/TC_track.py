@@ -1,5 +1,6 @@
 import os
 import math
+import platform
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,8 +14,16 @@ from shapely.geometry import Point, LineString
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-# 設定 Matplotlib 支援中文與負號正確顯示
-plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'PingFang TC', 'Heiti TC', 'Arial Unicode MS', 'sans-serif']
+# 根據不同作業系統自動設定字型，避免 Linux (GitHub Actions) 找不到字型
+system_name = platform.system()
+if system_name == 'Windows':
+    plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Arial']
+elif system_name == 'Darwin':  # macOS
+    plt.rcParams['font.sans-serif'] = ['PingFang TC', 'Heiti TC', 'Arial']
+else:  # Linux / GitHub Actions
+    plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'WenQuanYi Micro Hei', 'DejaVu Sans']
+
+# 解決負號無法正常顯示的問題
 plt.rcParams['axes.unicode_minus'] = False
 
 # 建立輸出與圖示目錄
@@ -176,7 +185,6 @@ def generate_maps():
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
     ax.set_extent([100, 160, 5, 50], crs=ccrs.PlateCarree())
     
-    # 高解析度背景設定（不加 coastline 線條）
     ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor="#959a9f", facecolor="#2d363f"), zorder=1)
     ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '50m', facecolor="#222a35"), zorder=0)
     ax.add_feature(cfeature.BORDERS.with_scale('50m'), linestyle=':', linewidth=0.25, edgecolor="#888888", zorder=3)
@@ -209,7 +217,6 @@ def generate_maps():
     gl_major.bottom_labels = True
     gl_major.left_labels = True
 
-    # 建立所有氣旋的軌跡與誤差圓錐幾何圖形，用於避讓檢測
     all_storm_geoms = []
     for prefix, data in valid_storms.items():
         obs_parts = []
@@ -231,7 +238,6 @@ def generate_maps():
     combined_obstacles = unary_union(all_storm_geoms) if all_storm_geoms else Point(0, 0)
     placed_labels_geom = []
 
-    # 依照您指定的候選標籤位移量（包含 -6.5 左側偏移）
     candidate_offsets = [
         (1.4, 0.0),    # 右側
         (-6.5, 0.0),   # 左側
@@ -276,7 +282,6 @@ def generate_maps():
                 flon, flat = f["lons"][0], f["lats"][0]
                 best_dx, best_dy = candidate_offsets[0]
                 
-                # 同時檢查是否與軌跡/圓錐或「其他已放置的標籤」相交，避免互相堆疊
                 current_obstacle = unary_union([combined_obstacles] + placed_labels_geom) if placed_labels_geom else combined_obstacles
                 
                 for dx, dy in candidate_offsets:
@@ -307,7 +312,7 @@ def generate_maps():
 
     # 2. 逐一產生單一氣旋路徑圖與誤差圓錐 (A.png ~ F.png)
     for prefix, data in valid_storms.items():
-        fig = plt.figure(figsize=(12, 8))  # 強制 3:2 實體比例
+        fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
 
         p = data["past"]
@@ -346,21 +351,17 @@ def generate_maps():
         all_lons = np.concatenate([p["lons"], f["lons"]]) if has_forecast and len(f["lons"]) > 0 else p["lons"]
 
         if len(all_lats) > 0:
-            # 您可以透過調整以下 margin 數值來控制各邊界向外擴展的幅度 (+xxx / -xxx)
-            lat_min_margin = 3.5  # 對應 lat min 向外擴展量
-            lat_max_margin = 3.5  # 對應 lat max 向外擴展量
-            lon_min_margin = 4.0  # 對應 lon min 向外擴展量
-            lon_max_margin = 4.0  # 對應 lon max 向外擴展量
+            lat_min_margin = 3.5
+            lat_max_margin = 3.5
+            lon_min_margin = 4.0
+            lon_max_margin = 4.0
 
             lat_min = all_lats.min() - lat_min_margin
             lat_max = all_lats.max() + lat_max_margin
             
             lon_max_raw = all_lons.max() + lon_max_margin
-            
-            # 最大經度上限限制為 170.0E
             lon_max = min(170.0, lon_max_raw)
             
-            # 維持 3:2 長寬比例 (longitude span : latitude span = 3 : 2)
             lat_span = lat_max - lat_min
             target_lon_span = lat_span * 1.5
             lon_min = lon_max - target_lon_span
@@ -369,7 +370,6 @@ def generate_maps():
         else:
             ax.set_extent([120, 170, 5, 38.33], crs=ccrs.PlateCarree())
 
-        # 高解析度背景設定（不加 coastline 線條）
         ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor="#959a9f", facecolor="#2d363f"), zorder=1)
         ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '50m', facecolor="#222a35"), zorder=0)
         ax.add_feature(cfeature.BORDERS.with_scale('50m'), linestyle=':', linewidth=0.25, edgecolor="#888888", zorder=3)
