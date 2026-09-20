@@ -1,48 +1,54 @@
-name: Automated Typhoon Tracks
+name: Auto Update Typhoon Tracks
 
 on:
-  push:
-    branches: [ main, master ]
-    paths:
-      - 'TCdata/**'
-      - 'generate_tracks.py'
   schedule:
-    - cron: '0 */6 * * *'  # 每 6 小時自動運行一次（可依需求調整）
-  workflow_dispatch:        # 支援手動觸發
+    # 預設每 3 小時執行一次，您可以根據需求自行調整 cron 時間
+    - cron: '0 */3 * * *'
+  workflow_dispatch: # 允許在 GitHub 介面上手動觸發
 
 jobs:
-  update-maps:
+  update-tracks:
     runs-on: ubuntu-latest
+    
+    # 賦予 GitHub Actions 寫入儲存庫的權限
     permissions:
-      contents: write       # 賦予寫入權限以便自動提交生成的圖檔
+      contents: write
 
     steps:
-    - name: 檢出專案程式碼
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: 設定 Miniconda 環境 (支援 Cartopy)
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        python-version: '3.10'
-        channels: conda-forge, defaults
-        channel-priority: strict
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
 
-    - name: 安裝相依套件
-      shell: bash -l {0}
-      run: |
-        conda install -y pandas numpy matplotlib cartopy shapely scipy pytz
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # 如果您的指令碼需要額外套件，可以在此安裝，例如：
+          # pip install pandas matplotlib numpy
 
-    - name: 執行氣旋路徑與誤差圓錐生成腳本
-      shell: bash -l {0}
-      run: |
-        python python/TC_track.py
+      - name: Run typhoon track generation script
+        run: |
+          # 請將 'generate_track.py' 替換為您實際執行生成圖片的 Python 指令碼檔名
+          python python/generate_track.py
 
-    - name: 自動提交並推送更新的圖檔
-      shell: bash -l {0}
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add output/TC/
-        # 檢查是否有檔案變動，有變動才提交
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update typhoon track maps [skip ci]" && git push)
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 將產生的路徑圖檔案加入版控
+          git add output/TC/
+          
+          # 提交變更，若沒有新檔案變更則直接略過不報錯
+          git commit -m "Auto-update typhoon track maps [skip ci]" || exit 0
+          
+          # 推送前先拉取遠端最新變更並進行 rebase，避免拒絕推送錯誤
+          git pull origin main --rebase
+          
+          # 推送回主分支
+          git push origin main
