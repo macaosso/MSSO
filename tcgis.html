@@ -173,6 +173,7 @@
         }
 
         const TC_INTENSITY_TABLE = [
+            {"code": "Ex",   "name": "溫帶氣旋",         "engName": "Extra-tropical Cyclone", "max_wind": -1,   "rangeText": "-",            "color": "#64748b"},
             {"code": "LPA",  "name": "低壓區",           "engName": "Low Pressure Area",      "max_wind": 40,   "rangeText": "≤ 40 km/h",    "color": "#64748b"},
             {"code": "TD",   "name": "熱帶低氣壓",       "engName": "Tropical Depression",    "max_wind": 62,   "rangeText": "41 - 62 km/h", "color": "#0284c7"},
             {"code": "TS",   "name": "熱帶風暴",         "engName": "Tropical Storm",         "max_wind": 87,   "rangeText": "63 - 87 km/h", "color": "#16a34a"},
@@ -180,7 +181,6 @@
             {"code": "TY",   "name": "颱風",             "engName": "Typhoon",                "max_wind": 149,  "rangeText": "118 - 149 km/h","color": "#ea580c"},
             {"code": "STY",  "name": "強颱風",           "engName": "Severe Typhoon",         "max_wind": 184,  "rangeText": "150 - 184 km/h","color": "#dc2626"},
             {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#9333ea"},
-            {"code": "Ex",   "name": "溫帶氣旋",         "engName": "Extra-tropical Cyclone", "rangeText": "-",            "color": "#64748b"},
         ];
 
         function getIntensity(windInput, isEx) {
@@ -396,33 +396,57 @@
 
         function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
             let coordsToUse = forecastCoords;
+            let pointsToUse = forecastPoints;
+
             if (!coordsToUse || coordsToUse.length < 2) {
                 if (pastCoordsOnly && pastCoordsOnly.length >= 2) {
                     coordsToUse = pastCoordsOnly.slice(-2);
+                    pointsToUse = null;
+                } else {
+                    return "-";
+                }
+            }
+            
+            // Use curved distance for 24H only (points up to 24 hours from the start of this segment)
+            let h24Coords = [];
+            let h24Hours = 24;
+
+            if (pointsToUse && pointsToUse.length >= 2) {
+                let startH = pointsToUse[0].hour || 0;
+                let ptsUpTo24 = [];
+                for (let i = 0; i < pointsToUse.length; i++) {
+                    ptsUpTo24.push([pointsToUse[i].lon, pointsToUse[i].lat]);
+                    if (pointsToUse[i].hour >= startH + 24) {
+                        h24Hours = pointsToUse[i].hour - startH;
+                        break;
+                    }
+                }
+                if (ptsUpTo24.length >= 2) {
+                    h24Coords = ptsUpTo24;
+                }
+            }
+
+            if (h24Coords.length < 2) {
+                if (coordsToUse.length >= 2) {
+                    h24Coords = coordsToUse.slice(0, 2);
                 } else {
                     return "靜止 0 km/h";
                 }
             }
-            
-            const pStart = coordsToUse[0];
-            const pEnd = coordsToUse[1] || coordsToUse[0];
+
+            const pStart = h24Coords[0];
+            const pEnd = h24Coords[1] || h24Coords[0];
             const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
 
             const samplesPerSegment = 30;
-            const smoothCoords = smoothLineCatmullRom(coordsToUse, samplesPerSegment);
+            const smoothCoords = smoothLineCatmullRom(h24Coords, samplesPerSegment);
             let curveDist = 0;
             for (let i = 0; i < smoothCoords.length - 1; i++) {
                 curveDist += turf.distance(turf.point(smoothCoords[i]), turf.point(smoothCoords[i+1]), {units: 'kilometers'});
             }
             
-            let totalHours = 24;
-            if (forecastPoints && forecastPoints.length >= 2) {
-                const hStart = forecastPoints[0].hour || 0;
-                const hEnd = forecastPoints[forecastPoints.length - 1].hour || 24;
-                if (hEnd > hStart) totalHours = hEnd - hStart;
-            }
-            
-            const speed = Math.round(curveDist / (totalHours > 0 ? totalHours : 24));
+            if (h24Hours <= 0) h24Hours = 24;
+            const speed = Math.round(curveDist / h24Hours);
             return `${direction} ${speed} km/h`;
         }
 
@@ -484,31 +508,40 @@
             let pastNodes = [];
             let forecastNodes = [];
 
+            let tempForecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
+            if (tempForecastRows.length === 0 && rows.length > 0) {
+                tempForecastRows = rows;
+            }
+            let fPointsForCalc = [];
+            let fCoordsForCalc = [];
+            tempForecastRows.forEach(fr => {
+                let hour = 0;
+                if (fr.category !== 'current' && fr.category !== '0h' && fr.category !== '0') {
+                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
+                }
+                fCoordsForCalc.push([fr.lon, fr.lat]);
+                fPointsForCalc.push({
+                    lon: fr.lon,
+                    lat: fr.lat,
+                    hour: hour,
+                    radius: getRadiusForHour(hour)
+                });
+            });
+
             rows.forEach((r, idx) => {
                 const intensity = getIntensity(r.wind, r.isEx);
                 
-                let moveDir = '靜止';
-                let speedKmh = 0;
-                const nextRow = rows[idx + 1] || rows[idx - 1];
-                if (nextRow) {
-                    const lon1 = idx < rows.length - 1 ? r.lon : rows[idx - 1].lon;
-                    const lat1 = idx < rows.length - 1 ? r.lat : rows[idx - 1].lat;
-                    const lon2 = idx < rows.length - 1 ? rows[idx + 1].lon : r.lon;
-                    const lat2 = idx < rows.length - 1 ? rows[idx + 1].lat : r.lat;
-                    
-                    moveDir = getDirection(lon1, lat1, lon2, lat2);
-                    const dist = turf.distance(turf.point([lon1, lat1]), turf.point([lon2, lat2]), {units: 'kilometers'});
-                    
-                    let hours = 24;
-                    if (idx < rows.length - 1 && rows[idx+1].category && r.category) {
-                        const h1 = parseInt(r.category.replace(/[^0-9]/g, '')) || 0;
-                        const h2 = parseInt(rows[idx+1].category.replace(/[^0-9]/g, '')) || 0;
-                        if (h2 > h1) hours = h2 - h1;
+                let movementStr = '-';
+                if (r.category === 'past') {
+                    movementStr = '-';
+                } else {
+                    const fIndex = tempForecastRows.findIndex(fr => fr === r);
+                    if (fIndex !== -1 && fIndex < fPointsForCalc.length) {
+                        movementStr = calculateMovementStr(fPointsForCalc.slice(fIndex), fCoordsForCalc.slice(fIndex), pastCoordsOnly);
+                    } else {
+                        movementStr = calculateMovementStr(fPointsForCalc, fCoordsForCalc, pastCoordsOnly);
                     }
-                    if (hours <= 0) hours = 24;
-                    speedKmh = Math.round(dist / hours);
                 }
-                const movementStr = `${moveDir} ${speedKmh} km/h`;
 
                 const nodeInfo = {
                     time: r.time,
@@ -542,31 +575,13 @@
                 pastCoordsOnly.push([pt.lon, pt.lat]);
             });
 
-            let forecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
-            if (forecastRows.length === 0 && rows.length > 0) {
-                forecastRows = rows;
-            }
-            forecastRows.forEach(fr => {
-                let hour = 0;
-                if (fr.category !== 'current' && fr.category !== '0h' && fr.category !== '0') {
-                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
-                }
-
-                forecastCoords.push([fr.lon, fr.lat]);
-                let defaultRadius = getRadiusForHour(hour);
-
-                forecastPoints.push({
-                    lon: fr.lon,
-                    lat: fr.lat,
-                    hour: hour,
-                    radius: defaultRadius
-                });
-            });
+            forecastCoords = fCoordsForCalc;
+            forecastPoints = fPointsForCalc;
 
             const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1] || forecastCoords[0] || [currentMeta.lon, currentMeta.lat];
             const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : `${currentMeta.lat.toFixed(1)}°N, ${currentMeta.lon.toFixed(1)}°E`;
-            const fCoordsForCalc = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
-            const movementStr = calculateMovementStr(forecastPoints, fCoordsForCalc, pastCoordsOnly);
+            const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
+            const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
 
             let nodeMap = new Map();
             [...pastNodes, ...forecastNodes].forEach(node => {
@@ -1246,7 +1261,7 @@
                                             <th class="pb-1 px-1">時間</th>
                                             <th class="pb-1 px-1">級別</th>
                                             <th class="pb-1 px-1">風速</th>
-                                            <th class="pb-1 px-1">座標</th>
+                                            <th class="pb-1 px-1">位置</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1269,7 +1284,7 @@
                                             <th class="pb-1 px-1">時間</th>
                                             <th class="pb-1 px-1">級別</th>
                                             <th class="pb-1 px-1">風速</th>
-                                            <th class="pb-1 px-1">座標</th>
+                                            <th class="pb-1 px-1">位置</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
