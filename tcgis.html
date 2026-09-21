@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - v8.0.4</title>
+    <title>MSSO GIS 颱風監控系統 - v8.1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -53,7 +53,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v8.0.4</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v8.1.0</span>
                 </h1>
                 <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -114,7 +114,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                MSSO GIS 向量引擎 • v8.0.4 節點動態時速運算
+                MSSO GIS 向量引擎 • v8.1.0 節點動態時速運算
             </div>
         </aside>
 
@@ -1016,6 +1016,18 @@
 
             const bounds = getStormBounds(currentStormKey);
 
+            // 【修正重點】當非切換颱風（如切換主題）時，保留當前地圖的 center 與 zoom
+            let centerToUse = bounds.center;
+            let zoomToUse = bounds.zoom;
+
+            if (!isStormSwitch && myChart) {
+                const prevOption = myChart.getOption();
+                if (prevOption && prevOption.geo && prevOption.geo[0]) {
+                    if (prevOption.geo[0].center) centerToUse = prevOption.geo[0].center;
+                    if (prevOption.geo[0].zoom) zoomToUse = prevOption.geo[0].zoom;
+                }
+            }
+
             let graphicItems = [];
             if (keys.length === 0) {
                 graphicItems = [{
@@ -1038,7 +1050,8 @@
                 geo: {
                     map: 'world50m',
                     roam: true,
-                    ...(isStormSwitch ? { center: bounds.center, zoom: bounds.zoom } : {}),
+                    center: centerToUse,
+                    zoom: zoomToUse,
                     aspectScale: 1.0,
                     label: { show: false },
                     itemStyle: { areaColor: areaColor, borderColor: borderColor, borderWidth: 0.8 },
