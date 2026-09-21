@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>澳門民間氣象台 MSSO - 7天天氣預報與天氣報文系統</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://tailwindcss.com"></script>
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -262,7 +261,6 @@
             for (let i = 0; i < 7; i++) {
                 const dateStr = data.daily.time[startIndex + i];
                 const code = data.daily.weather_code[startIndex + i];
-                // 簡化圖示對應
                 const symbols = {
                     0: { text: '天晴', icon: 'fas fa-sun text-yellow-500' },
                     1: { text: '天晴', icon: 'fas fa-sun text-yellow-400' },
@@ -312,7 +310,6 @@
             dailyContainer.appendChild(tableWrapper);
         }
 
-        // 支援多個天氣狀況描述的報文生成函數
         function renderWeatherReportsSection() {
             const data = globalWeatherData;
             const container = document.getElementById('weather-reports-container');
@@ -347,7 +344,6 @@
                 const minH = hourlyHumids.length > 0 ? Math.min(...hourlyHumids) : 50;
                 const meanH = hourlyHumids.length > 0 ? hourlyHumids.reduce((a,b)=>a+b,0)/hourlyHumids.length : 70;
 
-                // 1. 天氣(xx) 規則
                 let tempHumidConditions = [];
                 if (maxTemp >= 37.5) tempHumidConditions.push('極為酷熱');
                 else if (maxTemp >= 35.5) tempHumidConditions.push('非常酷熱');
@@ -367,20 +363,15 @@
 
                 let part1 = tempHumidConditions.length >= 2 ? `天氣${tempHumidConditions[0]}及${tempHumidConditions[1]}` : (tempHumidConditions.length === 1 ? `天氣${tempHumidConditions[0]}` : '');
 
-                // 2. 天氣分組描述 (支援多個描述同時出現，如天空狀況 + 降水/霧)
                 let weatherDescs = [];
-                
-                // 天空狀況檢查
                 if (groupCounts['A'] >= 16) weatherDescs.push('天晴');
                 else if (groupCounts['A'] >= 2) weatherDescs.push('部份時間天晴');
                 else if (groupCounts['B'] >= 16) weatherDescs.push('多雲');
                 else if (groupCounts['B'] >= 2) weatherDescs.push('部份時間多雲');
 
-                // 霧狀況檢查
                 if (groupCounts['C'] >= 16) weatherDescs.push('有霧或薄霧');
                 else if (groupCounts['C'] >= 2) weatherDescs.push('有時有霧');
 
-                // 降水優先級處理：Thunderstorm > Showers > rain > Light Rain > Snow
                 let precipDesc = null;
                 for (let g of ['I', 'H', 'E', 'D', 'G']) {
                     let hours = groupCounts[g];
@@ -405,7 +396,6 @@
                 if (weatherDescs.length === 0) weatherDescs.push('多雲');
                 let weatherDescStr = weatherDescs.join('，');
 
-                // 3. 風向風速
                 let windLevels = hourlyWindSpeeds.map(s => getWindSpeedLevel(s));
                 let minWindL = Math.min(...windLevels);
                 let maxWindL = Math.max(...windLevels);
@@ -419,7 +409,6 @@
 
                 let windStr = (minWindL === maxWindL) ? `吹${minWindL}級${chineseDir}。` : `吹${minWindL}-${maxWindL}級${chineseDir}。`;
 
-                // 4. 紫外線
                 let roundedUv = Math.round(maxUv);
                 let uvLevelName = roundedUv >= 11 ? '極高' : roundedUv >= 8 ? '甚高' : roundedUv >= 6 ? '高' : roundedUv >= 3 ? '中等' : '低';
                 let uvStr = `預測最高紫外線指數為${roundedUv}，級別屬於${uvLevelName}。`;
@@ -505,7 +494,7 @@
                 dailyWindData.push({ dateStr, dirCounts, speedCounts });
             }
 
-            // 風向統計
+            // 1. 風向統計
             const dirWrapper = document.createElement('div');
             dirWrapper.className = "space-y-3";
             dirWrapper.innerHTML = `<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-compass text-teal-500"></i> 風向時數統計 (8方位)</h3>`;
@@ -530,6 +519,32 @@
             dirTable.innerHTML = dirHeaderHtml + dirBodyHtml;
             dirWrapper.appendChild(dirTable);
             container.appendChild(dirWrapper);
+
+            // 2. 風速級別統計表 (0-12級 x 7天)
+            const speedWrapper = document.createElement('div');
+            speedWrapper.className = "space-y-3 mt-6";
+            speedWrapper.innerHTML = `<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-gauge-high text-teal-500"></i> 風速級別時數統計 (0-12級)</h3>`;
+            const speedTable = document.createElement('div');
+            speedTable.className = "min-w-[700px] overflow-x-auto";
+            let speedHeaderHtml = `<div class="grid grid-cols-9 gap-2 pb-3 border-b border-slate-200 dark:border-slate-800 text-center font-bold text-xs text-slate-500 dark:text-slate-400"><div class="text-left pl-2 col-span-2">風速級別</div>`;
+            for (let i = 0; i < 7; i++) {
+                const dateObj = new Date(data.daily.time[startIndex + i]);
+                speedHeaderHtml += `<div>${i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' })}</div>`;
+            }
+            speedHeaderHtml += `</div>`;
+            let speedBodyHtml = `<div class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">`;
+            for (let s = 0; s <= 12; s++) {
+                speedBodyHtml += `<div class="grid grid-cols-9 gap-2 py-2 items-center text-center"><div class="text-left pl-2 font-semibold text-slate-700 dark:text-slate-300 col-span-2">${s}級 (${windSpeedNames[s] || ''})</div>`;
+                dailyWindData.forEach(day => {
+                    const val = day.speedCounts[s];
+                    speedBodyHtml += `<div><span class="px-2 py-0.5 rounded-md ${val > 0 ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 font-bold' : 'text-slate-300 dark:text-slate-600'}">${val}h</span></div>`;
+                });
+                speedBodyHtml += `</div>`;
+            }
+            speedBodyHtml += `</div>`;
+            speedTable.innerHTML = speedHeaderHtml + speedBodyHtml;
+            speedWrapper.appendChild(speedTable);
+            container.appendChild(speedWrapper);
         }
 
         fetchWeatherData();
