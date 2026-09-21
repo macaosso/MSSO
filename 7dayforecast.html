@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>澳門民間氣象台 MSSO - 7天天氣預報與風向風速統計</title>
+    <title>澳門民間氣象台 MSSO - 7天天氣預報與天氣報文系統</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -57,7 +57,7 @@
         <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    <i class="fa-solid fa-calendar-days text-purple-500 dark:text-purple-400"></i> 澳門 7天天氣預報
+                    <i class="fa-solid fa-bullhorn text-purple-500 dark:text-purple-400"></i> 澳門 7天天氣預報與自動天氣報文
                 </h1>
                 <div class="mt-2 text-sm text-slate-500 dark:text-slate-400" id="update-time">載入中...</div>
             </div>
@@ -89,6 +89,16 @@
                     </a>
                 </div>
                 <div id="daily-container" class="overflow-x-auto pb-2"></div>
+            </section>
+
+            <!-- 新增區段：每日天氣報文 -->
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-file-lines text-indigo-500 dark:text-indigo-400"></i> 每日標準天氣報文 (7天)
+                    </h2>
+                </div>
+                <div id="weather-reports-container" class="space-y-3"></div>
             </section>
 
             <!-- 9大天氣分組時數統計 -->
@@ -189,13 +199,19 @@
             return { group: 'B', name: 'Cloud (多雲/密雲)' };
         }
 
-        // 根據風向角度 (degrees) 換算 8 方位 (N, NE, E, SE, S, SW, W, NW)
+        // 根據風向角度 (degrees) 換算 8 方位
         function getWindDirection(deg) {
             if (deg === null || deg === undefined) return 'N';
             const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
             const adjustedDeg = (deg + 22.5) % 360;
             const index = Math.floor(adjustedDeg / 45);
             return directions[index];
+        }
+
+        // 8方位英文轉中文
+        function getWindDirectionChinese(dir) {
+            const map = { 'N': '北風', 'NE': '東北風', 'E': '東風', 'SE': '東南風', 'S': '南風', 'SW': '西南風', 'W': '西風', 'NW': '西北風' };
+            return map[dir] || '北風';
         }
 
         // 根據風速 (km/h) 換算 0-12 級別
@@ -233,7 +249,7 @@
 
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max&timezone=Asia/Macau&past_days=1`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
                 const res = await fetch(weatherUrl);
                 globalWeatherData = await res.json();
 
@@ -246,6 +262,7 @@
                 document.getElementById('update-time').textContent = `更新時間：${year}-${month}-${day} ${hours}:${minutes}`;
 
                 renderDailySection();
+                renderWeatherReportsSection();
                 renderWeatherGroupsSection();
                 renderWindStatsSection();
 
@@ -391,6 +408,167 @@
             dailyContainer.appendChild(tableWrapper);
         }
 
+        // 新增函數：產生天氣報文
+        function renderWeatherReportsSection() {
+            const data = globalWeatherData;
+            const container = document.getElementById('weather-reports-container');
+            container.innerHTML = '';
+
+            const startIndex = 1;
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+            for (let i = 0; i < 7; i++) {
+                const dateStr = data.daily.time[startIndex + i];
+                const maxTemp = data.daily.temperature_2m_max[startIndex + i];
+                const minTemp = data.daily.temperature_2m_min[startIndex + i];
+                const maxUv = data.daily.uv_index_max ? data.daily.uv_index_max[startIndex + i] : 5;
+
+                // 收集當日每小時數據
+                let hourlyHumids = [];
+                let hourlyWindSpeeds = [];
+                let hourlyWindDirs = [];
+                let groupCounts = { A:0, B:0, C:0, D:0, E:0, F:0, G:0, H:0, I:0 };
+
+                data.hourly.time.forEach((tStr, idx) => {
+                    if (tStr.startsWith(dateStr)) {
+                        const h = data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : 70;
+                        hourlyHumids.push(h);
+
+                        const speed = data.hourly.wind_speed_10m[idx];
+                        hourlyWindSpeeds.push(speed);
+
+                        const deg = data.hourly.wind_direction_10m[idx];
+                        hourlyWindDirs.push(getWindDirection(deg));
+
+                        const code = data.hourly.weather_code[idx];
+                        const gObj = getWeatherGroup(code);
+                        groupCounts[gObj.group]++;
+                    }
+                });
+
+                const minH = hourlyHumids.length > 0 ? Math.min(...hourlyHumids) : 50;
+                const meanH = hourlyHumids.length > 0 ? hourlyHumids.reduce((a,b)=>a+b,0)/hourlyHumids.length : 70;
+
+                // 1. 天氣(xx) 規則
+                let tempHumidConditions = [];
+                if (maxTemp >= 37.5) tempHumidConditions.push('極為酷熱');
+                else if (maxTemp >= 35.5) tempHumidConditions.push('非常酷熱');
+                else if (maxTemp >= 32.5) tempHumidConditions.push('酷熱');
+                else if (maxTemp >= 27.5) tempHumidConditions.push('炎熱');
+
+                if (minTemp <= 4.4) tempHumidConditions.push('極為寒冷');
+                else if (minTemp <= 7.4) tempHumidConditions.push('非常寒冷');
+                else if (minTemp <= 12.4) tempHumidConditions.push('寒冷');
+                else if (minTemp <= 14.4) tempHumidConditions.push('相當清涼');
+
+                if (minH < 30.5) tempHumidConditions.push('非常乾燥');
+                else if (minH <= 40) tempHumidConditions.push('乾燥');
+
+                if (meanH >= 95) tempHumidConditions.push('非常潮濕');
+                else if (meanH >= 80) tempHumidConditions.push('潮濕');
+
+                let part1 = '';
+                if (tempHumidConditions.length === 1) {
+                    part1 = `天氣${tempHumidConditions[0]}`;
+                } else if (tempHumidConditions.length >= 2) {
+                    part1 = `天氣${tempHumidConditions[0]}及${tempHumidConditions[1]}`;
+                }
+
+                // 2. 天氣分組規則 (優先級 Thunderstorm > Showers > rain > Light Rain)
+                let weatherDesc = '';
+                // 檢查各分組時數
+                const gA = groupCounts['A']; // SUN
+                const gB = groupCounts['B']; // Cloud
+                const gC = groupCounts['C']; // Fog
+                const gD = groupCounts['D']; // Light Rain
+                const gE = groupCounts['E']; // Rain
+                const gH = groupCounts['H']; // Showers
+                const gI = groupCounts['I']; // Thunderstorm
+                const gG = groupCounts['G']; // Snow
+
+                // 選擇降水類別（依優先級）
+                let precipType = null;
+                if (gI >= 16) precipType = '有雷雨';
+                else if (gH >= 16) precipType = '有驟雨';
+                else if (gE >= 16) precipType = '有雨';
+                else if (gD >= 16) precipType = '有微雨';
+                else if (gI >= 2) precipType = '間中有雷雨';
+                else if (gH >= 2) precipType = '間中有驟雨';
+                else if (gE >= 2) precipType = '間中有雨';
+                else if (gD >= 2) precipType = '間中有微雨';
+
+                if (precipType) {
+                    weatherDesc = precipType;
+                } else if (gC >= 16) {
+                    weatherDesc = '有霧或薄霧';
+                } else if (gC >= 2) {
+                    weatherDesc = '有時有霧';
+                } else if (gA >= 16) {
+                    weatherDesc = '天晴';
+                } else if (gA >= 2) {
+                    weatherDesc = '部份時間天晴';
+                } else if (gB >= 16) {
+                    weatherDesc = '多雲';
+                } else if (gB >= 2) {
+                    weatherDesc = '部份時間多雲';
+                } else {
+                    weatherDesc = '多雲';
+                }
+
+                // 3. 風向風速
+                let windLevels = hourlyWindSpeeds.map(s => getWindSpeedLevel(s));
+                let minWindL = Math.min(...windLevels);
+                let maxWindL = Math.max(...windLevels);
+
+                // 計算最多風向
+                let dirCounts = {};
+                directions.forEach(d => dirCounts[d] = 0);
+                hourlyWindDirs.forEach(d => { if(dirCounts[d] !== undefined) dirCounts[d]++; });
+                let mostCommonDir = 'N';
+                let maxCount = -1;
+                directions.forEach(d => {
+                    if (dirCounts[d] > maxCount) {
+                        maxCount = dirCounts[d];
+                        mostCommonDir = d;
+                    }
+                });
+                let chineseDir = getWindDirectionChinese(mostCommonDir);
+
+                let windStr = (minWindL === maxWindL) ? `吹${minWindL}級${chineseDir}風。` : `吹${minWindL}-${maxWindL}級${chineseDir}風。`;
+
+                // 4. 紫外線
+                let roundedUv = Math.round(maxUv);
+                let uvLevelName = '低';
+                if (roundedUv >= 11) uvLevelName = '極高';
+                else if (roundedUv >= 8) uvLevelName = '甚高';
+                else if (roundedUv >= 6) uvLevelName = '高';
+                else if (roundedUv >= 3) uvLevelName = '中等';
+                else uvLevelName = '低';
+
+                let uvStr = `預測最高紫外線指數為${roundedUv}，級別屬於${uvLevelName}。`;
+
+                // 組合完整報文
+                let fullReport = `${part1}，${weatherDesc}。${windStr}${uvStr}`;
+
+                const dateObj = new Date(dateStr);
+                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
+                const monthDay = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2";
+                rowDiv.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-[100px]">
+                        <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">${dayName}</span>
+                        <span class="text-xs text-slate-400">${monthDay}</span>
+                    </div>
+                    <div class="text-xs md:text-sm text-slate-700 dark:text-slate-300 font-medium flex-grow">
+                        ${fullReport}
+                    </div>
+                `;
+                container.appendChild(rowDiv);
+            }
+        }
+
         function renderWeatherGroupsSection() {
             const data = globalWeatherData;
             const container = document.getElementById('weather-groups-container');
@@ -477,7 +655,6 @@
             container.appendChild(table);
         }
 
-        // 風向與風速統計渲染（改為 8 方位）
         function renderWindStatsSection() {
             const data = globalWeatherData;
             const container = document.getElementById('wind-stats-container');
@@ -537,7 +714,7 @@
             directions.forEach(d => {
                 dirBodyHtml += `<div class="grid grid-cols-9 gap-2 py-2 items-center text-center">
                     <div class="text-left pl-2 font-semibold text-slate-700 dark:text-slate-300 col-span-2 flex items-center gap-1.5">
-                        <i class="fa-solid fa-location-arrow text-teal-500"></i> ${d}
+                        <i class="fa-solid fa-location-arrow text-teal-500"></i> ${getWindDirectionChinese(d)} (${d})
                     </div>`;
 
                 dailyWindData.forEach(day => {
