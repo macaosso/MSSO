@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html lang="zh-TW" class="h-full">
+<html lang="zh-TW" class="h-full dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MSSO GIS 颱風監控系統 - v8.0.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
@@ -12,23 +17,22 @@
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
     <style>
         body {
-            background-color: #08101a;
-            color: #cbd5e1;
             font-family: 'Inter', sans-serif;
         }
+        /* 自定義捲軸 */
         ::-webkit-scrollbar {
             width: 5px;
             height: 5px;
         }
         ::-webkit-scrollbar-track {
-            background: #08101a;
+            background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: #1e293b;
+            background: rgba(100, 116, 139, 0.3);
             border-radius: 3px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #334155;
+            background: rgba(100, 116, 139, 0.5);
         }
         @keyframes pulse-ring {
             0% { transform: scale(0.9); opacity: 0.9; }
@@ -40,30 +44,30 @@
         }
     </style>
 </head>
-<body class="h-full flex flex-col overflow-hidden">
+<body class="h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-[#08101a] text-slate-800 dark:text-slate-200 transition-colors duration-300">
 
-    <header class="bg-[#0b1322] border-b border-slate-800/80 h-16 flex items-center justify-between px-4 sm:px-6 z-35 shrink-0">
+    <header class="bg-white dark:bg-[#0b1322] border-b border-slate-200 dark:border-slate-800/80 h-16 flex items-center justify-between px-4 sm:px-6 z-35 shrink-0 transition-colors duration-300">
         <div class="flex items-center space-x-3">
-            <div class="bg-blue-600/20 border border-blue-500/40 p-2 rounded-lg text-blue-400">
+            <div class="bg-blue-600/10 dark:bg-blue-600/20 border border-blue-500/40 p-2 rounded-lg text-blue-600 dark:text-blue-400">
                 <i class="fa-solid fa-hurricane text-xl animate-spin" style="animation-duration: 8s; animation-direction: reverse;"></i>
             </div>
             <div>
-                <h1 class="text-base sm:text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30"> v8.0.3</span>
+                <h1 class="text-base sm:text-lg font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v8.0.4</span>
                 </h1>
-                <p class="text-xs text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
         </div>
 
         <div class="flex items-center space-x-4">
-            <div class="hidden md:flex items-center space-x-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+            <div class="hidden md:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg text-xs">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-slate-300 font-medium">系統時間: <span id="utc-clock" class="font-mono text-cyan-400">00:00 MST</span></span>
+                <span class="text-slate-700 dark:text-slate-300 font-medium">系統時間: <span id="utc-clock" class="font-mono text-cyan-600 dark:text-cyan-400">00:00 MST</span></span>
             </div>
-            <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm border border-slate-700 transition">
+            <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-sm border border-slate-300 dark:border-slate-700 transition">
                 <i class="fa-solid fa-bars mr-1"></i> 控制面板
             </button>
-            <a href="https://macaosso.github.io/MSSO/index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md transition flex items-center gap-1.5" title="首頁">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5" title="首頁">
                 <i class="fa-solid fa-house"></i> 首頁
             </a>
             <div class="flex items-center gap-4">
@@ -78,12 +82,12 @@
 
     <div class="flex-1 flex relative overflow-hidden">
         
-        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 z-30 w-80 bg-[#0b1322]/95 md:bg-[#0b1322] backdrop-blur-md border-r border-slate-800 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-2xl shrink-0">
-            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 z-30 w-80 bg-white/95 dark:bg-[#0b1322]/95 md:bg-white md:dark:bg-[#0b1322] backdrop-blur-md border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-2xl shrink-0">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                     <i class="fa-solid fa-layer-group text-blue-500"></i> GIS 系統控制
                 </h2>
-                <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-400 hover:text-white">
+                <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
@@ -91,17 +95,17 @@
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
                 <!-- Storm Selector -->
                 <div class="space-y-1.5">
-                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統 (自動偵測)</label>
-                    <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                    <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">活動颱風系統</label>
+                    <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition">
                         <option value="all" selected>載入中...</option>
                     </select>
                 </div>
 
                 <!-- Storm Stats Card -->
-                <div class="bg-slate-900/70 border border-slate-800/80 rounded-xl p-3 space-y-3 shadow-inner">
-                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                        <span id="storm-name" class="font-bold text-white text-sm">檢查中...</span>
-                        <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">狀態</span>
+                <div class="bg-slate-50 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 space-y-3 shadow-inner">
+                    <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
+                        <span id="storm-name" class="font-bold text-slate-900 dark:text-white text-sm">檢查中...</span>
+                        <span id="storm-category" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">狀態</span>
                     </div>
                     <div id="storm-stats-content">
                         <!-- 動態填充統計或清單 -->
@@ -109,19 +113,19 @@
                 </div>
             </div>
 
-            <div class="p-3 border-t border-slate-800 text-center text-[11px] text-slate-500">
-                MSSO GIS 向量引擎 • v8.0.3 節點動態時速運算
+            <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500">
+                MSSO GIS 向量引擎 • v8.0.4 節點動態時速運算
             </div>
         </aside>
 
         <!-- 主地圖畫布區 -->
-        <main class="flex-1 relative h-full bg-[#08101a] min-h-0 min-w-0 flex flex-col">
+        <main class="flex-1 relative h-full bg-slate-100 dark:bg-[#08101a] min-h-0 min-w-0 flex flex-col transition-colors duration-300">
             <div id="echarts-map" class="w-full h-full flex-1"></div>
 
             <!-- 強度分級圖例 -->
-            <div class="absolute bottom-6 right-6 z-20 bg-[#0b1322]/90 backdrop-blur-md border border-slate-800 p-3.5 rounded-xl shadow-xl text-xs space-y-2 pointer-events-none hidden sm:block max-w-xs">
-                <div class="font-bold text-slate-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <i class="fa-solid fa-palette text-blue-400"></i> 強度分級 (自動風速對應)
+            <div class="absolute bottom-6 right-6 z-20 bg-white/90 dark:bg-[#0b1322]/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-xl text-xs space-y-2 pointer-events-none hidden sm:block max-w-xs transition-colors duration-300">
+                <div class="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <i class="fa-solid fa-palette text-blue-500 dark:text-blue-400"></i> 強度分級 (自動風速對應)
                 </div>
                 <div id="intensity-legend" class="grid grid-cols-1 gap-1.5 text-[11px]"></div>
             </div>
@@ -145,6 +149,13 @@
             sidebar.classList.toggle('-translate-x-full');
         }
 
+        // 初始化主題（預設 dark）
+        if (localStorage.getItem('theme') === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+
         // 主題切換邏輯
         const themeToggleBtn = document.getElementById('theme-toggle');
         if (themeToggleBtn) {
@@ -156,17 +167,19 @@
                     document.documentElement.classList.add('dark');
                     localStorage.setItem('theme', 'dark');
                 }
+                // 切換主題後重新渲染地圖以更新配色
+                renderChart(false);
             });
         }
 
         const TC_INTENSITY_TABLE = [
-            {"code": "LPA",  "name": "低壓區",           "engName": "Low Pressure Area",      "max_wind": 40,   "rangeText": "≤ 40 km/h",    "color": "#DDDFE2"},
-            {"code": "TD",   "name": "熱帶低氣壓",       "engName": "Tropical Depression",    "max_wind": 62,   "rangeText": "41 - 62 km/h", "color": "#6DD8FA"},
-            {"code": "TS",   "name": "熱帶風暴",         "engName": "Tropical Storm",         "max_wind": 87,   "rangeText": "63 - 87 km/h", "color": "#9DD79C"},
-            {"code": "STS",  "name": "強烈熱帶風暴",     "engName": "Severe Tropical Storm",  "max_wind": 117,  "rangeText": "88 - 117 km/h","color": "#FFD363"},
-            {"code": "TY",   "name": "颱風",             "engName": "Typhoon",                "max_wind": 149,  "rangeText": "118 - 149 km/h","color": "#F78A31"},
-            {"code": "STY",  "name": "強颱風",           "engName": "Severe Typhoon",         "max_wind": 184,  "rangeText": "150 - 184 km/h","color": "#FF6F6F"},
-            {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#DE82FF"}
+            {"code": "LPA",  "name": "低壓區",           "engName": "Low Pressure Area",      "max_wind": 40,   "rangeText": "≤ 40 km/h",    "color": "#64748b"},
+            {"code": "TD",   "name": "熱帶低氣壓",       "engName": "Tropical Depression",    "max_wind": 62,   "rangeText": "41 - 62 km/h", "color": "#0284c7"},
+            {"code": "TS",   "name": "熱帶風暴",         "engName": "Tropical Storm",         "max_wind": 87,   "rangeText": "63 - 87 km/h", "color": "#16a34a"},
+            {"code": "STS",  "name": "強烈熱帶風暴",     "engName": "Severe Tropical Storm",  "max_wind": 117,  "rangeText": "88 - 117 km/h","color": "#ca8a04"},
+            {"code": "TY",   "name": "颱風",             "engName": "Typhoon",                "max_wind": 149,  "rangeText": "118 - 149 km/h","color": "#ea580c"},
+            {"code": "STY",  "name": "強颱風",           "engName": "Severe Typhoon",         "max_wind": 184,  "rangeText": "150 - 184 km/h","color": "#dc2626"},
+            {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#9333ea"}
         ];
 
         function getIntensity(windKmh) {
@@ -183,9 +196,9 @@
             div.innerHTML = `
                 <div class="flex items-center space-x-2">
                     <span class="w-3 h-3 rounded-full inline-block shadow shrink-0" style="background-color: ${item.color};"></span>
-                    <span class="text-slate-300 font-medium">${item.code} - ${item.name}</span>
+                    <span class="text-slate-700 dark:text-slate-300 font-medium">${item.code} - ${item.name}</span>
                 </div>
-                <span class="text-slate-400 font-mono text-[10px] shrink-0">${item.rangeText}</span>
+                <span class="text-slate-500 dark:text-slate-400 font-mono text-[10px] shrink-0">${item.rangeText}</span>
             `;
             legendContainer.appendChild(div);
         });
@@ -460,7 +473,6 @@
             rows.forEach((r, idx) => {
                 const intensity = getIntensity(r.wind);
                 
-                // 動態計算節點移動方向與時速 (movementDir)
                 let moveDir = '靜止';
                 let speedKmh = 0;
                 const nextRow = rows[idx + 1] || rows[idx - 1];
@@ -621,7 +633,7 @@
             "Vietnam": "越南", "South Korea": "韓國", "North Korea": "朝鮮", "Russia": "俄羅斯",
             "India": "印度", "Thailand": "泰國", "Malaysia": "馬來西亞", "Indonesia": "印尼",
             "Cambodia": "柬埔寨", "Laos": "寮國", "Myanmar": "緬甸", "Singapore": "新加坡",
-            "Brunei": "汶萊", "Australia": "澳洲", "New Zealand": "紐西蘭", "Macao S.A.R": "澳門", "Hong Kong S.A.R": "香港"
+            "Brunei": "汶萊", "Australia": "澳洲", "New Zealand": "紐西蘭", "Macao S.A.R": "澳門", "Hong Kong S.A.R.": "香港"
         };
 
         async function initVectorMap() {
@@ -733,6 +745,29 @@
         function renderChart(isStormSwitch = false) {
             if (!myChart) return;
             
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // 根據主題切換地圖顏色變數
+            const mapBgColor = isDark ? '#08101a' : '#f1f5f9';
+            const areaColor = isDark ? '#132238' : '#e2e8f0';
+            const borderColor = isDark ? '#4d729d' : '#94a3b8';
+            const emphAreaColor = isDark ? '#1c3354' : '#cbd5e1';
+            const emphBorderColor = isDark ? '#7ea9db' : '#64748b';
+            
+            const gridMinorColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+            const gridMajorColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.15)';
+            const gridLabelColor = isDark ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
+            
+            const ringColor = isDark ? '#949494' : '#64748b';
+            const ringLabelColor = isDark ? '#cbd5e1' : '#475569';
+            
+            const macauBg = isDark ? 'rgba(11, 19, 34, 0.85)' : 'rgba(255, 255, 255, 0.85)';
+            const macauTextColor = isDark ? '#ffffff' : '#0f172a';
+            
+            const tooltipBg = isDark ? '#0b1322' : '#ffffff';
+            const tooltipBorder = isDark ? '#334155' : '#cbd5e1';
+            const tooltipText = isDark ? '#f8fafc' : '#0f172a';
+
             const showPast = true;
             const showForecast = true;
             const showEnvelope = true;
@@ -757,7 +792,7 @@
                     coordinateSystem: 'geo',
                     z: 1,
                     polyline: true,
-                    lineStyle: { color: 'rgba(255, 255, 255, 0.05)', width: 0.15, type: 'dashed' },
+                    lineStyle: { color: gridMinorColor, width: 0.15, type: 'dashed' },
                     data: minorLines,
                     silent: true
                 });
@@ -774,7 +809,7 @@
                     coordinateSystem: 'geo',
                     z: 2,
                     polyline: true,
-                    lineStyle: { color: 'rgba(255, 255, 255, 0.18)', width: 0.6, type: 'dashed' },
+                    lineStyle: { color: gridMajorColor, width: 0.6, type: 'dashed' },
                     data: majorLines,
                     silent: true
                 });
@@ -793,7 +828,7 @@
                     coordinateSystem: 'geo',
                     z: 3,
                     data: gridLabels,
-                    label: { show: true, formatter: '{b}', color: 'rgba(255, 255, 255, 0.4)', fontSize: 9, fontFamily: 'monospace' },
+                    label: { show: true, formatter: '{b}', color: gridLabelColor, fontSize: 9, fontFamily: 'monospace' },
                     silent: true
                 });
             }
@@ -807,7 +842,7 @@
                     const coords = generateCircleCoords(MACAU_COORDS[0], MACAU_COORDS[1], dist, 64);
                     ringLines.push({
                         coords: coords,
-                        lineStyle: { color: '#949494', width: 0.8, type: 'dashed', opacity: 0.7 }
+                        lineStyle: { color: ringColor, width: 0.8, type: 'dashed', opacity: 0.7 }
                     });
 
                     const latOffset = (dist / 6371) * (180 / Math.PI);
@@ -832,7 +867,7 @@
                     coordinateSystem: 'geo',
                     z: 3,
                     data: ringLabels,
-                    label: { show: true, formatter: '{b}', color: '#cbd5e1', opacity: 0.8, fontSize: 9, fontFamily: 'sans-serif', position: 'bottom' },
+                    label: { show: true, formatter: '{b}', color: ringLabelColor, opacity: 0.9, fontSize: 9, fontFamily: 'sans-serif', position: 'bottom' },
                     silent: true
                 });
             }
@@ -846,8 +881,8 @@
                     const cones = makeSplitCone(st.forecastPoints, st.forecast);
                     if (cones.fullCone) {
                         addTurfPolygonSeries(cones.fullCone, seriesList, {
-                            fill: 'rgba(56, 189, 248, 0.12)',
-                            stroke: 'rgba(56, 189, 248, 0.45)',
+                            fill: isDark ? 'rgba(56, 189, 248, 0.12)' : 'rgba(2, 132, 199, 0.1)',
+                            stroke: isDark ? 'rgba(56, 189, 248, 0.45)' : 'rgba(2, 132, 199, 0.4)',
                             lineWidth: 1.2,
                             lineDash: [3, 3]
                         });
@@ -860,7 +895,7 @@
                         coordinateSystem: 'geo',
                         z: 3,
                         polyline: true,
-                        lineStyle: { color: '#ffffff', width: 1.8, opacity: 0.95 },
+                        lineStyle: { color: isDark ? '#ffffff' : '#334155', width: 1.8, opacity: 0.95 },
                         data: [{ coords: st.pastCoordsOnly }],
                         silent: true
                     });
@@ -897,11 +932,11 @@
                             show: true,
                             period: 4,
                             trailLength: 0.2,
-                            color: '#ffffff',
+                            color: isDark ? '#ffffff' : '#334155',
                             symbol: 'circle',
                             symbolSize: 4
                         },
-                        lineStyle: { color: '#ffffff', width: 2.2, type: 'dashed', opacity: 0.9 },
+                        lineStyle: { color: isDark ? '#ffffff' : '#334155', width: 2.2, type: 'dashed', opacity: 0.9 },
                         data: [{ coords: smoothForecastCoords }],
                         silent: true
                     });
@@ -962,17 +997,17 @@
                     data: [{
                         name: '澳門',
                         value: [113.5685, 22.1595, 1],
-                        itemStyle: { color: '#ffffff' },
+                        itemStyle: { color: isDark ? '#ffffff' : '#0f172a' },
                         symbolSize: 7
                     }],
                     label: {
                         show: true,
                         formatter: '{b}',
                         position: 'right',
-                        color: '#ffffff',
+                        color: macauTextColor,
                         fontSize: 11,
                         fontWeight: 'bold',
-                        backgroundColor: 'rgba(11, 19, 34, 0.85)',
+                        backgroundColor: macauBg,
                         padding: [3, 6],
                         borderRadius: 4
                     }
@@ -989,7 +1024,7 @@
                     top: 'center',
                     style: {
                         text: '當前西北太平洋沒有熱帶氣旋活躍',
-                        fill: '#94a3b8',
+                        fill: isDark ? '#94a3b8' : '#64748b',
                         fontSize: 18,
                         fontWeight: 'bold',
                         fontFamily: 'sans-serif'
@@ -998,7 +1033,7 @@
             }
 
             const option = {
-                backgroundColor: '#08101a',
+                backgroundColor: mapBgColor,
                 graphic: graphicItems,
                 geo: {
                     map: 'world50m',
@@ -1006,45 +1041,45 @@
                     ...(isStormSwitch ? { center: bounds.center, zoom: bounds.zoom } : {}),
                     aspectScale: 1.0,
                     label: { show: false },
-                    itemStyle: { areaColor: '#132238', borderColor: '#4d729d', borderWidth: 0.8 },
+                    itemStyle: { areaColor: areaColor, borderColor: borderColor, borderWidth: 0.8 },
                     emphasis: {
                         focus: 'self',
-                        itemStyle: { areaColor: '#1c3354', borderColor: '#7ea9db', borderWidth: 1.2 },
+                        itemStyle: { areaColor: emphAreaColor, borderColor: emphBorderColor, borderWidth: 1.2 },
                         label: { show: false }
                     },
                     select: { disabled: true }
                 },
                 tooltip: {
                     trigger: 'item',
-                    backgroundColor: '#0b1322',
-                    borderColor: '#334155',
-                    textStyle: { color: '#f8fafc', fontSize: 12 },
+                    backgroundColor: tooltipBg,
+                    borderColor: tooltipBorder,
+                    textStyle: { color: tooltipText, fontSize: 12 },
                     formatter: function(params) {
                         if (params.componentType === 'geo') {
                             const countryName = params.name || '';
                             if (!countryName) return '';
-                            return `<div style="font-weight:bold; color:#38bdf8; font-size:13px;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
+                            return `<div style="font-weight:bold; color:#0284c7; font-size:13px;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
                         }
                         const d = params.data;
                         if (!d) return params.name || '';
                         
                         if (d.name === '澳門') {
-                            return `<div style="font-weight:bold; color:#ffffff;"><i class="fa-solid fa-location-dot text-cyan-400"></i> 澳門</div>
-                                    <div style="font-size:11px; color:#cbd5e1; font-family:monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
+                            return `<div style="font-weight:bold;"><i class="fa-solid fa-location-dot" style="color:#0284c7;"></i> 澳門</div>
+                                    <div style="font-size:11px; font-family:monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
                         }
                         
                         if (d.nodeInfo) {
-                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''}</div>
-                                    <div style="font-size:11px; color:#cbd5e1;">時間: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.time}</span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.nodeInfo.wind} (${d.intensityObj.code}) </span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">位置: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.coordStr}</span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">移動方向: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.movementDir}</span></div>
-                                    <div style="font-size:11px; color:#cbd5e1;">距離澳門: <span style="color:#ffffff; font-weight:bold;">${d.nodeInfo.distToMacau}</span></div>`;
+                            return `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''}</div>
+                                    <div style="font-size:11px;">時間: <span style="font-weight:bold;">${d.nodeInfo.time}</span></div>
+                                    <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.nodeInfo.wind} (${d.intensityObj.code}) </span></div>
+                                    <div style="font-size:11px;">位置: <span style="font-weight:bold;">${d.nodeInfo.coordStr}</span></div>
+                                    <div style="font-size:11px;">移動方向: <span style="font-weight:bold;">${d.nodeInfo.movementDir}</span></div>
+                                    <div style="font-size:11px;">距離澳門: <span style="font-weight:bold;">${d.nodeInfo.distToMacau}</span></div>`;
                         }
                         
                         if (d.windVal) {
-                            return `<div style="font-weight:bold; color:#38bdf8; margin-bottom:4px;">${d.stormName || ''} </div>
-                                    <div style="font-size:11px; color:#cbd5e1;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.windVal} km/h (${d.intensityObj.code})</span></div>`;
+                            return `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''} </div>
+                                    <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.windVal} km/h (${d.intensityObj.code})</span></div>`;
                         }
 
                         return params.name || '';
@@ -1067,8 +1102,8 @@
                 catEl.innerText = "正常";
                 catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                 catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                catEl.style.color = '#60a5fa';
-                stormStatsContent.innerHTML = `<div class="text-center text-slate-400 py-3 text-xs">當前西北太平洋沒有熱帶氣旋活躍</div>`;
+                catEl.style.color = '#3b82f6';
+                stormStatsContent.innerHTML = `<div class="text-center text-slate-500 py-3 text-xs">當前西北太平洋沒有熱帶氣旋活躍</div>`;
                 return;
             }
 
@@ -1078,7 +1113,7 @@
                 catEl.innerText = `共 ${keys.length} 個系統監控中`;
                 catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                 catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                catEl.style.color = '#60a5fa';
+                catEl.style.color = '#3b82f6';
                 
                 let listHtml = '<div class="space-y-2 max-h-56 overflow-y-auto pr-1">';
                 keys.forEach(key => {
@@ -1086,16 +1121,16 @@
                     const lastCoord = (st.pastCoordsOnly && st.pastCoordsOnly.length > 0) ? st.pastCoordsOnly[st.pastCoordsOnly.length - 1] : (st.forecast && st.forecast.length > 0 ? st.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
                     const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
                     listHtml += `
-                        <div class="bg-slate-800/60 border border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5">
-                            <div class="flex justify-between items-center font-bold text-white">
+                        <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5 shadow-sm">
+                            <div class="flex justify-between items-center font-bold text-slate-800 dark:text-white">
                                 <span>${st.name}</span>
                                 <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.category}</span>
                             </div>
-                            <div class="space-y-1 text-[11px] text-slate-300 font-mono">
-                                <div>時間: <span class="text-slate-200">${st.time || '-'}</span></div>
-                                <div>風速: <span class="text-slate-200">${st.wind}</span></div>
-                                <div>位置: <span class="text-slate-200">${st.coords}</span></div>
-                                <div>距離澳門: <span class="text-slate-200">${dist}</span></div>
+                            <div class="space-y-1 text-[11px] text-slate-600 dark:text-slate-300 font-mono">
+                                <div>時間: <span class="text-slate-800 dark:text-slate-200">${st.time || '-'}</span></div>
+                                <div>風速: <span class="text-slate-800 dark:text-slate-200">${st.wind}</span></div>
+                                <div>位置: <span class="text-slate-800 dark:text-slate-200">${st.coords}</span></div>
+                                <div>距離澳門: <span class="text-slate-800 dark:text-slate-200">${dist}</span></div>
                             </div>
                         </div>
                     `;
@@ -1121,11 +1156,11 @@
                 if (storm.forecastNodes) {
                     storm.forecastNodes.forEach(node => {
                         forecastTableRows += `
-                            <tr class="hover:bg-slate-800/40">
-                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                            <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/40">
+                                <td class="py-1 px-1 text-slate-700 dark:text-slate-300">${node.time}</td>
                                 <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
-                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
-                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
+                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.coordStr}</td>
                             </tr>
                         `;
                     });
@@ -1135,11 +1170,11 @@
                 if (storm.pastNodes) {
                     storm.pastNodes.forEach(node => {
                         pastTableRows += `
-                            <tr class="hover:bg-slate-800/40">
-                                <td class="py-1 px-1 text-slate-300">${node.time}</td>
+                            <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/40">
+                                <td class="py-1 px-1 text-slate-700 dark:text-slate-300">${node.time}</td>
                                 <td class="py-1 px-1"><span class="px-1 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
-                                <td class="py-1 px-1 text-slate-200">${node.wind}</td>
-                                <td class="py-1 px-1 text-slate-200">${node.coordStr}</td>
+                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.wind}</td>
+                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.coordStr}</td>
                             </tr>
                         `;
                     });
@@ -1148,45 +1183,45 @@
                 stormStatsContent.innerHTML = `
                     <div class="space-y-3">
                         <div class="space-y-2 text-xs">
-                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">預報時間</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
+                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">預報時間</span>
+                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
                             </div>
-                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">中心最大風速</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind}</span>
+                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">中心最大風速</span>
+                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
                             </div>
-                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">位置</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
+                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">位置</span>
+                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.coords}</span>
                             </div>
-                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">移動方向 (時速)</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
+                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">移動方向 (時速)</span>
+                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                             </div>
-                            <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">距離澳門</span>
-                                <span class="font-mono text-slate-200 font-bold text-[11px]">${dist}</span>
+                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
+                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${dist}</span>
                             </div>
                         </div>
 
                         <!-- 預報路徑表 -->
-                        <details open class="group bg-slate-800/40 border border-slate-800/80 rounded-lg overflow-hidden">
-                            <summary class="p-2 text-xs font-bold text-slate-200 cursor-pointer select-none bg-slate-800/70 hover:bg-slate-700/70 flex justify-between items-center transition">
-                                <span><i class="fa-solid fa-route text-blue-400 mr-1.5"></i> 預報路徑表</span>
-                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform group-open:rotate-180"></i>
+                        <details open class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
+                            <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
+                                <span><i class="fa-solid fa-route text-blue-500 dark:text-blue-400 mr-1.5"></i> 預報路徑表</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
                             </summary>
                             <div class="p-2 overflow-x-auto max-h-40 overflow-y-auto">
                                 <table class="w-full text-left text-[11px] font-mono">
                                     <thead>
-                                        <tr class="border-b border-slate-700/60 text-slate-400 text-[10px]">
+                                        <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
                                             <th class="pb-1 px-1">時間</th>
                                             <th class="pb-1 px-1">級別</th>
                                             <th class="pb-1 px-1">風速</th>
                                             <th class="pb-1 px-1">座標</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-800/50">
+                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
                                         ${forecastTableRows}
                                     </tbody>
                                 </table>
@@ -1194,22 +1229,22 @@
                         </details>
 
                         <!-- 歷史軌跡表 -->
-                        <details class="group bg-slate-800/40 border border-slate-800/80 rounded-lg overflow-hidden">
-                            <summary class="p-2 text-xs font-bold text-slate-200 cursor-pointer select-none bg-slate-800/70 hover:bg-slate-700/70 flex justify-between items-center transition">
-                                <span><i class="fa-solid fa-history text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
-                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform group-open:rotate-180"></i>
+                        <details class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
+                            <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
+                                <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
                             </summary>
                             <div class="p-2 overflow-x-auto max-h-40 overflow-y-auto">
                                 <table class="w-full text-left text-[11px] font-mono">
                                     <thead>
-                                        <tr class="border-b border-slate-700/60 text-slate-400 text-[10px]">
+                                        <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
                                             <th class="pb-1 px-1">時間</th>
                                             <th class="pb-1 px-1">級別</th>
                                             <th class="pb-1 px-1">風速</th>
                                             <th class="pb-1 px-1">座標</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-slate-800/50">
+                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
                                         ${pastTableRows}
                                     </tbody>
                                 </table>
