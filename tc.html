@@ -145,13 +145,13 @@
         
                 <!-- 風速分級圖例 -->
                 <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 dark:text-slate-400 pt-4 mt-6 border-t border-slate-100 dark:border-slate-800">
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#DDDFE2]"></span>LPA</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#6DD8FA]"></span>TD</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#9DD79C]"></span>TS</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#FFD363]"></span>STS</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#F78A31]"></span>TY</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#FF6F6F]"></span>STY</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#DE82FF]"></span>SuTY</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>溫帶/LPA</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>TD</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>TS</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04]"></span>STS</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ea580c]"></span>TY</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#dc2626]"></span>STY</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#9333ea]"></span>SuTY</span>
                 </div>
             </div>
         </div>
@@ -188,6 +188,27 @@
     <!-- 引入獨立的 tc.js 邏輯 -->
     <script src="tc.js"></script>
     <script>
+        // 強度等級對照表
+        const TC_INTENSITY_TABLE = [
+            {"code": "Ex",   "name": "溫帶氣旋",       "engName": "Extra-tropical Cyclone", "max_wind": -1,   "rangeText": "-",            "color": "#64748b"},
+            {"code": "LPA",  "name": "低壓區",           "engName": "Low Pressure Area",      "max_wind": 40,   "rangeText": "≤ 40 km/h",    "color": "#64748b"},
+            {"code": "TD",   "name": "熱帶低氣壓",       "engName": "Tropical Depression",    "max_wind": 62,   "rangeText": "41 - 62 km/h", "color": "#0284c7"},
+            {"code": "TS",   "name": "熱帶風暴",         "engName": "Tropical Storm",         "max_wind": 87,   "rangeText": "63 - 87 km/h", "color": "#16a34a"},
+            {"code": "STS",  "name": "強烈熱帶風暴",     "engName": "Severe Tropical Storm",  "max_wind": 117,  "rangeText": "88 - 117 km/h","color": "#ca8a04"},
+            {"code": "TY",   "name": "颱風",             "engName": "Typhoon",                "max_wind": 149,  "rangeText": "118 - 149 km/h","color": "#ea580c"},
+            {"code": "STY",  "name": "強颱風",           "engName": "Severe Typhoon",         "max_wind": 184,  "rangeText": "150 - 184 km/h","color": "#dc2626"},
+            {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#9333ea"},
+        ];
+
+        // 根據風速或代碼取得對應強度資訊
+        function getIntensityInfo(wind, code) {
+            let found = TC_INTENSITY_TABLE.find(t => t.code.toLowerCase() === (code || '').toLowerCase());
+            if (!found) {
+                found = TC_INTENSITY_TABLE.slice().reverse().find(t => wind <= t.max_wind) || TC_INTENSITY_TABLE[1];
+            }
+            return found;
+        }
+
         // 主題切換邏輯
         const themeToggleBtn = document.getElementById('theme-toggle');
         if (themeToggleBtn) {
@@ -274,46 +295,48 @@
 
                 if (lines.length < 2) throw new Error('數據不足');
 
-                // 解析 CSV 行（假設格式：category, time, name, lat, lon, wind, intensity 等或類似結構）
-                // 這裡我們解析前兩筆記錄用以計算移動速度與方向
-                let records = [];
+                let currentRecord = null;
+                let forecast24Record = null;
+
+                // 解析 CSV 行並找出 current 與 24H 紀錄
                 for (let i = 1; i < lines.length; i++) {
                     const cols = lines[i].split(',').map(c => c.trim());
                     if (cols.length >= 6) {
-                        records.push({
+                        const record = {
                             category: cols[0],
                             time: cols[1],
                             name: cols[2],
                             lat: parseFloat(cols[3]),
                             lon: parseFloat(cols[4]),
-                            wind: cols[5],
-                            intensity: cols[6] || '熱帶氣旋'
-                        });
+                            wind: parseFloat(cols[5]) || 0,
+                            intensityCode: cols[6] || ''
+                        };
+
+                        if (record.category.toLowerCase() === 'current') {
+                            currentRecord = record;
+                        } else if (record.category === '24' || record.category.toLowerCase() === '24h') {
+                            forecast24Record = record;
+                        }
                     }
                 }
 
-                if (records.length === 0) throw new Error('無效記錄');
+                if (!currentRecord) throw new Error('找不到當前 (current) 記錄');
 
-                // 取最新一筆與前一筆記錄
-                const current = records[records.length - 1];
-                const prev = records.length > 1 ? records[records.length - 2] : current;
-
-                // 計算移動方向與速度
+                // 使用 current 到 24H 的距離與方向計算移動方向與速度
                 let moveDirSpeed = "停滯或緩慢";
-                if (records.length > 1) {
-                    const dKm = calculateDistance(prev.lat, prev.lon, current.lat, current.lon);
-                    const bearing = calculateBearing(prev.lat, prev.lon, current.lat, current.lon);
-                    // 假設每筆記錄間隔 3 小時（可根據實際時間差調整）
-                    const timeDiffHours = 3; 
-                    const speed = Math.round(dKm / timeDiffHours);
+                if (currentRecord && forecast24Record) {
+                    const dKm = calculateDistance(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
+                    const bearing = calculateBearing(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
+                    const speed = Math.round(dKm / 24);
                     moveDirSpeed = `${bearing} ${speed} km/h`;
                 }
 
+                // 取得強度對照資訊
+                const intensityInfo = getIntensityInfo(currentRecord.wind, currentRecord.intensityCode);
+
                 // 計算距離澳門
-                const distToMacau = calculateDistance(current.lat, current.lon, MACAU_LAT, MACAU_LON);
-                const bearingToMacau = calculateBearing(current.lat, current.lon, MACAU_LAT, MACAU_LON);
-                // 註：距離澳門方位通常以澳門角度看氣旋或氣旋看澳門，依照需求顯示
-                const dirFromMacau = calculateBearing(MACAU_LAT, MACAU_LON, current.lat, current.lon);
+                const distToMacau = calculateDistance(currentRecord.lat, currentRecord.lon, MACAU_LAT, MACAU_LON);
+                const dirFromMacau = calculateBearing(MACAU_LAT, MACAU_LON, currentRecord.lat, currentRecord.lon);
 
                 detailBadge.textContent = "即時更新";
                 detailBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 font-medium";
@@ -324,23 +347,23 @@
                             <tbody>
                                 <tr class="border-b border-slate-200 dark:border-slate-800">
                                     <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">名稱 / 編號</td>
-                                    <td class="py-2 pl-2 font-bold text-slate-800 dark:text-slate-100">${current.name}</td>
+                                    <td class="py-2 pl-2 font-bold text-slate-800 dark:text-slate-100">${currentRecord.name}</td>
                                 </tr>
                                 <tr class="border-b border-slate-200 dark:border-slate-800">
                                     <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">強度等級</td>
-                                    <td class="py-2 pl-2 text-cyan-600 dark:text-cyan-400 font-semibold">${current.intensity}</td>
+                                    <td class="py-2 pl-2 font-semibold" style="color: ${intensityInfo.color}">${intensityInfo.name} (${intensityInfo.code})</td>
                                 </tr>
                                 <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">預報時間</td>
-                                    <td class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">${current.time}</td>
+                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">實況時間</td>
+                                    <td class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.time}</td>
                                 </tr>
                                 <tr class="border-b border-slate-200 dark:border-slate-800">
                                     <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">中心最大風速</td>
-                                    <td class="py-2 pl-2 font-semibold text-slate-800 dark:text-slate-100">${current.wind}</td>
+                                    <td class="py-2 pl-2 font-semibold text-slate-800 dark:text-slate-100">${currentRecord.wind} km/h</td>
                                 </tr>
                                 <tr class="border-b border-slate-200 dark:border-slate-800">
                                     <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">中心位置</td>
-                                    <td class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">${current.lat.toFixed(1)}°N, ${current.lon.toFixed(1)}°E</td>
+                                    <td class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.lat.toFixed(1)}°N, ${currentRecord.lon.toFixed(1)}°E</td>
                                 </tr>
                                 <tr class="border-b border-slate-200 dark:border-slate-800">
                                     <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">移動方向</td>
@@ -389,7 +412,7 @@
                         if (cols.length >= 3) {
                             const category = cols[0].trim();
                             const name = cols[2].trim();
-                            if (category === 'current' && name) {
+                            if (category.toLowerCase() === 'current' && name) {
                                 stormName = name;
                                 break;
                             }
