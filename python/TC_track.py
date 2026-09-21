@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import matplotlib.font_manager as fm
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
@@ -19,21 +20,41 @@ os.makedirs('output/TC', exist_ok=True)
 os.makedirs('TCdata', exist_ok=True)
 os.makedirs('icon/tc_icon', exist_ok=True)
 
-# 【新增需求 1】執行 Python 程式碼前，先清空 output/TC 資料夾底下的所有舊檔案
+# 執行 Python 程式碼前，先清空 output/TC 資料夾底下的所有舊檔案
 for file in os.listdir('output/TC'):
     file_path = os.path.join('output/TC', file)
     if os.path.isfile(file_path):
         os.remove(file_path)
 
-# 根據不同作業系統自動設定字型，避免 Linux (GitHub Actions) 找不到字型
+# 根據不同作業系統自動設定字型，並針對 Linux (GitHub Actions) 強制註冊 Noto CJK 字型
 system_name = platform.system()
 if system_name == 'Windows':
     plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'Arial']
 elif system_name == 'Darwin':  # macOS
     plt.rcParams['font.sans-serif'] = ['PingFang TC', 'Heiti TC', 'Arial']
 else:  # Linux / GitHub Actions
-    # 【修改需求 2】將 Noto Sans CJK TC 放在最前面，確保 Linux 下抓得到中文字型
-    plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'DejaVu Sans']
+    noto_cjk_paths = [
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/noto/NotoSansCJK-Regular.ttc'
+    ]
+    
+    font_loaded = False
+    for path in noto_cjk_paths:
+        if os.path.exists(path):
+            try:
+                fm.fontManager.addfont(path)
+                prop = fm.FontProperties(fname=path)
+                font_name = prop.get_name()
+                plt.rcParams['font.sans-serif'] = [font_name, 'Noto Sans CJK TC', 'Noto Sans CJK SC', 'DejaVu Sans']
+                font_loaded = True
+                print(f"成功在 Linux 載入字型: {font_name} ({path})")
+                break
+            except Exception as e:
+                print(f"載入字型失敗 {path}: {e}")
+                
+    if not font_loaded:
+        plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'DejaVu Sans']
 
 # 解決負號無法正常顯示的問題
 plt.rcParams['axes.unicode_minus'] = False
@@ -434,7 +455,7 @@ def generate_maps():
                         bbox=dict(boxstyle='round,pad=0.3', facecolor='black', alpha=0.7, edgecolor='none'),
                         zorder=102)
 
-        plt.savefig(f'output/TC/{prefix}.png', dpi=600, bbox_inches='tight')
+        plt.savefig(f'output/TC/{prefix}.png', dpi=800, bbox_inches='tight')
         plt.close()
         print(f"已生成單一氣旋路徑圖: output/TC/{prefix}.png")
 
