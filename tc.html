@@ -209,8 +209,8 @@
             }
         }
 
-        // 檢查 A-F 圖片是否存在並建立對應按鈕（使用 CSV 內的名稱）
-        function initTrackButtons() {
+        // 透過 fetch 讀取 TCdata/A.csv 至 F.csv 取得名稱並建立對應按鈕
+        async function initTrackButtons() {
             const container = document.getElementById('trackImageButtons');
             if (!container) return;
 
@@ -218,36 +218,52 @@
 
             const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
-            letters.forEach((letter, index) => {
+            for (const letter of letters) {
+                const csvPath = `TCdata/${letter}.csv`;
                 const imgPath = `output/TC/${letter}.png`;
-                
-                // 從 CSV 數據 (TC_WARNING_DATA) 取得對應名稱
-                let stormName = `氣旋 ${letter}`;
-                if (typeof TC_WARNING_DATA !== 'undefined' && Array.isArray(TC_WARNING_DATA)) {
-                    const found = TC_WARNING_DATA[index] || TC_WARNING_DATA.find(tc => (tc.id === letter || tc.letter === letter));
-                    if (found) {
-                        stormName = found.name || found.stormName || found.chineseName || `氣旋 ${letter}`;
+
+                try {
+                    const response = await fetch(csvPath);
+                    if (!response.ok) continue;
+                    const csvText = await response.text();
+                    
+                    // 解析 CSV 尋找名稱（優先抓取 category 為 current 的名稱）
+                    const lines = csvText.split('\n');
+                    let stormName = '';
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        const cols = line.split(',');
+                        if (cols.length >= 3) {
+                            const category = cols[0].trim();
+                            const name = cols[2].trim();
+                            if (category === 'current' && name) {
+                                stormName = name;
+                                break;
+                            }
+                            if (!stormName && name) {
+                                stormName = name;
+                            }
+                        }
                     }
+
+                    if (!stormName) continue;
+
+                    // 檢查對應圖片是否存在，存在才生成按鈕
+                    const checkImg = new Image();
+                    checkImg.onload = function() {
+                        const btn = document.createElement('button');
+                        btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                        btn.textContent = stormName;
+                        btn.onclick = function() { switchTrackImage(imgPath, this); };
+                        container.appendChild(btn);
+                    };
+                    checkImg.src = imgPath;
+
+                } catch (e) {
+                    // CSV 檔案可能不存在，略過
                 }
-
-                // 建立按鈕（預設隱藏，待圖片確認存在後顯示）
-                const btn = document.createElement('button');
-                btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
-                btn.textContent = stormName;
-                btn.onclick = function() { switchTrackImage(imgPath, this); };
-                btn.style.display = 'none';
-                container.appendChild(btn);
-
-                // 檢查圖片是否存在
-                const checkImg = new Image();
-                checkImg.onload = function() {
-                    btn.style.display = 'inline-block';
-                };
-                checkImg.onerror = function() {
-                    btn.style.display = 'none';
-                };
-                checkImg.src = imgPath;
-            });
+            }
 
             checkAllPngAndHandleMessage();
         }
