@@ -98,17 +98,6 @@
                 <div id="tcContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
             </div>
 
-            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcForecastTableCard" style="display: none;">
-                <div class="warning-header tc-forecast-header-row flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
-                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-amber-500"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 0-9 9c0 2.5 1 4.8 2.6 6.4"/><path d="M12 21a9 9 0 0 0 9-9c0-2.5-1-4.8-2.6-6.4"/></svg>
-                        <span class="tc-forecast-title" id="tableMainTitle"></span>
-                    </span>
-                    <div class="tc-update-time text-xs text-slate-400 font-mono" id="tableUpdateTime"></div>
-                </div>
-                <div class="tc-table-wrap overflow-x-auto" id="tcTableContent"></div>
-            </div>
-
             <!-- 熱帶氣旋路徑圖與即時數據專區（左右並排） -->
             <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcTrackCard">
                 <div class="warning-header flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
@@ -129,16 +118,16 @@
                         <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain rounded-xl shadow-md">
                     </div>
 
-                    <!-- 即時數據表格面板 (佔 1 欄) -->
+                    <!-- 即時數據表格面板 (佔 1 欄，直接載入所有實際 CSV 檔案數據) -->
                     <div id="tcDetailPanel" class="lg:col-span-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                             <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                <i class="fa-solid fa-circle-info text-cyan-500"></i> 氣旋即時數據
+                                <i class="fa-solid fa-circle-info text-cyan-500"></i> 活躍氣旋即時數據
                             </h3>
-                            <span id="tcDetailBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">候命</span>
+                            <span id="tcDetailBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 font-medium">即時讀取</span>
                         </div>
-                        <div id="tcDetailContent" class="text-xs text-slate-600 dark:text-slate-300 space-y-3">
-                            <p class="text-slate-400 text-center py-12">請點選上方特定的熱帶氣旋按鈕以檢視詳細數據表格。</p>
+                        <div id="tcDetailContent" class="text-xs text-slate-600 dark:text-slate-300 space-y-4">
+                            <p class="text-slate-400 text-center py-6">正在讀取熱帶氣旋數據...</p>
                         </div>
                     </div>
                 </div>
@@ -188,8 +177,16 @@
     <!-- 引入獨立的 tc.js 邏輯 -->
     <script src="tc.js"></script>
     <script>
+        const TC_INTENSITY_TABLE = [
+            { code: 'Ex/LPA', name: '殘餘低壓', max_wind: 0, color: '#64748b' },
+            { code: 'TD', name: '熱帶低氣壓', max_wind: 62, color: '#0284c7' },
+            { code: 'TS', name: '熱帶風暴', max_wind: 88, color: '#16a34a' },
+            { code: 'STS', name: '強烈熱帶風暴', max_wind: 117, color: '#ca8a04' },
+            { code: 'TY', name: '颱風', max_wind: 149, color: '#ea580c' },
+            { code: 'STY', name: '強烈颱風', max_wind: 183, color: '#dc2626' },
+            { code: 'SuTY', name: '超強颱風', max_wind: 300, color: '#9333ea' }
+        ];
 
-        // 根據風速或代碼取得對應強度資訊
         function getIntensityInfo(wind, code) {
             let found = TC_INTENSITY_TABLE.find(t => t.code.toLowerCase() === (code || '').toLowerCase());
             if (!found) {
@@ -212,11 +209,9 @@
             });
         }
 
-        // 澳門座標
         const MACAU_LAT = 22.1987;
         const MACAU_LON = 113.5439;
 
-        // 計算兩點距離 (公里)
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371.0;
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -228,7 +223,6 @@
             return Math.round(R * c);
         }
 
-        // 計算方位角
         function calculateBearing(lat1, lon1, lat2, lon2) {
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const lat1Rad = lat1 * Math.PI / 180;
@@ -242,8 +236,8 @@
             return directions[idx];
         }
 
-        // 切換路徑圖與讀取對應 CSV 數據
-        async function switchTrackImage(imagePath, btnElement, csvLetter) {
+        // 切換路徑圖（點選按鈕時只切換圖片，右側保留總覽或維持原樣）
+        function switchTrackImage(imagePath, btnElement, csvLetter) {
             const imgEl = document.getElementById('tcTrackImageViewer');
             const mapContainer = document.getElementById('tcMapContainer');
             
@@ -260,128 +254,19 @@
             if (btnElement) {
                 btnElement.className = "px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors";
             }
-
-            // 處理右側數據表格
-            const detailPanelContent = document.getElementById('tcDetailContent');
-            const detailBadge = document.getElementById('tcDetailBadge');
-
-            if (!csvLetter) {
-                detailBadge.textContent = "候命";
-                detailBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium";
-                detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">請點選上方特定的熱帶氣旋按鈕以檢視詳細數據表格。</p>';
-                return;
-            }
-
-            detailBadge.textContent = "載入中";
-            detailBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 font-medium";
-            detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">正在分析氣旋數據...</p>';
-
-            try {
-                const response = await fetch(`TCdata/${csvLetter}.csv`);
-                if (!response.ok) throw new Error('無法讀取 CSV');
-                const csvText = await response.text();
-                const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
-
-                if (lines.length < 2) throw new Error('數據不足');
-
-                let currentRecord = null;
-                let forecast24Record = null;
-
-                // 解析 CSV 行並找出 current 與 24H 紀錄
-                for (let i = 1; i < lines.length; i++) {
-                    const cols = lines[i].split(',').map(c => c.trim());
-                    if (cols.length >= 6) {
-                        const record = {
-                            category: cols[0],
-                            time: cols[1],
-                            name: cols[2],
-                            lat: parseFloat(cols[3]),
-                            lon: parseFloat(cols[4]),
-                            wind: parseFloat(cols[5]) || 0,
-                            intensityCode: cols[6] || ''
-                        };
-
-                        if (record.category.toLowerCase() === 'current') {
-                            currentRecord = record;
-                        } else if (record.category === '24' || record.category.toLowerCase() === '24h') {
-                            forecast24Record = record;
-                        }
-                    }
-                }
-
-                if (!currentRecord) throw new Error('找不到當前 (current) 記錄');
-
-                // 使用 current 到 24H 的距離與方向計算移動方向與速度
-                let moveDirSpeed = "停滯或緩慢";
-                if (currentRecord && forecast24Record) {
-                    const dKm = calculateDistance(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
-                    const bearing = calculateBearing(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
-                    const speed = Math.round(dKm / 24);
-                    moveDirSpeed = `${bearing} ${speed} km/h`;
-                }
-
-                // 取得強度對照資訊
-                const intensityInfo = getIntensityInfo(currentRecord.wind, currentRecord.intensityCode);
-
-                // 計算距離澳門
-                const distToMacau = calculateDistance(currentRecord.lat, currentRecord.lon, MACAU_LAT, MACAU_LON);
-                const dirFromMacau = calculateBearing(MACAU_LAT, MACAU_LON, currentRecord.lat, currentRecord.lon);
-
-                detailBadge.textContent = "即時更新";
-                detailBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 font-medium";
-
-                detailPanelContent.innerHTML = `
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <tbody>
-                                <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">名稱 / 編號</td>
-                                    <td class="py-2 pl-2 font-bold text-slate-800 dark:text-slate-100">${currentRecord.name}</td>
-                                </tr>
-                                <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">強度等級</td>
-                                    <td class="py-2 pl-2 font-semibold" style="color: ${intensityInfo.color}">${intensityInfo.name} (${intensityInfo.code})</td>
-                                </tr>
-                                <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">實況時間</td>
-                                    <td class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.time}</td>
-                                </tr>
-                                <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">中心最大風速</td>
-                                    <td class="py-2 pl-2 font-semibold text-slate-800 dark:text-slate-100">${currentRecord.wind} km/h</td>
-                                </tr>
-                                <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">中心位置</td>
-                                    <td class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.lat.toFixed(1)}°N, ${currentRecord.lon.toFixed(1)}°E</td>
-                                </tr>
-                                <tr class="border-b border-slate-200 dark:border-slate-800">
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">移動方向</td>
-                                    <td class="py-2 pl-2 font-semibold text-slate-800 dark:text-slate-100">${moveDirSpeed}</td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 pr-2 font-medium text-slate-500 dark:text-slate-400">距離澳門</td>
-                                    <td class="py-2 pl-2 font-semibold text-amber-600 dark:text-amber-400">${dirFromMacau} ${distToMacau} 公里</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-
-            } catch (err) {
-                detailBadge.textContent = "讀取錯誤";
-                detailBadge.className = "text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 font-medium";
-                detailPanelContent.innerHTML = '<p class="text-red-400 text-center py-8">無法載入或解析該氣旋數據檔案。</p>';
-            }
         }
 
-        // 初始化動態按鈕讀取
-        async function initTrackButtons() {
+        // 自動掃描並直接渲染所有活躍的熱帶氣旋 CSV 檔案數據
+        async function initTrackButtonsAndLoadAllData() {
             const container = document.getElementById('trackImageButtons');
+            const detailPanelContent = document.getElementById('tcDetailContent');
             if (!container) return;
 
             container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this, null)" class="px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors">全部熱帶氣旋</button>`;
 
             const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+            let allCyclonesHtml = '';
+            let activeCount = 0;
 
             for (const letter of letters) {
                 const csvPath = `TCdata/${letter}.csv`;
@@ -391,40 +276,104 @@
                     const response = await fetch(csvPath);
                     if (!response.ok) continue;
                     const csvText = await response.text();
-                    
-                    const lines = csvText.split('\n');
+                    const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
+                    if (lines.length < 2) continue;
+
                     let stormName = '';
+                    let currentRecord = null;
+                    let forecast24Record = null;
+
                     for (let i = 1; i < lines.length; i++) {
-                        const line = lines[i].trim();
-                        if (!line) continue;
-                        const cols = line.split(',');
-                        if (cols.length >= 3) {
-                            const category = cols[0].trim();
-                            const name = cols[2].trim();
-                            if (category.toLowerCase() === 'current' && name) {
-                                stormName = name;
-                                break;
-                            }
-                            if (!stormName && name) {
-                                stormName = name;
+                        const cols = lines[i].split(',').map(c => c.trim());
+                        if (cols.length >= 6) {
+                            const record = {
+                                category: cols[0],
+                                time: cols[1],
+                                name: cols[2],
+                                lat: parseFloat(cols[3]),
+                                lon: parseFloat(cols[4]),
+                                wind: parseFloat(cols[5]) || 0,
+                                intensityCode: cols[6] || ''
+                            };
+                            if (record.name && !stormName) stormName = record.name;
+                            if (record.category.toLowerCase() === 'current') {
+                                currentRecord = record;
+                                stormName = record.name || stormName;
+                            } else if (record.category === '24' || record.category.toLowerCase() === '24h') {
+                                forecast24Record = record;
                             }
                         }
                     }
 
-                    if (!stormName) continue;
+                    if (!currentRecord) continue;
+                    activeCount++;
 
-                    const checkImg = new Image();
-                    checkImg.onload = function() {
-                        const btn = document.createElement('button');
-                        btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
-                        btn.textContent = stormName;
-                        btn.onclick = function() { switchTrackImage(imgPath, this, letter); };
-                        container.appendChild(btn);
-                    };
-                    checkImg.src = imgPath;
+                    // 建立動態切換按鈕
+                    const btn = document.createElement('button');
+                    btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                    btn.textContent = stormName || `氣旋 ${letter}`;
+                    btn.onclick = function() { switchTrackImage(imgPath, this, letter); };
+                    container.appendChild(btn);
+
+                    // 計算移動與距離
+                    let moveDirSpeed = "停滯或緩慢";
+                    if (currentRecord && forecast24Record) {
+                        const dKm = calculateDistance(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
+                        const bearing = calculateBearing(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
+                        const speed = Math.round(dKm / 24);
+                        moveDirSpeed = `${bearing} ${speed} km/h`;
+                    }
+
+                    const intensityInfo = getIntensityInfo(currentRecord.wind, currentRecord.intensityCode);
+                    const distToMacau = calculateDistance(currentRecord.lat, currentRecord.lon, MACAU_LAT, MACAU_LON);
+                    const dirFromMacau = calculateBearing(MACAU_LAT, MACAU_LON, currentRecord.lat, currentRecord.lon);
+
+                    // 組裝該氣旋的即時數據卡片
+                    allCyclonesHtml += `
+                        <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900 shadow-sm mb-3 last:mb-0">
+                            <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2 flex justify-between items-center">
+                                <span>${stormName || '未命名'}</span>
+                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${intensityInfo.color}20; color: ${intensityInfo.color}">${intensityInfo.name} (${intensityInfo.code})</span>
+                            </div>
+                            <table class="w-full text-left border-collapse text-xs">
+                                <tbody>
+                                    <tr class="border-b border-slate-100 dark:border-slate-800">
+                                        <td class="py-1 pr-2 text-slate-500">實況時間</td>
+                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.time}</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-100 dark:border-slate-800">
+                                        <td class="py-1 pr-2 text-slate-500">最大風速</td>
+                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${currentRecord.wind} km/h</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-100 dark:border-slate-800">
+                                        <td class="py-1 pr-2 text-slate-500">中心位置</td>
+                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.lat.toFixed(1)}°N, ${currentRecord.lon.toFixed(1)}°E</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-100 dark:border-slate-800">
+                                        <td class="py-1 pr-2 text-slate-500">移動方向</td>
+                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${moveDirSpeed}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 pr-2 text-slate-500">距離澳門</td>
+                                        <td class="py-1 pl-2 font-semibold text-amber-600 dark:text-amber-400">${dirFromMacau} ${distToMacau} 公里</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
 
                 } catch (e) {
-                    // 略過不存在的檔案
+                    // 檔案不存在或網路錯誤則略過
+                }
+            }
+
+            if (activeCount === 0) {
+                if (detailPanelContent) {
+                    detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">現時沒有活躍的熱帶氣旋數據。</p>';
+                }
+            } else {
+                if (detailPanelContent) {
+                    detailPanelContent.innerHTML = allCyclonesHtml;
                 }
             }
 
@@ -436,7 +385,7 @@
             const allImg = new Image();
             allImg.onerror = function() {
                 if (mapContainer) {
-                    mapContainer.innerHTML = '<div class="text-slate-400 py-12 text-center text-sm">現時沒有熱帶氣旋活躍</div>';
+                    mapContainer.innerHTML = '<div class="text-slate-400 py-12 text-center text-sm">現時沒有熱帶氣旋路徑圖</div>';
                 }
             };
             allImg.src = 'output/TC/all.png';
@@ -499,7 +448,7 @@
                 renderTcForecastTable(TC_WARNING_DATA);
             }
 
-            initTrackButtons();
+            initTrackButtonsAndLoadAllData();
         });
     </script>
 </body>
