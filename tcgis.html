@@ -173,6 +173,7 @@
         }
 
         const TC_INTENSITY_TABLE = [
+            {"code": "Ex",   "name": "溫帶氣旋",         "engName": "Extra-tropical Cyclone", "max_wind": -1,   "rangeText": "-",            "color": "#475569"},
             {"code": "LPA",  "name": "低壓區",           "engName": "Low Pressure Area",      "max_wind": 40,   "rangeText": "≤ 40 km/h",    "color": "#64748b"},
             {"code": "TD",   "name": "熱帶低氣壓",       "engName": "Tropical Depression",    "max_wind": 62,   "rangeText": "41 - 62 km/h", "color": "#0284c7"},
             {"code": "TS",   "name": "熱帶風暴",         "engName": "Tropical Storm",         "max_wind": 87,   "rangeText": "63 - 87 km/h", "color": "#16a34a"},
@@ -182,8 +183,13 @@
             {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#9333ea"}
         ];
 
-        function getIntensity(windKmh) {
-            for (let item of TC_INTENSITY_TABLE) {
+        function getIntensity(windInput, isEx) {
+            if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
+                return TC_INTENSITY_TABLE[0];
+            }
+            const windKmh = parseFloat(windInput) || 0;
+            for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
+                let item = TC_INTENSITY_TABLE[i];
                 if (windKmh <= item.max_wind) return item;
             }
             return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
@@ -441,26 +447,34 @@
                 const rowName = cols[2];
                 const lat = parseFloat(cols[3]);
                 const lon = parseFloat(cols[4]);
-                const windVal = parseFloat(cols[5]) || 0;
+                const rawWind = cols[5];
 
                 if (isNaN(lat) || isNaN(lon)) continue;
 
-                if (category === 'current' || category === '0h' || category === '0') {
-                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal };
+                let isEx = false;
+                let windVal = 0;
+                if (rawWind && rawWind.toUpperCase() === 'EX') {
+                    isEx = true;
+                } else {
+                    windVal = parseFloat(rawWind) || 0;
                 }
 
-                rows.push({ category, time, name: rowName, lat, lon, wind: windVal });
+                if (category === 'current' || category === '0h' || category === '0') {
+                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx };
+                }
+
+                rows.push({ category, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
             }
 
             if (rows.length === 0) return null;
 
             if (!currentMeta) {
                 const anchor = rows.find(r => r.category === '0h' || r.category === 'current' || r.category === '0') || rows[0];
-                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind };
+                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx };
             }
 
             const name = currentMeta.name;
-            const intensityObj = getIntensity(currentMeta.wind);
+            const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
             const categoryDesc = `${intensityObj.name}`;
 
             let past = [];
@@ -471,7 +485,7 @@
             let forecastNodes = [];
 
             rows.forEach((r, idx) => {
-                const intensity = getIntensity(r.wind);
+                const intensity = getIntensity(r.wind, r.isEx);
                 
                 let moveDir = '靜止';
                 let speedKmh = 0;
@@ -501,7 +515,8 @@
                     categoryCode: intensity.code,
                     categoryName: intensity.name,
                     color: intensity.color,
-                    wind: `${r.wind} km/h`,
+                    wind: r.isEx ? '-' : `${r.wind} km/h`,
+                    isEx: r.isEx,
                     coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
                     lat: r.lat,
                     lon: r.lon,
@@ -523,7 +538,7 @@
                 pastRows = [rows[0]];
             }
             pastRows.forEach(pt => {
-                past.push({ coord: [pt.lon, pt.lat], wind: pt.wind });
+                past.push({ coord: [pt.lon, pt.lat], wind: pt.wind, isEx: pt.isEx });
                 pastCoordsOnly.push([pt.lon, pt.lat]);
             });
 
@@ -563,7 +578,7 @@
                 name,
                 category: categoryDesc,
                 intensityObj,
-                wind: `${currentMeta.wind} km/h`,
+                wind: currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`,
                 time: currentMeta.time,
                 movement: movementStr,
                 coords: coordsStr,
@@ -747,7 +762,6 @@
             
             const isDark = document.documentElement.classList.contains('dark');
             
-            // 根據主題切換地圖顏色變數
             const mapBgColor = isDark ? '#08101a' : '#f1f5f9';
             const areaColor = isDark ? '#132238' : '#e2e8f0';
             const borderColor = isDark ? '#4d729d' : '#94a3b8';
@@ -901,13 +915,14 @@
                     });
 
                     const pastScatterData = st.past.map(pt => {
-                        const intensity = getIntensity(pt.wind);
+                        const intensity = getIntensity(pt.wind, pt.isEx);
                         return {
                             name: `${st.name} 軌跡點`,
                             value: [...pt.coord, 1],
                             itemStyle: { color: intensity.color },
                             symbolSize: 7,
                             windVal: pt.wind,
+                            isEx: pt.isEx,
                             stormName: st.name,
                             intensityObj: intensity
                         };
@@ -944,7 +959,7 @@
 
                 if (showNodes && st.nodes) {
                     const scatterData = st.nodes.map((node) => {
-                        const intensity = getIntensity(parseInt(node.wind));
+                        const intensity = getIntensity(node.wind, node.isEx);
                         const isEye = (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
 
                         return {
@@ -1016,7 +1031,6 @@
 
             const bounds = getStormBounds(currentStormKey);
 
-            // 【修正重點】當非切換颱風（如切換主題）時，保留當前地圖的 center 與 zoom
             let centerToUse = bounds.center;
             let zoomToUse = bounds.zoom;
 
@@ -1090,9 +1104,10 @@
                                     <div style="font-size:11px;">距離澳門: <span style="font-weight:bold;">${d.nodeInfo.distToMacau}</span></div>`;
                         }
                         
-                        if (d.windVal) {
+                        if (d.windVal || d.isEx) {
+                            const windDisplay = d.isEx ? '-' : `${d.windVal} km/h`;
                             return `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''} </div>
-                                    <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.windVal} km/h (${d.intensityObj.code})</span></div>`;
+                                    <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${windDisplay} (${d.intensityObj.code})</span></div>`;
                         }
 
                         return params.name || '';
