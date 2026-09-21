@@ -101,11 +101,11 @@
                 <div id="weather-groups-container" class="overflow-x-auto pb-2"></div>
             </section>
 
-            <!-- 新增區段：風向與風速統計 -->
+            <!-- 8方位風向與風速統計區段 -->
             <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-wind text-teal-500 dark:text-teal-400"></i> 每日每小時風向與風速級別統計 (7天)
+                        <i class="fa-solid fa-wind text-teal-500 dark:text-teal-400"></i> 每日每小時 8 方位風向與風速級別統計 (7天)
                     </h2>
                 </div>
                 <div id="wind-stats-container" class="space-y-6"></div>
@@ -189,12 +189,13 @@
             return { group: 'B', name: 'Cloud (多雲/密雲)' };
         }
 
-        // 根據風向角度 (degrees) 換算 16 方位
+        // 根據風向角度 (degrees) 換算 8 方位 (N, NE, E, SE, S, SW, W, NW)
         function getWindDirection(deg) {
             if (deg === null || deg === undefined) return 'N';
-            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-            const val = Math.floor((deg / 22.5) + 0.5);
-            return directions[(val % 16)];
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const adjustedDeg = (deg + 22.5) % 360;
+            const index = Math.floor(adjustedDeg / 45);
+            return directions[index];
         }
 
         // 根據風速 (km/h) 換算 0-12 級別
@@ -332,7 +333,6 @@
                     </div>
                 `;
 
-                // 根據要求：顯示文字與下方的符號編號 (symbol number)
                 iconsHtml += `
                     <div class="flex flex-col items-center justify-center">
                         <i class="fa-solid ${dayIcon.icon} text-xl mb-1"></i>
@@ -477,26 +477,23 @@
             container.appendChild(table);
         }
 
-        // 新增函數：風向與風速統計渲染
+        // 風向與風速統計渲染（改為 8 方位）
         function renderWindStatsSection() {
             const data = globalWeatherData;
             const container = document.getElementById('wind-stats-container');
             container.innerHTML = '';
 
             const startIndex = 1;
-            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
-            // 準備 7 天的資料結構
             const dailyWindData = [];
 
             for (let i = 0; i < 7; i++) {
                 const dateStr = data.daily.time[startIndex + i];
                 
-                // 初始化風向計數 (16方位)
                 const dirCounts = {};
                 directions.forEach(d => dirCounts[d] = 0);
 
-                // 初始化風速級別計數 (0-12級)
                 const speedCounts = {};
                 for (let s = 0; s <= 12; s++) speedCounts[s] = 0;
 
@@ -516,10 +513,10 @@
                 dailyWindData.push({ dateStr, dirCounts, speedCounts });
             }
 
-            // 1. 風向統計表 (16方位 x 7天)
+            // 1. 風向統計表 (8方位 x 7天)
             const dirWrapper = document.createElement('div');
             dirWrapper.className = "space-y-3";
-            dirWrapper.innerHTML = `<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-compass text-teal-500"></i> 風向時數統計 (16方位)</h3>`;
+            dirWrapper.innerHTML = `<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5"><i class="fa-solid fa-compass text-teal-500"></i> 風向時數統計 (8方位)</h3>`;
 
             const dirTable = document.createElement('div');
             dirTable.className = "min-w-[700px] overflow-x-auto";
