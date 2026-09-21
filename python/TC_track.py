@@ -14,6 +14,17 @@ from shapely.geometry import Point, LineString
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
+# 建立輸出與圖示目錄
+os.makedirs('output/TC', exist_ok=True)
+os.makedirs('TCdata', exist_ok=True)
+os.makedirs('icon/tc_icon', exist_ok=True)
+
+# 【新增需求 1】執行 Python 程式碼前，先清空 output/TC 資料夾底下的所有舊檔案
+for file in os.listdir('output/TC'):
+    file_path = os.path.join('output/TC', file)
+    if os.path.isfile(file_path):
+        os.remove(file_path)
+
 # 根據不同作業系統自動設定字型，避免 Linux (GitHub Actions) 找不到字型
 system_name = platform.system()
 if system_name == 'Windows':
@@ -21,15 +32,11 @@ if system_name == 'Windows':
 elif system_name == 'Darwin':  # macOS
     plt.rcParams['font.sans-serif'] = ['PingFang TC', 'Heiti TC', 'Arial']
 else:  # Linux / GitHub Actions
-    plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'WenQuanYi Micro Hei', 'DejaVu Sans']
+    # 【修改需求 2】將 Noto Sans CJK TC 放在最前面，確保 Linux 下抓得到中文字型
+    plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'DejaVu Sans']
 
 # 解決負號無法正常顯示的問題
 plt.rcParams['axes.unicode_minus'] = False
-
-# 建立輸出與圖示目錄
-os.makedirs('output/TC', exist_ok=True)
-os.makedirs('TCdata', exist_ok=True)
-os.makedirs('icon/tc_icon', exist_ok=True)
 
 MACAU_LAT = 22.1595
 MACAU_LON = 113.5685
