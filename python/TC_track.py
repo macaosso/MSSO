@@ -340,7 +340,7 @@ def generate_maps():
 
     # 2. 逐一產生單一氣旋路徑圖與誤差圓錐 (A.png ~ F.png)
     for prefix, data in valid_storms.items():
-        fig = plt.figure(figsize=(12, 8))
+        fig = plt.figure(figsize=(12, 9))
         ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
 
         p = data["past"]
