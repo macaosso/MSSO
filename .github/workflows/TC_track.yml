@@ -23,24 +23,27 @@ jobs:
         with:
           python-version: '3.10'
 
-      # 【修正 1】必須在執行 Python 腳本之前安裝中文字型
-      - name: Install Chinese Fonts
+      - name: Install Chinese Fonts and Update Cache
         run: |
           sudo apt-get update
           sudo apt-get install -y fonts-noto-cjk
-          # 強制清除 matplotlib 快取，讓它重新掃描剛安裝的 Noto 字型
+          # 強制更新字型快取，讓系統與 Matplotlib 找得到新字型
+          fc-cache -f -v
           rm -rf ~/.cache/matplotlib
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # 直接安裝您 Python 腳本中引用到的所有相依套件
           pip install pandas numpy matplotlib cartopy scipy shapely
 
-      # 【修正 2】確保這一步驟在安裝好字型與相依套件之後才執行
+      - name: Clean output directory
+        run: |
+          # 確保資料夾存在並清空所有舊檔案
+          mkdir -p output/TC
+          rm -rf output/TC/*
+
       - name: Run typhoon track generation script
         run: |
-          # 請確認這裡的指令碼檔名與您實際執行的檔案一致
           python python/TC_track.py
           
       - name: Commit and push changes
@@ -48,14 +51,7 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          # 將產生的路徑圖檔案加入版控
           git add output/TC/
-          
-          # 提交變更，若沒有新檔案則直接結束
           git commit -m "Auto-update typhoon track maps [skip ci]" || exit 0
-          
-          # 推送前先拉取遠端最新變更並進行 rebase，避免拒絕推送錯誤
           git pull origin main --rebase
-          
-          # 推送回主分支
           git push origin main
