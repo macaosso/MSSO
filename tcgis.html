@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - v8.0.3</title>
+    <title>MSSO GIS 颱風監控系統 - v8.0.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Apache ECharts -->
@@ -61,11 +61,18 @@
                 <span class="text-slate-300 font-medium">系統時間: <span id="utc-clock" class="font-mono text-cyan-400">00:00 MST</span></span>
             </div>
             <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-sm border border-slate-700 transition">
-                <i class="fa-solid fa-bars mr-1"></i>
+                <i class="fa-solid fa-bars mr-1"></i> 控制面板
             </button>
-            <button onclick="resetMapView()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md transition flex items-center gap-1.5">
-                <i class="fa-solid fa-compass"></i> 置中視圖
-            </button>
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-md transition flex items-center gap-1.5" title="首頁">
+                <i class="fa-solid fa-house"></i> 首頁
+            </a>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -84,7 +91,7 @@
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
                 <!-- Storm Selector -->
                 <div class="space-y-1.5">
-                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統</label>
+                    <label class="text-xs font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統 (自動偵測)</label>
                     <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500 transition">
                         <option value="all" selected>載入中...</option>
                     </select>
@@ -114,7 +121,7 @@
             <!-- 強度分級圖例 -->
             <div class="absolute bottom-6 right-6 z-20 bg-[#0b1322]/90 backdrop-blur-md border border-slate-800 p-3.5 rounded-xl shadow-xl text-xs space-y-2 pointer-events-none hidden sm:block max-w-xs">
                 <div class="font-bold text-slate-200 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <i class="fa-solid fa-palette text-blue-400"></i> 強度分級
+                    <i class="fa-solid fa-palette text-blue-400"></i> 強度分級 (自動風速對應)
                 </div>
                 <div id="intensity-legend" class="grid grid-cols-1 gap-1.5 text-[11px]"></div>
             </div>
@@ -136,6 +143,20 @@
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('-translate-x-full');
+        }
+
+        // 主題切換邏輯
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
         }
 
         const TC_INTENSITY_TABLE = [
@@ -1052,9 +1073,9 @@
             }
 
             if (currentStormKey === 'all' && keys.length > 1) {
-                document.getElementById('storm-name').innerText = "現時活躍的熱帶氣旋";
+                document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
                 const catEl = document.getElementById('storm-category');
-                catEl.innerText = `共 ${keys.length} 個`;
+                catEl.innerText = `共 ${keys.length} 個系統監控中`;
                 catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                 catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
                 catEl.style.color = '#60a5fa';
@@ -1136,11 +1157,11 @@
                                 <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.wind}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">中心位置</span>
+                                <span class="text-slate-400 block text-[10px]">位置</span>
                                 <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.coords}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
-                                <span class="text-slate-400 block text-[10px]">移動方向</span>
+                                <span class="text-slate-400 block text-[10px]">移動方向 (時速)</span>
                                 <span class="font-mono text-slate-200 font-bold text-[11px]">${storm.movement}</span>
                             </div>
                             <div class="bg-slate-800/50 p-2 rounded-lg border border-slate-800">
@@ -1162,7 +1183,7 @@
                                             <th class="pb-1 px-1">時間</th>
                                             <th class="pb-1 px-1">級別</th>
                                             <th class="pb-1 px-1">風速</th>
-                                            <th class="pb-1 px-1">位置</th>
+                                            <th class="pb-1 px-1">座標</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800/50">
@@ -1185,7 +1206,7 @@
                                             <th class="pb-1 px-1">時間</th>
                                             <th class="pb-1 px-1">級別</th>
                                             <th class="pb-1 px-1">風速</th>
-                                            <th class="pb-1 px-1">位置</th>
+                                            <th class="pb-1 px-1">座標</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800/50">
@@ -1202,18 +1223,6 @@
         function switchStorm(key) {
             currentStormKey = key;
             renderChart(true);
-        }
-
-        function resetMapView() {
-            const bounds = getStormBounds(currentStormKey);
-            if (myChart) {
-                myChart.setOption({
-                    geo: {
-                        center: bounds.center,
-                        zoom: bounds.zoom
-                    }
-                }, false);
-            }
         }
 
         window.onload = function() {
