@@ -177,7 +177,6 @@
     <!-- 引入獨立的 tc.js 邏輯 -->
     <script src="tc.js"></script>
     <script>
-
         function getIntensityInfo(wind, code) {
             let found = TC_INTENSITY_TABLE.find(t => t.code.toLowerCase() === (code || '').toLowerCase());
             if (!found) {
@@ -265,7 +264,10 @@
 
                 try {
                     const response = await fetch(csvPath);
-                    if (!response.ok) continue;
+                    if (!response.ok) {
+                        console.warn(`無法讀取 ${csvPath} (狀態碼: ${response.status})`);
+                        continue;
+                    }
                     const csvText = await response.text();
                     const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
                     if (lines.length < 2) continue;
@@ -283,7 +285,7 @@
                                 name: cols[2],
                                 lat: parseFloat(cols[3]),
                                 lon: parseFloat(cols[4]),
-                                wind: parseFloat(cols[5]) || 0,
+                                wind: cols[5], // 保留原始字串，防止 "Ex" 等代號被強制轉為 0
                                 intensityCode: cols[6] || ''
                             };
                             if (record.name && !stormName) stormName = record.name;
@@ -315,7 +317,9 @@
                         moveDirSpeed = `${bearing} ${speed} km/h`;
                     }
 
-                    const intensityInfo = getIntensityInfo(currentRecord.wind, currentRecord.intensityCode);
+                    const windDisplay = isNaN(currentRecord.wind) ? currentRecord.wind : `${currentRecord.wind} km/h`;
+                    const numericWind = parseFloat(currentRecord.wind) || 0;
+                    const intensityInfo = getIntensityInfo(numericWind, currentRecord.intensityCode);
                     const distToMacau = calculateDistance(currentRecord.lat, currentRecord.lon, MACAU_LAT, MACAU_LON);
                     const dirFromMacau = calculateBearing(MACAU_LAT, MACAU_LON, currentRecord.lat, currentRecord.lon);
 
@@ -334,7 +338,7 @@
                                     </tr>
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-2 text-slate-500">最大風速</td>
-                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${currentRecord.wind} km/h</td>
+                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${windDisplay}</td>
                                     </tr>
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-2 text-slate-500">中心位置</td>
@@ -354,7 +358,7 @@
                     `;
 
                 } catch (e) {
-                    // 檔案不存在或網路錯誤則略過
+                    console.warn(`讀取 ${csvPath} 發生錯誤:`, e);
                 }
             }
 
