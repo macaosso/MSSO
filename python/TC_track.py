@@ -9,7 +9,6 @@ import matplotlib.font_manager as fm
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from scipy.interpolate import PchipInterpolator
 from shapely.geometry import Point, LineString
 from shapely.ops import unary_union
@@ -19,6 +18,7 @@ from shapely.validation import make_valid
 os.makedirs('output/TC', exist_ok=True)
 os.makedirs('TCdata', exist_ok=True)
 os.makedirs('icon/tc_icon', exist_ok=True)
+os.makedirs('icon/MSSO_icon', exist_ok=True)
 
 # 執行 Python 程式碼前，先清空 output/TC 資料夾底下的所有舊檔案
 for file in os.listdir('output/TC'):
@@ -48,10 +48,9 @@ else:  # Linux / GitHub Actions
                 font_name = prop.get_name()
                 plt.rcParams['font.sans-serif'] = [font_name, 'Noto Sans CJK TC', 'Noto Sans CJK SC', 'DejaVu Sans']
                 font_loaded = True
-                print(f"成功在 Linux 載入字型: {font_name} ({path})")
                 break
-            except Exception as e:
-                print(f"載入字型失敗 {path}: {e}")
+            except Exception:
+                pass
                 
     if not font_loaded:
         plt.rcParams['font.sans-serif'] = ['Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'DejaVu Sans']
@@ -109,9 +108,28 @@ def plot_tc_icon(ax, lon, lat, icon_filename, default_color='#DDDFE2', zoom=0.01
             ax.add_artist(ab)
             ab.set_zorder(100)
             return
-        except Exception as e:
-            print(f"載入圖示失敗 {icon_path}: {e}")
+        except Exception:
+            pass
     ax.plot(lon, lat, marker='x', color=default_color, markersize=6, transform=ccrs.PlateCarree(), zorder=5)
+
+def add_logo_to_map(ax):
+    """將 MSSO(H).png 標誌放置於地圖內部左上角（精緻小尺寸）"""
+    logo_path = os.path.join('icon', 'MSSO_icon', 'MSSO(H).png')
+    if os.path.exists(logo_path):
+        try:
+            img = mpimg.imread(logo_path)
+            extent = ax.get_extent(crs=ccrs.PlateCarree())
+            lon_min, lon_max, lat_min, lat_max = extent
+            
+            logo_lon = lon_min + (lon_max - lon_min) * 0.08
+            logo_lat = lat_max - (lat_max - lat_min) * 0.08
+            
+            imagebox = OffsetImage(img, zoom=0.02)
+            ab = AnnotationBbox(imagebox, (logo_lon, logo_lat), xycoords=ccrs.PlateCarree()._as_mpl_transform(ax), frameon=False)
+            ax.add_artist(ab)
+            ab.set_zorder(200)
+        except Exception:
+            pass
 
 def create_smooth_track_uniform_time(hours, lons, lats, time_step=1.0):
     if len(hours) < 2:
@@ -192,6 +210,52 @@ def add_macau_range_rings(ax):
         circle = Point(MACAU_LON, MACAU_LAT).buffer(deg_radius)
         ax.add_geometries([circle], crs=ccrs.PlateCarree(), edgecolor="#949494", facecolor='none', linewidth=0.5, alpha=0.5, linestyle='--')
 
+def setup_map_axes(ax, E1, E2, N1, N2):
+    """設定地圖範圍、網格及嚴格對齊整數與 5 的倍數之經緯度數值標籤"""
+    ax.set_extent([E1, E2, N1, N2], crs=ccrs.PlateCarree())
+    
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor="#959a9f", facecolor="#2d363f"), zorder=1)
+    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '50m', facecolor="#222a35"), zorder=0)
+    ax.add_feature(cfeature.BORDERS.with_scale('50m'), linestyle=':', linewidth=0.25, edgecolor="#888888", zorder=3)
+
+    add_macau_range_rings(ax)
+
+    # 1° 網格線對齊整數倍數 (multiples of 1)
+    start_1deg_lon = int(math.floor(E1))
+    end_1deg_lon = int(math.ceil(E2))
+    grid_1deg_lon = np.arange(start_1deg_lon, end_1deg_lon + 1, 1)
+
+    start_1deg_lat = int(math.floor(N1))
+    end_1deg_lat = int(math.ceil(N2))
+    grid_1deg_lat = np.arange(start_1deg_lat, end_1deg_lat + 1, 1)
+
+    # 5° 網格線與標籤對齊 5 的倍數 (multiples of 5)
+    start_5deg_lon = int(math.floor(E1 / 5.0) * 5)
+    end_5deg_lon = int(math.ceil(E2 / 5.0) * 5)
+    major_5deg_lon = np.arange(start_5deg_lon, end_5deg_lon + 1, 5)
+
+    start_5deg_lat = int(math.floor(N1 / 5.0) * 5)
+    end_5deg_lat = int(math.ceil(N2 / 5.0) * 5)
+    major_5deg_lat = np.arange(start_5deg_lat, end_5deg_lat + 1, 5)
+
+    # 1. 1° 背景網格線
+    ax.gridlines(xlocs=grid_1deg_lon, ylocs=grid_1deg_lat, crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.15, color='gray', alpha=0.3, linestyle='--', zorder=-7)
+    
+    # 2. 5° 主網格線
+    ax.gridlines(xlocs=major_5deg_lon, ylocs=major_5deg_lat, crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.6, color='gray', alpha=0.4, linestyle='--', zorder=-6)
+
+    # 3. 座標標籤層每 5° 一次（對齊 5 的倍數，並透過內側負邊距將數值拉進地圖內部）
+    gl_label = ax.gridlines(
+        xlocs=major_5deg_lon, ylocs=major_5deg_lat,
+        crs=ccrs.PlateCarree(),
+        draw_labels={"bottom": "x",  "left": "y"}, 
+        linewidth=0,
+        xlabel_style={"size": 6, "color": "white", "alpha": 0.8},
+        ylabel_style={"size": 6, "color": "white", "alpha": 0.8}
+    )
+    gl_label.xpadding = -6
+    gl_label.ypadding = -6
+
 def generate_maps():
     files = ['A', 'B', 'C', 'D', 'E', 'F']
     valid_storms = {}
@@ -201,49 +265,17 @@ def generate_maps():
         if os.path.exists(path):
             try:
                 valid_storms[prefix] = parse_tc_csv(path)
-            except Exception as e:
-                print(f"解析 {path} 失敗: {e}")
+            except Exception:
+                pass
 
     if not valid_storms:
-        print("沒有找到任何有效的熱帶氣旋 CSV 資料。")
         return
 
     # 1. 產生綜合路徑圖 (all.png)
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
-    ax.set_extent([100, 160, 5, 50], crs=ccrs.PlateCarree())
     
-    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor="#959a9f", facecolor="#2d363f"), zorder=1)
-    ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '50m', facecolor="#222a35"), zorder=0)
-    ax.add_feature(cfeature.BORDERS.with_scale('50m'), linestyle=':', linewidth=0.25, edgecolor="#888888", zorder=3)
-
-    add_macau_range_rings(ax)
-
-    E1, E2, N1, N2 = 100, 160, 5, 50
-    grid_1deg_lon = np.arange(E1, E2 + 1, 1)
-    grid_1deg_lat = np.arange(N1, N2 + 1, 1)
-    major_5deg_lon = np.arange(E1, E2 + 1, 5)
-    major_5deg_lat = np.arange(N1, N2 + 1, 5)
-
-    ax.gridlines(xlocs=grid_1deg_lon, ylocs=grid_1deg_lat, crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.15, color='gray', alpha=0.3, linestyle='--', zorder=-7)
-    
-    gl_major = ax.gridlines(
-        xlocs=major_5deg_lon, 
-        ylocs=major_5deg_lat, 
-        crs=ccrs.PlateCarree(), 
-        draw_labels=True, 
-        linewidth=0.6, 
-        color='gray', 
-        alpha=0.4, 
-        linestyle='--', 
-        zorder=-6,
-        xformatter=LongitudeFormatter(),
-        yformatter=LatitudeFormatter()
-    )
-    gl_major.top_labels = False
-    gl_major.right_labels = False
-    gl_major.bottom_labels = True
-    gl_major.left_labels = True
+    setup_map_axes(ax, 100, 160, 5, 50)
 
     all_storm_geoms = []
     for prefix, data in valid_storms.items():
@@ -334,9 +366,9 @@ def generate_maps():
                         bbox=dict(boxstyle='round,pad=0.2', facecolor='black', alpha=0.6, edgecolor='none'),
                         zorder=102)
 
+    add_logo_to_map(ax)
     plt.savefig('output/TC/all.png', dpi=300, bbox_inches='tight')
     plt.close()
-    print("已生成: output/TC/all.png")
 
     # 2. 逐一產生單一氣旋路徑圖與誤差圓錐 (A.png ~ F.png)
     for prefix, data in valid_storms.items():
@@ -394,42 +426,9 @@ def generate_maps():
             target_lon_span = lat_span * 1.5
             lon_min = lon_max - target_lon_span
             
-            ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+            setup_map_axes(ax, lon_min, lon_max, lat_min, lat_max)
         else:
-            ax.set_extent([120, 170, 5, 38.33], crs=ccrs.PlateCarree())
-
-        ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '50m', edgecolor="#959a9f", facecolor="#2d363f"), zorder=1)
-        ax.add_feature(cfeature.NaturalEarthFeature('physical', 'ocean', '50m', facecolor="#222a35"), zorder=0)
-        ax.add_feature(cfeature.BORDERS.with_scale('50m'), linestyle=':', linewidth=0.25, edgecolor="#888888", zorder=3)
-
-        add_macau_range_rings(ax)
-
-        extent = ax.get_extent(crs=ccrs.PlateCarree())
-        E1, E2, N1, N2 = int(np.floor(extent[0])), int(np.ceil(extent[1])), int(np.floor(extent[2])), int(np.ceil(extent[3]))
-        grid_1deg_lon = np.arange(E1, E2 + 1, 1)
-        grid_1deg_lat = np.arange(N1, N2 + 1, 1)
-        major_5deg_lon = np.arange(E1, E2 + 1, 5)
-        major_5deg_lat = np.arange(N1, N2 + 1, 5)
-
-        ax.gridlines(xlocs=grid_1deg_lon, ylocs=grid_1deg_lat, crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.15, color='gray', alpha=0.3, linestyle='--', zorder=-7)
-        
-        gl_major = ax.gridlines(
-            xlocs=major_5deg_lon, 
-            ylocs=major_5deg_lat, 
-            crs=ccrs.PlateCarree(), 
-            draw_labels=True, 
-            linewidth=0.6, 
-            color='gray', 
-            alpha=0.4, 
-            linestyle='--', 
-            zorder=-6,
-            xformatter=LongitudeFormatter(),
-            yformatter=LatitudeFormatter()
-        )
-        gl_major.top_labels = False
-        gl_major.right_labels = False
-        gl_major.bottom_labels = True
-        gl_major.left_labels = True
+            setup_map_axes(ax, 120, 170, 5, 38.33)
 
         if has_forecast:
             if envelope_first and not envelope_first.is_empty:
@@ -455,9 +454,9 @@ def generate_maps():
                         bbox=dict(boxstyle='round,pad=0.3', facecolor='black', alpha=0.7, edgecolor='none'),
                         zorder=102)
 
+        add_logo_to_map(ax)
         plt.savefig(f'output/TC/{prefix}.png', dpi=800, bbox_inches='tight')
         plt.close()
-        print(f"已生成單一氣旋路徑圖: output/TC/{prefix}.png")
 
 if __name__ == '__main__':
     generate_maps()
