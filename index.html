@@ -1137,7 +1137,7 @@
             const data = globalWeatherData;
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
-
+        
             const startIndex = 1; 
             const maxTemps = data.daily.temperature_2m_max.slice(startIndex, startIndex + 7).map(t => Math.round(t));
             const minTemps = data.daily.temperature_2m_min.slice(startIndex, startIndex + 7).map(t => Math.round(t));
@@ -1148,28 +1148,63 @@
             const chartMin = Math.min(...allVals) - 1;
             const range = chartMax - chartMin || 1;
             const svgHeight = 60;
-
+        
             function getY(val) {
                 return svgHeight - ((val - chartMin) / range) * (svgHeight - 20) - 10;
             }
-
+        
             const tableWrapper = document.createElement('div');
             tableWrapper.className = "min-w-[620px]";
-
+        
             let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 border-b border-slate-200 dark:border-slate-800">';
             let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
             let maxTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
             let minTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
             let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 border-t border-slate-200 dark:border-slate-800">';
-
+        
             let maxPoints = [];
             let minPoints = [];
-
+        
             for (let i = 0; i < 7; i++) {
                 const dateStr = data.daily.time[startIndex + i];
                 const code = data.daily.weather_code[startIndex + i];
-                const dayIcon = getWeatherDetails(code, false);
-
+                const maxTemp = maxTemps[i];
+                const minTemp = minTemps[i];
+        
+                // 計算該日每小時的雷暴、陣雨及降雨時數
+                const dayHourlyIndices = data.hourly.time
+                    .map((t, idx) => t.startsWith(dateStr) ? idx : -1)
+                    .filter(idx => idx !== -1);
+                const dayHourlyCodes = dayHourlyIndices.map(idx => data.hourly.weather_code[idx]);
+        
+                const hasThunderstormOrShowers = dayHourlyCodes.some(c => (c >= 80 && c <= 99) || (c >= 53 && c <= 65));
+                const hasSnowOrFreezingRain = dayHourlyCodes.some(c => (c >= 70 && c <= 79) || (c >= 56 && c === 57) || (c >= 66 && c <= 67) || (c === 85 || c === 86));
+                const rainHours = dayHourlyCodes.filter(c => (c >= 51 && c <= 65) || (c >= 80 && c <= 99)).length;
+        
+                const symbols = {
+                    0: { icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
+                    1: { icon: 'fas fa-sun text-yellow-400' },
+                    2: { icon: 'fas fa-cloud-sun text-yellow-400' },
+                    3: { icon: 'fas fa-cloud text-slate-300' },
+                    45: { icon: 'fas fa-smog text-slate-400' },
+                    51: { icon: 'fas fa-cloud-sun text-yellow-400' },
+                    53: { icon: 'fas fa-cloud-sun-rain text-blue-400' },
+                    61: { icon: 'fas fa-cloud-rain text-blue-400' },
+                    80: { icon: 'fas fa-cloud-showers-heavy text-blue-400' },
+                    95: { icon: 'fas fa-cloud-bolt text-blue-400' }
+                };
+                let dayIcon = symbols[code] || { icon: 'fas fa-cloud text-slate-300' };
+        
+                if (maxTemp >= 32.5 && !hasThunderstormOrShowers) {
+                    dayIcon = { icon: 'fas fa-temperature-high text-orange-500' };
+                } else if (minTemp <= 12.5 && !hasThunderstormOrShowers && !hasSnowOrFreezingRain) {
+                    dayIcon = { icon: 'fas fa-temperature-low text-blue-400' };
+                } else if (dayIcon.icon.includes('fa-cloud-sun-rain')) {
+                    if (rainHours < 8) {
+                        dayIcon = { icon: 'fas fa-cloud-sun text-yellow-400' };
+                    }
+                }
+        
                 const popVal = Math.round(popMaxs[i]);
                 let popLevel = '極低';
                 let popBadgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
@@ -1193,32 +1228,32 @@
                     popLevel = '低';
                     popBadgeClass = 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300';
                 }
-
+        
                 const dateObj = new Date(dateStr);
                 const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
                 const monthDay = `${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
-
+        
                 const xCenter = i * 100 + 50;
                 maxPoints.push(`${xCenter},${getY(maxTemps[i])}`);
                 minPoints.push(`${xCenter},${getY(minTemps[i])}`);
-
+        
                 daysHtml += `
                     <div>
                         <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${dayName}</div>
                         <div class="text-xs text-slate-400 mt-0.5">${monthDay}</div>
                     </div>
                 `;
-
+        
+                // 移除了圖標下方的文字說明
                 iconsHtml += `
-                    <div class="flex flex-col items-center justify-center">
-                        <i class="fa-solid ${dayIcon.icon} text-3xl mb-1"></i>
-                        <span class="text-[11px] text-slate-500 dark:text-slate-400">${dayIcon.text}</span>
+                    <div class="flex flex-col items-center justify-center py-1">
+                        <i class="fa-solid ${dayIcon.icon} text-3xl"></i>
                     </div>
                 `;
-
+        
                 maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
                 minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
-
+        
                 popRowHtml += `
                     <div class="flex flex-col items-center justify-center gap-1">
                         <span class="text-xs font-medium text-slate-700 dark:text-slate-200">${popVal}%</span>
@@ -1226,16 +1261,16 @@
                     </div>
                 `;
             }
-
+        
             daysHtml += '</div>';
             iconsHtml += '</div>';
             maxTempHtml += '</div>';
             minTempHtml += '</div>';
             popRowHtml += '</div>';
-
+        
             const maxPolyline = maxPoints.join(' ');
             const minPolyline = minPoints.join(' ');
-
+        
             let svgChartHtml = `
                 <div class="relative py-2">
                     <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[60px] overflow-visible">
@@ -1247,7 +1282,7 @@
                     </svg>
                 </div>
             `;
-
+        
             tableWrapper.innerHTML = `
                 ${daysHtml}
                 ${iconsHtml}
@@ -1262,7 +1297,7 @@
                     ${popRowHtml}
                 </div>
             `;
-
+        
             dailyContainer.appendChild(tableWrapper);
         }
 
