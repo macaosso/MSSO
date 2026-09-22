@@ -134,13 +134,14 @@
         
                 <!-- 風速分級圖例 -->
                 <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 dark:text-slate-400 pt-4 mt-6 border-t border-slate-100 dark:border-slate-800">
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>Ex/LPA</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>TD</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>TS</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04]"></span>STS</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ea580c]"></span>TY</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#dc2626]"></span>STY</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#9333ea]"></span>SuTY</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>溫帶氣旋</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>低壓區</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>熱帶低氣壓</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>熱帶風暴</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04]"></span>強烈熱帶風暴</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ea580c]"></span>颱風</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#dc2626]"></span>強颱風</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#9333ea]"></span>超強颱風</span>
                 </div>
             </div>
         </div>
@@ -186,9 +187,35 @@
             "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
         };
 
+        // 時間轉中文格式函數（只取時間不取日期）
+        function formatChineseTime(timeStr) {
+            if (!timeStr) return '';
+            const parts = timeStr.split(' ');
+            if (parts.length < 2) return '';
+            const timePart = parts[1];
+            const hour = parseInt(timePart.split(':')[0], 10);
+            if (isNaN(hour)) return '';
+
+            if (hour >= 0 && hour <= 5) {
+                return `凌晨${hour}時`;
+            } else if (hour >= 6 && hour <= 11) {
+                return `早上${hour}時`;
+            } else if (hour === 12) {
+                return `正午12時`;
+            } else if (hour >= 13 && hour <= 18) {
+                return `下午${hour - 12}時`;
+            } else if (hour >= 19 && hour <= 23) {
+                return `晚上${hour - 12}時`;
+            }
+            return '';
+        }
+
         // 生成熱帶氣旋報文函數
         function generateTyphoonBulletin(stormData) {
             if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
+            
+            const chineseTime = formatChineseTime(stormData.time);
+            const timePrefix = chineseTime ? `${chineseTime}，` : '';
             
             const distParts = stormData.distToMacau.split(' ');
             const engDir = distParts[0];
@@ -202,7 +229,12 @@
             
             const windKmh = stormData.wind.replace(' km/h', '');
             
-            return `${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里，向${moveDirChinese}移動，時速${moveSpeed}公里。`;
+            // 如果強度為溫帶氣旋，則不需要最高持續風速與移動速度描述
+            if (stormData.category === "溫帶氣旋") {
+                return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近。`;
+            }
+            
+            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里，向${moveDirChinese}移動，時速${moveSpeed}公里。`;
         }
 
         function getIntensity(windInput, isEx) {
