@@ -118,7 +118,7 @@
                         <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain rounded-xl shadow-md">
                     </div>
 
-                    <!-- 即時數據表格面板 (佔 1 欄，直接載入所有實際 CSV 檔案數據) -->
+                    <!-- 即時數據表格面板 (佔 1 欄) -->
                     <div id="tcDetailPanel" class="lg:col-span-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                             <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -434,7 +434,7 @@
                 }
 
                 if (rawCategory.toLowerCase() === 'current' || rawCategory === '0h' || rawCategory === '0') {
-                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx, rawWind };
+                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx, rawWind, rawCategory };
                 }
 
                 rows.push({ category: rawCategory, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
@@ -444,16 +444,20 @@
 
             if (!currentMeta) {
                 const anchor = rows.find(r => r.category.toLowerCase() === '0h' || r.category.toLowerCase() === 'current' || r.category === '0') || rows[0];
-                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx, rawWind: anchor.rawWind };
+                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx, rawWind: anchor.rawWind, rawCategory: anchor.category };
             }
 
             const name = currentMeta.name;
             const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
             
-            // 確保分類名稱使用中文對照
+            // 完整對照與中文化處理：優先檢查 rawCategory，其次檢查 rawWind 與強度對照表
             let categoryDesc = intensityObj.name;
-            if (intensityNameMap[currentMeta.rawWind]) {
+            if (intensityNameMap[currentMeta.rawCategory]) {
+                categoryDesc = intensityNameMap[currentMeta.rawCategory];
+            } else if (intensityNameMap[currentMeta.rawWind]) {
                 categoryDesc = intensityNameMap[currentMeta.rawWind];
+            } else if (intensityNameMap[currentMeta.category]) {
+                categoryDesc = intensityNameMap[currentMeta.category];
             }
 
             let pastCoordsOnly = [];
@@ -540,7 +544,7 @@
             }
         }
 
-        // 自動掃描並透過與 tcgis.html 相同的解析邏輯載入所有活躍的熱帶氣旋 CSV 檔案數據
+        // 自動掃描並讀取所有活躍的熱帶氣旋 CSV 檔案數據
         async function initTrackButtonsAndLoadAllData() {
             const container = document.getElementById('trackImageButtons');
             const detailPanelContent = document.getElementById('tcDetailContent');
