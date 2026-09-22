@@ -295,53 +295,31 @@
         }
 
         function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
-            let coordsToUse = forecastCoords;
-            let pointsToUse = forecastPoints;
-
-            if (!coordsToUse || coordsToUse.length < 2) {
-                if (pastCoordsOnly && pastCoordsOnly.length >= 2) {
-                    coordsToUse = pastCoordsOnly.slice(-2);
-                    pointsToUse = null;
-                } else {
-                    return "靜止 0 km/h";
-                }
+            if (!forecastPoints || forecastPoints.length < 2) {
+                return '-';
             }
-            
-            let h24Coords = [];
-            let h24Hours = 24;
 
-            if (pointsToUse && pointsToUse.length >= 2) {
-                let startH = pointsToUse[0].hour || 0;
-                let ptsUpTo24 = [];
-                for (let i = 0; i < pointsToUse.length; i++) {
-                    ptsUpTo24.push([pointsToUse[i].lon, pointsToUse[i].lat]);
-                    if (pointsToUse[i].hour >= startH + 24) {
-                        h24Hours = pointsToUse[i].hour - startH;
-                        break;
-                    }
-                }
-                if (ptsUpTo24.length >= 2) {
-                    h24Coords = ptsUpTo24;
+            let ptsUpTo24 = [];
+            let reached24 = false;
+            for (let i = 0; i < forecastPoints.length; i++) {
+                ptsUpTo24.push([forecastPoints[i].lon, forecastPoints[i].lat]);
+                if (forecastPoints[i].hour >= 24) {
+                    reached24 = true;
+                    break;
                 }
             }
 
-            if (h24Coords.length < 2) {
-                if (coordsToUse.length >= 2) {
-                    h24Coords = coordsToUse.slice(0, 2);
-                } else {
-                    return "靜止 0 km/h";
-                }
+            if (!reached24) {
+                return '-';
             }
 
-            const pStart = h24Coords[0];
-            const pEnd = h24Coords[1] || h24Coords[0];
+            const pStart = ptsUpTo24[0];
+            const pEnd = ptsUpTo24[ptsUpTo24.length - 1];
             const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
 
-            const samplesPerSegment = 30;
-            const smoothCoords = smoothLineCatmullRom(h24Coords, samplesPerSegment);
+            const smoothCoords = smoothLineCatmullRom(ptsUpTo24, 30);
             let curveDist = 0;
             for (let i = 0; i < smoothCoords.length - 1; i++) {
-                // Approximate distance calculation using haversine equivalent logic
                 const R = 6371;
                 const dLat = (smoothCoords[i+1][1] - smoothCoords[i][1]) * Math.PI / 180;
                 const dLon = (smoothCoords[i+1][0] - smoothCoords[i][0]) * Math.PI / 180;
@@ -352,8 +330,7 @@
                 curveDist += R * c;
             }
             
-            if (h24Hours <= 0) h24Hours = 24;
-            const speed = Math.round(curveDist / h24Hours);
+            const speed = Math.round(curveDist / 24);
             return `${direction} ${speed} km/h`;
         }
 
@@ -436,7 +413,9 @@
 
             const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : (pastCoordsOnly.length > 0 ? [pastCoordsOnly[pastCoordsOnly.length - 1]] : [[currentMeta.lon, currentMeta.lat]]);
             const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
-            const windDisplay = currentMeta.isEx ? 'EX' : `${currentMeta.wind} km/h`;
+            
+            // If intensity is Ex, then 最大風速 will be '-'
+            const windDisplay = currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`;
             const distToMacau = getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat);
 
             return {
