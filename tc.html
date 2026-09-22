@@ -178,6 +178,33 @@
     <script src="tc.js"></script>
     <script>
 
+        // 方位中文化對照字典
+        const chineseDirections = {
+            "N": "北", "NNE": "北北東", "NE": "東北", "ENE": "東北偏東",
+            "E": "東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
+            "S": "南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
+            "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
+        };
+
+        // 生成熱帶氣旋報文函數
+        function generateTyphoonBulletin(stormData) {
+            if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
+            
+            const distParts = stormData.distToMacau.split(' ');
+            const engDir = distParts[0];
+            const distance = distParts[1] ? distParts[1].replace('公里', '') : '';
+            const dirChinese = chineseDirections[engDir] || engDir;
+            
+            const moveParts = stormData.movement.split(' ');
+            const moveEngDir = moveParts[0];
+            const moveSpeed = moveParts[1] || '0';
+            const moveDirChinese = chineseDirections[moveEngDir] || moveEngDir;
+            
+            const windKmh = stormData.wind.replace(' km/h', '');
+            
+            return `${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里，向${moveDirChinese}移動，時速${moveSpeed}公里。`;
+        }
+
         function getIntensity(windInput, isEx) {
             if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
                 return TC_INTENSITY_TABLE[0];
@@ -414,7 +441,6 @@
             const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : (pastCoordsOnly.length > 0 ? [pastCoordsOnly[pastCoordsOnly.length - 1]] : [[currentMeta.lon, currentMeta.lat]]);
             const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
             
-            // If intensity is Ex, then 最大風速 will be '-'
             const windDisplay = currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`;
             const distToMacau = getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat);
 
@@ -498,7 +524,7 @@
                     btn.onclick = function() { switchTrackImage(imgPath, this, f); };
                     container.appendChild(btn);
 
-                    // 組裝該氣旋的即時數據卡片
+                    // 組裝該氣旋的即時數據卡片與熱帶氣旋報文
                     allCyclonesHtml += `
                         <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900 shadow-sm mb-3 last:mb-0">
                             <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2 flex justify-between items-center">
@@ -529,6 +555,14 @@
                                     </tr>
                                 </tbody>
                             </table>
+                            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
+                                </div>
+                                <div class="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 text-xs leading-relaxed font-sans">
+                                    ${generateTyphoonBulletin(stormData)}
+                                </div>
+                            </div>
                         </div>
                     `;
 
