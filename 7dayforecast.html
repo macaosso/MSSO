@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>澳門民間氣象台 MSSO - 7天天氣預報與天氣報文系統</title>
+    <title>澳門民間氣象台 MSSO - 7天天氣預報與自動天氣報文系統</title>
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -77,28 +77,18 @@
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
-            <!-- 7天天氣預報 -->
+            <!-- 7天天氣預報 (橫向滾動) -->
             <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-calendar-days text-teal-500"></i> 7天天氣預報
+                        <i class="fa-solid fa-calendar-days text-teal-500"></i> 7天天氣預報與詳細狀況
                     </h2>
                     <a href="https://macaosso.github.io/MSSO/symbol.html" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm" style="text-decoration: none;">
                         天氣符號說明 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                     </a>
                 </div>
-                <div id="daily-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3"></div>
-            </section>
-
-            <!-- 每日天氣報文 (可展開收合) -->
-            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                <div class="flex justify-between items-center cursor-pointer select-none" id="reports-toggle-btn">
-                    <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-file-lines text-teal-500"></i> 天氣報文
-                    </h2>
-                    <i class="fa-solid fa-chevron-down text-teal-500 transition-transform duration-300" id="reports-chevron"></i>
-                </div>
-                <div id="weather-reports-container" class="space-y-3 mt-4 hidden"></div>
+                <!-- 橫向滾動容器 (items-stretch 確保所有卡片等高) -->
+                <div id="daily-container" class="flex overflow-x-auto gap-4 pb-3 pt-1 items-stretch snap-x"></div>
             </section>
 
             <!-- 9大天氣分組時數統計 -->
@@ -152,16 +142,6 @@
             document.documentElement.classList.add('dark');
         }
 
-        // 報文展開收合控制
-        const reportsToggleBtn = document.getElementById('reports-toggle-btn');
-        const reportsContainer = document.getElementById('weather-reports-container');
-        const reportsChevron = document.getElementById('reports-chevron');
-
-        reportsToggleBtn.addEventListener('click', () => {
-            reportsContainer.classList.toggle('hidden');
-            reportsChevron.classList.toggle('rotate-180');
-        });
-
         function getWeatherGroup(code) {
             if ([0, 1].includes(code)) return { group: 'A', name: '天晴' };
             if ([2, 3, 51].includes(code)) return { group: 'B', name: '多雲' };
@@ -191,21 +171,38 @@
             directions.forEach(d => dirCounts[d] = 0);
             hourlyDirs.forEach(d => { if (dirCounts[d] !== undefined) dirCounts[d]++; });
             
-            let activeDirs = directions.filter(d => dirCounts[d] > 0);
-            if (activeDirs.length === 0) return '偏北風';
+            // 找出 >= 10 小時的風向
+            let qualifiedDirs = directions.filter(d => dirCounts[d] >= 10);
             
-            if (activeDirs.length === 1) {
-                let d = activeDirs[0];
-                if (['N', 'E', 'S', 'W'].includes(d)) {
-                    return '偏' + dirMapFull[d] + '風';
+            if (qualifiedDirs.length > 0) {
+                if (qualifiedDirs.length === 1) {
+                    let d = qualifiedDirs[0];
+                    if (['N', 'E', 'S', 'W'].includes(d)) {
+                        return '偏' + dirMapFull[d] + '風';
+                    } else {
+                        return dirMapFull[d] + '風';
+                    }
                 } else {
-                    return dirMapFull[d] + '風';
+                    let indices = qualifiedDirs.map(d => directions.indexOf(d)).sort((a,b) => a - b);
+                    let firstDir = directions[indices[0]];
+                    let lastDir = directions[indices[indices.length - 1]];
+                    return `${dirMapFull[firstDir]}至${dirMapFull[lastDir]}風`;
                 }
             } else {
-                let indices = activeDirs.map(d => directions.indexOf(d)).sort((a,b) => a - b);
-                let firstDir = directions[indices[0]];
-                let lastDir = directions[indices[indices.length - 1]];
-                return `${dirMapFull[firstDir]}至${dirMapFull[lastDir]}風`;
+                // 如果全部都未達到 10 小時，找出時數最多的風向
+                let maxCount = -1;
+                let maxDir = 'N';
+                directions.forEach(d => {
+                    if (dirCounts[d] > maxCount) {
+                        maxCount = dirCounts[d];
+                        maxDir = d;
+                    }
+                });
+                if (['N', 'E', 'S', 'W'].includes(maxDir)) {
+                    return '偏' + dirMapFull[maxDir] + '風';
+                } else {
+                    return dirMapFull[maxDir] + '風';
+                }
             }
         }
 
@@ -227,10 +224,9 @@
 
         const windSpeedNames = { 0: '靜止', 1: '微風', 2: '輕微', 3: '溫和', 4: '和緩', 5: '清新', 6: '清勁', 7: '強勁', 8: '疾勁', 9: '烈風', 10: '狂風', 11: '暴風', 12: '颶風' };
 
-
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
                 const res = await fetch(weatherUrl);
                 globalWeatherData = await res.json();
 
@@ -243,7 +239,6 @@
                 document.getElementById('update-time').textContent = `更新時間：${year}-${month}-${day} ${hours}:${minutes}`;
 
                 renderDailySection();
-                renderWeatherReportsSection();
                 renderWeatherGroupsSection();
                 renderWindStatsSection();
 
@@ -268,161 +263,9 @@
                 const dateStr = data.daily.time[startIndex + i];
                 const maxTemp = Math.round(data.daily.temperature_2m_max[startIndex + i]);
                 const minTemp = Math.round(data.daily.temperature_2m_min[startIndex + i]);
-                const code = data.daily.weather_code[startIndex + i];
-
-                const symbols = {
-                    0: isNight ? { text: '天晴', icon: 'fas fa-moon text-indigo-400' } : { text: '天晴', icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
-                    1: isNight ? { text: '大致天晴', icon: 'fas fa-moon text-indigo-300' } : { text: '大致天晴', icon: 'fas fa-sun text-yellow-400' },
-                    2: isNight ? { text: '天色明朗', icon: 'fas fa-cloud-moon text-indigo-200' } : { text: '天色明朗', icon: 'fas fa-cloud-sun text-yellow-400' },
-                    3: { text: '多雲', icon: 'fas fa-cloud text-slate-300' },
-                    4: { text: '煙霾', icon: 'fas fa-smog text-neutral-400' },
-                    5: { text: '霾', icon: 'fas fa-wind text-stone-400' },
-                    6: { text: '浮塵', icon: 'fas fa-wind text-amber-600/70' },
-                    7: { text: '揚沙', icon: 'fas fa-wind text-amber-700' },
-                    8: { text: '塵捲風', icon: 'fas fa-tornado text-amber-800' },
-                    9: { text: '沙塵暴現象', icon: 'fas fa-wind text-amber-900' },
-                    10: { text: '輕霧', icon: 'fas fa-smog text-slate-300' },
-                    11: { text: '薄霧', icon: 'fas fa-smog text-slate-350' },
-                    12: { text: '低霧', icon: 'fas fa-smog text-slate-400' },
-                    13: { text: '遠處閃電', icon: 'fas fa-bolt text-yellow-400' },
-                    14: { text: '雨幡', icon: 'fas fa-cloud text-blue-300/60' },
-                    15: { text: '遠處降水', icon: 'fas fa-cloud-sun-rain text-blue-300' },
-                    16: { text: '近處降水', icon: 'fas fa-cloud-rain text-blue-400' },
-                    17: { text: '旱雷', icon: 'fas fa-cloud-bolt text-amber-400' },
-                    18: { text: '颮風', icon: 'fas fa-wind text-blue-600' },
-                    19: { text: '龍捲風趨勢', icon: 'fas fa-tornado text-slate-700' },
-                    20: { text: '前一小時有毛毛雨', icon: 'fas fa-cloud text-blue-200' },
-                    21: { text: '前一小時有雨', icon: 'fas fa-cloud-rain text-blue-300' },
-                    22: { text: '前一小時有雪', icon: 'fas fa-snowflake text-sky-200' },
-                    23: { text: '前一小時有雨夾雪', icon: 'fas fa-cloud-meatball text-sky-300' },
-                    24: { text: '前一小時有凍雨', icon: 'fas fa-icicles text-blue-300' },
-                    25: { text: '前一小時有陣雨', icon: 'fas fa-cloud-showers-heavy text-blue-400' },
-                    26: { text: '前一小時有陣雪', icon: 'fas fa-snowflake text-blue-200' },
-                    27: { text: '前一小時有冰雹', icon: 'fas fa-cloud-hail text-blue-300' },
-                    28: { text: '前一小時有霧', icon: 'fas fa-smog text-slate-400' },
-                    29: { text: '前一小時有雷暴', icon: 'fas fa-cloud-bolt text-amber-500' },
-                    30: { text: '減弱中沙塵暴', icon: 'fas fa-wind text-amber-700/80' },
-                    31: { text: '無明顯變化沙塵暴', icon: 'fas fa-wind text-amber-700' },
-                    32: { text: '增強中沙塵暴', icon: 'fas fa-wind text-amber-800' },
-                    33: { text: '減弱中強沙塵暴', icon: 'fas fa-wind text-amber-850' },
-                    34: { text: '無明顯變化強沙塵暴', icon: 'fas fa-wind text-amber-900' },
-                    35: { text: '增強中強沙塵暴', icon: 'fas fa-wind text-amber-950' },
-                    36: { text: '低吹雪（輕/中）', icon: 'fas fa-wind text-sky-100' },
-                    37: { text: '低吹雪（重）', icon: 'fas fa-wind text-sky-200' },
-                    38: { text: '高吹雪（輕/中）', icon: 'fas fa-snowflake text-sky-300' },
-                    39: { text: '高吹雪（重）', icon: 'fas fa-snowflake text-sky-400' },
-                    41: { text: '分散薄霧', icon: 'fas fa-smog text-slate-300' },
-                    42: { text: '天空可辨的減弱霧', icon: 'fas fa-smog text-slate-350' },
-                    43: { text: '天空不明的減弱霧', icon: 'fas fa-smog text-slate-400' },
-                    44: { text: '天空可辨的無變化霧', icon: 'fas fa-smog text-slate-400' },
-                    45: { text: '大霧（天空不明且無變化）', icon: 'fas fa-smog text-slate-450' },
-                    46: { text: '天空可辨的增強霧', icon: 'fas fa-smog text-slate-450' },
-                    47: { text: '天空不明的增強霧', icon: 'fas fa-smog text-slate-550' },
-                    48: { text: '結霜霧（天空可辨）', icon: 'fas fa-icicles text-slate-300' },
-                    49: { text: '結霜霧（天空不明）', icon: 'fas fa-icicles text-slate-400' },
-                    50: { text: '部分時間有陽光', icon: 'fas fa-cloud-sun text-yellow-400' },
-                    51: { text: '短暫時間有陽光', icon: 'fas fa-cloud-sun text-yellow-400' },
-                    52: { text: '部分時間有陽光，間中有微雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                    53: { text: '短暫時間有陽光，有微雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                    54: { text: '部分時間有陽光，間中有雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                    55: { text: '短暫時間有陽光，有雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                    56: { text: '輕微凍毛毛雨', icon: 'fas fa-icicles text-cyan-200' },
-                    57: { text: '中或濃凍毛毛雨', icon: 'fas fa-icicles text-cyan-400' },
-                    58: { text: '毛毛雨夾輕雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                    59: { text: '毛毛雨夾中大雨', icon: 'fas fa-cloud-showers-heavy text-blue-500' },
-                    60: { text: '間中有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                    61: { text: '有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                    62: { text: '間中有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                    63: { text: '有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                    64: { text: '間中有大驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-600' },
-                    65: { text: '有大驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-600 dark:text-blue-500' },
-                    66: { text: '輕微凍雨', icon: 'fas fa-snowflake text-cyan-300' },
-                    67: { text: '中或大凍雨', icon: 'fas fa-icicles text-cyan-500' },
-                    68: { text: '輕雨夾雪', icon: 'fas fa-cloud-meatball text-blue-200' },
-                    69: { text: '中或大雨夾雪', icon: 'fas fa-cloud-meatball text-blue-400' },
-                    70: { text: '間歇性小雪', icon: 'fas fa-snowflake text-sky-100' },
-                    71: { text: '連續性小雪', icon: 'fas fa-snowflake text-sky-200' },
-                    72: { text: '間歇性中雪', icon: 'fas fa-snowflake text-sky-300' },
-                    73: { text: '連續性中雪', icon: 'fas fa-snowflake text-sky-400' },
-                    74: { text: '間歇性大雪', icon: 'fas fa-snowflake text-blue-200' },
-                    75: { text: '連續性大雪', icon: 'fas fa-snowflake text-blue-300' },
-                    76: { text: '冰針/鑽石塵', icon: 'fas fa-snowflake text-cyan-100' },
-                    77: { text: '米雪/雪粒', icon: 'fas fa-snowflake text-cyan-200' },
-                    78: { text: '孤立星狀雪花', icon: 'fas fa-snowflake text-sky-100' },
-                    79: { text: '冰粒', icon: 'fas fa-cloud-hail text-cyan-400' },
-                    80: { text: '小陣雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                    81: { text: '中或強陣雨', icon: 'fas fa-cloud-showers-heavy text-blue-400' },
-                    82: { text: '極大陣雨（暴雨）', icon: 'fas fa-cloud-showers-water text-blue-600' },
-                    83: { text: '輕陣雨夾雪', icon: 'fas fa-cloud-meatball text-blue-200' },
-                    84: { text: '中或強陣雨夾雪', icon: 'fas fa-cloud-meatball text-blue-400' },
-                    85: { text: '小陣雪', icon: 'fas fa-snowflake text-sky-200' },
-                    86: { text: '中或強陣雪', icon: 'fas fa-snowflake text-sky-400' },
-                    87: { text: '輕微陣性霰/冰粒', icon: 'fas fa-cloud-hail text-cyan-200' },
-                    88: { text: '中或強陣性霰/冰粒', icon: 'fas fa-cloud-hail text-cyan-400' },
-                    89: { text: '小陣性冰雹', icon: 'fas fa-cloud-hail text-amber-600' },
-                    90: { text: '強陣性冰雹', icon: 'fas fa-cloud-hail text-amber-700' },
-                    91: { text: '雷暴過後的小雨', icon: 'fas fa-cloud-bolt text-blue-400' },
-                    92: { text: '雷暴過後的中大雨', icon: 'fas fa-cloud-bolt text-blue-500' },
-                    93: { text: '雷暴過後的輕雪/冰雹', icon: 'fas fa-cloud-bolt text-sky-300' },
-                    94: { text: '雷暴過後的大雪/冰雹', icon: 'fas fa-cloud-bolt text-sky-500' },
-                    95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' },
-                    96: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' },
-                    97: { text: '大雷雨', icon: 'fas fa-cloud-bolt text-red-500 dark:text-amber-500' },
-                    98: { text: '雷暴伴隨沙塵暴', icon: 'fas fa-cloud-bolt text-amber-800' },
-                    99: { text: '大雷雨伴隨強冰雹', icon: 'fas fa-cloud-bolt text-red-600 dark:text-orange-500' }
-                };
-                const dayIcon = symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-300' };
-
-                let dayHumids = [];
-                data.hourly.time.forEach((tStr, idx) => {
-                    if (tStr.startsWith(dateStr)) {
-                        dayHumids.push(data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : 70);
-                    }
-                });
-                const minH = dayHumids.length > 0 ? Math.min(...dayHumids) : 60;
-                const maxH = dayHumids.length > 0 ? Math.max(...dayHumids) : 90;
-
-                const dateObj = new Date(dateStr);
-                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
-                const dateDisplay = `${month}/${day} (${weekday})`;
-
-                const card = document.createElement('div');
-                card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between shadow-sm text-center";
-                card.innerHTML = `
-                    <div class="font-bold text-sm text-teal-600 dark:text-teal-400 mb-2">${dateDisplay}</div>
-                    <div class="flex flex-col items-center justify-center my-3">
-                        <i class="fa-solid ${dayIcon.icon} text-3xl mb-2"></i>
-                        <span class="text-xs text-slate-700 dark:text-slate-300 font-medium">${dayIcon.text}</span>
-                    </div>
-                    <div class="w-full space-y-1.5 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                        <div class="flex items-center justify-center gap-1.5 text-slate-700 dark:text-slate-300">
-                            <i class="fa-solid fa-temperature-half text-rose-400"></i>
-                            <span>${minTemp} - ${maxTemp}°C</span>
-                        </div>
-                        <div class="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400">
-                            <i class="fa-solid fa-droplet text-sky-400"></i>
-                            <span>${minH}% - ${maxH}%</span>
-                        </div>
-                    </div>
-                `;
-                dailyContainer.appendChild(card);
-            }
-        }
-
-        function renderWeatherReportsSection() {
-            const data = globalWeatherData;
-            const container = document.getElementById('weather-reports-container');
-            container.innerHTML = '';
-
-            const startIndex = 1;
-
-            for (let i = 0; i < 7; i++) {
-                const dateStr = data.daily.time[startIndex + i];
-                const maxTemp = data.daily.temperature_2m_max[startIndex + i];
-                const minTemp = data.daily.temperature_2m_min[startIndex + i];
                 const maxUv = data.daily.uv_index_max ? data.daily.uv_index_max[startIndex + i] : 5;
+                const code = data.daily.weather_code[startIndex + i];
+                const precipProb = data.daily.precipitation_probability_max ? Math.round(data.daily.precipitation_probability_max[startIndex + i]) : 0;
 
                 let hourlyHumids = [];
                 let hourlyWindSpeeds = [];
@@ -435,13 +278,14 @@
                         hourlyWindSpeeds.push(data.hourly.wind_speed_10m[idx]);
                         hourlyWindDirs.push(getWindDirection(data.hourly.wind_direction_10m[idx]));
                         
-                        const code = data.hourly.weather_code[idx];
-                        const gObj = getWeatherGroup(code);
+                        const c = data.hourly.weather_code[idx];
+                        const gObj = getWeatherGroup(c);
                         groupCounts[gObj.group]++;
                     }
                 });
 
-                const minH = hourlyHumids.length > 0 ? Math.min(...hourlyHumids) : 50;
+                const minH = hourlyHumids.length > 0 ? Math.min(...hourlyHumids) : 60;
+                const maxH = hourlyHumids.length > 0 ? Math.max(...hourlyHumids) : 90;
                 const meanH = hourlyHumids.length > 0 ? hourlyHumids.reduce((a,b)=>a+b,0)/hourlyHumids.length : 70;
 
                 let tempHumidConditions = [];
@@ -463,7 +307,6 @@
 
                 let part1 = tempHumidConditions.length >= 2 ? `天氣${tempHumidConditions[0]}及${tempHumidConditions[1]}` : (tempHumidConditions.length === 1 ? `天氣${tempHumidConditions[0]}` : '');
 
-                // 規則 1 & 4：天空描述邏輯
                 let skyDescs = [];
                 if (groupCounts['A'] >= 18) {
                     skyDescs.push('大致天晴');
@@ -534,52 +377,105 @@
                     uvStr = `預測最高紫外線指數為${roundedUv}，級別屬於${uvLevelName}。`;
                 }
 
-                // 規則 3：天氣xx 後使用句號代替逗號
                 let fullReport = `${part1 ? part1 + '。' : ''}${weatherDescStr}。${windStr}${uvStr}`;
 
-                // 規則 2：微雨時數未超過 8 小時則不變更為 fa-cloud-sun-rain
-                let reportIcon = 'fas fa-cloud text-slate-400';
-                let hasSun = groupCounts['A'] > 0;
-                let hasCloud = groupCounts['B'] > 0;
-                let hasSignificantRain = groupCounts['I'] > 0 || groupCounts['H'] > 0 || groupCounts['E'] > 0 || groupCounts['D'] > 8;
+                const symbols = {
+                    0: isNight ? { icon: 'fas fa-moon text-indigo-400' } : { icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
+                    1: isNight ? { icon: 'fas fa-moon text-indigo-300' } : { icon: 'fas fa-sun text-yellow-400' },
+                    2: isNight ? { icon: 'fas fa-cloud-moon text-indigo-200' } : { icon: 'fas fa-cloud-sun text-yellow-400' },
+                    3: { icon: 'fas fa-cloud text-slate-300' },
+                    45: { icon: 'fas fa-smog text-slate-400' },
+                    51: { icon: 'fas fa-cloud-sun text-yellow-400' },
+                    53: { icon: 'fas fa-cloud-sun-rain text-blue-400' },
+                    61: { icon: 'fas fa-cloud-rain text-blue-400' },
+                    80: { icon: 'fas fa-cloud-showers-heavy text-blue-400' },
+                    95: { icon: 'fas fa-cloud-bolt text-blue-400' }
+                };
+                let dayIcon = symbols[code] || { icon: 'fas fa-cloud text-slate-300' };
 
-                if (groupCounts['I'] > 0) {
-                    reportIcon = 'fas fa-cloud-bolt text-amber-500';
-                } else if (groupCounts['G'] > 0) {
-                    reportIcon = 'fas fa-snowflake text-sky-400';
-                } else if (hasSun && hasCloud && hasSignificantRain) {
-                    reportIcon = 'fas fa-cloud-sun-rain text-blue-400';
-                } else if (groupCounts['H'] > 0) {
-                    reportIcon = 'fas fa-cloud-showers-heavy text-blue-400';
-                } else if (groupCounts['E'] > 0 || groupCounts['D'] > 0) {
-                    reportIcon = 'fas fa-cloud-rain text-blue-400';
-                } else if (groupCounts['C'] > 0) {
-                    reportIcon = 'fas fa-smog text-slate-400';
-                } else if (groupCounts['A'] > 12) {
-                    reportIcon = 'fas fa-sun text-yellow-500';
-                } else if (groupCounts['B'] > 12) {
-                    reportIcon = 'fas fa-cloud text-slate-400';
-                } else {
-                    reportIcon = 'fas fa-cloud-sun text-yellow-400';
+                const hasThunderstormOrShowers = groupCounts['I'] > 0 || groupCounts['H'] > 0;
+                const hasSnowOrFreezingRain = groupCounts['G'] > 0 || groupCounts['F'] > 0;
+                const rainHours = groupCounts['D'] + groupCounts['E'] + groupCounts['H'] + groupCounts['I'];
+
+                if (maxTemp >= 32.5 && !hasThunderstormOrShowers) {
+                    dayIcon = { icon: 'fas fa-temperature-high text-orange-500' };
+                } else if (minTemp <= 12.5 && !hasThunderstormOrShowers && !hasSnowOrFreezingRain) {
+                    dayIcon = { icon: 'fas fa-temperature-low text-blue-400' };
+                } else if (dayIcon.icon.includes('fa-cloud-sun-rain')) {
+                    if (rainHours < 8) {
+                        dayIcon = { icon: 'fas fa-cloud-sun text-yellow-400' };
+                    }
                 }
 
                 const dateObj = new Date(dateStr);
-                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
-                const monthDay = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const dayStr = String(dateObj.getDate()).padStart(2, '0');
+                const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+                const dateDisplay = `${month}/${dayStr} (${weekday})`;
 
-                const rowDiv = document.createElement('div');
-                rowDiv.className = "p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3";
-                rowDiv.innerHTML = `
-                    <div class="flex items-center gap-3 min-w-[130px]">
-                        <i class="fa-solid ${reportIcon} text-xl"></i>
-                        <div>
-                            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">${dayName}</span>
-                            <span class="text-xs text-slate-400 block">${monthDay}</span>
+                let popVal = precipProb;
+                let popLevel = '極低';
+                let popBadgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+                
+                if (popVal >= 95) {
+                    popLevel = '極高';
+                    popBadgeClass = 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold';
+                } else if (popVal >= 85) {
+                    popLevel = '高';
+                    popBadgeClass = 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-bold';
+                } else if (popVal >= 70) {
+                    popLevel = '偏高';
+                    popBadgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 font-semibold';
+                } else if (popVal >= 40) {
+                    popLevel = '中等';
+                    popBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold';
+                } else if (popVal >= 25) {
+                    popLevel = '偏低';
+                    popBadgeClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
+                } else if (popVal >= 10) {
+                    popLevel = '低';
+                    popBadgeClass = 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300';
+                }
+
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col shadow-sm w-[170px] sm:w-[190px] flex-shrink-0 snap-start";
+                card.innerHTML = `
+                    <!-- 1. 日期 -->
+                    <div class="font-bold text-sm text-teal-600 dark:text-teal-400 text-center pb-2">${dateDisplay}</div>
+                    
+                    <!-- 2. 圖標 (大小設為 text-5xl) -->
+                    <div class="flex flex-col items-center justify-center py-3">
+                        <i class="fa-solid ${dayIcon.icon} text-5xl"></i>
+                    </div>
+
+                    <hr class="border-slate-100 dark:border-slate-800 my-2">
+
+                    <!-- 3. 溫度範圍 -->
+                    <div class="py-1 text-center text-lg">
+                        <span class="text-blue-500 dark:text-blue-400 font-bold">${minTemp}°C</span>
+                        <span class="text-slate-400 mx-1 font-normal">/</span>
+                        <span class="text-orange-500 dark:text-orange-400 font-bold">${maxTemp}°C</span>
+                    </div>
+
+                    <hr class="border-slate-100 dark:border-slate-800 my-2">
+
+                    <!-- 4. 降雨機率 -->
+                    <div class="py-1 text-center space-y-1">
+                        <div class="text-[11px] font-semibold text-slate-400">降雨機率</div>
+                        <div class="flex items-center justify-center gap-1.5">
+                            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${precipProb}%</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] ${popBadgeClass}">${popLevel}</span>
                         </div>
                     </div>
-                    <div class="text-xs md:text-sm text-slate-700 dark:text-slate-300 font-medium flex-grow">${fullReport}</div>
+
+                    <hr class="border-slate-100 dark:border-slate-800 my-2">
+
+                    <!-- 5. 報文文字 -->
+                    <div class="flex-grow flex flex-col justify-start text-xs text-slate-600 dark:text-slate-400 text-left leading-relaxed pt-1">
+                        ${fullReport}
+                    </div>
                 `;
-                container.appendChild(rowDiv);
+                dailyContainer.appendChild(card);
             }
         }
 
