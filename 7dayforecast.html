@@ -56,7 +56,7 @@
         <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    <i class="fa-solid fa-bullhorn text-purple-500 dark:text-purple-400"></i> 澳門 7天天氣預報與自動天氣報文
+                    <i class="fa-solid fa-bullhorn text-teal-500"></i> 澳門 7天天氣預報與自動天氣報文
                 </h1>
                 <div class="mt-2 text-sm text-slate-500 dark:text-slate-400" id="update-time">載入中...</div>
             </div>
@@ -71,7 +71,7 @@
 
         <!-- 載入狀態 -->
         <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-teal-500 mb-3"></i>
             <p>正在取得最新天氣預報數據...</p>
         </div>
 
@@ -81,30 +81,31 @@
             <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-calendar-days text-purple-500 dark:text-purple-400"></i> 7天天氣預報
+                        <i class="fa-solid fa-calendar-days text-teal-500"></i> 7天天氣預報
                     </h2>
                     <a href="https://macaosso.github.io/MSSO/symbol.html" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm" style="text-decoration: none;">
                         天氣符號說明 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                     </a>
                 </div>
-                <div id="daily-container" class="overflow-x-auto pb-2"></div>
+                <div id="daily-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3"></div>
             </section>
 
-            <!-- 每日天氣報文 -->
+            <!-- 每日天氣報文 (可展開收合) -->
             <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex justify-between items-center cursor-pointer select-none" id="reports-toggle-btn">
                     <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-file-lines text-indigo-500 dark:text-indigo-400"></i> 每日標準天氣報文 (7天)
+                        <i class="fa-solid fa-file-lines text-teal-500"></i> 天氣報文
                     </h2>
+                    <i class="fa-solid fa-chevron-down text-teal-500 transition-transform duration-300" id="reports-chevron"></i>
                 </div>
-                <div id="weather-reports-container" class="space-y-3"></div>
+                <div id="weather-reports-container" class="space-y-3 mt-4 hidden"></div>
             </section>
 
             <!-- 9大天氣分組時數統計 -->
             <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-chart-pie text-cyan-500 dark:text-cyan-400"></i> 每日 9 大天氣分組時數統計 (7天)
+                        <i class="fa-solid fa-chart-pie text-teal-500"></i> 每日 9 大天氣分組時數統計 (7天)
                     </h2>
                 </div>
                 <div id="weather-groups-container" class="overflow-x-auto pb-2"></div>
@@ -114,7 +115,7 @@
             <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-wind text-teal-500 dark:text-teal-400"></i> 每日每小時 8 方位風向與風速級別統計 (7天)
+                        <i class="fa-solid fa-wind text-teal-500"></i> 每日每小時 8 方位風向與風速級別統計 (7天)
                     </h2>
                 </div>
                 <div id="wind-stats-container" class="overflow-x-auto pb-2"></div>
@@ -151,6 +152,16 @@
             document.documentElement.classList.add('dark');
         }
 
+        // 報文展開收合控制
+        const reportsToggleBtn = document.getElementById('reports-toggle-btn');
+        const reportsContainer = document.getElementById('weather-reports-container');
+        const reportsChevron = document.getElementById('reports-chevron');
+
+        reportsToggleBtn.addEventListener('click', () => {
+            reportsContainer.classList.toggle('hidden');
+            reportsChevron.classList.toggle('rotate-180');
+        });
+
         function getWeatherGroup(code) {
             if ([0, 1].includes(code)) return { group: 'A', name: '天晴' };
             if ([2, 3, 51].includes(code)) return { group: 'B', name: '多雲' };
@@ -172,9 +183,30 @@
             return directions[index];
         }
 
-        function getWindDirectionChinese(dir) {
-            const map = { 'N': '北風', 'NE': '東北風', 'E': '東風', 'SE': '東南風', 'S': '南風', 'SW': '西南風', 'W': '西風', 'NW': '西北風' };
-            return map[dir] || '北風';
+        function getWindDirectionText(hourlyDirs) {
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const dirMapFull = { 'N': '北', 'NE': '東北', 'E': '東', 'SE': '東南', 'S': '南', 'SW': '西南', 'W': '西', 'NW': '西北' };
+            
+            let dirCounts = {};
+            directions.forEach(d => dirCounts[d] = 0);
+            hourlyDirs.forEach(d => { if (dirCounts[d] !== undefined) dirCounts[d]++; });
+            
+            let activeDirs = directions.filter(d => dirCounts[d] > 0);
+            if (activeDirs.length === 0) return '偏北風';
+            
+            if (activeDirs.length === 1) {
+                let d = activeDirs[0];
+                if (['N', 'E', 'S', 'W'].includes(d)) {
+                    return '偏' + dirMapFull[d] + '風';
+                } else {
+                    return dirMapFull[d] + '風';
+                }
+            } else {
+                let indices = activeDirs.map(d => directions.indexOf(d)).sort((a,b) => a - b);
+                let firstDir = directions[indices[0]];
+                let lastDir = directions[indices[indices.length - 1]];
+                return `${dirMapFull[firstDir]}至${dirMapFull[lastDir]}風`;
+            }
         }
 
         function getWindSpeedLevel(speedKmh) {
@@ -193,11 +225,8 @@
             return 12;
         }
 
-        const windSpeedNames = {
-            0: '靜止 (<=1.5)', 1: '微風 (1.6-6.4)', 2: '輕微 (6.5-12.4)', 3: '溫和 (12.5-19.4)',
-            4: '和緩 (19.5-29.4)', 5: '清新 (29.5-39.4)', 6: '清勁 (39.5-50.4)', 7: '強勁 (50.5-61.4)',
-            8: '疾勁 (61.5-74.4)', 9: '烈風 (74.5-87.4)', 10: '狂風 (87.5-102.4)', 11: '暴風 (102.5-117.4)', 12: '颶風 (>=117.5)'
-        };
+        const windSpeedNames = { 0: '靜止', 1: '微風', 2: '輕微', 3: '溫和', 4: '和緩', 5: '清新', 6: '清勁', 7: '強勁', 8: '疾勁', 9: '烈風', 10: '狂風', 11: '暴風', 12: '颶風' };
+
 
         async function fetchWeatherData() {
             try {
@@ -233,37 +262,14 @@
 
             const currentHour = new Date().getHours();
             const isNight = currentHour < 6 || currentHour >= 18;
-
             const startIndex = 1; 
-            const maxTemps = data.daily.temperature_2m_max.slice(startIndex, startIndex + 7).map(t => Math.round(t));
-            const minTemps = data.daily.temperature_2m_min.slice(startIndex, startIndex + 7).map(t => Math.round(t));
-            const popMaxs = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max.slice(startIndex, startIndex + 7) : Array(7).fill(0);
-            
-            const allVals = [...maxTemps, ...minTemps];
-            const chartMax = Math.max(...allVals) + 1;
-            const chartMin = Math.min(...allVals) - 1;
-            const range = chartMax - chartMin || 1;
-            const svgHeight = 60;
-
-            function getY(val) {
-                return svgHeight - ((val - chartMin) / range) * (svgHeight - 20) - 10;
-            }
-
-            const tableWrapper = document.createElement('div');
-            tableWrapper.className = "min-w-[620px]";
-
-            let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 border-b border-slate-200 dark:border-slate-800">';
-            let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
-            let maxTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
-            let minTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
-            let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 border-t border-slate-200 dark:border-slate-800">';
-
-            let maxPoints = [];
-            let minPoints = [];
 
             for (let i = 0; i < 7; i++) {
                 const dateStr = data.daily.time[startIndex + i];
+                const maxTemp = Math.round(data.daily.temperature_2m_max[startIndex + i]);
+                const minTemp = Math.round(data.daily.temperature_2m_min[startIndex + i]);
                 const code = data.daily.weather_code[startIndex + i];
+
                 const symbols = {
                     0: isNight ? { text: '天晴', icon: 'fas fa-moon text-indigo-400' } : { text: '天晴', icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
                     1: isNight ? { text: '大致天晴', icon: 'fas fa-moon text-indigo-300' } : { text: '大致天晴', icon: 'fas fa-sun text-yellow-400' },
@@ -367,40 +373,42 @@
                 };
                 const dayIcon = symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-300' };
 
-                const popVal = Math.round(popMaxs[i]);
-                let popLevel = popVal >= 75 ? '高' : popVal >= 40 ? '中等' : '低';
-                let popBadgeClass = popVal >= 75 ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-bold' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+                let dayHumids = [];
+                data.hourly.time.forEach((tStr, idx) => {
+                    if (tStr.startsWith(dateStr)) {
+                        dayHumids.push(data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : 70);
+                    }
+                });
+                const minH = dayHumids.length > 0 ? Math.min(...dayHumids) : 60;
+                const maxH = dayHumids.length > 0 ? Math.max(...dayHumids) : 90;
 
                 const dateObj = new Date(dateStr);
-                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
-                const monthDay = `${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+                const dateDisplay = `${month}/${day} (${weekday})`;
 
-                const xCenter = i * 100 + 50;
-                maxPoints.push(`${xCenter},${getY(maxTemps[i])}`);
-                minPoints.push(`${xCenter},${getY(minTemps[i])}`);
-
-                daysHtml += `<div><div class="font-bold text-sm text-slate-800 dark:text-slate-100">${dayName}</div><div class="text-xs text-slate-400 mt-0.5">${monthDay}</div></div>`;
-                iconsHtml += `<div class="flex flex-col items-center justify-center"><i class="fa-solid ${dayIcon.icon} text-xl mb-1"></i><span class="text-[11px] text-slate-700 dark:text-slate-300">${dayIcon.text}</span></div>`;
-                maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
-                minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
-                popRowHtml += `<div class="flex flex-col items-center justify-center gap-1"><span class="text-xs font-medium text-slate-700 dark:text-slate-200">${popVal}%</span><span class="px-2 py-0.5 rounded text-[10px] ${popBadgeClass}">${popLevel}</span></div>`;
+                const card = document.createElement('div');
+                card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between shadow-sm text-center";
+                card.innerHTML = `
+                    <div class="font-bold text-sm text-teal-600 dark:text-teal-400 mb-2">${dateDisplay}</div>
+                    <div class="flex flex-col items-center justify-center my-3">
+                        <i class="fa-solid ${dayIcon.icon} text-3xl mb-2"></i>
+                        <span class="text-xs text-slate-700 dark:text-slate-300 font-medium">${dayIcon.text}</span>
+                    </div>
+                    <div class="w-full space-y-1.5 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                        <div class="flex items-center justify-center gap-1.5 text-slate-700 dark:text-slate-300">
+                            <i class="fa-solid fa-temperature-half text-rose-400"></i>
+                            <span>${minTemp} - ${maxTemp}°C</span>
+                        </div>
+                        <div class="flex items-center justify-center gap-1.5 text-slate-500 dark:text-slate-400">
+                            <i class="fa-solid fa-droplet text-sky-400"></i>
+                            <span>${minH}% - ${maxH}%</span>
+                        </div>
+                    </div>
+                `;
+                dailyContainer.appendChild(card);
             }
-
-            daysHtml += '</div>'; iconsHtml += '</div>'; maxTempHtml += '</div>'; minTempHtml += '</div>'; popRowHtml += '</div>';
-
-            let svgChartHtml = `
-                <div class="relative py-2">
-                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[60px] overflow-visible">
-                        <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${maxPoints.join(' ')}" />
-                        ${maxTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#f59e0b" />`).join('')}
-                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="${minPoints.join(' ')}" />
-                        ${minTemps.map((t, i) => `<circle cx="${i * 100 + 50}" cy="${getY(t)}" r="4" fill="#3b82f6" />`).join('')}
-                    </svg>
-                </div>
-            `;
-
-            tableWrapper.innerHTML = `${daysHtml}${iconsHtml}<div class="bg-slate-100/60 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2"><div class="text-xs font-medium text-slate-400 px-1">溫度趨勢圖</div>${maxTempHtml}${svgChartHtml}${minTempHtml}</div><div class="mt-3"><div class="text-xs font-medium text-slate-400 mb-2 px-1">降雨機率</div>${popRowHtml}</div>`;
-            dailyContainer.appendChild(tableWrapper);
         }
 
         function renderWeatherReportsSection() {
@@ -409,7 +417,6 @@
             container.innerHTML = '';
 
             const startIndex = 1;
-            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
             for (let i = 0; i < 7; i++) {
                 const dateStr = data.daily.time[startIndex + i];
@@ -456,11 +463,35 @@
 
                 let part1 = tempHumidConditions.length >= 2 ? `天氣${tempHumidConditions[0]}及${tempHumidConditions[1]}` : (tempHumidConditions.length === 1 ? `天氣${tempHumidConditions[0]}` : '');
 
+                // 規則 1 & 4：天空描述邏輯
+                let skyDescs = [];
+                if (groupCounts['A'] >= 18) {
+                    skyDescs.push('大致天晴');
+                } else if (groupCounts['B'] >= 18) {
+                    skyDescs.push('大致多雲');
+                } else {
+                    let hasSun = groupCounts['A'] >= 2;
+                    let hasCloud = groupCounts['B'] >= 2;
+                    if (hasSun && hasCloud) {
+                        if (groupCounts['A'] > groupCounts['B']) {
+                            skyDescs.push('天晴，部份時間多雲');
+                        } else {
+                            skyDescs.push('多雲，部份時間有陽光');
+                        }
+                    } else if (groupCounts['A'] >= 2) {
+                        skyDescs.push('部份時間有陽光');
+                    } else if (groupCounts['B'] >= 2) {
+                        skyDescs.push('多雲');
+                    } else {
+                        if (groupCounts['A'] > 0) skyDescs.push('天晴');
+                        else skyDescs.push('多雲');
+                    }
+                }
+
                 let weatherDescs = [];
-                if (groupCounts['A'] >= 16) weatherDescs.push('天晴');
-                else if (groupCounts['A'] >= 2) weatherDescs.push('部份時間天晴');
-                else if (groupCounts['B'] >= 16) weatherDescs.push('多雲');
-                else if (groupCounts['B'] >= 2) weatherDescs.push('部份時間多雲');
+                if (skyDescs.length > 0) {
+                    weatherDescs.push(skyDescs.join('，'));
+                }
 
                 if (groupCounts['C'] >= 16) weatherDescs.push('有霧或薄霧');
                 else if (groupCounts['C'] >= 2) weatherDescs.push('有時有霧');
@@ -492,17 +523,10 @@
                 let windLevels = hourlyWindSpeeds.map(s => getWindSpeedLevel(s));
                 let minWindL = Math.min(...windLevels);
                 let maxWindL = Math.max(...windLevels);
+                let windDirText = getWindDirectionText(hourlyWindDirs);
 
-                let dirCounts = {};
-                directions.forEach(d => dirCounts[d] = 0);
-                hourlyWindDirs.forEach(d => { if(dirCounts[d] !== undefined) dirCounts[d]++; });
-                let mostCommonDir = 'N', maxCount = -1;
-                directions.forEach(d => { if (dirCounts[d] > maxCount) { maxCount = dirCounts[d]; mostCommonDir = d; } });
-                let chineseDir = getWindDirectionChinese(mostCommonDir);
+                let windStr = (minWindL === maxWindL) ? `吹${minWindL}級${windDirText}。` : `吹${minWindL}-${maxWindL}級${windDirText}。`;
 
-                let windStr = (minWindL === maxWindL) ? `吹${minWindL}級${chineseDir}。` : `吹${minWindL}-${maxWindL}級${chineseDir}。`;
-
-                // 需求 2：僅在今日 (i === 0) 顯示紫外線預報
                 let uvStr = '';
                 if (i === 0) {
                     let roundedUv = Math.round(maxUv);
@@ -510,19 +534,20 @@
                     uvStr = `預測最高紫外線指數為${roundedUv}，級別屬於${uvLevelName}。`;
                 }
 
-                let fullReport = `${part1 ? part1 + '，' : ''}${weatherDescStr}。${windStr}${uvStr}`;
+                // 規則 3：天氣xx 後使用句號代替逗號
+                let fullReport = `${part1 ? part1 + '。' : ''}${weatherDescStr}。${windStr}${uvStr}`;
 
-                // 需求 3：根據條件加入當天氣象圖示 (雷雨>雪>驟雨>雨>霧/雲/晴)
+                // 規則 2：微雨時數未超過 8 小時則不變更為 fa-cloud-sun-rain
                 let reportIcon = 'fas fa-cloud text-slate-400';
                 let hasSun = groupCounts['A'] > 0;
                 let hasCloud = groupCounts['B'] > 0;
-                let hasRainOrShowers = (groupCounts['E'] > 0 || groupCounts['D'] > 0 || groupCounts['H'] > 0 || groupCounts['I'] > 0);
+                let hasSignificantRain = groupCounts['I'] > 0 || groupCounts['H'] > 0 || groupCounts['E'] > 0 || groupCounts['D'] > 8;
 
                 if (groupCounts['I'] > 0) {
                     reportIcon = 'fas fa-cloud-bolt text-amber-500';
                 } else if (groupCounts['G'] > 0) {
                     reportIcon = 'fas fa-snowflake text-sky-400';
-                } else if (hasSun && hasCloud && (groupCounts['H'] > 0 || groupCounts['E'] > 0 || groupCounts['D'] > 0)) {
+                } else if (hasSun && hasCloud && hasSignificantRain) {
                     reportIcon = 'fas fa-cloud-sun-rain text-blue-400';
                 } else if (groupCounts['H'] > 0) {
                     reportIcon = 'fas fa-cloud-showers-heavy text-blue-400';
@@ -594,7 +619,7 @@
                 bodyHtml += `<div class="grid grid-cols-8 gap-2 py-2.5 items-center text-center"><div class="text-left pl-2 font-semibold text-slate-700 dark:text-slate-300 truncate">${groupNames[gKey]}</div>`;
                 dailyStats.forEach(day => {
                     const val = day.counts[gKey];
-                    bodyHtml += `<div><span class="px-2 py-1 rounded-md ${val > 0 ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-300 font-bold' : 'text-slate-300 dark:text-slate-600'}">${val} 小時</span></div>`;
+                    bodyHtml += `<div><span class="px-2 py-1 rounded-md ${val > 0 ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 font-bold' : 'text-slate-300 dark:text-slate-600'}">${val} 小時</span></div>`;
                 });
                 bodyHtml += `</div>`;
             });
@@ -626,7 +651,6 @@
                 dailyWindData.push({ dateStr, dirCounts, speedCounts });
             }
 
-            // 1. 風向統計
             const dirWrapper = document.createElement('div');
             dirWrapper.className = "space-y-3";
             dirWrapper.innerHTML = `<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-compass text-teal-500"></i> 風向時數統計 (8方位)</h3>`;
@@ -639,8 +663,9 @@
             }
             dirHeaderHtml += `</div>`;
             let dirBodyHtml = `<div class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">`;
+            const dirMapFull = { 'N': '北', 'NE': '東北', 'E': '東', 'SE': '東南', 'S': '南', 'SW': '西南', 'W': '西', 'NW': '西北' };
             directions.forEach(d => {
-                dirBodyHtml += `<div class="grid grid-cols-9 gap-2 py-2 items-center text-center"><div class="text-left pl-2 font-semibold text-slate-700 dark:text-slate-300 col-span-2">${getWindDirectionChinese(d)}</div>`;
+                dirBodyHtml += `<div class="grid grid-cols-9 gap-2 py-2 items-center text-center"><div class="text-left pl-2 font-semibold text-slate-700 dark:text-slate-300 col-span-2">${dirMapFull[d]}風</div>`;
                 dailyWindData.forEach(day => {
                     const val = day.dirCounts[d];
                     dirBodyHtml += `<div><span class="px-2 py-0.5 rounded-md ${val > 0 ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 font-bold' : 'text-slate-300 dark:text-slate-600'}">${val}h</span></div>`;
@@ -652,7 +677,6 @@
             dirWrapper.appendChild(dirTable);
             container.appendChild(dirWrapper);
 
-            // 2. 風速級別統計表 (0-12級 x 7天)
             const speedWrapper = document.createElement('div');
             speedWrapper.className = "space-y-3 mt-6";
             speedWrapper.innerHTML = `<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-gauge-high text-teal-500"></i> 風速級別時數統計 (0-12級)</h3>`;
