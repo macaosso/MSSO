@@ -177,12 +177,289 @@
     <!-- 引入獨立的 tc.js 邏輯 -->
     <script src="tc.js"></script>
     <script>
-        function getIntensityInfo(wind, code) {
-            let found = TC_INTENSITY_TABLE.find(t => t.code.toLowerCase() === (code || '').toLowerCase());
-            if (!found) {
-                found = TC_INTENSITY_TABLE.slice().reverse().find(t => wind <= t.max_wind) || TC_INTENSITY_TABLE[1];
+        const TC_INTENSITY_TABLE = [
+            {"code": "Ex",   "name": "溫帶氣旋",         "engName": "Extra-tropical Cyclone", "max_wind": -1,   "rangeText": "-",            "color": "#64748b"},
+            {"code": "LPA",  "name": "低壓區",           "engName": "Low Pressure Area",      "max_wind": 40,   "rangeText": "≤ 40 km/h",    "color": "#64748b"},
+            {"code": "TD",   "name": "熱帶低氣壓",       "engName": "Tropical Depression",    "max_wind": 62,   "rangeText": "41 - 62 km/h", "color": "#0284c7"},
+            {"code": "TS",   "name": "熱帶風暴",         "engName": "Tropical Storm",         "max_wind": 87,   "rangeText": "63 - 87 km/h", "color": "#16a34a"},
+            {"code": "STS",  "name": "強烈熱帶風暴",     "engName": "Severe Tropical Storm",  "max_wind": 117,  "rangeText": "88 - 117 km/h","color": "#ca8a04"},
+            {"code": "TY",   "name": "颱風",             "engName": "Typhoon",                "max_wind": 149,  "rangeText": "118 - 149 km/h","color": "#ea580c"},
+            {"code": "STY",  "name": "強颱風",           "engName": "Severe Typhoon",         "max_wind": 184,  "rangeText": "150 - 184 km/h","color": "#dc2626"},
+            {"code": "SuTY", "name": "超強颱風",         "engName": "Super Typhoon",          "max_wind": 9999, "rangeText": "≥ 185 km/h",   "color": "#9333ea"},
+        ];
+
+        function getIntensity(windInput, isEx) {
+            if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
+                return TC_INTENSITY_TABLE[0];
             }
-            return found;
+            const windKmh = parseFloat(windInput) || 0;
+            for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
+                let item = TC_INTENSITY_TABLE[i];
+                if (windKmh <= item.max_wind) return item;
+            }
+            return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
+        }
+
+        const MACAU_COORDS = [113.5685, 22.1595];
+
+        function getDistanceAndDirectionToMacau(tLon, tLat) {
+            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) {
+                return "未知距離";
+            }
+            const R = 6371;
+            const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
+            const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            let dist = R * c;
+            dist = Math.round(dist / 10) * 10;
+
+            const lat1Rad = MACAU_COORDS[1] * Math.PI / 180;
+            const lat2Rad = tLat * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+
+            const directions = [
+                "N", "NNE", "NE", "ENE",
+                "E", "ESE", "SE", "SSE",
+                "S", "SSW", "SW", "WSW",
+                "W", "WNW", "NW", "NNW"
+            ];
+            const index = Math.round((brng % 360) / 22.5) % 16;
+            return `${directions[index]} ${dist}公里`;
+        }
+
+        function getDirection(lon1, lat1, lon2, lat2) {
+            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) {
+                return "靜止";
+            }
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+            const directions = [
+                "N", "NNE", "NE", "ENE",
+                "E", "ESE", "SE", "SSE",
+                "S", "SSW", "SW", "WSW",
+                "W", "WNW", "NW", "NNW"
+            ];
+            return directions[Math.round((brng % 360) / 22.5) % 16];
+        }
+
+        function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
+            if (!coords || coords.length < 2) return coords;
+            let pts = [coords[0], ...coords, coords[coords.length - 1]];
+            let smooth = [];
+
+            for (let i = 1; i < pts.length - 2; i++) {
+                let p0 = pts[i - 1];
+                let p1 = pts[i];
+                let p2 = pts[i + 1];
+                let p3 = pts[i + 2];
+
+                for (let t = 0; t < samplesPerSegment; t++) {
+                    let st = t / samplesPerSegment;
+                    let t2 = st * st;
+                    let t3 = t2 * st;
+
+                    let x = 0.5 * ((2 * p1[0]) +
+                        (-p0[0] + p2[0]) * st +
+                        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+
+                    let y = 0.5 * ((2 * p1[1]) +
+                        (-p0[1] + p2[1]) * st +
+                        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+
+                    smooth.push([x, y]);
+                }
+            }
+            smooth.push(coords[coords.length - 1]);
+            return smooth;
+        }
+
+        const ERROR_HOURS = [0, 24, 48, 72, 96, 120];
+        const ERROR_RADII_KM = [15, 100, 170, 255, 345, 465];
+
+        function getRadiusForHour(hour) {
+            if (hour <= ERROR_HOURS[0]) return ERROR_RADII_KM[0];
+            if (hour >= ERROR_HOURS[ERROR_HOURS.length - 1]) return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
+
+            for (let i = 0; i < ERROR_HOURS.length - 1; i++) {
+                if (hour >= ERROR_HOURS[i] && hour <= ERROR_HOURS[i + 1]) {
+                    const h1 = ERROR_HOURS[i], h2 = ERROR_HOURS[i + 1];
+                    const r1 = ERROR_RADII_KM[i], r2 = ERROR_RADII_KM[i + 1];
+                    const factor = (hour - h1) / (h2 - h1);
+                    return r1 + factor * (r2 - r1);
+                }
+            }
+            return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
+        }
+
+        function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
+            let coordsToUse = forecastCoords;
+            let pointsToUse = forecastPoints;
+
+            if (!coordsToUse || coordsToUse.length < 2) {
+                if (pastCoordsOnly && pastCoordsOnly.length >= 2) {
+                    coordsToUse = pastCoordsOnly.slice(-2);
+                    pointsToUse = null;
+                } else {
+                    return "靜止 0 km/h";
+                }
+            }
+            
+            let h24Coords = [];
+            let h24Hours = 24;
+
+            if (pointsToUse && pointsToUse.length >= 2) {
+                let startH = pointsToUse[0].hour || 0;
+                let ptsUpTo24 = [];
+                for (let i = 0; i < pointsToUse.length; i++) {
+                    ptsUpTo24.push([pointsToUse[i].lon, pointsToUse[i].lat]);
+                    if (pointsToUse[i].hour >= startH + 24) {
+                        h24Hours = pointsToUse[i].hour - startH;
+                        break;
+                    }
+                }
+                if (ptsUpTo24.length >= 2) {
+                    h24Coords = ptsUpTo24;
+                }
+            }
+
+            if (h24Coords.length < 2) {
+                if (coordsToUse.length >= 2) {
+                    h24Coords = coordsToUse.slice(0, 2);
+                } else {
+                    return "靜止 0 km/h";
+                }
+            }
+
+            const pStart = h24Coords[0];
+            const pEnd = h24Coords[1] || h24Coords[0];
+            const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
+
+            const samplesPerSegment = 30;
+            const smoothCoords = smoothLineCatmullRom(h24Coords, samplesPerSegment);
+            let curveDist = 0;
+            for (let i = 0; i < smoothCoords.length - 1; i++) {
+                // Approximate distance calculation using haversine equivalent logic
+                const R = 6371;
+                const dLat = (smoothCoords[i+1][1] - smoothCoords[i][1]) * Math.PI / 180;
+                const dLon = (smoothCoords[i+1][0] - smoothCoords[i][0]) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(smoothCoords[i][1] * Math.PI / 180) * Math.cos(smoothCoords[i+1][1] * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                curveDist += R * c;
+            }
+            
+            if (h24Hours <= 0) h24Hours = 24;
+            const speed = Math.round(curveDist / h24Hours);
+            return `${direction} ${speed} km/h`;
+        }
+
+        function parseCSVToTyphoon(csvText, letter) {
+            const lines = csvText.split('\n');
+            let currentMeta = null;
+            let rows = [];
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('#') || line.toLowerCase().startsWith('category')) continue;
+                const cols = line.split(',').map(c => c.trim());
+                if (cols.length < 6) continue;
+
+                const category = cols[0].toLowerCase();
+                const time = cols[1];
+                const rowName = cols[2];
+                const lat = parseFloat(cols[3]);
+                const lon = parseFloat(cols[4]);
+                const rawWind = cols[5];
+
+                if (isNaN(lat) || isNaN(lon)) continue;
+
+                let isEx = false;
+                let windVal = 0;
+                if (rawWind && rawWind.toUpperCase() === 'EX') {
+                    isEx = true;
+                } else {
+                    windVal = parseFloat(rawWind) || 0;
+                }
+
+                if (category === 'current' || category === '0h' || category === '0') {
+                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx, rawWind };
+                }
+
+                rows.push({ category, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
+            }
+
+            if (rows.length === 0) return null;
+
+            if (!currentMeta) {
+                const anchor = rows.find(r => r.category === '0h' || r.category === 'current' || r.category === '0') || rows[0];
+                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx, rawWind: anchor.rawWind };
+            }
+
+            const name = currentMeta.name;
+            const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
+            const categoryDesc = `${intensityObj.name}`;
+
+            let pastCoordsOnly = [];
+            let forecastPoints = [];
+            let forecastCoords = [];
+
+            let tempForecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
+            if (tempForecastRows.length === 0 && rows.length > 0) {
+                tempForecastRows = rows;
+            }
+
+            tempForecastRows.forEach(fr => {
+                let hour = 0;
+                if (fr.category !== 'current' && fr.category !== '0h' && fr.category !== '0') {
+                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
+                }
+                forecastCoords.push([fr.lon, fr.lat]);
+                forecastPoints.push({
+                    lon: fr.lon,
+                    lat: fr.lat,
+                    hour: hour,
+                    radius: getRadiusForHour(hour)
+                });
+            });
+
+            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
+            if (pastRows.length === 0 && rows.length > 0) {
+                pastRows = [rows[0]];
+            }
+            pastRows.forEach(pt => {
+                pastCoordsOnly.push([pt.lon, pt.lat]);
+            });
+
+            const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : (pastCoordsOnly.length > 0 ? [pastCoordsOnly[pastCoordsOnly.length - 1]] : [[currentMeta.lon, currentMeta.lat]]);
+            const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
+            const windDisplay = currentMeta.isEx ? 'EX' : `${currentMeta.wind} km/h`;
+            const distToMacau = getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat);
+
+            return {
+                name,
+                category: categoryDesc,
+                intensityObj,
+                wind: windDisplay,
+                time: currentMeta.time,
+                movement: movementStr,
+                lat: currentMeta.lat,
+                lon: currentMeta.lon,
+                distToMacau
+            };
         }
 
         // 主題切換邏輯
@@ -199,34 +476,7 @@
             });
         }
 
-        const MACAU_LAT = 22.1987;
-        const MACAU_LON = 113.5439;
-
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371.0;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return Math.round(R * c);
-        }
-
-        function calculateBearing(lat1, lon1, lat2, lon2) {
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const lat1Rad = lat1 * Math.PI / 180;
-            const lat2Rad = lat2 * Math.PI / 180;
-            const y = Math.sin(dLon) * Math.cos(lat2Rad);
-            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-            let brng = Math.atan2(y, x) * 180 / Math.PI;
-            brng = (brng + 360) % 360;
-            const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-            const idx = Math.round(brng / (360 / directions.length)) % directions.length;
-            return directions[idx];
-        }
-
-        // 切換路徑圖（點選按鈕時只切換圖片，右側保留總覽或維持原樣）
+        // 切換路徑圖
         function switchTrackImage(imagePath, btnElement, csvLetter) {
             const imgEl = document.getElementById('tcTrackImageViewer');
             const mapContainer = document.getElementById('tcMapContainer');
@@ -246,7 +496,7 @@
             }
         }
 
-        // 自動掃描並直接渲染所有活躍的熱帶氣旋 CSV 檔案數據
+        // 自動掃描並透過與 tcgis.html 相同的解析邏輯載入所有活躍的熱帶氣旋 CSV 檔案數據
         async function initTrackButtonsAndLoadAllData() {
             const container = document.getElementById('trackImageButtons');
             const detailPanelContent = document.getElementById('tcDetailContent');
@@ -254,111 +504,67 @@
 
             container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this, null)" class="px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors">全部熱帶氣旋</button>`;
 
-            const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+            const files = ['A', 'B', 'C', 'D', 'E', 'F'];
             let allCyclonesHtml = '';
             let activeCount = 0;
 
-            for (const letter of letters) {
-                const csvPath = `TCdata/${letter}.csv`;
-                const imgPath = `output/TC/${letter}.png`;
+            for (const f of files) {
+                const csvPath = `TCdata/${f}.csv`;
+                const imgPath = `output/TC/${f}.png`;
 
                 try {
                     const response = await fetch(csvPath);
-                    if (!response.ok) {
-                        console.warn(`無法讀取 ${csvPath} (狀態碼: ${response.status})`);
-                        continue;
-                    }
-                    const csvText = await response.text();
-                    const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
-                    if (lines.length < 2) continue;
+                    if (!response.ok) continue;
+                    const text = await response.text();
+                    if (!text || text.trim() === '') continue;
 
-                    let stormName = '';
-                    let currentRecord = null;
-                    let forecast24Record = null;
-
-                    for (let i = 1; i < lines.length; i++) {
-                        const cols = lines[i].split(',').map(c => c.trim());
-                        if (cols.length >= 6) {
-                            const record = {
-                                category: cols[0],
-                                time: cols[1],
-                                name: cols[2],
-                                lat: parseFloat(cols[3]),
-                                lon: parseFloat(cols[4]),
-                                wind: cols[5], // 保留原始字串，防止 "Ex" 等代號被強制轉為 0
-                                intensityCode: cols[6] || ''
-                            };
-                            if (record.name && !stormName) stormName = record.name;
-                            if (record.category.toLowerCase() === 'current') {
-                                currentRecord = record;
-                                stormName = record.name || stormName;
-                            } else if (record.category === '24' || record.category.toLowerCase() === '24h') {
-                                forecast24Record = record;
-                            }
-                        }
-                    }
-
-                    if (!currentRecord) continue;
+                    const stormData = parseCSVToTyphoon(text, f);
+                    if (!stormData) continue;
                     activeCount++;
 
                     // 建立動態切換按鈕
                     const btn = document.createElement('button');
                     btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
-                    btn.textContent = stormName || `氣旋 ${letter}`;
-                    btn.onclick = function() { switchTrackImage(imgPath, this, letter); };
+                    btn.textContent = stormData.name;
+                    btn.onclick = function() { switchTrackImage(imgPath, this, f); };
                     container.appendChild(btn);
-
-                    // 計算移動與距離
-                    let moveDirSpeed = "停滯或緩慢";
-                    if (currentRecord && forecast24Record) {
-                        const dKm = calculateDistance(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
-                        const bearing = calculateBearing(currentRecord.lat, currentRecord.lon, forecast24Record.lat, forecast24Record.lon);
-                        const speed = Math.round(dKm / 24);
-                        moveDirSpeed = `${bearing} ${speed} km/h`;
-                    }
-
-                    const windDisplay = isNaN(currentRecord.wind) ? currentRecord.wind : `${currentRecord.wind} km/h`;
-                    const numericWind = parseFloat(currentRecord.wind) || 0;
-                    const intensityInfo = getIntensityInfo(numericWind, currentRecord.intensityCode);
-                    const distToMacau = calculateDistance(currentRecord.lat, currentRecord.lon, MACAU_LAT, MACAU_LON);
-                    const dirFromMacau = calculateBearing(MACAU_LAT, MACAU_LON, currentRecord.lat, currentRecord.lon);
 
                     // 組裝該氣旋的即時數據卡片
                     allCyclonesHtml += `
                         <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900 shadow-sm mb-3 last:mb-0">
                             <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2 flex justify-between items-center">
-                                <span>${stormName || '未命名'}</span>
-                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${intensityInfo.color}20; color: ${intensityInfo.color}">${intensityInfo.name} (${intensityInfo.code})</span>
+                                <span>${stormData.name}</span>
+                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${stormData.intensityObj.color}20; color: ${stormData.intensityObj.color}">${stormData.category} (${stormData.intensityObj.code})</span>
                             </div>
                             <table class="w-full text-left border-collapse text-xs">
                                 <tbody>
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-2 text-slate-500">實況時間</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.time}</td>
+                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.time || '-'}</td>
                                     </tr>
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-2 text-slate-500">最大風速</td>
-                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${windDisplay}</td>
+                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${stormData.wind}</td>
                                     </tr>
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-2 text-slate-500">中心位置</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${currentRecord.lat.toFixed(1)}°N, ${currentRecord.lon.toFixed(1)}°E</td>
+                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td>
                                     </tr>
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-2 text-slate-500">移動方向</td>
-                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${moveDirSpeed}</td>
+                                        <td class="py-1 pl-2 font-semibold text-slate-800 dark:text-slate-100">${stormData.movement}</td>
                                     </tr>
                                     <tr>
                                         <td class="py-1 pr-2 text-slate-500">距離澳門</td>
-                                        <td class="py-1 pl-2 font-semibold text-amber-600 dark:text-amber-400">${dirFromMacau} ${distToMacau} 公里</td>
+                                        <td class="py-1 pl-2 font-semibold text-amber-600 dark:text-amber-400">${stormData.distToMacau}</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     `;
 
-                } catch (e) {
-                    console.warn(`讀取 ${csvPath} 發生錯誤:`, e);
+                } catch (err) {
+                    console.log(`TCdata/${f}.csv 無內容或略過`);
                 }
             }
 
