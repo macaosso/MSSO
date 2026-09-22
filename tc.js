@@ -86,6 +86,7 @@ function renderTcForecastTable(data) {
 
 // 風速分級規則對應表
 const TC_INTENSITY_TABLE = [
+    { max_wind: -1,    name: "Ex",    color: "#DDDFE2" },
     { max_wind: 40,    name: "LPA",    color: "#DDDFE2" },
     { max_wind: 62,    name: "TD",     color: "#6DD8FA" },
     { max_wind: 87,    name: "TS",     color: "#9DD79C" },
