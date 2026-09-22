@@ -179,6 +179,18 @@
     <script src="tc.js"></script>
     <script>
 
+        // 分級代碼與中文名稱對照字典
+        const intensityNameMap = {
+            "Ex": "溫帶氣旋",
+            "LPA": "低壓區",
+            "TD": "熱帶低氣壓",
+            "TS": "熱帶風暴",
+            "STS": "強烈熱帶風暴",
+            "TY": "颱風",
+            "STY": "強颱風",
+            "SuTY": "超強颱風"
+        };
+
         // 方位中文化對照字典
         const chineseDirections = {
             "N": "北", "NNE": "北北東", "NE": "東北", "ENE": "東北偏東",
@@ -229,9 +241,9 @@
             
             const windKmh = stormData.wind.replace(' km/h', '');
             
-            // 如果強度為溫帶氣旋，則不需要最高持續風速與移動速度描述
-            if (stormData.category === "溫帶氣旋") {
-                return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近。`;
+            // 當氣旋強度為「溫帶氣旋」或 "Ex" 時，自動省略風速與移動速度描述
+            if (stormData.category === "溫帶氣旋" || stormData.category === "Ex") {
+                return `${timePrefix}溫帶氣旋 ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近。`;
             }
             
             return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里，向${moveDirChinese}移動，時速${moveSpeed}公里。`;
@@ -239,7 +251,7 @@
 
         function getIntensity(windInput, isEx) {
             if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
-                return TC_INTENSITY_TABLE[0];
+                return { code: "Ex", name: "溫帶氣旋", color: "#64748b" };
             }
             const windKmh = parseFloat(windInput) || 0;
             for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
@@ -404,7 +416,7 @@
                 const cols = line.split(',').map(c => c.trim());
                 if (cols.length < 6) continue;
 
-                const category = cols[0].toLowerCase();
+                const rawCategory = cols[0];
                 const time = cols[1];
                 const rowName = cols[2];
                 const lat = parseFloat(cols[3]);
@@ -421,36 +433,41 @@
                     windVal = parseFloat(rawWind) || 0;
                 }
 
-                if (category === 'current' || category === '0h' || category === '0') {
+                if (rawCategory.toLowerCase() === 'current' || rawCategory === '0h' || rawCategory === '0') {
                     currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx, rawWind };
                 }
 
-                rows.push({ category, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
+                rows.push({ category: rawCategory, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
             }
 
             if (rows.length === 0) return null;
 
             if (!currentMeta) {
-                const anchor = rows.find(r => r.category === '0h' || r.category === 'current' || r.category === '0') || rows[0];
+                const anchor = rows.find(r => r.category.toLowerCase() === '0h' || r.category.toLowerCase() === 'current' || r.category === '0') || rows[0];
                 currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx, rawWind: anchor.rawWind };
             }
 
             const name = currentMeta.name;
             const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
-            const categoryDesc = `${intensityObj.name}`;
+            
+            // 確保分類名稱使用中文對照
+            let categoryDesc = intensityObj.name;
+            if (intensityNameMap[currentMeta.rawWind]) {
+                categoryDesc = intensityNameMap[currentMeta.rawWind];
+            }
 
             let pastCoordsOnly = [];
             let forecastPoints = [];
             let forecastCoords = [];
 
-            let tempForecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
+            let tempForecastRows = rows.filter(r => r.category.toLowerCase() === 'current' || r.category.toLowerCase() === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
             if (tempForecastRows.length === 0 && rows.length > 0) {
                 tempForecastRows = rows;
             }
 
             tempForecastRows.forEach(fr => {
                 let hour = 0;
-                if (fr.category !== 'current' && fr.category !== '0h' && fr.category !== '0') {
+                if (fr.category.toLowerCase() !== 'current' && fr.category.toLowerCase() !== '0h' && fr.category !== '0') {
                     hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
                 }
                 forecastCoords.push([fr.lon, fr.lat]);
@@ -462,7 +479,7 @@
                 });
             });
 
-            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
+            let pastRows = rows.filter(r => r.category.toLowerCase() === 'past' || r.category.toLowerCase() === 'current' || r.category.toLowerCase() === '0h' || r.category === '0');
             if (pastRows.length === 0 && rows.length > 0) {
                 pastRows = [rows[0]];
             }
