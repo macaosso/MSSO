@@ -231,7 +231,6 @@
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
 
-            // 定義 isNight 變數以修復 ReferenceError
             const currentHour = new Date().getHours();
             const isNight = currentHour < 6 || currentHour >= 18;
 
@@ -503,19 +502,58 @@
 
                 let windStr = (minWindL === maxWindL) ? `吹${minWindL}級${chineseDir}。` : `吹${minWindL}-${maxWindL}級${chineseDir}。`;
 
-                let roundedUv = Math.round(maxUv);
-                let uvLevelName = roundedUv >= 11 ? '極高' : roundedUv >= 8 ? '甚高' : roundedUv >= 6 ? '高' : roundedUv >= 3 ? '中等' : '低';
-                let uvStr = `預測最高紫外線指數為${roundedUv}，級別屬於${uvLevelName}。`;
+                // 需求 2：僅在今日 (i === 0) 顯示紫外線預報
+                let uvStr = '';
+                if (i === 0) {
+                    let roundedUv = Math.round(maxUv);
+                    let uvLevelName = roundedUv >= 11 ? '極高' : roundedUv >= 8 ? '甚高' : roundedUv >= 6 ? '高' : roundedUv >= 3 ? '中等' : '低';
+                    uvStr = `預測最高紫外線指數為${roundedUv}，級別屬於${uvLevelName}。`;
+                }
 
                 let fullReport = `${part1 ? part1 + '，' : ''}${weatherDescStr}。${windStr}${uvStr}`;
+
+                // 需求 3：根據條件加入當天氣象圖示 (雷雨>雪>驟雨>雨>霧/雲/晴)
+                let reportIcon = 'fas fa-cloud text-slate-400';
+                let hasSun = groupCounts['A'] > 0;
+                let hasCloud = groupCounts['B'] > 0;
+                let hasRainOrShowers = (groupCounts['E'] > 0 || groupCounts['D'] > 0 || groupCounts['H'] > 0 || groupCounts['I'] > 0);
+
+                if (groupCounts['I'] > 0) {
+                    reportIcon = 'fas fa-cloud-bolt text-amber-500';
+                } else if (groupCounts['G'] > 0) {
+                    reportIcon = 'fas fa-snowflake text-sky-400';
+                } else if (hasSun && hasCloud && (groupCounts['H'] > 0 || groupCounts['E'] > 0 || groupCounts['D'] > 0)) {
+                    reportIcon = 'fas fa-cloud-sun-rain text-blue-400';
+                } else if (groupCounts['H'] > 0) {
+                    reportIcon = 'fas fa-cloud-showers-heavy text-blue-400';
+                } else if (groupCounts['E'] > 0 || groupCounts['D'] > 0) {
+                    reportIcon = 'fas fa-cloud-rain text-blue-400';
+                } else if (groupCounts['C'] > 0) {
+                    reportIcon = 'fas fa-smog text-slate-400';
+                } else if (groupCounts['A'] > 12) {
+                    reportIcon = 'fas fa-sun text-yellow-500';
+                } else if (groupCounts['B'] > 12) {
+                    reportIcon = 'fas fa-cloud text-slate-400';
+                } else {
+                    reportIcon = 'fas fa-cloud-sun text-yellow-400';
+                }
 
                 const dateObj = new Date(dateStr);
                 const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
                 const monthDay = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
 
                 const rowDiv = document.createElement('div');
-                rowDiv.className = "p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2";
-                rowDiv.innerHTML = `<div class="flex items-center gap-3 min-w-[100px]"><span class="font-bold text-slate-800 dark:text-slate-100 text-sm">${dayName}</span><span class="text-xs text-slate-400">${monthDay}</span></div><div class="text-xs md:text-sm text-slate-700 dark:text-slate-300 font-medium flex-grow">${fullReport}</div>`;
+                rowDiv.className = "p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3";
+                rowDiv.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-[130px]">
+                        <i class="fa-solid ${reportIcon} text-xl"></i>
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">${dayName}</span>
+                            <span class="text-xs text-slate-400 block">${monthDay}</span>
+                        </div>
+                    </div>
+                    <div class="text-xs md:text-sm text-slate-700 dark:text-slate-300 font-medium flex-grow">${fullReport}</div>
+                `;
                 container.appendChild(rowDiv);
             }
         }
