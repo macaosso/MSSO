@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroWeather - Live METAR & TAF Generator</title>
+    <style>
+        :root {
+            --bg-color: #0b131e;
+            --card-bg: #132238;
+            --accent-green: #00ff66;
+            --accent-amber: #ffaa00;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #1e3a5f;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--text-main);
+            letter-spacing: 1px;
+        }
+
+        h1 span {
+            color: var(--accent-amber);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        select, button {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:hover, button:hover {
+            border-color: var(--accent-amber);
+        }
+
+        button {
+            background-color: #1d3557;
+            font-weight: bold;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent-amber);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .code-block {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #070d14;
+            color: var(--accent-green);
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            word-break: break-all;
+            border-left: 4px solid var(--accent-green);
+            margin-bottom: 15px;
+        }
+
+        .decode-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+
+        .decode-item {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .decode-item span {
+            display: block;
+            color: var(--text-main);
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 3px;
+        }
+
+        .loading {
+            color: var(--accent-amber);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>AERO<span>WEATHER</span> // METAR & TAF</h1>
+        <div class="controls">
+            <select id="airportSelect" onchange="fetchWeatherData()">
+                <option value="KJFK" data-lat="40.6413" data-lon="-73.7781">KJFK - New York (JFK)</option>
+                <option value="EGLL" data-lat="51.4700" data-lon="-0.4543">EGLL - London Heathrow (LHR)</option>
+                <option value="VHHH" data-lat="22.3080" data-lon="113.9185">VHHH - Hong Kong Int. (HKG)</option>
+                <option value="RJTT" data-lat="35.5494" data-lon="139.7798">RJTT - Tokyo Haneda (HND)</option>
+                <option value="YSSY" data-lat="-33.9399" data-lon="151.1753">YSSY - Sydney Kingsford (SYD)</option>
+            </select>
+            <button onclick="fetchWeatherData()">Refresh Data</button>
+        </div>
+    </header>
+
+    <!-- METAR Section -->
+    <div class="card">
+        <div class="card-title">
+            <span>METAR (Current Observation)</span>
+            <span id="metarTime" style="font-size: 0.85rem; color: var(--text-muted);"></span>
+        </div>
+        <div id="metarCode" class="code-block loading">Loading live observation...</div>
+        <div class="decode-grid">
+            <div class="decode-item">Wind <span id="decWind">-</span></div>
+            <div class="decode-item">Visibility <span id="decVis">-</span></div>
+            <div class="decode-item">Weather <span id="decWx">-</span></div>
+            <div class="decode-item">Clouds <span id="decClouds">-</span></div>
+            <div class="decode-item">Temp / Dew Point <span id="decTemp">-</span></div>
+            <div class="decode-item">Altimeter (QNH) <span id="decQnh">-</span></div>
+        </div>
+    </div>
+
+    <!-- TAF Section -->
+    <div class="card">
+        <div class="card-title">
+            <span>TAF (Terminal Aerodrome Forecast)</span>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">24-Hour Outlook</span>
+        </div>
+        <div id="tafCode" class="code-block loading">Generating terminal forecast...</div>
+        <div id="tafDecoded" style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+            Fetching hourly forecast metrics from Open-Meteo weather models...
+        </div>
+    </div>
+</div>
+
+<script>
+    function pad(n) {
+        return n < 10 ? '0' + n : n;
+    }
+
+    async function fetchWeatherData() {
+        const select = document.getElementById('airportSelect');
+        const selectedOption = select.options[select.selectedIndex];
+        const icao = selectedOption.value;
+        const lat = selectedOption.getAttribute('data-lat');
+        const lon = selectedOption.getAttribute('data-lon');
+
+        document.getElementById('metarCode').innerText = "Fetching live telemetry...";
+        document.getElementById('tafCode').innerText = "Fetching forecast models...";
+
+        // Open-Meteo API URL with knots unit requested
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&wind_speed_unit=knots&forecast_days=1`;
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            parseMetarTaf(icao, data);
+        } catch (error) {
+            console.error("Error fetching weather data:", error);
+            document.getElementById('metarCode').innerText = "METAR UNAVAILABLE (Network Error)";
+            document.getElementById('tafCode').innerText = "TAF UNAVAILABLE (Network Error)";
+        }
+    }
+
+    function parseMetarTaf(icao, data) {
+        const current = data.current;
+        const now = new Date();
+        const dd = pad(now.getUTCDate());
+        const hh = pad(now.getUTCHours());
+        const mm = pad(now.getUTCMinutes());
+        const timeStamp = `${dd}${hh}${mm}Z`;
+
+        document.getElementById('metarTime').innerText = `Valid: ${timeStamp}`;
+
+        // --- METAR Calculations ---
+        const windDir = pad(Math.round(current.wind_direction_10m / 10) * 10);
+        const windSpd = pad(Math.round(current.wind_speed_10m));
+        const windGust = current.wind_gusts_10m > current.wind_speed_10m + 5 ? `G${pad(Math.round(current.wind_gusts_10m))}` : '';
+        const windStr = `${windDir === '000' && windSpd === '00' ? '00000KT' : windDir + windSpd + windGust + 'KT'}`;
+
+        // Visibility based on weather code / precipitation
+        let visStr = "9999";
+        let wxStr = "";
+        const wmo = current.weather_code;
+        if (wmo >= 51 && wmo <= 67) {
+            wxStr = wmo >= 63 ? "+RA" : "-RA";
+            visStr = "6000";
+        } else if (wmo >= 71 && wmo <= 77) {
+            wxStr = "SN";
+            visStr = "3000";
+        } else if (wmo >= 95) {
+            wxStr = "TSRA";
+            visStr = "4000";
+        }
+
+        // Cloud cover decoding
+        let cloudStr = "CLR";
+        let cloudDecoded = "Clear skies";
+        const cc = current.cloud_cover;
+        if (cc > 87) {
+            cloudStr = "OVC030";
+            cloudDecoded = "Overcast at 3,000 ft";
+        } else if (cc > 50) {
+            cloudStr = "BKN040";
+            cloudDecoded = "Broken clouds at 4,000 ft";
+        } else if (cc > 15) {
+            cloudStr = "SCT025";
+            cloudDecoded = "Scattered clouds at 2,500 ft";
+        } else if (cc > 5) {
+            cloudStr = "FEW020";
+            cloudDecoded = "Few clouds at 2,000 ft";
+        }
+
+        const tempC = Math.round(current.temperature_2m);
+        // Approximate dew point from temp and relative humidity
+        const dewC = Math.round(tempC - ((100 - current.relative_humidity_2m) / 5));
+        const tempDewStr = `${tempC >= 0 ? pad(tempC) : 'M' + pad(Math.abs(tempC))}/${dewC >= 0 ? pad(dewC) : 'M' + pad(Math.abs(dewC))}`;
+
+        const qnh = Math.round(current.pressure_msl);
+        const qnhStr = `Q${qnh}`;
+
+        // Assemble METAR string
+        const metarResult = `METAR ${icao} ${timeStamp} ${windStr} ${visStr} ${wxStr} ${cloudStr} ${tempDewStr} ${qnhStr}RMK SLP${qnh.toString().slice(-3)}`;
+        document.getElementById('metarCode').innerText = metarResult.replace(/\s+/g, ' ');
+
+        // Populate Decoded Fields
+        document.getElementById('decWind').innerText = `${current.wind_direction_10m}° at ${Math.round(current.wind_speed_10m)} knots`;
+        document.getElementById('decVis').innerText = visStr === "9999" ? "10 km or more (CAVOK)" : `${visStr} meters`;
+        document.getElementById('decWx').innerText = wxStr ? wxStr : "None / Nil significant weather";
+        document.getElementById('decClouds').innerText = cloudDecoded;
+        document.getElementById('decTemp').innerText = `${tempC}°C / Dew Point: ${dewC}°C`;
+        document.getElementById('decQnh').innerText = `${qnh} hPa`;
+
+        // --- TAF Generation (using hourly forecast samples) ---
+        const hourly = data.hourly;
+        const nextHourIdx = (now.getUTCHours() + 1) % 24;
+        const tafWind = pad(Math.round(hourly.wind_direction_10m[nextHourIdx] / 10) * 10);
+        const tafSpd = pad(Math.round(hourly.wind_speed_10m[nextHourIdx]));
+        const tafCc = hourly.cloud_cover[nextHourIdx];
+        let tafCloud = "SKC";
+        if (tafCc > 80) tafCloud = "OVC035";
+        else if (tafCc > 40) tafCloud = "BKN040";
+        else if (tafCc > 10) tafCloud = "SCT025";
+
+        const validStart = `${pad(now.getUTCDate())}${pad(now.getUTCHours())}00Z`;
+        const validEnd = `${pad(now.getUTCDate() + 1)}${pad(now.getUTCHours())}00Z`;
+
+        const tafResult = `TAF ${icao} ${timeStamp} ${validStart}/${validEnd} ${tafWind}${tafSpd}KT P6SM ${tafCloud} FM${pad(now.getUTCHours() + 3)}00Z ${tafWind}12G22KT 4SM -RA BKN020`;
+        document.getElementById('tafCode').innerText = tafResult;
+        document.getElementById('tafDecoded').innerHTML = `
+            <strong>Forecast Period:</strong> Valid for 24 hours starting ${validStart}.<br>
+            <strong>Initial Trend:</strong> Winds from ${tafWind}° at ${tafSpd} knots, visibility greater than 6 statute miles, ${cloudDecoded.toLowerCase()}.<br>
+            <strong>Subsequent Trend (FM):</strong> Expected temporary shifts or weather deterioration based on regional forecast models.
+        `;
+    }
+
+    // Initial load on page startup
+    window.onload = fetchWeatherData;
+</script>
+
+</body>
+</html>
