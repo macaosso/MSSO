@@ -64,8 +64,14 @@ KM_PER_DEG = 111.32
 
 FORECAST_RADII_MAPPING = {
     0: 15,
+    3: 26,
+    6: 36,
+    12: 58,
+    18: 79,
     24: 100,
+    36: 135,
     48: 170,
+    60: 212.5,
     72: 255,
     96: 345,
     120: 465
@@ -199,6 +205,40 @@ def parse_tc_csv(filepath):
         }
     }
 
+def compute_storm_envelopes(f):
+    """計算切分式誤差圓錐（<=72h 與 >72h），確保只在 forecast 含有 >72h 時才建立第二層誤差圓錐"""
+    hours = f["hours"]
+    lons = f["lons"]
+    lats = f["lats"]
+    if len(hours) < 2:
+        return None, None
+    
+    radii_deg = np.array(f["radii_km"]) / KM_PER_DEG
+    smooth_lons, smooth_lats, interp_hours = create_smooth_track_uniform_time(hours, lons, lats, time_step=1.0)
+    smooth_radii = PchipInterpolator(hours, radii_deg)(interp_hours)
+
+    circles_segment1 = [Point(smooth_lons[i], smooth_lats[i]).buffer(smooth_radii[i]) for i in range(len(smooth_lons)) if interp_hours[i] <= 72]
+    envelope_first = unary_union(circles_segment1) if circles_segment1 else None
+
+    envelope_second_no_overlap = None
+    has_gt_72 = np.any(hours > 72)
+    if has_gt_72:
+        circles_segment2 = [Point(smooth_lons[i], smooth_lats[i]).buffer(smooth_radii[i]) for i in range(len(smooth_lons)) if interp_hours[i] > 72]
+        envelope_second = unary_union(circles_segment2) if circles_segment2 else None
+
+        if len(interp_hours) > 0 and np.any(interp_hours >= 72):
+            idx_72h = int(np.argmin(np.abs(interp_hours - 72)))
+            circle_72h_geom = Point(smooth_lons[idx_72h], smooth_lats[idx_72h]).buffer(smooth_radii[idx_72h])
+
+            if envelope_second and not envelope_second.is_empty:
+                envelope_second = make_valid(envelope_second.difference(circle_72h_geom))
+            if envelope_first and not envelope_first.is_empty and envelope_second and not envelope_second.is_empty:
+                envelope_second_no_overlap = make_valid(envelope_second.difference(envelope_first))
+            else:
+                envelope_second_no_overlap = envelope_second
+
+    return envelope_first, envelope_second_no_overlap
+
 def add_macau_range_rings(ax):
     ax.plot(MACAU_LON, MACAU_LAT, marker='o', color='white', markersize=4, transform=ccrs.PlateCarree(), zorder=5)
 
@@ -286,13 +326,11 @@ def generate_maps():
             obs_parts.append(LineString(zip(p["lons"], p["lats"])))
         if len(f["hours"]) > 1:
             obs_parts.append(LineString(zip(f["lons"], f["lats"])))
-            radii_deg = np.array(f["radii_km"]) / KM_PER_DEG
-            smooth_lons, smooth_lats, interp_hours = create_smooth_track_uniform_time(f["hours"], f["lons"], f["lats"], time_step=1.0)
-            smooth_radii = PchipInterpolator(f["hours"], radii_deg)(interp_hours)
-            circles = [Point(smooth_lons[i], smooth_lats[i]).buffer(smooth_radii[i]) for i in range(len(smooth_lons))]
-            envelope = unary_union(circles) if circles else None
-            if envelope and not envelope.is_empty:
-                obs_parts.append(envelope)
+            env_first, env_sec = compute_storm_envelopes(f)
+            if env_first and not env_first.is_empty:
+                obs_parts.append(env_first)
+            if env_sec and not env_sec.is_empty:
+                obs_parts.append(env_sec)
         if obs_parts:
             all_storm_geoms.append(unary_union(obs_parts))
     combined_obstacles = unary_union(all_storm_geoms) if all_storm_geoms else Point(0, 0)
@@ -323,14 +361,13 @@ def generate_maps():
                 ax.plot(plon, plat, marker='o', color=dot_color, markersize=4, transform=ccrs.PlateCarree(), zorder=4)
 
         if len(f["hours"]) > 1:
-            smooth_lons, smooth_lats, interp_hours = create_smooth_track_uniform_time(f["hours"], f["lons"], f["lats"], time_step=1.0)
-            radii_deg = np.array(f["radii_km"]) / KM_PER_DEG
-            smooth_radii = PchipInterpolator(f["hours"], radii_deg)(interp_hours)
+            smooth_lons, smooth_lats, _ = create_smooth_track_uniform_time(f["hours"], f["lons"], f["lats"], time_step=1.0)
+            env_first, env_sec = compute_storm_envelopes(f)
 
-            circles = [Point(smooth_lons[i], smooth_lats[i]).buffer(smooth_radii[i]) for i in range(len(smooth_lons))]
-            envelope = unary_union(circles) if circles else None
-            if envelope and not envelope.is_empty:
-                ax.add_geometries([envelope], crs=ccrs.PlateCarree(), facecolor='white', alpha=0.10)
+            if env_first and not env_first.is_empty:
+                ax.add_geometries([env_first], crs=ccrs.PlateCarree(), facecolor='white', alpha=0.20)
+            if env_sec and not env_sec.is_empty:
+                ax.add_geometries([env_sec], crs=ccrs.PlateCarree(), facecolor='white', alpha=0.10)
 
             ax.plot(smooth_lons, smooth_lats, color='white', linestyle='--', linewidth=1.5, transform=ccrs.PlateCarree(), label=sname, zorder=4)
 
@@ -367,7 +404,7 @@ def generate_maps():
                         zorder=102)
 
     add_logo_to_map(ax)
-    plt.savefig('output/TC/all.png', dpi=300, bbox_inches='tight')
+    plt.savefig('output/TC/all.png', dpi=800, bbox_inches='tight')
     plt.close()
 
     # 2. 逐一產生單一氣旋路徑圖與誤差圓錐 (A.png ~ F.png)
@@ -382,44 +419,27 @@ def generate_maps():
 
         envelope_first = envelope_second_no_overlap = None
         if has_forecast:
-            hours = f["hours"]
-            lons = f["lons"]
-            lats = f["lats"]
-            radii_deg = np.array(f["radii_km"]) / KM_PER_DEG
+            envelope_first, envelope_second_no_overlap = compute_storm_envelopes(f)
+            smooth_lons, smooth_lats, _ = create_smooth_track_uniform_time(f["hours"], f["lons"], f["lats"], time_step=1.0)
 
-            smooth_lons, smooth_lats, interp_hours = create_smooth_track_uniform_time(hours, lons, lats, time_step=1.0)
-            smooth_radii = PchipInterpolator(hours, radii_deg)(interp_hours)
+        # 縮放範圍計算：單一圖檔僅根據預報路徑 (forecast track) 進行縮放定位
+        if has_forecast and len(f["lats"]) > 0:
+            target_lats = f["lats"]
+            target_lons = f["lons"]
+        else:
+            target_lats = p["lats"]
+            target_lons = p["lons"]
 
-            circles_segment1 = [Point(smooth_lons[i], smooth_lats[i]).buffer(smooth_radii[i]) for i in range(len(smooth_lons)) if interp_hours[i] <= 72]
-            circles_segment2 = [Point(smooth_lons[i], smooth_lats[i]).buffer(smooth_radii[i]) for i in range(len(smooth_lons)) if interp_hours[i] > 72]
-
-            envelope_first = unary_union(circles_segment1) if circles_segment1 else None
-            envelope_second = unary_union(circles_segment2) if circles_segment2 else None
-
-            if len(interp_hours) > 0:
-                idx_72h = int(np.argmin(np.abs(interp_hours - 72)))
-                circle_72h_geom = Point(smooth_lons[idx_72h], smooth_lats[idx_72h]).buffer(smooth_radii[idx_72h])
-
-                if envelope_second and not envelope_second.is_empty:
-                    envelope_second = make_valid(envelope_second.difference(circle_72h_geom))
-                if envelope_first and not envelope_first.is_empty and envelope_second and not envelope_second.is_empty:
-                    envelope_second_no_overlap = make_valid(envelope_second.difference(envelope_first))
-                else:
-                    envelope_second_no_overlap = envelope_second
-
-        all_lats = np.concatenate([p["lats"], f["lats"]]) if has_forecast and len(f["lats"]) > 0 else p["lats"]
-        all_lons = np.concatenate([p["lons"], f["lons"]]) if has_forecast and len(f["lons"]) > 0 else p["lons"]
-
-        if len(all_lats) > 0:
+        if len(target_lats) > 0:
             lat_min_margin = 3.5
             lat_max_margin = 3.5
             lon_min_margin = 4.0
             lon_max_margin = 4.0
 
-            lat_min = all_lats.min() - lat_min_margin
-            lat_max = all_lats.max() + lat_max_margin
+            lat_min = target_lats.min() - lat_min_margin
+            lat_max = target_lats.max() + lat_max_margin
             
-            lon_max_raw = all_lons.max() + lon_max_margin
+            lon_max_raw = target_lons.max() + lon_max_margin
             lon_max = min(170.0, lon_max_raw)
             
             lat_span = lat_max - lat_min
