@@ -1214,10 +1214,6 @@
                     .filter(idx => idx !== -1);
                 const dayHourlyCodes = dayHourlyIndices.map(idx => data.hourly.weather_code[idx]);
         
-                const hasThunderstormOrShowers = dayHourlyCodes.some(c => (c >= 80 && c <= 99) || (c >= 53 && c <= 65));
-                const hasSnowOrFreezingRain = dayHourlyCodes.some(c => (c >= 70 && c <= 79) || (c >= 56 && c === 57) || (c >= 66 && c <= 67) || (c === 85 || c === 86));
-                const rainHours = dayHourlyCodes.filter(c => (c >= 51 && c <= 65) || (c >= 80 && c <= 99)).length;
-        
                 const symbols = {
                     0: { icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
                     1: { icon: 'fas fa-sun text-yellow-400' },
@@ -1231,14 +1227,33 @@
                     95: { icon: 'fas fa-cloud-bolt text-blue-400' }
                 };
                 let dayIcon = symbols[code] || { icon: 'fas fa-cloud text-slate-300' };
-        
+
+                const hasThunderstormOrShowers = groupCounts['I'] > 0 || groupCounts['H'] > 0;
+                const hasSnowOrFreezingRain = groupCounts['G'] > 0 || groupCounts['F'] > 0;
+                const rainHours = groupCounts['D'] + groupCounts['E'] + groupCounts['H'] + groupCounts['I'];
+                const sunHours = groupCounts['A'];
+                const cloudHours = groupCounts['B'];
+
                 if (maxTemp >= 32.5 && !hasThunderstormOrShowers) {
-                    dayIcon = { icon: 'fas fa-temperature-high text-orange-500' };
+                    dayIcon = { icon: 'fas fa-temperature-arrow-up text-orange-500' };
                 } else if (minTemp <= 12.5 && !hasThunderstormOrShowers && !hasSnowOrFreezingRain) {
-                    dayIcon = { icon: 'fas fa-temperature-low text-blue-400' };
-                } else if (dayIcon.icon.includes('fa-cloud-sun-rain')) {
+                    dayIcon = { icon: 'fas fa-temperature-arrow-down text-blue-400' };
+                } else if (sunHours > 12 && cloudHours > 0 && rainHours > 0) {
+                    dayIcon = { icon: 'fas fa-cloud-sun-rain text-blue-400' };
+                } else if (dayIcon.icon.includes('fas fa-cloud-sun-rain')) {
                     if (rainHours < 8) {
                         dayIcon = { icon: 'fas fa-cloud-sun text-yellow-400' };
+                    }
+                }
+
+                const hasOtherActiveWeather = (groupCounts['C'] > 0 || groupCounts['E'] > 0 || groupCounts['F'] > 0 || groupCounts['G'] > 0 || groupCounts['H'] > 0 || groupCounts['I'] > 0);
+                if (groupCounts['D'] > 0 && groupCounts['D'] < 8 && !hasOtherActiveWeather) {
+                    if (sunHours > 0 && cloudHours > 0) {
+                        dayIcon = { icon: 'fas fa-cloud-sun text-yellow-400' };
+                    } else if (sunHours > 0) {
+                        dayIcon = { icon: 'fas fa-sun text-yellow-400' };
+                    } else {
+                        dayIcon = { icon: 'fas fa-cloud text-slate-300' };
                     }
                 }
         
