@@ -87,8 +87,18 @@
                         天氣符號說明 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                     </a>
                 </div>
-                <!-- 橫向滾動容器 (items-stretch 確保所有卡片等高) -->
+                <!-- 橫向滾動容器 -->
                 <div id="daily-container" class="flex overflow-x-auto gap-4 pb-3 pt-1 items-stretch snap-x"></div>
+            </section>
+
+            <!-- 每日降雨比率與風險詳細拆解 -->
+            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-rain text-teal-500"></i> 每日降雨比率與風險詳細拆解 (7天)
+                    </h2>
+                </div>
+                <div id="rain-ratio-details-container" class="overflow-x-auto pb-2"></div>
             </section>
 
             <!-- 9大天氣分組時數統計 -->
@@ -171,7 +181,6 @@
             directions.forEach(d => dirCounts[d] = 0);
             hourlyDirs.forEach(d => { if (dirCounts[d] !== undefined) dirCounts[d]++; });
             
-            // 找出 >= 10 小時的風向
             let qualifiedDirs = directions.filter(d => dirCounts[d] >= 10);
             
             if (qualifiedDirs.length > 0) {
@@ -189,7 +198,6 @@
                     return `${dirMapFull[firstDir]}至${dirMapFull[lastDir]}風`;
                 }
             } else {
-                // 如果全部都未達到 10 小時，找出時數最多的風向
                 let maxCount = -1;
                 let maxDir = 'N';
                 directions.forEach(d => {
@@ -224,9 +232,16 @@
 
         const windSpeedNames = { 0: '靜止', 1: '微風', 2: '輕微', 3: '溫和', 4: '和緩', 5: '清新', 6: '清勁', 7: '強勁', 8: '疾勁', 9: '烈風', 10: '狂風', 11: '暴風', 12: '颶風' };
 
+        function getRiskLevel(score) {
+            if (score <= 15) return { text: '低風險 (Low)', color: 'text-blue-600 bg-blue-50 dark:bg-blue-950/50 dark:text-blue-300' };
+            if (score <= 40) return { text: '中度風險 (Moderate)', color: 'text-green-600 bg-green-50 dark:bg-green-950/50 dark:text-green-300' };
+            if (score <= 75) return { text: '高風險 (High)', color: 'text-orange-600 bg-orange-50 dark:bg-orange-950/50 dark:text-orange-300' };
+            return { text: '極高風險 (Critical)', color: 'text-red-600 bg-red-50 dark:bg-red-950/50 dark:text-red-300' };
+        }
+
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
                 const res = await fetch(weatherUrl);
                 globalWeatherData = await res.json();
 
@@ -239,6 +254,7 @@
                 document.getElementById('update-time').textContent = `更新時間：${year}-${month}-${day} ${hours}:${minutes}`;
 
                 renderDailySection();
+                renderRainRatioDetailsSection();
                 renderWeatherGroupsSection();
                 renderWindStatsSection();
 
@@ -250,13 +266,54 @@
             }
         }
 
+        function calculateDayRainMetrics(dateStr, data) {
+            let hourlyPrecip = [];
+            let groupCounts = { A:0, B:0, C:0, D:0, E:0, F:0, G:0, H:0, I:0 };
+
+            data.hourly.time.forEach((tStr, idx) => {
+                if (tStr.startsWith(dateStr)) {
+                    hourlyPrecip.push(data.hourly.precipitation ? data.hourly.precipitation[idx] : 0);
+                    const c = data.hourly.weather_code[idx];
+                    const gObj = getWeatherGroup(c);
+                    groupCounts[gObj.group]++;
+                }
+            });
+
+            let rainDurationHours = hourlyPrecip.filter(p => p > 0).length;
+            let durationScore = rainDurationHours === 0 ? 0 : 10 * (Math.pow(2, rainDurationHours / 24) - 1);
+
+            let maxHourlyPrecip = hourlyPrecip.length > 0 ? Math.max(...hourlyPrecip) : 0;
+            let intensityScore = maxHourlyPrecip >= 10 ? 70 : (maxHourlyPrecip <= 0 ? 0 : 70 * (Math.pow(2, maxHourlyPrecip / 10) - 1));
+
+            let dayPrecipSum = hourlyPrecip.reduce((a, b) => a + b, 0);
+            let accumulatedScore = dayPrecipSum >= 20 ? 20 : (dayPrecipSum <= 0 ? 0 : 20 * (Math.pow(2, dayPrecipSum / 20) - 1));
+
+            let thunderstormHours = groupCounts['I'] || 0;
+            let thunderstormBonus = thunderstormHours * 10;
+
+            let rawTotalScore = durationScore + intensityScore + accumulatedScore + thunderstormBonus;
+            let totalRainRatioScore = Math.min(100, Math.round(rawTotalScore * 10) / 10);
+            let risk = getRiskLevel(totalRainRatioScore);
+
+            return {
+                rainDurationHours,
+                durationScore,
+                maxHourlyPrecip,
+                intensityScore,
+                dayPrecipSum,
+                accumulatedScore,
+                thunderstormHours,
+                thunderstormBonus,
+                totalRainRatioScore,
+                risk
+            };
+        }
+
         function renderDailySection() {
             const data = globalWeatherData;
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
 
-            const currentHour = new Date().getHours();
-            const isNight = currentHour < 6 || currentHour >= 18;
             const startIndex = 1; 
 
             for (let i = 0; i < 7; i++) {
@@ -265,11 +322,11 @@
                 const minTemp = Math.round(data.daily.temperature_2m_min[startIndex + i]);
                 const maxUv = data.daily.uv_index_max ? data.daily.uv_index_max[startIndex + i] : 5;
                 const code = data.daily.weather_code[startIndex + i];
-                const precipProb = data.daily.precipitation_probability_max ? Math.round(data.daily.precipitation_probability_max[startIndex + i]) : 0;
 
                 let hourlyHumids = [];
                 let hourlyWindSpeeds = [];
                 let hourlyWindDirs = [];
+                let hourlyPrecip = [];
                 let groupCounts = { A:0, B:0, C:0, D:0, E:0, F:0, G:0, H:0, I:0 };
 
                 data.hourly.time.forEach((tStr, idx) => {
@@ -277,6 +334,7 @@
                         hourlyHumids.push(data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : 70);
                         hourlyWindSpeeds.push(data.hourly.wind_speed_10m[idx]);
                         hourlyWindDirs.push(getWindDirection(data.hourly.wind_direction_10m[idx]));
+                        hourlyPrecip.push(data.hourly.precipitation ? data.hourly.precipitation[idx] : 0);
                         
                         const c = data.hourly.weather_code[idx];
                         const gObj = getWeatherGroup(c);
@@ -308,27 +366,29 @@
                 let part1 = tempHumidConditions.length >= 2 ? `天氣${tempHumidConditions[0]}及${tempHumidConditions[1]}` : (tempHumidConditions.length === 1 ? `天氣${tempHumidConditions[0]}` : '');
 
                 let skyDescs = [];
-                if (groupCounts['A'] >= 18) {
-                    skyDescs.push('大致天晴');
-                } else if (groupCounts['B'] >= 18) {
-                    skyDescs.push('大致多雲');
-                } else {
-                    let hasSun = groupCounts['A'] >= 2;
-                    let hasCloud = groupCounts['B'] >= 2;
-                    if (hasSun && hasCloud) {
-                        if (groupCounts['A'] > groupCounts['B']) {
+                let sunH = groupCounts['A'];
+                let cloudH = groupCounts['B'];
+
+                if (sunH > 0 && cloudH > 0) {
+                    if (sunH >= cloudH) {
+                        if (cloudH >= 2) {
                             skyDescs.push('天晴，部份時間多雲');
                         } else {
-                            skyDescs.push('多雲，部份時間有陽光');
+                            skyDescs.push('天晴');
                         }
-                    } else if (groupCounts['A'] >= 2) {
-                        skyDescs.push('部份時間有陽光');
-                    } else if (groupCounts['B'] >= 2) {
-                        skyDescs.push('多雲');
                     } else {
-                        if (groupCounts['A'] > 0) skyDescs.push('天晴');
-                        else skyDescs.push('多雲');
+                        if (sunH >= 2) {
+                            skyDescs.push('多雲，部份時間天晴');
+                        } else {
+                            skyDescs.push('多雲');
+                        }
                     }
+                } else if (sunH > 0) {
+                    skyDescs.push('天晴');
+                } else if (cloudH > 0) {
+                    skyDescs.push('多雲');
+                } else {
+                    skyDescs.push('多雲');
                 }
 
                 let weatherDescs = [];
@@ -342,20 +402,29 @@
                 let precipDesc = null;
                 for (let g of ['I', 'H', 'E', 'D', 'G']) {
                     let hours = groupCounts[g];
-                    if (hours >= 16) {
-                        if (g === 'I') precipDesc = '有雷雨';
-                        else if (g === 'H') precipDesc = '有驟雨';
-                        else if (g === 'E') precipDesc = '有雨';
-                        else if (g === 'D') precipDesc = '有微雨';
-                        else if (g === 'G') precipDesc = '有雪';
-                        break;
-                    } else if (hours >= 2) {
-                        if (g === 'I') precipDesc = '間中有雷雨';
-                        else if (g === 'H') precipDesc = '間中有驟雨';
-                        else if (g === 'E') precipDesc = '間中有雨';
-                        else if (g === 'D') precipDesc = '間中有微雨';
-                        else if (g === 'G') precipDesc = '間中有雪';
-                        break;
+                    if (hours > 0) {
+                        if (hours >= 16) {
+                            if (g === 'I') precipDesc = '有雷雨';
+                            else if (g === 'H') precipDesc = '有驟雨';
+                            else if (g === 'E') precipDesc = '有雨';
+                            else if (g === 'D') precipDesc = '有微雨';
+                            else if (g === 'G') precipDesc = '有雪';
+                            break;
+                        } else if (hours >= 2) {
+                            if (g === 'I') precipDesc = '間中有雷雨';
+                            else if (g === 'H') precipDesc = '間中有驟雨';
+                            else if (g === 'E') precipDesc = '間中有雨';
+                            else if (g === 'D') precipDesc = '間中有微雨';
+                            else if (g === 'G') precipDesc = '間中有雪';
+                            break;
+                        } else {
+                            if (g === 'I') precipDesc = '間中有雷雨';
+                            else if (g === 'H') precipDesc = '間中有驟雨';
+                            else if (g === 'E') precipDesc = '間中有雨';
+                            else if (g === 'D') precipDesc = '間中有微雨';
+                            else if (g === 'G') precipDesc = '間中有雪';
+                            break;
+                        }
                     }
                 }
                 if (precipDesc) weatherDescs.push(precipDesc);
@@ -380,9 +449,9 @@
                 let fullReport = `${part1 ? part1 + '。' : ''}${weatherDescStr}。${windStr}${uvStr}`;
 
                 const symbols = {
-                    0: isNight ? { icon: 'fas fa-moon text-indigo-400' } : { icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
-                    1: isNight ? { icon: 'fas fa-moon text-indigo-300' } : { icon: 'fas fa-sun text-yellow-400' },
-                    2: isNight ? { icon: 'fas fa-cloud-moon text-indigo-200' } : { icon: 'fas fa-cloud-sun text-yellow-400' },
+                    0: { icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
+                    1: { icon: 'fas fa-sun text-yellow-400' },
+                    2: { icon: 'fas fa-cloud-sun text-yellow-400' },
                     3: { icon: 'fas fa-cloud text-slate-300' },
                     45: { icon: 'fas fa-smog text-slate-400' },
                     51: { icon: 'fas fa-cloud-sun text-yellow-400' },
@@ -396,16 +465,34 @@
                 const hasThunderstormOrShowers = groupCounts['I'] > 0 || groupCounts['H'] > 0;
                 const hasSnowOrFreezingRain = groupCounts['G'] > 0 || groupCounts['F'] > 0;
                 const rainHours = groupCounts['D'] + groupCounts['E'] + groupCounts['H'] + groupCounts['I'];
+                const sunHours = groupCounts['A'];
+                const cloudHours = groupCounts['B'];
 
                 if (maxTemp >= 32.5 && !hasThunderstormOrShowers) {
-                    dayIcon = { icon: 'fas fa-temperature-high text-orange-500' };
+                    dayIcon = { icon: 'fas fa-temperature-arrow-up text-orange-500' };
                 } else if (minTemp <= 12.5 && !hasThunderstormOrShowers && !hasSnowOrFreezingRain) {
-                    dayIcon = { icon: 'fas fa-temperature-low text-blue-400' };
-                } else if (dayIcon.icon.includes('fa-cloud-sun-rain')) {
+                    dayIcon = { icon: 'fas fa-temperature-arrow-down text-blue-400' };
+                } else if (sunHours > 12 && cloudHours > 0 && rainHours > 0) {
+                    dayIcon = { icon: 'fas fa-cloud-sun-rain text-blue-400' };
+                } else if (dayIcon.icon.includes('fas fa-cloud-sun-rain')) {
                     if (rainHours < 8) {
                         dayIcon = { icon: 'fas fa-cloud-sun text-yellow-400' };
                     }
                 }
+
+                const hasOtherActiveWeather = (groupCounts['C'] > 0 || groupCounts['E'] > 0 || groupCounts['F'] > 0 || groupCounts['G'] > 0 || groupCounts['H'] > 0 || groupCounts['I'] > 0);
+                if (groupCounts['D'] > 0 && groupCounts['D'] < 8 && !hasOtherActiveWeather) {
+                    if (sunHours > 0 && cloudHours > 0) {
+                        dayIcon = { icon: 'fas fa-cloud-sun text-yellow-400' };
+                    } else if (sunHours > 0) {
+                        dayIcon = { icon: 'fas fa-sun text-yellow-400' };
+                    } else {
+                        dayIcon = { icon: 'fas fa-cloud text-slate-300' };
+                    }
+                }
+
+                const metrics = calculateDayRainMetrics(dateStr, data);
+                const totalScoreRounded = Math.round(metrics.totalRainRatioScore);
 
                 const dateObj = new Date(dateStr);
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -413,37 +500,13 @@
                 const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
                 const dateDisplay = `${month}/${dayStr} (${weekday})`;
 
-                let popVal = precipProb;
-                let popLevel = '極低';
-                let popBadgeClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
-                
-                if (popVal >= 95) {
-                    popLevel = '極高';
-                    popBadgeClass = 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold';
-                } else if (popVal >= 85) {
-                    popLevel = '高';
-                    popBadgeClass = 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-bold';
-                } else if (popVal >= 70) {
-                    popLevel = '偏高';
-                    popBadgeClass = 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 font-semibold';
-                } else if (popVal >= 40) {
-                    popLevel = '中等';
-                    popBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold';
-                } else if (popVal >= 25) {
-                    popLevel = '偏低';
-                    popBadgeClass = 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300';
-                } else if (popVal >= 10) {
-                    popLevel = '低';
-                    popBadgeClass = 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300';
-                }
-
                 const card = document.createElement('div');
                 card.className = "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col shadow-sm w-[170px] sm:w-[190px] flex-shrink-0 snap-start";
                 card.innerHTML = `
                     <!-- 1. 日期 -->
                     <div class="font-bold text-sm text-teal-600 dark:text-teal-400 text-center pb-2">${dateDisplay}</div>
                     
-                    <!-- 2. 圖標 (大小設為 text-5xl) -->
+                    <!-- 2. 圖標 -->
                     <div class="flex flex-col items-center justify-center py-3">
                         <i class="fa-solid ${dayIcon.icon} text-5xl"></i>
                     </div>
@@ -457,15 +520,12 @@
                         <span class="text-orange-500 dark:text-orange-400 font-bold">${maxTemp}°C</span>
                     </div>
 
+                    <!-- 4. 指定的降雨比率格式 -->
                     <hr class="border-slate-100 dark:border-slate-800 my-2">
-
-                    <!-- 4. 降雨機率 -->
                     <div class="py-1 text-center space-y-1">
-                        <div class="text-[11px] font-semibold text-slate-400">降雨機率</div>
-                        <div class="flex items-center justify-center gap-1.5">
-                            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${precipProb}%</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] ${popBadgeClass}">${popLevel}</span>
-                        </div>
+                        <div class="text-[11px] font-bold text-slate-700 dark:text-slate-200">降雨比率</div>
+                        <div class="text-sm font-bold text-slate-800 dark:text-slate-100">${totalScoreRounded}分</div>
+                        <div class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${metrics.risk.color}">${metrics.risk.text}</div>
                     </div>
 
                     <hr class="border-slate-100 dark:border-slate-800 my-2">
@@ -477,6 +537,51 @@
                 `;
                 dailyContainer.appendChild(card);
             }
+        }
+
+        function renderRainRatioDetailsSection() {
+            const data = globalWeatherData;
+            const container = document.getElementById('rain-ratio-details-container');
+            container.innerHTML = '';
+
+            const startIndex = 1;
+            const dailyMetrics = [];
+            for (let i = 0; i < 7; i++) {
+                const dateStr = data.daily.time[startIndex + i];
+                dailyMetrics.push(calculateDayRainMetrics(dateStr, data));
+            }
+
+            const table = document.createElement('div');
+            table.className = "min-w-[700px] overflow-x-auto";
+            
+            let headerHtml = `<div class="grid grid-cols-8 gap-2 pb-3 border-b border-slate-200 dark:border-slate-800 text-center font-bold text-xs text-slate-500 dark:text-slate-400"><div class="text-left pl-2">拆解項目</div>`;
+            for (let i = 0; i < 7; i++) {
+                const dateObj = new Date(data.daily.time[startIndex + i]);
+                headerHtml += `<div>${i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' })}<br><span class="text-[10px] text-slate-400">${dateObj.getMonth() + 1}/${dateObj.getDate()}</span></div>`;
+            }
+            headerHtml += `</div>`;
+
+            let rows = [
+                { name: '降雨時長分數', render: m => `${m.durationScore.toFixed(1)}分 <span class="text-slate-400 text-[10px]">(${m.rainDurationHours}h)</span>` },
+                { name: '降雨強度分數', render: m => `${m.intensityScore.toFixed(1)}分 <span class="text-slate-400 text-[10px]">(${m.maxHourlyPrecip.toFixed(1)}mm/h)</span>` },
+                { name: '累積雨量分數', render: m => `${m.accumulatedScore.toFixed(1)}分 <span class="text-slate-400 text-[10px]">(${m.dayPrecipSum.toFixed(1)}mm)</span>` },
+                { name: '雷雨加分', render: m => m.thunderstormHours > 0 ? `<span class="text-amber-500 font-bold">+${m.thunderstormBonus}分</span> <span class="text-slate-400 text-[10px]">(${m.thunderstormHours}h)</span>` : `<span class="text-slate-300 dark:text-slate-600">0分 (0h)</span>` },
+                { name: '總分', render: m => `<strong class="text-slate-900 dark:text-white">${Math.round(m.totalRainRatioScore)}分</strong>` },
+                { name: '風險等級', render: m => `<span class="px-2 py-0.5 rounded text-[10px] font-bold ${m.risk.color}">${m.risk.text}</span>` }
+            ];
+
+            let bodyHtml = `<div class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">`;
+            rows.forEach(row => {
+                bodyHtml += `<div class="grid grid-cols-8 gap-2 py-2.5 items-center text-center"><div class="text-left pl-2 font-semibold text-slate-700 dark:text-slate-300 truncate">${row.name}</div>`;
+                dailyMetrics.forEach(m => {
+                    bodyHtml += `<div>${row.render(m)}</div>`;
+                });
+                bodyHtml += `</div>`;
+            });
+            bodyHtml += `</div>`;
+
+            table.innerHTML = headerHtml + bodyHtml;
+            container.appendChild(table);
         }
 
         function renderWeatherGroupsSection() {
