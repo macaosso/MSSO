@@ -243,7 +243,7 @@
             return '';
         }
 
-        // 生成熱帶氣旋報文函數
+        // 生成熱帶氣旋報文函數 (已調整：移除移動方向與時速敘述，風速後改為句號)
         function generateTyphoonBulletin(stormData) {
             if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
             
@@ -255,11 +255,6 @@
             const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
             const dirChinese = chineseDirections[engDir] || engDir;
             
-            const moveParts = stormData.movement.split(' ');
-            const moveEngDir = moveParts[0];
-            const moveSpeed = moveParts[1] || '0';
-            const moveDirChinese = chineseDirections[moveEngDir] || moveEngDir;
-            
             const windKmh = stormData.wind.replace(' km/h', '');
             
             // 當氣旋強度為「溫帶氣旋」或 "Ex" 時，自動省略風速與移動速度描述
@@ -267,7 +262,7 @@
                 return `${timePrefix}溫帶氣旋 ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近。`;
             }
             
-            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里，向${moveDirChinese}移動，時速${moveSpeed}公里。`;
+            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里。`;
         }
 
         function getIntensity(windInput, isEx) {
@@ -386,43 +381,40 @@
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
         }
 
+        // 移動方向與時速計算調整：根據 current/0h 之後緊接的第一個預報點來計算移動方向與速度
         function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
             if (!forecastPoints || forecastPoints.length < 2) {
                 return '-';
             }
 
-            let ptsUpTo24 = [];
-            let reached24 = false;
-            for (let i = 0; i < forecastPoints.length; i++) {
-                ptsUpTo24.push([forecastPoints[i].lon, forecastPoints[i].lat]);
-                if (forecastPoints[i].hour >= 24) {
-                    reached24 = true;
+            // 尋找 current 或 0h（即 hour === 0 或第一個點）以及緊接其後的第一個預報點
+            let p0 = forecastPoints[0];
+            let p1 = null;
+            for (let i = 1; i < forecastPoints.length; i++) {
+                if (forecastPoints[i].hour > 0) {
+                    p1 = forecastPoints[i];
                     break;
                 }
             }
-
-            if (!reached24) {
-                return '-';
+            if (!p1) {
+                p1 = forecastPoints[1];
             }
 
-            const pStart = ptsUpTo24[0];
-            const pEnd = ptsUpTo24[ptsUpTo24.length - 1];
-            const direction = getDirection(pStart[0], pStart[1], pEnd[0], pEnd[1]);
+            const hour = p1.hour > 0 ? p1.hour : 3;
+            const direction = getDirection(p0.lon, p0.lat, p1.lon, p1.lat);
 
-            const smoothCoords = smoothLineCatmullRom(ptsUpTo24, 30);
-            let curveDist = 0;
-            for (let i = 0; i < smoothCoords.length - 1; i++) {
-                const R = 6371;
-                const dLat = (smoothCoords[i+1][1] - smoothCoords[i][1]) * Math.PI / 180;
-                const dLon = (smoothCoords[i+1][0] - smoothCoords[i][0]) * Math.PI / 180;
-                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                          Math.cos(smoothCoords[i][1] * Math.PI / 180) * Math.cos(smoothCoords[i+1][1] * Math.PI / 180) *
-                          Math.sin(dLon/2) * Math.sin(dLon/2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                curveDist += R * c;
-            }
-            
-            const speed = Math.round(curveDist / 24);
+            // 計算兩點之間的距離
+            const R = 6371;
+            const dLat = (p1.lat - p0.lat) * Math.PI / 180;
+            const dLon = (p1.lon - p0.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(p0.lat * Math.PI / 180) * Math.cos(p1.lat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const dist = R * c;
+
+            // 根據緊接的預報時數（例如 3H 則除以 3，6H 則除以 6）計算時速
+            const speed = Math.round(dist / hour);
             return `${direction} ${speed} km/h`;
         }
 
