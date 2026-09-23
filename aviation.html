@@ -287,10 +287,10 @@
 
         async function fetchAviationWeatherFromOpenMeteo() {
             try {
-                // 使用 Open-Meteo 取得澳門國際機場 (22.150478, 113.591557) 的即時與逐小時預報，指定風速單位為 knots
                 const lat = 22.150478;
                 const lon = 113.591557;
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,dew_point_2m&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m&wind_speed_unit=knots&timezone=UTC`;
+                // 已移除不支援的 dew_point_2m 參數以修復 400 錯誤
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m&wind_speed_unit=knots&timezone=UTC`;
 
                 const res = await fetch(url);
                 const data = await res.json();
@@ -302,7 +302,7 @@
                     const hours = String(now.getUTCHours()).padStart(2, '0');
                     const zuluTime = `${day}${hours}00Z`;
 
-                    // 1. 處理風向風速 (格式化為 3 位數風向 + 2 位數風速 KT，如有陣風加 G)
+                    // 1. 處理風向風速
                     const windDir = String(Math.round((cur.wind_direction_10m || 0) / 10) * 10).padStart(3, '0');
                     const windSpeed = String(Math.round(cur.wind_speed_10m || 0)).padStart(2, '0');
                     let windStr = `${windDir}${windSpeed}KT`;
@@ -311,23 +311,27 @@
                         windStr = `${windDir}${windSpeed}G${gustSpeed}KT`;
                     }
 
-                    // 2. 能見度 (簡化根據天氣代碼或預設 9999)
+                    // 2. 能見度
                     const visStr = (cur.weather_code >= 45 && cur.weather_code <= 48) ? '2000' : '9999';
 
-                    // 3. 溫度與露點
+                    // 3. 溫度與估算露點
                     const formatTemp = (t) => {
                         const rounded = Math.round(t);
                         return rounded < 0 ? `M${String(Math.abs(rounded)).padStart(2, '0')}` : String(rounded).padStart(2, '0');
                     };
-                    const tempStr = formatTemp(cur.temperature_2m);
-                    const dewStr = formatTemp(cur.dew_point_2m !== undefined ? cur.dew_point_2m : cur.temperature_2m - 3);
+                    const tempVal = cur.temperature_2m || 25;
+                    const humVal = cur.relative_humidity_2m || 80;
+                    // 利用溫度與相對濕度簡易估算露點
+                    const estDew = tempVal - ((100 - humVal) / 5);
+                    const tempStr = formatTemp(tempVal);
+                    const dewStr = formatTemp(estDew);
                     const tempDewCode = `${tempStr}/${dewStr}`;
 
                     // 4. 氣壓 QNH
                     const qnhVal = Math.round(cur.surface_pressure || 1013);
                     const qnhStr = `Q${qnhVal}`;
 
-                    // 5. 天氣現象與雲層代碼對應 WMO Weather Code
+                    // 5. 天氣現象與雲層代碼
                     let wxCode = '';
                     let cloudCode = 'FEW020';
                     const wmo = cur.weather_code;
@@ -337,7 +341,6 @@
                     else if (wmo >= 95) { wxCode = 'TSRA'; cloudCode = 'BKN010CB'; }
                     else if (wmo === 45 || wmo === 48) { wxCode = 'FG'; cloudCode = 'VV002'; }
 
-                    // 組裝成標準 METAR 字串
                     let metarParts = [`VMMC`, zuluTime, windStr, visStr];
                     if (wxCode) metarParts.push(wxCode);
                     metarParts.push(cloudCode, tempDewCode, qnhStr, 'NOSIG');
@@ -346,7 +349,7 @@
                     document.getElementById('raw-metar').textContent = metarText;
                     parseMetar(metarText);
 
-                    // 6. 動態生成 TAF (基於 hourly 數據)
+                    // 6. 動態生成 TAF
                     if (data.hourly && data.hourly.time) {
                         const startHourIdx = now.getUTCHours();
                         const startDay = day;
@@ -369,7 +372,6 @@
                 console.error("無法從 Open-Meteo 取得氣象資料", error);
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('dashboard-content').classList.remove('hidden');
-                // 備用預設值
                 const fallbackMetar = "VMMC 230400Z 12012KT 9999 FEW020 28/24 Q1010 NOSIG";
                 document.getElementById('raw-metar').textContent = fallbackMetar;
                 document.getElementById('raw-taf').textContent = "TAF VMMC 230320Z 2304/2404 13012KT 9999 FEW020";
@@ -381,7 +383,6 @@
             const parts = metar.split(' ');
             const isCavok = parts.includes('CAVOK');
 
-            // 風向與風速解析
             let windRaw = parts.find(p => p.endsWith('KT') || p.endsWith('MPS')) || '00000KT';
             let windText = "無風 / 靜風";
             let windDeg = 0;
@@ -400,12 +401,10 @@
             }
             document.getElementById('decode-wind').textContent = windText;
 
-            // 能見度解析
             let visRaw = parts.find(p => p === '9999' || p.includes('SM') || /^\d{4}$/.test(p)) || '9999';
             let visText = visRaw === '9999' ? '10 公里或以上 (9999)' : `${parseInt(visRaw)} 公尺`;
             document.getElementById('decode-vis').textContent = visText;
 
-            // 溫度與露點解析
             let tempRaw = parts.find(p => p.includes('/') && !p.includes('KT')) || '--/--';
             let tempText = tempRaw;
             if (tempRaw !== '--/--') {
@@ -415,21 +414,17 @@
             }
             document.getElementById('decode-temp').textContent = tempText;
 
-            // 氣壓 QNH 解析
             let qnhRaw = parts.find(p => p.startsWith('Q') || p.startsWith('A')) || 'Q1013';
             let qnhText = qnhRaw.startsWith('Q') ? `${qnhRaw.substring(1)} hPa (百帕)` : qnhRaw;
             document.getElementById('decode-qnh').textContent = qnhText;
 
-            // 雲層狀況解析
             let cloudParts = parts.filter(p => p.startsWith('FEW') || p.startsWith('SCT') || p.startsWith('BKN') || p.startsWith('OVC') || p.startsWith('VV'));
             document.getElementById('decode-cloud').textContent = cloudParts.length > 0 ? cloudParts.join(', ') : "無顯著雲層";
 
-            // 天氣現象解析
             let wxCodes = ['RA', 'SN', 'DZ', 'SG', 'IC', 'PL', 'GR', 'GS', 'BR', 'FG', 'TS', 'SH'];
             let foundWx = parts.find(p => wxCodes.some(code => p.includes(code)));
             document.getElementById('decode-wx').textContent = foundWx ? `降水/天氣現象 (${foundWx})` : "無顯著降水 (NSW)";
 
-            // 跑道風分量計算
             if (windSpeed > 0) {
                 calculateRunwayComponents(windDeg, windSpeed);
             } else {
