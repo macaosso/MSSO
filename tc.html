@@ -28,6 +28,10 @@
             background: rgba(100, 116, 139, 0.4);
             border-radius: 4px;
         }
+        @keyframes spin-reverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
     </style>
     <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
     <script>
@@ -77,6 +81,24 @@
         <!-- 頁面主要內容包裝 -->
         <div class="page-wrapper space-y-6" id="dashboard-content">
             
+            <!-- 熱帶氣旋GIS路徑圖介紹專區 -->
+            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-3 rounded-2xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400">
+                            <i class="fa-solid fa-hurricane text-2xl" style="display: inline-block; animation: spin-reverse 8s linear infinite;"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-slate-800 dark:text-slate-200">熱帶氣旋GIS路徑圖</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">提供互動式地理資訊系統（GIS）熱帶氣旋路徑追蹤與強度分析</p>
+                        </div>
+                    </div>
+                    <a href="tcgis.html" class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white transition-colors text-xs font-medium flex items-center gap-2 shadow-sm shrink-0" style="text-decoration: none;">
+                        <i class="fa-solid fa-map-location-dot"></i> 查看GIS路徑圖
+                    </a>
+                </div>
+            </div>
+
             <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="tcNewsCard">
                 <div class="warning-header flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
                     <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -450,7 +472,6 @@
             const name = currentMeta.name;
             const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
             
-            // 完整對照與中文化處理：優先檢查 rawCategory，其次檢查 rawWind 與強度對照表
             let categoryDesc = intensityObj.name;
             if (intensityNameMap[currentMeta.rawCategory]) {
                 categoryDesc = intensityNameMap[currentMeta.rawCategory];
@@ -692,11 +713,17 @@
                 if (tcContentEl) tcContentEl.innerHTML = formatTextToHtml(tcText);
             }
 
+            const tcNewsCard = document.getElementById('tcNewsCard');
             const tcNewsContentEl = document.getElementById('tcNewsContent');
-            if (tcNewsContentEl) {
-                if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
-                    tcNewsContentEl.innerHTML = '<p class="text-slate-500 dark:text-slate-400">現時沒有熱帶氣旋資訊及警報。</p>';
-                } else {
+            if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
+                if (tcNewsCard) {
+                    tcNewsCard.style.display = 'none'; // 無資料時直接隱藏整個熱帶氣旋警報區塊
+                }
+            } else {
+                if (tcNewsCard) {
+                    tcNewsCard.style.display = 'block';
+                }
+                if (tcNewsContentEl) {
                     tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
                 }
             }
