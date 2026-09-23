@@ -243,7 +243,7 @@
             return '';
         }
 
-        // 生成熱帶氣旋報文函數 (已調整：移除移動方向與時速敘述，風速後改為句號)
+        // 生成熱帶氣旋報文函數 (條件式判斷：有移動資料則顯示「向...移動，時速...公里」，無則省略並以句號結尾)
         function generateTyphoonBulletin(stormData) {
             if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
             
@@ -255,14 +255,27 @@
             const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
             const dirChinese = chineseDirections[engDir] || engDir;
             
-            const windKmh = stormData.wind.replace(' km/h', '');
-            
-            // 當氣旋強度為「溫帶氣旋」或 "Ex" 時，自動省略風速與移動速度描述
-            if (stormData.category === "溫帶氣旋" || stormData.category === "Ex") {
-                return `${timePrefix}溫帶氣旋 ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近。`;
+            // 風速部分
+            let windClause = "";
+            if (!stormData.isEx && stormData.wind && stormData.wind !== '-') {
+                const windKmh = stormData.wind.replace(' km/h', '');
+                windClause = `，其中心附近最高持續風速約為每小時${windKmh}公里`;
+            }
+
+            // 移動方向與時速部分（若有移動資料則顯示，否則省略）
+            let movementClause = "";
+            if (stormData.movement && stormData.movement !== '-' && stormData.movement !== '靜止') {
+                const movParts = stormData.movement.split(' ');
+                const movEngDir = movParts[0];
+                const movSpeed = movParts[1] ? movParts[1].replace('km/h', '').trim() : '';
+                const movDirChinese = chineseDirections[movEngDir] || movEngDir;
+                
+                if (movDirChinese && movSpeed) {
+                    movementClause = `，向${movDirChinese}移動，時速${movSpeed}公里`;
+                }
             }
             
-            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近，其中心附近最高持續風速約為每小時${windKmh}公里。`;
+            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近${windClause}${movementClause}。`;
         }
 
         function getIntensity(windInput, isEx) {
@@ -381,13 +394,12 @@
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
         }
 
-        // 移動方向與時速計算調整：根據 current/0h 之後緊接的第一個預報點來計算移動方向與速度
+        // 移動方向與時速計算
         function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
             if (!forecastPoints || forecastPoints.length < 2) {
                 return '-';
             }
 
-            // 尋找 current 或 0h（即 hour === 0 或第一個點）以及緊接其後的第一個預報點
             let p0 = forecastPoints[0];
             let p1 = null;
             for (let i = 1; i < forecastPoints.length; i++) {
@@ -403,7 +415,6 @@
             const hour = p1.hour > 0 ? p1.hour : 3;
             const direction = getDirection(p0.lon, p0.lat, p1.lon, p1.lat);
 
-            // 計算兩點之間的距離
             const R = 6371;
             const dLat = (p1.lat - p0.lat) * Math.PI / 180;
             const dLon = (p1.lon - p0.lon) * Math.PI / 180;
@@ -413,7 +424,6 @@
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const dist = R * c;
 
-            // 根據緊接的預報時數（例如 3H 則除以 3，6H 則除以 6）計算時速
             const speed = Math.round(dist / hour);
             return `${direction} ${speed} km/h`;
         }
@@ -708,7 +718,7 @@
             const tcNewsContentEl = document.getElementById('tcNewsContent');
             if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
                 if (tcNewsCard) {
-                    tcNewsCard.style.display = 'none'; // 無資料時直接隱藏整個熱帶氣旋警報區塊
+                    tcNewsCard.style.display = 'none';
                 }
             } else {
                 if (tcNewsCard) {
