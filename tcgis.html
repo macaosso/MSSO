@@ -172,7 +172,6 @@
                     document.documentElement.classList.add('dark');
                     localStorage.setItem('theme', 'dark');
                 }
-                // 切換主題後重新渲染地圖以更新配色
                 renderChart(false);
             });
         }
@@ -315,8 +314,9 @@
             return smooth;
         }
 
-        const ERROR_HOURS = [0, 24, 48, 72, 96, 120];
-        const ERROR_RADII_KM = [15, 100, 170, 255, 345, 465];
+        // Expanded error hours and corresponding radii including 3h, 6h, 12h, 18h, 36h, 60h
+        const ERROR_HOURS = [0, 3, 6, 12, 18, 24, 36, 48, 60, 72, 96, 120];
+        const ERROR_RADII_KM = [15, 26, 36, 58, 79, 100, 135, 170, 212.5, 255, 345, 465];
 
         function getRadiusForHour(hour) {
             if (hour <= ERROR_HOURS[0]) return ERROR_RADII_KM[0];
@@ -512,16 +512,23 @@
             let pastNodes = [];
             let forecastNodes = [];
 
-            let tempForecastRows = rows.filter(r => r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
+            // Robust detection for forecast hours (supports 3h, 6h, 12h, 18h, 36h, 60h, etc.)
+            let tempForecastRows = rows.filter(r => {
+                const cat = r.category.toLowerCase();
+                return cat === 'current' || cat === '0h' || cat === '0' || cat.includes('h') || !isNaN(parseInt(cat));
+            });
+
             if (tempForecastRows.length === 0 && rows.length > 0) {
                 tempForecastRows = rows;
             }
+
             let fPointsForCalc = [];
             let fCoordsForCalc = [];
             tempForecastRows.forEach(fr => {
                 let hour = 0;
-                if (fr.category !== 'current' && fr.category !== '0h' && fr.category !== '0') {
-                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
+                const catLower = fr.category.toLowerCase();
+                if (catLower !== 'current' && catLower !== '0h' && catLower !== '0') {
+                    hour = parseInt(catLower.replace(/h/g, '')) || 0;
                 }
                 fCoordsForCalc.push([fr.lon, fr.lat]);
                 fPointsForCalc.push({
@@ -565,7 +572,7 @@
                 if (r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0') {
                     pastNodes.push(nodeInfo);
                 }
-                if (r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h')) {
+                if (r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h') || !isNaN(parseInt(r.category))) {
                     forecastNodes.push(nodeInfo);
                 }
             });
@@ -929,7 +936,6 @@
                     }
                 }
 
-                // 修正：檢查長度至少為 2，避免單一座標點導致 ECharts lines 系列報錯崩潰
                 if (showPast && st.pastCoordsOnly && st.pastCoordsOnly.length >= 2) {
                     seriesList.push({
                         type: 'lines',
@@ -964,7 +970,6 @@
                     symbol: 'circle'
                 });
 
-                // 修正：檢查平滑後預報座標長度至少為 2
                 if (showForecast && smoothForecastCoords && smoothForecastCoords.length >= 2) {
                     seriesList.push({
                         type: 'lines',
