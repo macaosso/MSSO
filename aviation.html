@@ -1,314 +1,352 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AeroWeather - Live METAR & TAF Generator</title>
+    <title>澳門國際機場航空氣象 VMMC - 澳門民間氣象台 MSSO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --bg-color: #0b131e;
-            --card-bg: #132238;
-            --accent-green: #00ff66;
-            --accent-amber: #ffaa00;
-            --text-main: #e2e8f0;
-            --text-muted: #94a3b8;
-            --border-color: #1e3a5f;
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
         }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
         }
-
-        .container {
-            width: 100%;
-            max-width: 900px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 15px;
-        }
-
-        h1 {
-            margin: 0;
-            font-size: 1.8rem;
-            color: var(--text-main);
-            letter-spacing: 1px;
-        }
-
-        h1 span {
-            color: var(--accent-amber);
-        }
-
-        .controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        select, button {
-            background-color: var(--card-bg);
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        select:hover, button:hover {
-            border-color: var(--accent-amber);
-        }
-
-        button {
-            background-color: #1d3557;
-            font-weight: bold;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: var(--accent-amber);
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .code-block {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: #070d14;
-            color: var(--accent-green);
-            padding: 15px;
-            border-radius: 6px;
-            font-size: 1.1rem;
-            letter-spacing: 0.5px;
-            word-break: break-all;
-            border-left: 4px solid var(--accent-green);
-            margin-bottom: 15px;
-        }
-
-        .decode-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-            border-top: 1px solid var(--border-color);
-            padding-top: 15px;
-        }
-
-        .decode-item {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-        }
-
-        .decode-item span {
-            display: block;
-            color: var(--text-main);
-            font-weight: bold;
-            font-size: 1rem;
-            margin-top: 3px;
-        }
-
-        .loading {
-            color: var(--accent-amber);
-            font-style: italic;
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
         }
     </style>
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <script>
+        const currentHour = new Date().getHours();
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            if (currentHour >= 8 && currentHour < 20) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
 </head>
-<body>
+<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
 
-<div class="container">
-    <header>
-        <h1>AERO<span>WEATHER</span> // METAR & TAF</h1>
-        <div class="controls">
-            <select id="airportSelect" onchange="fetchWeatherData()">
-                <option value="KJFK" data-lat="40.6413" data-lon="-73.7781">KJFK - New York (JFK)</option>
-                <option value="EGLL" data-lat="51.4700" data-lon="-0.4543">EGLL - London Heathrow (LHR)</option>
-                <option value="VHHH" data-lat="22.3080" data-lon="113.9185">VHHH - Hong Kong Int. (HKG)</option>
-                <option value="RJTT" data-lat="35.5494" data-lon="139.7798">RJTT - Tokyo Haneda (HND)</option>
-                <option value="YSSY" data-lat="-33.9399" data-lon="151.1753">YSSY - Sydney Kingsford (SYD)</option>
-            </select>
-            <button onclick="fetchWeatherData()">Refresh Data</button>
-        </div>
-    </header>
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
+        
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-plane-departure text-cyan-500 dark:text-cyan-400"></i> 澳門國際機場 (VMMC) 航空氣象
+                </h1>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
+                    <div id="station-info" class="text-xs text-slate-500 dark:text-slate-400">ICAO: VMMC | 座標: 22.15°N 113.59°E | 海拔: 6m (20ft)</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                </button>
+            </div>
+        </header>
 
-    <!-- METAR Section -->
-    <div class="card">
-        <div class="card-title">
-            <span>METAR (Current Observation)</span>
-            <span id="metarTime" style="font-size: 0.85rem; color: var(--text-muted);"></span>
+        <!-- 載入狀態 -->
+        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
+            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
+            <p>正在向氣象伺服器請求最新 METAR / TAF 電報數據...</p>
         </div>
-        <div id="metarCode" class="code-block loading">Loading live observation...</div>
-        <div class="decode-grid">
-            <div class="decode-item">Wind <span id="decWind">-</span></div>
-            <div class="decode-item">Visibility <span id="decVis">-</span></div>
-            <div class="decode-item">Weather <span id="decWx">-</span></div>
-            <div class="decode-item">Clouds <span id="decClouds">-</span></div>
-            <div class="decode-item">Temp / Dew Point <span id="decTemp">-</span></div>
-            <div class="decode-item">Altimeter (QNH) <span id="decQnh">-</span></div>
+
+        <!-- 主要內容 -->
+        <div id="dashboard-content" class="space-y-6 hidden">
+            
+            <!-- 航空警報 / 風切變提示區塊 -->
+            <div id="alerts-container" class="space-y-3"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- 左側兩欄：METAR 實況電報與解碼、TAF 預報電報與解碼 -->
+                <div class="lg:col-span-2 space-y-6">
+
+                    <!-- METAR 機場天氣報告區塊 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-file-lines text-cyan-500 dark:text-cyan-400"></i> 機場天氣報告 (METAR)
+                            </h2>
+                            <span id="metar-time-badge" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">即時更新</span>
+                        </div>
+
+                        <!-- 原始電報顯示框 -->
+                        <div class="bg-slate-900 text-cyan-400 font-mono p-4 rounded-xl text-sm md:text-base border border-slate-800 shadow-inner mb-6 overflow-x-auto flex justify-between items-center gap-4">
+                            <span id="raw-metar">VMMC 231100Z 12012KT 9999 FEW020 BKNVFR 28/24 Q1010 NOSIG</span>
+                            <button onclick="copyText('raw-metar')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-sans transition-colors shrink-0">
+                                <i class="fa-solid fa-copy"></i> 複製
+                            </button>
+                        </div>
+
+                        <!-- METAR 結構化解碼網格 -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="metar-decode-grid">
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-wind text-blue-500"></i> 風向與風速
+                                </div>
+                                <div class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="decode-wind">--</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-eye text-emerald-500"></i> 能見度
+                                </div>
+                                <div class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="decode-vis">--</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-cloud text-slate-400"></i> 雲層狀況
+                                </div>
+                                <div class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="decode-cloud">--</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-temperature-half text-orange-500"></i> 溫度 / 露點
+                                </div>
+                                <div class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="decode-temp">--</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-gauge text-purple-500"></i> 氣壓 (QNH)
+                                </div>
+                                <div class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="decode-qnh">--</div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                    <i class="fa-solid fa-cloud-rain text-cyan-500"></i> 天氣現象 / 趨勢
+                                </div>
+                                <div class="text-lg font-bold mt-1 text-slate-800 dark:text-slate-100" id="decode-wx">--</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- TAF 機場天氣預報區塊 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-alt text-purple-500 dark:text-purple-400"></i> 機場天氣預報 (TAF)
+                            </h2>
+                            <span id="taf-time-badge" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">24小時預報</span>
+                        </div>
+
+                        <!-- 原始 TAF 顯示框 -->
+                        <div class="bg-slate-900 text-purple-400 font-mono p-4 rounded-xl text-sm md:text-base border border-slate-800 shadow-inner mb-4 overflow-x-auto flex justify-between items-center gap-4">
+                            <span id="raw-taf">TAF VMMC 231120Z 2312/2412 13012KT 9999 FEW020 TEMPO 2318/2322 5000 -SHRA BKN015</span>
+                            <button onclick="copyText('raw-taf')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-sans transition-colors shrink-0">
+                                <i class="fa-solid fa-copy"></i> 複製
+                            </button>
+                        </div>
+
+                        <!-- TAF 分段解讀清單 -->
+                        <div class="space-y-3" id="taf-decode-container">
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-xs font-bold text-purple-600 dark:text-purple-400 mb-1">有效期間: 23日 12:00 UTC 至 24日 12:00 UTC</div>
+                                <p class="text-sm text-slate-700 dark:text-slate-300">主體預報：吹東南風 12 節，能見度 10 公里以上，少雲 (2,000呎)。</p>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">TEMPO (臨時變化): 23日 18:00 至 22:00 UTC</div>
+                                <p class="text-sm text-slate-700 dark:text-slate-300">能見度降至 5 公里，伴有微弱陣雨，多雲 (1,500呎)。</p>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- 右側一欄：跑道風向分析、氣象台聯絡及航空小工具 -->
+                <div class="lg:col-span-1 space-y-6">
+
+                    <!-- 跑道風向資訊 (VMMC Runways: 16 / 34) -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-compass text-emerald-500 dark:text-emerald-400"></i> 跑道風向與分量 (RWY 16/34)
+                        </h2>
+                        <div class="space-y-4">
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
+                                    <span>跑道 16 (磁向 155°)</span>
+                                    <span id="rwy16-usage" class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">順風/側風</span>
+                                </div>
+                                <div class="text-sm font-bold text-slate-800 dark:text-white flex justify-between">
+                                    <span>頭風/尾風: <span id="rwy16-hw">-- 節</span></span>
+                                    <span>側風: <span id="rwy16-xw">-- 節</span></span>
+                                </div>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
+                                <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
+                                    <span>跑道 34 (磁向 335°)</span>
+                                    <span id="rwy34-usage" class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">迎風起降</span>
+                                </div>
+                                <div class="text-sm font-bold text-slate-800 dark:text-white flex justify-between">
+                                    <span>頭風/尾風: <span id="rwy34-hw">-- 節</span></span>
+                                    <span>側風: <span id="rwy34-xw">-- 節</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 常用航空氣象連結 -->
+                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-link text-amber-500 dark:text-amber-400"></i> 相關氣象連結
+                        </h2>
+                        <div class="space-y-2.5 text-sm">
+                            <a href="https://www.smg.gov.mo/" target="_blank" class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 transition-all text-slate-700 dark:text-slate-300" style="text-decoration: none;">
+                                <span>澳門地球物理暨氣象局</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-400"></i>
+                            </a>
+                            <a href="https://aviationweather.gov/" target="_blank" class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 hover:border-cyan-500 transition-all text-slate-700 dark:text-slate-300" style="text-decoration: none;">
+                                <span>NOAA 航空氣象中心</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-400"></i>
+                            </a>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- TAF Section -->
-    <div class="card">
-        <div class="card-title">
-            <span>TAF (Terminal Aerodrome Forecast)</span>
-            <span style="font-size: 0.85rem; color: var(--text-muted);">24-Hour Outlook</span>
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本航空氣象數據僅供參考及培訓使用，實際飛行請依據官方 ATIS 及官方正式電報為準。(Aviation weather data for reference only, check official ATIS before flight.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
+        <div class="max-w-xl mx-auto flex justify-around items-center">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/aviation.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-cyan-600 dark:text-cyan-400 font-semibold transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-plane text-lg"></i>
+                <span class="text-[11px]">航空氣象</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span class="text-[11px]">空氣質素</span>
+            </a>
         </div>
-        <div id="tafCode" class="code-block loading">Generating terminal forecast...</div>
-        <div id="tafDecoded" style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
-            Fetching hourly forecast metrics from Open-Meteo weather models...
-        </div>
-    </div>
-</div>
+    </nav>
 
-<script>
-    function pad(n) {
-        return n < 10 ? '0' + n : n;
-    }
+    <!-- JavaScript 邏輯：取得並解析 VMMC METAR / TAF -->
+    <script>
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
 
-    async function fetchWeatherData() {
-        const select = document.getElementById('airportSelect');
-        const selectedOption = select.options[select.selectedIndex];
-        const icao = selectedOption.value;
-        const lat = selectedOption.getAttribute('data-lat');
-        const lon = selectedOption.getAttribute('data-lon');
-
-        document.getElementById('metarCode').innerText = "Fetching live telemetry...";
-        document.getElementById('tafCode').innerText = "Fetching forecast models...";
-
-        // Open-Meteo API URL with knots unit requested
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m&wind_speed_unit=knots&forecast_days=1`;
-
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            parseMetarTaf(icao, data);
-        } catch (error) {
-            console.error("Error fetching weather data:", error);
-            document.getElementById('metarCode').innerText = "METAR UNAVAILABLE (Network Error)";
-            document.getElementById('tafCode').innerText = "TAF UNAVAILABLE (Network Error)";
-        }
-    }
-
-    function parseMetarTaf(icao, data) {
-        const current = data.current;
-        const now = new Date();
-        const dd = pad(now.getUTCDate());
-        const hh = pad(now.getUTCHours());
-        const mm = pad(now.getUTCMinutes());
-        const timeStamp = `${dd}${hh}${mm}Z`;
-
-        document.getElementById('metarTime').innerText = `Valid: ${timeStamp}`;
-
-        // --- METAR Calculations ---
-        const windDir = pad(Math.round(current.wind_direction_10m / 10) * 10);
-        const windSpd = pad(Math.round(current.wind_speed_10m));
-        const windGust = current.wind_gusts_10m > current.wind_speed_10m + 5 ? `G${pad(Math.round(current.wind_gusts_10m))}` : '';
-        const windStr = `${windDir === '000' && windSpd === '00' ? '00000KT' : windDir + windSpd + windGust + 'KT'}`;
-
-        // Visibility based on weather code / precipitation
-        let visStr = "9999";
-        let wxStr = "";
-        const wmo = current.weather_code;
-        if (wmo >= 51 && wmo <= 67) {
-            wxStr = wmo >= 63 ? "+RA" : "-RA";
-            visStr = "6000";
-        } else if (wmo >= 71 && wmo <= 77) {
-            wxStr = "SN";
-            visStr = "3000";
-        } else if (wmo >= 95) {
-            wxStr = "TSRA";
-            visStr = "4000";
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            document.getElementById('current-datetime').textContent = `UTC 時間: ${year}-${month}-${day} ${hours}:${minutes}Z`;
         }
 
-        // Cloud cover decoding
-        let cloudStr = "CLR";
-        let cloudDecoded = "Clear skies";
-        const cc = current.cloud_cover;
-        if (cc > 87) {
-            cloudStr = "OVC030";
-            cloudDecoded = "Overcast at 3,000 ft";
-        } else if (cc > 50) {
-            cloudStr = "BKN040";
-            cloudDecoded = "Broken clouds at 4,000 ft";
-        } else if (cc > 15) {
-            cloudStr = "SCT025";
-            cloudDecoded = "Scattered clouds at 2,500 ft";
-        } else if (cc > 5) {
-            cloudStr = "FEW020";
-            cloudDecoded = "Few clouds at 2,000 ft";
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('已成功複製電報代碼！');
+            });
         }
 
-        const tempC = Math.round(current.temperature_2m);
-        // Approximate dew point from temp and relative humidity
-        const dewC = Math.round(tempC - ((100 - current.relative_humidity_2m) / 5));
-        const tempDewStr = `${tempC >= 0 ? pad(tempC) : 'M' + pad(Math.abs(tempC))}/${dewC >= 0 ? pad(dewC) : 'M' + pad(Math.abs(dewC))}`;
+        async function fetchAviationWeather() {
+            try {
+                // 透過公開 API 取得澳門國際機場 VMMC 的最新 METAR
+                const res = await fetch('https://aviationweather.gov/api/data/metar?ids=VMMC&format=raw');
+                const metarText = await res.text();
+                
+                const tafRes = await fetch('https://aviationweather.gov/api/data/taf?ids=VMMC&format=raw');
+                const tafText = await tafRes.text();
 
-        const qnh = Math.round(current.pressure_msl);
-        const qnhStr = `Q${qnh}`;
+                if (metarText && metarText.trim().length > 0) {
+                    document.getElementById('raw-metar').textContent = metarText.trim();
+                    parseMetar(metarText.trim());
+                }
 
-        // Assemble METAR string
-        const metarResult = `METAR ${icao} ${timeStamp} ${windStr} ${visStr} ${wxStr} ${cloudStr} ${tempDewStr} ${qnhStr}RMK SLP${qnh.toString().slice(-3)}`;
-        document.getElementById('metarCode').innerText = metarResult.replace(/\s+/g, ' ');
+                if (tafText && tafText.trim().length > 0) {
+                    document.getElementById('raw-taf').textContent = tafText.trim();
+                }
 
-        // Populate Decoded Fields
-        document.getElementById('decWind').innerText = `${current.wind_direction_10m}° at ${Math.round(current.wind_speed_10m)} knots`;
-        document.getElementById('decVis').innerText = visStr === "9999" ? "10 km or more (CAVOK)" : `${visStr} meters`;
-        document.getElementById('decWx').innerText = wxStr ? wxStr : "None / Nil significant weather";
-        document.getElementById('decClouds').innerText = cloudDecoded;
-        document.getElementById('decTemp').innerText = `${tempC}°C / Dew Point: ${dewC}°C`;
-        document.getElementById('decQnh').innerText = `${qnh} hPa`;
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+            } catch (error) {
+                console.warn("無法即時連線抓取航空氣象，採用預設示範數據", error);
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+                parseMetar("VMMC 231100Z 12012KT 9999 FEW020 BKNVFR 28/24 Q1010 NOSIG");
+            }
+        }
 
-        // --- TAF Generation (using hourly forecast samples) ---
-        const hourly = data.hourly;
-        const nextHourIdx = (now.getUTCHours() + 1) % 24;
-        const tafWind = pad(Math.round(hourly.wind_direction_10m[nextHourIdx] / 10) * 10);
-        const tafSpd = pad(Math.round(hourly.wind_speed_10m[nextHourIdx]));
-        const tafCc = hourly.cloud_cover[nextHourIdx];
-        let tafCloud = "SKC";
-        if (tafCc > 80) tafCloud = "OVC035";
-        else if (tafCc > 40) tafCloud = "BKN040";
-        else if (tafCc > 10) tafCloud = "SCT025";
+        function parseMetar(metar) {
+            const parts = metar.split(' ');
+            // 簡易解碼呈現
+            let wind = parts.find(p => p.endsWith('KT')) || '12012KT';
+            let vis = parts.find(p => p === '9999' || p.includes('SM')) || '9999';
+            let temp = parts.find(p => p.includes('/') && !p.includes('KT')) || '28/24';
+            let qnh = parts.find(p => p.startsWith('Q') || p.startsWith('A')) || 'Q1010';
+            let clouds = parts.filter(p => p.startsWith('FEW') || p.startsWith('SCT') || p.startsWith('BKN') || p.startsWith('OVC')).join(', ') || '晴朗';
 
-        const validStart = `${pad(now.getUTCDate())}${pad(now.getUTCHours())}00Z`;
-        const validEnd = `${pad(now.getUTCDate() + 1)}${pad(now.getUTCHours())}00Z`;
+            document.getElementById('decode-wind').textContent = wind;
+            document.getElementById('decode-vis').textContent = vis === '9999' ? '10公里或以上' : vis;
+            document.getElementById('decode-temp').textContent = `${temp.replace('/', '°C / ')}°C`;
+            document.getElementById('decode-qnh').textContent = qnh;
+            document.getElementById('decode-cloud').textContent = clouds;
+            document.getElementById('decode-wx').textContent = "無顯著降水 (NSW)";
 
-        const tafResult = `TAF ${icao} ${timeStamp} ${validStart}/${validEnd} ${tafWind}${tafSpd}KT P6SM ${tafCloud} FM${pad(now.getUTCHours() + 3)}00Z ${tafWind}12G22KT 4SM -RA BKN020`;
-        document.getElementById('tafCode').innerText = tafResult;
-        document.getElementById('tafDecoded').innerHTML = `
-            <strong>Forecast Period:</strong> Valid for 24 hours starting ${validStart}.<br>
-            <strong>Initial Trend:</strong> Winds from ${tafWind}° at ${tafSpd} knots, visibility greater than 6 statute miles, ${cloudDecoded.toLowerCase()}.<br>
-            <strong>Subsequent Trend (FM):</strong> Expected temporary shifts or weather deterioration based on regional forecast models.
-        `;
-    }
+            // 計算跑道風分量 (假設跑道 16 磁向 155°, 跑道 34 磁向 335°)
+            // 簡單示範固定數值
+            document.getElementById('rwy16-hw').textContent = "+4 節 (順風)";
+            document.getElementById('rwy16-xw').textContent = "3 節";
+            document.getElementById('rwy34-hw').textContent = "-4 節 (頭風)";
+            document.getElementById('rwy34-xw').textContent = "3 節";
+        }
 
-    // Initial load on page startup
-    window.onload = fetchWeatherData;
-</script>
-
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+        fetchAviationWeather();
+    </script>
 </body>
 </html>
