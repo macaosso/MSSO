@@ -207,14 +207,14 @@
                         </div>
                         <div>
                             <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">載入中...</h2>
-                            <!-- 熱帶氣旋報文 (移至名稱下方) -->
+                            <!-- 熱帶氣旋報文 -->
                             <div class="mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans" id="gaugeStormBulletin">
                                 請稍候...
                             </div>
                         </div>
                     </div>
 
-                    <!-- 右側：風速儀表盤圖表（採用同步進度條設計） -->
+                    <!-- 右側：風速儀表盤圖表 -->
                     <div class="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-sm">
                         <div class="gauge" id="windGaugeContainer" data-speed="0"></div>
                     </div>
@@ -422,7 +422,7 @@
             animateGauge(el);
         }
 
-        // 採用 requestAnimationFrame 確保指針與進度條絕對同步、不超界
+        // 採用 requestAnimationFrame 確保指針與進度條絕對同步
         function animateGauge(el) {
             const speed = parseFloat(el.dataset.speed);
             if (isNaN(speed)) return;
@@ -444,7 +444,6 @@
             function updateAnimation(currentTime) {
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
-                
                 const easeProgress = 1 - Math.pow(1 - progress, 4);
                 
                 const currentFrac = targetFrac * easeProgress;
@@ -468,7 +467,6 @@
             requestAnimationFrame(updateAnimation);
         }
 
-        // 分級代碼與中文名稱對照字典
         const intensityNameMap = {
             "Ex": "溫帶氣旋",
             "LPA": "低壓區",
@@ -489,12 +487,9 @@
 
         let allActiveStorms = {};
 
-        // 更新風速儀表盤與左側資訊
         function updateWindGauge(stormData) {
             const badgeEl = document.getElementById('gaugeStormBadge');
             const nameEl = document.getElementById('gaugeStormName');
-            const latLonEl = document.getElementById('gaugeStormLatLon');
-            const timeEl = document.getElementById('gaugeStormTime');
             const timePillTextEl = document.getElementById('gaugeStormTimePillText');
             const bulletinEl = document.getElementById('gaugeStormBulletin');
             const cardEl = document.getElementById('activeSystemGaugeCard');
@@ -515,7 +510,6 @@
             
             if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
             
-            // 更新紅色標籤內的時間文字，保留閃爍紅點
             if (timePillTextEl) {
                 timePillTextEl.textContent = stormData.time || '-';
             }
@@ -523,9 +517,6 @@
             if (bulletinEl) {
                 bulletinEl.textContent = generateTyphoonBulletin(stormData);
             }
-
-            if (latLonEl) latLonEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
-            if (timeEl) timeEl.textContent = stormData.time || '-';
 
             let windKmh = 0;
             if (typeof stormData.wind === 'string' && stormData.wind.includes('km/h')) {
@@ -540,7 +531,6 @@
             }
         }
 
-        // 切換儀表盤顯示的氣旋
         function switchGaugeStorm(stormKey, btnElement) {
             const stormData = allActiveStorms[stormKey];
             if (stormData) {
@@ -787,6 +777,49 @@
             }
         }
 
+        function generateStormCardHtml(stormData) {
+            return `
+                <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900 shadow-sm mb-3 last:mb-0">
+                    <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2 flex justify-between items-center">
+                        <span>${stormData.name}</span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${stormData.intensityObj.color}20; color: ${stormData.intensityObj.color}">${stormData.category}</span>
+                    </div>
+                    <table class="w-full text-left border-collapse text-xs">
+                        <tbody>
+                            <tr class="border-b border-slate-100 dark:border-slate-800">
+                                <td class="py-1 pr-2 text-slate-500">實況時間</td>
+                                <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.time || '-'}</td>
+                            </tr>
+                            <tr class="border-b border-slate-100 dark:border-slate-800">
+                                <td class="py-1 pr-2 text-slate-500">最大風速</td>
+                                <td class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">${stormData.wind}</td>
+                            </tr>
+                            <tr class="border-b border-slate-100 dark:border-slate-800">
+                                <td class="py-1 pr-2 text-slate-500">中心位置</td>
+                                <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td>
+                            </tr>
+                            <tr class="border-b border-slate-100 dark:border-slate-800">
+                                <td class="py-1 pr-2 text-slate-500">移動方向</td>
+                                <td class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">${stormData.movement}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 pr-2 text-slate-500">距離澳門</td>
+                                <td class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">${stormData.distToMacau}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 text-xs leading-relaxed font-sans">
+                            ${generateTyphoonBulletin(stormData)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         async function initTrackButtonsAndLoadAllData() {
             const container = document.getElementById('trackImageButtons');
             const gaugeTabsContainer = document.getElementById('gaugeStormTabs');
@@ -834,55 +867,57 @@
                         gaugeTabsContainer.appendChild(gaugeBtn);
                     }
 
-                    // 預設載入第一個活躍氣旋到儀表盤
                     if (activeCount === 1) {
                         updateWindGauge(stormData);
                     }
 
-                    // 3. 即時數據表格面板
-                    allCyclonesHtml += `
-                        <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900 shadow-sm mb-3 last:mb-0">
-                            <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2 flex justify-between items-center">
-                                <span>${stormData.name}</span>
-                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${stormData.intensityObj.color}20; color: ${stormData.intensityObj.color}">${stormData.category}</span>
-                            </div>
-                            <table class="w-full text-left border-collapse text-xs">
-                                <tbody>
-                                    <tr class="border-b border-slate-100 dark:border-slate-800">
-                                        <td class="py-1 pr-2 text-slate-500">實況時間</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.time || '-'}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-100 dark:border-slate-800">
-                                        <td class="py-1 pr-2 text-slate-500">最大風速</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">${stormData.wind}</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-100 dark:border-slate-800">
-                                        <td class="py-1 pr-2 text-slate-500">中心位置</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td>
-                                    </tr>
-                                    <tr class="border-b border-slate-100 dark:border-slate-800">
-                                        <td class="py-1 pr-2 text-slate-500">移動方向</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">${stormData.movement}</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="py-1 pr-2 text-slate-500">距離澳門</td>
-                                        <td class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">${stormData.distToMacau}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                                <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                                    <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
-                                </div>
-                                <div class="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 text-xs leading-relaxed font-sans">
-                                    ${generateTyphoonBulletin(stormData)}
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    allCyclonesHtml += generateStormCardHtml(stormData);
 
                 } catch (err) {
-                    console.log(`TCdata/${f}.csv 無內容或略過`);
+                    console.log(`TCdata/${f}.csv 無內容或讀取失敗`);
+                }
+            }
+
+            // 備用預設資料（當 CSV 無法讀取或本機執行時，自動載入您指定的舒力基 2526 資料）
+            if (activeCount === 0) {
+                const defaultStorms = {
+                    'A': {
+                        name: '舒力基 (2526)',
+                        category: '熱帶風暴',
+                        intensityObj: { code: 'TS', name: '熱帶風暴', color: '#34d399' },
+                        wind: '75 km/h',
+                        time: '2026-09-24 14:00',
+                        movement: 'WNW 20 km/h',
+                        lat: 18.6,
+                        lon: 132.8,
+                        distToMacau: 'E 2040公里'
+                    }
+                };
+
+                for (const [f, stormData] of Object.entries(defaultStorms)) {
+                    activeCount++;
+                    allActiveStorms[f] = stormData;
+                    const imgPath = `output/TC/${f}.png`;
+
+                    const btn = document.createElement('button');
+                    btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                    btn.textContent = stormData.name;
+                    btn.onclick = function() { switchTrackImage(imgPath, this); };
+                    container.appendChild(btn);
+
+                    if (gaugeTabsContainer) {
+                        const gaugeBtn = document.createElement('button');
+                        gaugeBtn.className = activeCount === 1 ? "px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors" : "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                        gaugeBtn.textContent = stormData.name;
+                        gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
+                        gaugeTabsContainer.appendChild(gaugeBtn);
+                    }
+
+                    if (activeCount === 1) {
+                        updateWindGauge(stormData);
+                    }
+
+                    allCyclonesHtml += generateStormCardHtml(stormData);
                 }
             }
 
