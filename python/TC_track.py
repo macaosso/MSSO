@@ -10,7 +10,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from scipy.interpolate import PchipInterpolator
-from shapely.geometry import Point, LineString, box
+from shapely.geometry import Point, LineString
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
@@ -150,6 +150,7 @@ def parse_tc_csv(filepath):
     past_lats, past_lons, past_winds = [], [], []
     fcst_hours, fcst_lats, fcst_lons, fcst_winds, fcst_radii = [], [], [], [], []
     storm_name = ""
+    current_time = ""
 
     for _, row in df.iterrows():
         cat = str(row['category']).strip().lower()
@@ -164,6 +165,14 @@ def parse_tc_csv(filepath):
             past_lats.append(lat)
             past_lons.append(lon)
             past_winds.append(wind)
+
+            # 抓取 "current" 列的時間欄位 (支援常見欄位名稱如 time, datetime, date)
+            for t_col in ['time', 'datetime', 'date_time', 'date']:
+                if t_col in row and pd.notna(row[t_col]):
+                    t_val = str(row[t_col]).strip()
+                    if t_val:
+                        current_time = f"{t_val} MST"
+                        break
 
             fcst_hours.append(0)
             fcst_lats.append(lat)
@@ -195,6 +204,7 @@ def parse_tc_csv(filepath):
 
     return {
         "name": storm_name,
+        "current_time": current_time,
         "past": {"lats": np.array(past_lats), "lons": np.array(past_lons), "wind_kmh": past_winds},
         "forecast": {
             "hours": fcst_hours, 
@@ -260,7 +270,7 @@ def setup_map_axes(ax, E1, E2, N1, N2):
 
     add_macau_range_rings(ax)
 
-    # 1° 網格線對齊整數倍數
+    # 1° 網格線對齊整數倍數 (multiples of 1)
     start_1deg_lon = int(math.floor(E1))
     end_1deg_lon = int(math.ceil(E2))
     grid_1deg_lon = np.arange(start_1deg_lon, end_1deg_lon + 1, 1)
@@ -269,7 +279,7 @@ def setup_map_axes(ax, E1, E2, N1, N2):
     end_1deg_lat = int(math.ceil(N2))
     grid_1deg_lat = np.arange(start_1deg_lat, end_1deg_lat + 1, 1)
 
-    # 5° 網格線與標籤對齊 5 的倍數
+    # 5° 網格線與標籤對齊 5 的倍數 (multiples of 5)
     start_5deg_lon = int(math.floor(E1 / 5.0) * 5)
     end_5deg_lon = int(math.ceil(E2 / 5.0) * 5)
     major_5deg_lon = np.arange(start_5deg_lon, end_5deg_lon + 1, 5)
@@ -278,9 +288,13 @@ def setup_map_axes(ax, E1, E2, N1, N2):
     end_5deg_lat = int(math.ceil(N2 / 5.0) * 5)
     major_5deg_lat = np.arange(start_5deg_lat, end_5deg_lat + 1, 5)
 
+    # 1. 1° 背景網格線
     ax.gridlines(xlocs=grid_1deg_lon, ylocs=grid_1deg_lat, crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.15, color='gray', alpha=0.3, linestyle='--', zorder=-7)
+    
+    # 2. 5° 主網格線
     ax.gridlines(xlocs=major_5deg_lon, ylocs=major_5deg_lat, crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.6, color='gray', alpha=0.4, linestyle='--', zorder=-6)
 
+    # 3. 座標標籤層每 5° 一次（對齊 5 的倍數，並透過內側負邊距將數值拉進地圖內部）
     gl_label = ax.gridlines(
         xlocs=major_5deg_lon, ylocs=major_5deg_lat,
         crs=ccrs.PlateCarree(),
@@ -291,37 +305,6 @@ def setup_map_axes(ax, E1, E2, N1, N2):
     )
     gl_label.xpadding = -6
     gl_label.ypadding = -6
-
-def find_best_label_position(flon, flat, obstacles, map_extent, candidate_offsets):
-    """尋找既不與軌跡/圓錐重疊、又不超出地圖範圍的最佳標籤偏移量"""
-    E1, E2, N1, N2 = map_extent
-    # 安全邊界：確保標籤框不會貼齊或超出地圖邊緣
-    safe_box = box(E1 + 2.5, N1 + 2.0, E2 - 2.5, N2 - 2.0)
-    
-    best_dx, best_dy = candidate_offsets[0]
-    
-    # 優先尋找完全不碰撞軌跡且完全在安全邊界內的候選位置
-    for dx, dy in candidate_offsets:
-        label_box = Point(flon + dx, flat + dy).buffer(1.8)
-        if not label_box.intersects(obstacles) and safe_box.contains(label_box):
-            return dx, dy
-            
-    # 若無完美位置，退而求其次尋找距離障礙物最遠，且儘量留在安全範圍內的位置
-    best_score = -999999.0
-    for dx, dy in candidate_offsets:
-        label_box = Point(flon + dx, flat + dy).buffer(1.8)
-        dist_to_obs = label_box.distance(obstacles)
-        
-        # 評分標準：距離障礙物越遠越好，若在安全範圍內給予額外加分
-        score = dist_to_obs
-        if safe_box.contains(label_box):
-            score += 50.0
-        
-        if score > best_score:
-            best_score = score
-            best_dx, best_dy = dx, dy
-            
-    return best_dx, best_dy
 
 def generate_maps():
     files = ['A', 'B', 'C', 'D', 'E', 'F']
@@ -338,25 +321,21 @@ def generate_maps():
     if not valid_storms:
         return
 
-    candidate_offsets = [
-        (1.8, 0.0),    # 右側
-        (-6.5, 0.0),   # 左側
-        (0.0, 3.0),    # 上方
-        (0.0, -3.0),   # 下方
-        (1.8, 3.0),    # 右上方
-        (-6.5, 3.0),   # 左上方
-        (1.8, -3.0),   # 右下方
-        (-6.5, -3.0),  # 左下方
-        (3.5, 1.5),    # 遠右方
-        (-6.0, 1.5)    # 遠左方
-    ]
-
     # 1. 產生綜合路徑圖 (all.png)
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
     
-    all_map_extent = [100, 160, 5, 50]
-    setup_map_axes(ax, *all_map_extent)
+    setup_map_axes(ax, 100, 160, 5, 50)
+
+    # 取得可用時間顯示在綜合圖中（優先抓取第一個有效風暴的時間）
+    combined_date_time = ""
+    for data in valid_storms.values():
+        if data.get("current_time"):
+            combined_date_time = data["current_time"]
+            break
+
+    if combined_date_time:
+        ax.text(0.95, 0.95, combined_date_time, transform=ax.transAxes, ha='right', va='top', fontsize=10, color='white', alpha=0.9, bbox=dict(facecolor='black', alpha=0.3, pad=3, edgecolor='none'), zorder=10)
 
     all_storm_geoms = []
     for prefix, data in valid_storms.items():
@@ -364,22 +343,32 @@ def generate_maps():
         p = data["past"]
         f = data["forecast"]
         if len(p["lats"]) > 1:
-            obs_parts.append(LineString(zip(p["lons"], p["lats"])))
-        for plon, plat in zip(p["lons"], p["lats"]):
-            obs_parts.append(Point(plon, plat).buffer(0.8))
+            # 建立帶有安全緩衝區的路徑幾何，確保標籤不會貼近軌跡
+            obs_parts.append(LineString(zip(p["lons"], p["lats"])).buffer(1.8))
         if len(f["hours"]) > 1:
-            obs_parts.append(LineString(zip(f["lons"], f["lats"])))
-            for flon, flat in zip(f["lons"], f["lats"]):
-                obs_parts.append(Point(flon, flat).buffer(1.5))
+            obs_parts.append(LineString(zip(f["lons"], f["lats"])).buffer(1.8))
             env_first, env_sec = compute_storm_envelopes(f)
             if env_first and not env_first.is_empty:
-                obs_parts.append(env_first)
+                obs_parts.append(env_first.buffer(0.8))
             if env_sec and not env_sec.is_empty:
-                obs_parts.append(env_sec)
+                obs_parts.append(env_sec.buffer(0.8))
         if obs_parts:
             all_storm_geoms.append(unary_union(obs_parts))
     combined_obstacles = unary_union(all_storm_geoms) if all_storm_geoms else Point(0, 0)
     placed_labels_geom = []
+
+    candidate_offsets = [
+        (1.4, 0.0),    # 右側
+        (-6.5, 0.0),   # 左側
+        (0.0, 2.5),    # 上方
+        (0.0, -2.5),   # 下方
+        (1.4, 2.5),    # 右上方
+        (-6.5, 2.5),   # 左上方
+        (1.4, -2.5),   # 右下方
+        (-6.5, -2.5),  # 左下方
+        (3.0, 1.5),    # 遠右方
+        (-6.0, 1.5)    # 遠左方
+    ]
 
     for prefix, data in valid_storms.items():
         p = data["past"]
@@ -409,9 +398,23 @@ def generate_maps():
 
             if len(f["lons"]) > 0:
                 flon, flat = f["lons"][0], f["lats"][0]
+                best_dx, best_dy = candidate_offsets[0]
+                
                 current_obstacle = unary_union([combined_obstacles] + placed_labels_geom) if placed_labels_geom else combined_obstacles
                 
-                best_dx, best_dy = find_best_label_position(flon, flat, current_obstacle, all_map_extent, candidate_offsets)
+                for dx, dy in candidate_offsets:
+                    label_box = Point(flon + dx, flat + dy).buffer(1.8)
+                    if not label_box.intersects(current_obstacle):
+                        best_dx, best_dy = dx, dy
+                        break
+                else:
+                    best_dist = -1
+                    for dx, dy in candidate_offsets:
+                        label_box = Point(flon + dx, flat + dy).buffer(1.8)
+                        dist = label_box.distance(current_obstacle)
+                        if dist > best_dist:
+                            best_dist = dist
+                            best_dx, best_dy = dx, dy
 
                 final_label_box = Point(flon + best_dx, flat + best_dy).buffer(1.8)
                 placed_labels_geom.append(final_label_box)
@@ -433,6 +436,7 @@ def generate_maps():
         p = data["past"]
         f = data["forecast"]
         sname = data["name"] if data["name"] else f"熱帶氣旋 {prefix}"
+        date_time = data.get("current_time", "")
         has_forecast = len(f["hours"]) > 1
 
         envelope_first = envelope_second_no_overlap = None
@@ -440,6 +444,7 @@ def generate_maps():
             envelope_first, envelope_second_no_overlap = compute_storm_envelopes(f)
             smooth_lons, smooth_lats, _ = create_smooth_track_uniform_time(f["hours"], f["lons"], f["lats"], time_step=1.0)
 
+        # 縮放範圍計算：單一圖檔僅根據預報路徑 (forecast track) 進行縮放定位
         if has_forecast and len(f["lats"]) > 0:
             target_lats = f["lats"]
             target_lons = f["lons"]
@@ -463,11 +468,13 @@ def generate_maps():
             target_lon_span = lat_span * 1.5
             lon_min = lon_max - target_lon_span
             
-            single_map_extent = [lon_min, lon_max, lat_min, lat_max]
-            setup_map_axes(ax, *single_map_extent)
+            setup_map_axes(ax, lon_min, lon_max, lat_min, lat_max)
         else:
-            single_map_extent = [120, 170, 5, 38.33]
-            setup_map_axes(ax, *single_map_extent)
+            setup_map_axes(ax, 120, 170, 5, 38.33)
+
+        # 顯示時間標籤（若 CSV 中有提供 current 時間）
+        if date_time:
+            ax.text(0.95, 0.95, date_time, transform=ax.transAxes, ha='right', va='top', fontsize=10, color='white', alpha=0.9, bbox=dict(facecolor='black', alpha=0.3, pad=3, edgecolor='none'), zorder=10)
 
         if has_forecast:
             if envelope_first and not envelope_first.is_empty:
@@ -488,27 +495,7 @@ def generate_maps():
                 plot_tc_icon(ax, flon, flat, icon_file, zoom=0.14)
 
             if len(f["lons"]) > 0:
-                flon, flat = f["lons"][0], f["lats"][0]
-                
-                # 建立單一圖檔的氣旋障礙物 (軌跡、點位、誤差圓錐)
-                obs_parts = []
-                if len(p["lats"]) > 1:
-                    obs_parts.append(LineString(zip(p["lons"], p["lats"])))
-                for plon, plat in zip(p["lons"], p["lats"]):
-                    obs_parts.append(Point(plon, plat).buffer(0.8))
-                if len(f["hours"]) > 1:
-                    obs_parts.append(LineString(zip(f["lons"], f["lats"])))
-                    for fx, fy in zip(f["lons"], f["lats"]):
-                        obs_parts.append(Point(fx, fy).buffer(1.5))
-                    if envelope_first and not envelope_first.is_empty:
-                        obs_parts.append(envelope_first)
-                    if envelope_second_no_overlap and not envelope_second_no_overlap.is_empty:
-                        obs_parts.append(envelope_second_no_overlap)
-                storm_obstacles = unary_union(obs_parts) if obs_parts else Point(0, 0)
-
-                best_dx, best_dy = find_best_label_position(flon, flat, storm_obstacles, single_map_extent, candidate_offsets)
-
-                ax.text(flon + best_dx, flat + best_dy, sname, 
+                ax.text(f["lons"][0] + 1.4, f["lats"][0] + 0, sname, 
                         transform=ccrs.PlateCarree(), color='white', fontsize=11, fontweight='bold',
                         bbox=dict(boxstyle='round,pad=0.3', facecolor='black', alpha=0.7, edgecolor='none'),
                         zorder=102)
