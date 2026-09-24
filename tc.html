@@ -81,6 +81,100 @@
         <!-- 頁面主要內容包裝 -->
         <div class="page-wrapper space-y-6" id="dashboard-content">
             
+            <!-- 即時活躍系統與風速儀表盤專區（新增於GIS路徑圖上方） -->
+            <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="activeSystemGaugeCard">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <span class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-gauge-high text-cyan-500"></i> 即時活躍系統與風速儀表盤
+                    </span>
+                    <span class="text-[10px] px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 font-medium flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> 即時監測
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    <!-- 左側：活躍氣旋詳細資訊 -->
+                    <div id="gaugeStormInfo" class="space-y-4">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span id="gaugeStormBadge" class="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-white shadow-sm">載入中</span>
+                            <span id="gaugeStormId" class="text-xs font-mono text-slate-400">--</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1">
+                                <i class="fa-solid fa-circle text-[6px]"></i> 即時
+                            </span>
+                        </div>
+                        <div>
+                            <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">載入中...</h2>
+                            <p id="gaugeStormCategory" class="text-sm font-semibold text-cyan-600 dark:text-cyan-400 mt-0.5">請稍候</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 pt-2 text-xs text-slate-600 dark:text-slate-300">
+                            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                                <span class="text-slate-400 block mb-0.5">中心位置</span>
+                                <span id="gaugeStormLatLon" class="font-mono font-semibold text-slate-700 dark:text-slate-200">-</span>
+                            </div>
+                            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                                <span class="text-slate-400 block mb-0.5">觀測時間</span>
+                                <span id="gaugeStormTime" class="font-mono font-semibold text-slate-700 dark:text-slate-200">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側：風速儀表盤圖表（帶彩色弧形刻度與動畫指針） -->
+                    <div class="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-sm">
+                        <div class="relative w-full max-w-[280px] aspect-[2/1] flex items-center justify-center">
+                            <!-- SVG 儀表盤 -->
+                            <svg class="w-full h-full overflow-visible" viewBox="0 0 200 110">
+                                <!-- 背景軌道弧形 -->
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" class="dark:stroke-slate-800" />
+                                
+                                <!-- 彩色弧形刻度 -->
+                                <!-- 1. 低壓區 (<=40): #DDDFE2 -->
+                                <path d="M 20 100 A 80 80 0 0 1 26.7 67.9" fill="none" stroke="#DDDFE2" stroke-width="14" stroke-linecap="butt" />
+                                <!-- 2. 熱帶低氣壓 (41-62): #6DD8FA -->
+                                <path d="M 26.7 67.9 A 80 80 0 0 1 35.5 52.3" fill="none" stroke="#6DD8FA" stroke-width="14" stroke-linecap="butt" />
+                                <!-- 3. 熱帶風暴 (63-87): #9DD79C -->
+                                <path d="M 35.5 52.3 A 80 80 0 0 1 49.8 37.6" fill="none" stroke="#9DD79C" stroke-width="14" stroke-linecap="butt" />
+                                <!-- 4. 強烈熱帶風暴 (88-117): #FFD363 -->
+                                <path d="M 49.8 37.6 A 80 80 0 0 1 71.3 25.0" fill="none" stroke="#FFD363" stroke-width="14" stroke-linecap="butt" />
+                                <!-- 5. 颱風 (118-149): #F78A31 -->
+                                <path d="M 71.3 25.0 A 80 80 0 0 1 97.1 20.0" fill="none" stroke="#F78A31" stroke-width="14" stroke-linecap="butt" />
+                                <!-- 6. 強颱風 (150-184): #FF6F6F -->
+                                <path d="M 97.1 20.0 A 80 80 0 0 1 125.6 24.3" fill="none" stroke="#FF6F6F" stroke-width="14" stroke-linecap="butt" />
+                                <!-- 7. 超強颱風 (185-305): #DE82FF -->
+                                <path d="M 125.6 24.3 A 80 80 0 0 1 180 100" fill="none" stroke="#DE82FF" stroke-width="14" stroke-linecap="butt" />
+
+                                <!-- 刻度標籤 -->
+                                <text x="15" y="112" font-size="8" fill="#94a3b8" text-anchor="middle">0</text>
+                                <text x="100" y="12" font-size="8" fill="#94a3b8" text-anchor="middle">150</text>
+                                <text x="185" y="112" font-size="8" fill="#94a3b8" text-anchor="middle">305</text>
+
+                                <!-- 指針群組 (帶平滑動畫 transition) -->
+                                <g id="gaugeNeedleGroup" transform="translate(100, 100) rotate(-90)" style="transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                                    <polygon points="0,-3 -70,0 0,3" fill="#0f172a" class="dark:fill-slate-100" />
+                                    <circle cx="0" cy="0" r="6" fill="#0284c7" />
+                                </g>
+                            </svg>
+
+                            <!-- 中心風速數字顯示 -->
+                            <div class="absolute bottom-1 flex flex-col items-center">
+                                <span id="gaugeWindValue" class="text-3xl md:text-4xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white transition-all duration-500">0</span>
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400 mt-[-2px]">km/h</span>
+                            </div>
+                        </div>
+
+                        <!-- 顏色分級圖例 -->
+                        <div class="flex flex-wrap items-center justify-center gap-2 mt-4 text-[10px] text-slate-600 dark:text-slate-400">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#DDDFE2"></span>低壓區</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#6DD8FA"></span>熱帶低氣壓</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#9DD79C"></span>熱帶風暴</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#FFD363"></span>強烈熱帶風暴</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#F78A31"></span>颱風</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#FF6F6F"></span>強颱風</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background:#DE82FF"></span>超強颱風</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 熱帶氣旋GIS路徑圖介紹專區 -->
             <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -156,13 +250,13 @@
                 <!-- 風速分級圖例 -->
                 <div class="flex flex-wrap items-center justify-center gap-3 text-xs text-slate-600 dark:text-slate-400 pt-4 mt-6 border-t border-slate-100 dark:border-slate-800">
                     <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>溫帶氣旋</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>低壓區</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#0284c7]"></span>熱帶低氣壓</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>熱帶風暴</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ca8a04]"></span>強烈熱帶風暴</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#ea580c]"></span>颱風</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#dc2626]"></span>強颱風</span>
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#9333ea]"></span>超強颱風</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#DDDFE2]"></span>低壓區</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#6DD8FA]"></span>熱帶低氣壓</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#9DD79C]"></span>熱帶風暴</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#FFD363]"></span>強烈熱帶風暴</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#F78A31]"></span>颱風</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#FF6F6F]"></span>強颱風</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#DE82FF]"></span>超強颱風</span>
                 </div>
             </div>
         </div>
@@ -220,6 +314,54 @@
             "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
         };
 
+        // 更新風速儀表盤函數（支援動畫與刻度對應）
+        function updateWindGauge(stormData) {
+            const needleGroup = document.getElementById('gaugeNeedleGroup');
+            const windValEl = document.getElementById('gaugeWindValue');
+            const badgeEl = document.getElementById('gaugeStormBadge');
+            const idEl = document.getElementById('gaugeStormId');
+            const nameEl = document.getElementById('gaugeStormName');
+            const catEl = document.getElementById('gaugeStormCategory');
+            const latLonEl = document.getElementById('gaugeStormLatLon');
+            const timeEl = document.getElementById('gaugeStormTime');
+            const cardEl = document.getElementById('activeSystemGaugeCard');
+
+            if (!stormData) {
+                if (cardEl) cardEl.style.display = 'none';
+                return;
+            }
+
+            if (cardEl) cardEl.style.display = 'block';
+
+            if (badgeEl) badgeEl.textContent = stormData.intensityObj.code || 'TC';
+            if (idEl) idEl.textContent = stormData.name ? `SYSTEM - ${stormData.name}` : 'ACTIVE SYSTEM';
+            if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
+            if (catEl) catEl.textContent = stormData.category || '熱帶氣旋';
+            if (latLonEl) latLonEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
+            if (timeEl) timeEl.textContent = stormData.time || '-';
+
+            // 解析風速數值 (km/h)
+            let windKmh = 0;
+            if (typeof stormData.wind === 'string' && stormData.wind.includes('km/h')) {
+                windKmh = parseFloat(stormData.wind.replace(' km/h', '')) || 0;
+            } else {
+                windKmh = parseFloat(stormData.wind) || 0;
+            }
+            if (isNaN(windKmh)) windKmh = 0;
+
+            if (windValEl) windValEl.textContent = windKmh;
+
+            // 計算儀表盤指針角度 (0 km/h 對應 -90度，305 km/h 對應 +90度)
+            let clampedWind = Math.max(0, Math.min(305, windKmh));
+            let angle = -90 + (clampedWind / 305) * 180;
+
+            if (needleGroup) {
+                setTimeout(() => {
+                    needleGroup.style.transform = `translate(100px, 100px) rotate(${angle}deg)`;
+                }, 100);
+            }
+        }
+
         // 時間轉中文格式函數（只取時間不取日期）
         function formatChineseTime(timeStr) {
             if (!timeStr) return '';
@@ -243,7 +385,7 @@
             return '';
         }
 
-        // 生成熱帶氣旋報文函數 (條件式判斷：有移動資料則顯示「向...移動，時速...公里」，無則省略並以句號結尾)
+        // 生成熱帶氣旋報文函數
         function generateTyphoonBulletin(stormData) {
             if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
             
@@ -255,14 +397,12 @@
             const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
             const dirChinese = chineseDirections[engDir] || engDir;
             
-            // 風速部分
             let windClause = "";
             if (!stormData.isEx && stormData.wind && stormData.wind !== '-') {
                 const windKmh = stormData.wind.replace(' km/h', '');
                 windClause = `，其中心附近最高持續風速約為每小時${windKmh}公里`;
             }
 
-            // 移動方向與時速部分（若有移動資料則顯示，否則省略）
             let movementClause = "";
             if (stormData.movement && stormData.movement !== '-' && stormData.movement !== '靜止') {
                 const movParts = stormData.movement.split(' ');
@@ -343,39 +483,6 @@
             return directions[Math.round((brng % 360) / 22.5) % 16];
         }
 
-        function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
-            if (!coords || coords.length < 2) return coords;
-            let pts = [coords[0], ...coords, coords[coords.length - 1]];
-            let smooth = [];
-
-            for (let i = 1; i < pts.length - 2; i++) {
-                let p0 = pts[i - 1];
-                let p1 = pts[i];
-                let p2 = pts[i + 1];
-                let p3 = pts[i + 2];
-
-                for (let t = 0; t < samplesPerSegment; t++) {
-                    let st = t / samplesPerSegment;
-                    let t2 = st * st;
-                    let t3 = t2 * st;
-
-                    let x = 0.5 * ((2 * p1[0]) +
-                        (-p0[0] + p2[0]) * st +
-                        (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
-                        (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
-
-                    let y = 0.5 * ((2 * p1[1]) +
-                        (-p0[1] + p2[1]) * st +
-                        (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
-                        (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
-
-                    smooth.push([x, y]);
-                }
-            }
-            smooth.push(coords[coords.length - 1]);
-            return smooth;
-        }
-
         const ERROR_HOURS = [0, 24, 48, 72, 96, 120];
         const ERROR_RADII_KM = [15, 100, 170, 255, 345, 465];
 
@@ -394,7 +501,6 @@
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
         }
 
-        // 移動方向與時速計算
         function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
             if (!forecastPoints || forecastPoints.length < 2) {
                 return '-';
@@ -592,6 +698,11 @@
                     if (!stormData) continue;
                     activeCount++;
 
+                    // 如果是第一個活躍氣旋，更新儀表盤
+                    if (activeCount === 1) {
+                        updateWindGauge(stormData);
+                    }
+
                     // 建立動態切換按鈕
                     const btn = document.createElement('button');
                     btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
@@ -650,6 +761,8 @@
                 if (detailPanelContent) {
                     detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">現時沒有活躍的熱帶氣旋數據。</p>';
                 }
+                const cardEl = document.getElementById('activeSystemGaugeCard');
+                if (cardEl) cardEl.style.display = 'none';
             } else {
                 if (detailPanelContent) {
                     detailPanelContent.innerHTML = allCyclonesHtml;
