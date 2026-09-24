@@ -109,7 +109,7 @@ def plot_tc_icon(ax, lon, lat, icon_filename, default_color='#DDDFE2', zoom=0.01
     if os.path.exists(icon_path):
         try:
             img = mpimg.imread(icon_path)
-            imagebox = OffsetImage(img, zoom=zoom)
+            imagebox = OffsetImage(img, zoom=0.0042)
             ab = AnnotationBbox(imagebox, (lon, lat), xycoords=ccrs.PlateCarree()._as_mpl_transform(ax), frameon=False)
             ax.add_artist(ab)
             ab.set_zorder(100)
