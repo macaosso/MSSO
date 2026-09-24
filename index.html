@@ -409,7 +409,6 @@
                 return;
             }
 
-            // 當處於「全部」時，將最新的月報與特別報告獨立提取並置頂顯示於資料夾外側，方便用戶直接檢視
             if (currentReportFilter === 'all') {
                 const sortedAll = [...reportsData].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
                 const latestMonthly = sortedAll.find(r => r.category === 'monthly');
@@ -532,7 +531,6 @@
             }
         }
 
-        // 相對濕度分級 (色彩順序: Brown < green < blue)
         function getHumidityCategory(humidity) {
             if (humidity >= 95) {
                 return { label: '非常潮濕', class: 'bg-blue-200 text-blue-900 dark:bg-blue-950 dark:text-blue-300 font-bold' };
@@ -547,7 +545,6 @@
             }
         }
 
-        // 紫外線指數分級（UV >= 8 時判定為甚高）
         function getUvCategory(uv) {
             const roundedUv = Math.round(uv);
             if (roundedUv >= 11) {
@@ -596,103 +593,160 @@
                 1: isNight ? { text: '大致天晴', icon: 'fas fa-moon text-indigo-300' } : { text: '大致天晴', icon: 'fas fa-sun text-yellow-400' },
                 2: isNight ? { text: '天色明朗', icon: 'fas fa-cloud-moon text-indigo-200' } : { text: '天色明朗', icon: 'fas fa-cloud-sun text-yellow-400' },
                 3: { text: '多雲', icon: 'fas fa-cloud text-slate-300' },
-                4: { text: '煙霾', icon: 'fas fa-smog text-neutral-400' },
-                5: { text: '霾', icon: 'fas fa-wind text-stone-400' },
-                6: { text: '浮塵', icon: 'fas fa-wind text-amber-600/70' },
-                7: { text: '揚沙', icon: 'fas fa-wind text-amber-700' },
-                8: { text: '塵捲風', icon: 'fas fa-tornado text-amber-800' },
-                9: { text: '沙塵暴現象', icon: 'fas fa-wind text-amber-900' },
-                10: { text: '輕霧', icon: 'fas fa-smog text-slate-300' },
-                11: { text: '薄霧', icon: 'fas fa-smog text-slate-350' },
-                12: { text: '低霧', icon: 'fas fa-smog text-slate-400' },
-                13: { text: '遠處閃電', icon: 'fas fa-bolt text-yellow-400' },
-                14: { text: '雨幡', icon: 'fas fa-cloud text-blue-300/60' },
-                15: { text: '遠處降水', icon: 'fas fa-cloud-sun-rain text-blue-300' },
-                16: { text: '近處降水', icon: 'fas fa-cloud-rain text-blue-400' },
-                17: { text: '旱雷', icon: 'fas fa-cloud-bolt text-amber-400' },
-                18: { text: '颮風', icon: 'fas fa-wind text-blue-600' },
-                19: { text: '龍捲風趨勢', icon: 'fas fa-tornado text-slate-700' },
-                20: { text: '前一小時有毛毛雨', icon: 'fas fa-cloud text-blue-200' },
-                21: { text: '前一小時有雨', icon: 'fas fa-cloud-rain text-blue-300' },
-                22: { text: '前一小時有雪', icon: 'fas fa-snowflake text-sky-200' },
-                23: { text: '前一小時有雨夾雪', icon: 'fas fa-cloud-meatball text-sky-300' },
-                24: { text: '前一小時有凍雨', icon: 'fas fa-icicles text-blue-300' },
-                25: { text: '前一小時有陣雨', icon: 'fas fa-cloud-showers-heavy text-blue-400' },
-                26: { text: '前一小時有陣雪', icon: 'fas fa-snowflake text-blue-200' },
-                27: { text: '前一小時有冰雹', icon: 'fas fa-cloud-hail text-blue-300' },
-                28: { text: '前一小時有霧', icon: 'fas fa-smog text-slate-400' },
-                29: { text: '前一小時有雷暴', icon: 'fas fa-cloud-bolt text-amber-500' },
-                30: { text: '減弱中沙塵暴', icon: 'fas fa-wind text-amber-700/80' },
-                31: { text: '無明顯變化沙塵暴', icon: 'fas fa-wind text-amber-700' },
-                32: { text: '增強中沙塵暴', icon: 'fas fa-wind text-amber-800' },
-                33: { text: '減弱中強沙塵暴', icon: 'fas fa-wind text-amber-850' },
-                34: { text: '無明顯變化強沙塵暴', icon: 'fas fa-wind text-amber-900' },
-                35: { text: '增強中強沙塵暴', icon: 'fas fa-wind text-amber-950' },
-                36: { text: '低吹雪（輕/中）', icon: 'fas fa-wind text-sky-100' },
-                37: { text: '低吹雪（重）', icon: 'fas fa-wind text-sky-200' },
-                38: { text: '高吹雪（輕/中）', icon: 'fas fa-snowflake text-sky-300' },
-                39: { text: '高吹雪（重）', icon: 'fas fa-snowflake text-sky-400' },
-                41: { text: '分散薄霧', icon: 'fas fa-smog text-slate-300' },
-                42: { text: '天空可辨的減弱霧', icon: 'fas fa-smog text-slate-350' },
-                43: { text: '天空不明的減弱霧', icon: 'fas fa-smog text-slate-400' },
-                44: { text: '天空可辨的無變化霧', icon: 'fas fa-smog text-slate-400' },
-                45: { text: '大霧（天空不明且無變化）', icon: 'fas fa-smog text-slate-450' },
-                46: { text: '天空可辨的增強霧', icon: 'fas fa-smog text-slate-450' },
-                47: { text: '天空不明的增強霧', icon: 'fas fa-smog text-slate-550' },
-                48: { text: '結霜霧（天空可辨）', icon: 'fas fa-icicles text-slate-300' },
-                49: { text: '結霜霧（天空不明）', icon: 'fas fa-icicles text-slate-400' },
-                50: { text: '部分時間有陽光', icon: 'fas fa-cloud-sun text-yellow-400' },
-                51: { text: '短暫時間有陽光', icon: 'fas fa-cloud-sun text-yellow-400' },
-                52: { text: '部分時間有陽光，間中有微雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                53: { text: '短暫時間有陽光，有微雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                54: { text: '部分時間有陽光，間中有雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                55: { text: '短暫時間有陽光，有雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                56: { text: '輕微凍毛毛雨', icon: 'fas fa-icicles text-cyan-200' },
-                57: { text: '中或濃凍毛毛雨', icon: 'fas fa-icicles text-cyan-400' },
-                58: { text: '毛毛雨夾輕雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                59: { text: '毛毛雨夾中大雨', icon: 'fas fa-cloud-showers-heavy text-blue-500' },
-                60: { text: '間中有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                61: { text: '有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                62: { text: '間中有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                63: { text: '有驟雨', icon: 'fas fa-cloud-rain text-blue-400' },
-                64: { text: '間中有大驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-600' },
-                65: { text: '有大驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-600 dark:text-blue-500' },
-                66: { text: '輕微凍雨', icon: 'fas fa-snowflake text-cyan-300' },
-                67: { text: '中或大凍雨', icon: 'fas fa-icicles text-cyan-500' },
-                68: { text: '輕雨夾雪', icon: 'fas fa-cloud-meatball text-blue-200' },
-                69: { text: '中或大雨夾雪', icon: 'fas fa-cloud-meatball text-blue-400' },
-                70: { text: '間歇性小雪', icon: 'fas fa-snowflake text-sky-100' },
-                71: { text: '連續性小雪', icon: 'fas fa-snowflake text-sky-200' },
-                72: { text: '間歇性中雪', icon: 'fas fa-snowflake text-sky-300' },
-                73: { text: '連續性中雪', icon: 'fas fa-snowflake text-sky-400' },
-                74: { text: '間歇性大雪', icon: 'fas fa-snowflake text-blue-200' },
-                75: { text: '連續性大雪', icon: 'fas fa-snowflake text-blue-300' },
-                76: { text: '冰針/鑽石塵', icon: 'fas fa-snowflake text-cyan-100' },
-                77: { text: '米雪/雪粒', icon: 'fas fa-snowflake text-cyan-200' },
-                78: { text: '孤立星狀雪花', icon: 'fas fa-snowflake text-sky-100' },
-                79: { text: '冰粒', icon: 'fas fa-cloud-hail text-cyan-400' },
-                80: { text: '小陣雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
-                81: { text: '中或強陣雨', icon: 'fas fa-cloud-showers-heavy text-blue-400' },
-                82: { text: '極大陣雨（暴雨）', icon: 'fas fa-cloud-showers-water text-blue-600' },
-                83: { text: '輕陣雨夾雪', icon: 'fas fa-cloud-meatball text-blue-200' },
-                84: { text: '中或強陣雨夾雪', icon: 'fas fa-cloud-meatball text-blue-400' },
-                85: { text: '小陣雪', icon: 'fas fa-snowflake text-sky-200' },
-                86: { text: '中或強陣雪', icon: 'fas fa-snowflake text-sky-400' },
-                87: { text: '輕微陣性霰/冰粒', icon: 'fas fa-cloud-hail text-cyan-200' },
-                88: { text: '中或強陣性霰/冰粒', icon: 'fas fa-cloud-hail text-cyan-400' },
-                89: { text: '小陣性冰雹', icon: 'fas fa-cloud-hail text-amber-600' },
-                90: { text: '強陣性冰雹', icon: 'fas fa-cloud-hail text-amber-700' },
-                91: { text: '雷暴過後的小雨', icon: 'fas fa-cloud-bolt text-blue-400' },
-                92: { text: '雷暴過後的中大雨', icon: 'fas fa-cloud-bolt text-blue-500' },
-                93: { text: '雷暴過後的輕雪/冰雹', icon: 'fas fa-cloud-bolt text-sky-300' },
-                94: { text: '雷暴過後的大雪/冰雹', icon: 'fas fa-cloud-bolt text-sky-500' },
-                95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' },
-                96: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' },
-                97: { text: '大雷雨', icon: 'fas fa-cloud-bolt text-red-500 dark:text-amber-500' },
-                98: { text: '雷暴伴隨沙塵暴', icon: 'fas fa-cloud-bolt text-amber-800' },
-                99: { text: '大雷雨伴隨強冰雹', icon: 'fas fa-cloud-bolt text-red-600 dark:text-orange-500' }
+                45: { text: '大霧', icon: 'fas fa-smog text-slate-400' },
+                51: { text: '輕微毛毛雨', icon: 'fas fa-cloud-sun text-yellow-400' },
+                53: { text: '毛毛雨', icon: 'fas fa-cloud-sun-rain text-blue-400' },
+                61: { text: '微雨', icon: 'fas fa-cloud-rain text-blue-400' },
+                80: { text: '陣雨', icon: 'fas fa-cloud-showers-heavy text-blue-400' },
+                95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' }
             };
-            return symbols[code] || { text: '未知天氣', icon: 'fas fa-question-circle text-slate-400' };
+            return symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-300' };
+        }
+
+        // 新增的進階 7 天天氣預報圖示與條件判斷函式
+        function getAdvancedDailyWeatherIcon(dayIndex, data) {
+            const dailyCode = data.daily.weather_code[dayIndex];
+            const maxTemp = data.daily.temperature_2m_max[dayIndex];
+            const minTemp = data.daily.temperature_2m_min[dayIndex];
+            const dateStr = data.daily.time[dayIndex];
+
+            const hourlyIndices = [];
+            data.hourly.time.forEach((t, idx) => {
+                if (t.startsWith(dateStr)) {
+                    hourlyIndices.push(idx);
+                }
+            });
+
+            let sunHours = 0;
+            let cloudHours = 0;
+            let rainHours = 0;
+            let drizzleHours = 0; // groupCounts['D']
+            let hasThunderstormOrShowers = false;
+            let hasSnowOrFreezingRain = false;
+            let hasFog = false;
+            let hasHeavyRain = false;
+
+            hourlyIndices.forEach(idx => {
+                const hCode = data.hourly.weather_code[idx];
+                if (hCode === 0 || hCode === 1) {
+                    sunHours++;
+                }
+                if (hCode >= 2 && hCode <= 4) {
+                    cloudHours++;
+                }
+                if ((hCode >= 51 && hCode <= 67) || (hCode >= 80 && hCode <= 82)) {
+                    rainHours++;
+                }
+                if (hCode === 51 || hCode === 53) {
+                    drizzleHours++;
+                }
+                if (hCode >= 80 && hCode <= 99) {
+                    hasThunderstormOrShowers = true;
+                }
+                if ((hCode >= 66 && hCode <= 69) || (hCode >= 70 && hCode <= 79) || (hCode >= 83 && hCode <= 88)) {
+                    hasSnowOrFreezingRain = true;
+                }
+                if (hCode === 45 || hCode === 48) {
+                    hasFog = true;
+                }
+                if (hCode === 63 || hCode === 65 || hCode === 82) {
+                    hasHeavyRain = true;
+                }
+            });
+
+            if (hourlyIndices.length === 0) {
+                sunHours = (dailyCode === 0 || dailyCode === 1) ? 14 : 5;
+                cloudHours = (dailyCode === 2 || dailyCode === 3) ? 10 : 2;
+                rainHours = (dailyCode >= 51 && dailyCode <= 82) ? 6 : 0;
+            }
+
+            // 1. Base WMO Weather Code Mapping
+            let icon = 'fas fa-cloud';
+            let text = '多雲';
+
+            switch (dailyCode) {
+                case 0:
+                    icon = 'fas fa-sun text-yellow-500 dark:text-yellow-400';
+                    text = '天晴';
+                    break;
+                case 1:
+                    icon = 'fas fa-sun text-yellow-400';
+                    text = '大致天晴';
+                    break;
+                case 2:
+                    icon = 'fas fa-cloud-sun text-yellow-400';
+                    text = '部分多雲';
+                    break;
+                case 3:
+                    icon = 'fas fa-cloud text-slate-300';
+                    text = '多雲';
+                    break;
+                case 45:
+                    icon = 'fas fa-smog text-slate-400';
+                    text = '霧';
+                    break;
+                case 51:
+                    icon = 'fas fa-cloud-sun text-yellow-400';
+                    text = '輕微毛毛雨';
+                    break;
+                case 53:
+                    icon = 'fas fa-cloud-sun-rain text-blue-400';
+                    text = '毛毛雨';
+                    break;
+                case 61:
+                    icon = 'fas fa-cloud-rain text-blue-400';
+                    text = '微雨';
+                    break;
+                case 80:
+                    icon = 'fas fa-cloud-showers-heavy text-blue-400';
+                    text = '陣雨';
+                    break;
+                case 95:
+                    icon = 'fas fa-cloud-bolt text-blue-400';
+                    text = '雷雨';
+                    break;
+                default:
+                    icon = 'fas fa-cloud text-slate-300';
+                    text = '多雲';
+                    break;
+            }
+
+            // 3. Sunlight, Cloud, and Rain Duration Adjustments
+            if (sunHours > 12 && cloudHours > 0 && rainHours > 0) {
+                icon = 'fas fa-cloud-sun-rain text-blue-400';
+                text = '陽光雲雨';
+            }
+
+            if (icon === 'fas fa-cloud-sun-rain text-blue-400' && rainHours < 8) {
+                icon = 'fas fa-cloud-sun text-yellow-400';
+                text = '部分多雲';
+            }
+
+            const hasSevereWeather = hasFog || hasHeavyRain || hasSnowOrFreezingRain || hasThunderstormOrShowers || (rainHours >= 8);
+            if (drizzleHours >= 1 && drizzleHours <= 7 && !hasSevereWeather) {
+                if (sunHours > 0 && cloudHours > 0) {
+                    icon = 'fas fa-cloud-sun text-yellow-400';
+                    text = '部分多雲';
+                } else if (sunHours > 0 && cloudHours === 0) {
+                    icon = 'fas fa-sun text-yellow-500 dark:text-yellow-400';
+                    text = '天晴';
+                } else {
+                    icon = 'fas fa-cloud text-slate-300';
+                    text = '多雲';
+                }
+            }
+
+            // 2. Temperature-Based Overrides
+            const hasOverrideExclusion = hasThunderstormOrShowers || hasSnowOrFreezingRain;
+            if (maxTemp >= 32.5 && !hasOverrideExclusion) {
+                icon = 'fas fa-temperature-arrow-up text-orange-500';
+                text = `高溫 (${Math.round(maxTemp)}°C)`;
+            } else if (minTemp <= 12.5 && !hasOverrideExclusion) {
+                icon = 'fas fa-temperature-arrow-down text-cyan-400';
+                text = `低溫 (${Math.round(minTemp)}°C)`;
+            }
+
+            return { icon, text };
         }
 
         function checkIfNight(dateObj, dailyData, dayIndex = 0) {
@@ -862,7 +916,6 @@
                 <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
             `;
 
-            // 渲染現時相對濕度及對應分級
             const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
             const humidityCat = getHumidityCategory(humidityVal);
             document.getElementById('current-humidity').innerText = `${humidityVal}%`;
@@ -877,7 +930,6 @@
             apparentBadgeEl.textContent = apparentCat.label;
             apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentCat.class}`;
 
-            // 渲染現時紫外線指數（四捨五入至整數）
             const uvValue = curr.uv_index !== undefined ? Math.round(curr.uv_index) : 0;
             const uvCat = getUvCategory(uvValue);
             document.getElementById('current-uv').innerText = uvValue;
@@ -1166,9 +1218,11 @@
             let minPoints = [];
 
             for (let i = 0; i < 7; i++) {
-                const dateStr = data.daily.time[startIndex + i];
-                const code = data.daily.weather_code[startIndex + i];
-                const dayIcon = getWeatherDetails(code, false);
+                const dayIndex = startIndex + i;
+                const dateStr = data.daily.time[dayIndex];
+                
+                // 使用更新後的進階圖示條件判斷
+                const dayIcon = getAdvancedDailyWeatherIcon(dayIndex, data);
 
                 const popVal = Math.round(popMaxs[i]);
                 let popLevel = '極低';
