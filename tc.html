@@ -193,7 +193,7 @@
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-                    <!-- 左側：活躍氣旋詳細資訊 -->
+                    <!-- 左側：活躍氣旋詳細資訊與表格 -->
                     <div id="gaugeStormInfo" class="space-y-4">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span id="gaugeStormBadge" class="px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm bg-cyan-500">載入中</span>
@@ -207,8 +207,40 @@
                         </div>
                         <div>
                             <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">載入中...</h2>
-                            <!-- 熱帶氣旋報文 -->
-                            <div class="mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans" id="gaugeStormBulletin">
+                        </div>
+
+                        <!-- 實況詳細數據表格 -->
+                        <table class="w-full text-left border-collapse text-xs">
+                            <tbody>
+                                <tr class="border-b border-slate-100 dark:border-slate-800">
+                                    <td class="py-1 pr-2 text-slate-500">實況時間</td>
+                                    <td id="gaugeStormTime" class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">-</td>
+                                </tr>
+                                <tr class="border-b border-slate-100 dark:border-slate-800">
+                                    <td class="py-1 pr-2 text-slate-500">最大風速</td>
+                                    <td id="gaugeStormWind" class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">-</td>
+                                </tr>
+                                <tr class="border-b border-slate-100 dark:border-slate-800">
+                                    <td class="py-1 pr-2 text-slate-500">中心位置</td>
+                                    <td id="gaugeStormPos" class="py-1 pl-2 font-mono text-slate-700 dark:text-slate-300">-</td>
+                                </tr>
+                                <tr class="border-b border-slate-100 dark:border-slate-800">
+                                    <td class="py-1 pr-2 text-slate-500">移動方向</td>
+                                    <td id="gaugeStormMove" class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-1 pr-2 text-slate-500">距離澳門</td>
+                                    <td id="gaugeStormDist" class="py-1 pl-2 font-mono text-slate-800 dark:text-slate-300">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 熱帶氣旋報文 -->
+                        <div>
+                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans" id="gaugeStormBulletin">
                                 請稍候...
                             </div>
                         </div>
@@ -478,7 +510,16 @@
             "SuTY": "超強颱風"
         };
 
-        const chineseDirections = {
+        // 距離專用方位字典
+        const distanceDirections = {
+            "N": "以北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
+            "E": "以東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
+            "S": "以南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
+            "W": "以西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
+        };
+
+        // 移動專用方位字典
+        const movementDirections = {
             "N": "北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
             "E": "東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
             "S": "南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
@@ -491,6 +532,11 @@
             const badgeEl = document.getElementById('gaugeStormBadge');
             const nameEl = document.getElementById('gaugeStormName');
             const timePillTextEl = document.getElementById('gaugeStormTimePillText');
+            const timeEl = document.getElementById('gaugeStormTime');
+            const windEl = document.getElementById('gaugeStormWind');
+            const posEl = document.getElementById('gaugeStormPos');
+            const moveEl = document.getElementById('gaugeStormMove');
+            const distEl = document.getElementById('gaugeStormDist');
             const bulletinEl = document.getElementById('gaugeStormBulletin');
             const cardEl = document.getElementById('activeSystemGaugeCard');
             const gaugeContainer = document.getElementById('windGaugeContainer');
@@ -513,6 +559,12 @@
             if (timePillTextEl) {
                 timePillTextEl.textContent = stormData.time || '-';
             }
+
+            if (timeEl) timeEl.textContent = stormData.time || '-';
+            if (windEl) windEl.textContent = stormData.wind || '-';
+            if (posEl) posEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
+            if (moveEl) moveEl.textContent = stormData.movement || '-';
+            if (distEl) distEl.textContent = stormData.distToMacau || '-';
             
             if (bulletinEl) {
                 bulletinEl.textContent = generateTyphoonBulletin(stormData);
@@ -568,7 +620,7 @@
             const distParts = stormData.distToMacau.split(' ');
             const engDir = distParts[0];
             const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
-            const dirChinese = chineseDirections[engDir] || engDir;
+            const dirChinese = distanceDirections[engDir] || engDir;
             
             let windClause = "";
             if (!stormData.isEx && stormData.wind && stormData.wind !== '-') {
@@ -581,7 +633,7 @@
                 const movParts = stormData.movement.split(' ');
                 const movEngDir = movParts[0];
                 const movSpeed = movParts[1] ? movParts[1].replace('km/h', '').trim() : '';
-                const movDirChinese = chineseDirections[movEngDir] || movEngDir;
+                const movDirChinese = movementDirections[movEngDir] || movEngDir;
                 if (movDirChinese && movSpeed) {
                     movementClause = `，向${movDirChinese}移動，時速${movSpeed}公里`;
                 }
@@ -851,14 +903,12 @@
                     activeCount++;
                     allActiveStorms[f] = stormData;
 
-                    // 1. 路徑圖切換按鈕
                     const btn = document.createElement('button');
                     btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
                     btn.textContent = stormData.name;
                     btn.onclick = function() { switchTrackImage(imgPath, this); };
                     container.appendChild(btn);
 
-                    // 2. 儀表盤多氣旋切換按鈕
                     if (gaugeTabsContainer) {
                         const gaugeBtn = document.createElement('button');
                         gaugeBtn.className = activeCount === 1 ? "px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors" : "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
@@ -878,7 +928,7 @@
                 }
             }
 
-            // 備用預設資料（當 CSV 無法讀取或本機執行時，自動載入您指定的舒力基 2526 資料）
+            // 使用您指定的即時數據作為單一系統測試資料
             if (activeCount === 0) {
                 const defaultStorms = {
                     'A': {
@@ -922,10 +972,10 @@
             }
 
             if (gaugeTabsContainer) {
-                gaugeTabsContainer.style.display = activeCount <= 1 ? 'none' : 'flex';
+                gaugeTabsContainer.style.display = activeCount === 0 ? 'none' : 'flex';
             }
             if (container) {
-                container.style.display = activeCount <= 1 ? 'none' : 'flex';
+                container.style.display = activeCount === 0 ? 'none' : 'flex';
             }
 
             if (activeCount === 0) {
