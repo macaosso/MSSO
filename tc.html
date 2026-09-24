@@ -16,6 +16,21 @@
     <!-- 引入自動農曆計算套件 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     <style>
+        :root {
+            --surface-3: #e2e8f0;
+            --text: #0f172a;
+            --text-3: #94a3b8;
+            --cat: #0284c7;
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+        }
+        .dark {
+            --surface-3: #334155;
+            --text: #f1f5f9;
+            --text-3: #64748b;
+            --cat: #38bdf8;
+        }
+
         ::-webkit-scrollbar {
             height: 6px;
             width: 6px;
@@ -32,6 +47,23 @@
             from { transform: rotate(360deg); }
             to { transform: rotate(0deg); }
         }
+
+        /* 風速儀表（SVG 由腳本產生） */
+        .gauge { position:relative; width:100%; max-width: 280px; aspect-ratio: 200 / 128; margin: 0 auto; }
+        .gauge svg { width:100%; height:100%; overflow:visible; display:block; }
+        .g-track { fill:none; stroke: var(--surface-3); stroke-width: 13; stroke-linecap: round; }
+        .storm-hero .g-track { stroke: rgba(255,255,255,.1); }
+        .g-band { fill:none; stroke-width: 4; opacity: .75; }
+        .g-prog { fill:none; stroke: var(--cat); stroke-width: 13; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset 1.8s var(--ease-out); filter: drop-shadow(0 0 6px var(--cat)); }
+        .g-needle { transform-origin: 100px 100px; transition: transform 1.8s var(--ease-spring); }
+        .g-needle line { stroke: var(--text); stroke-width: 3.5; stroke-linecap: round; }
+        .storm-hero .g-needle line { stroke:#fff; }
+        .g-tick { font-size: 8.5px; fill: var(--text-3); font-weight: 700; font-family: inherit; }
+        .storm-hero .g-tick { fill: rgba(234,244,252,.5); }
+        .gauge-val { position:absolute; left:0; right:0; bottom: -2px; text-align:center; line-height:1; }
+        .gauge-val b { font-size: 2.1em; font-weight: 850; letter-spacing: .05em; margin-left: .05em; }
+        .gauge-lg .gauge-val b { font-size: 2.8em; }
+        .gauge-val small { display:block; font-size: .72em; font-weight: 750; opacity: .6; margin-top: 3px; letter-spacing: .1em; } 
     </style>
     <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
     <script>
@@ -119,15 +151,15 @@
                         </div>
                     </div>
 
-                    <!-- 右側：風速儀表盤圖表（帶彩色弧形刻度與動畫指針） -->
+                    <!-- 右側：風速儀表盤圖表（採用新設計類別） -->
                     <div class="flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 relative overflow-hidden shadow-sm">
-                        <div class="relative w-full max-w-[280px] aspect-[2/1] flex items-center justify-center">
+                        <div class="gauge">
                             <!-- SVG 儀表盤 -->
-                            <svg class="w-full h-full overflow-visible" viewBox="0 0 200 110">
+                            <svg viewBox="0 0 200 115">
                                 <!-- 背景軌道弧形 -->
-                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" class="dark:stroke-slate-800" />
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" class="g-track" stroke-width="14" />
                                 
-                                <!-- 彩色弧形刻度（根據 0-305 km/h 比例分段） -->
+                                <!-- 彩色弧形刻度 -->
                                 <path d="M 20 100 A 80 80 0 0 1 26.7 67.9" fill="none" stroke="#DDDFE2" stroke-width="14" stroke-linecap="butt" />
                                 <path d="M 26.7 67.9 A 80 80 0 0 1 35.5 52.3" fill="none" stroke="#6DD8FA" stroke-width="14" stroke-linecap="butt" />
                                 <path d="M 35.5 52.3 A 80 80 0 0 1 49.8 37.6" fill="none" stroke="#9DD79C" stroke-width="14" stroke-linecap="butt" />
@@ -136,24 +168,22 @@
                                 <path d="M 97.1 20.0 A 80 80 0 0 1 125.6 24.3" fill="none" stroke="#FF6F6F" stroke-width="14" stroke-linecap="butt" />
                                 <path d="M 125.6 24.3 A 80 80 0 0 1 180 100" fill="none" stroke="#DE82FF" stroke-width="14" stroke-linecap="butt" />
 
-                                <!-- 關鍵風速刻度標籤 (0, 65, 120, 185, 305 km/h) -->
-                                <text x="15" y="112" font-size="7" fill="#94a3b8" text-anchor="middle">0</text>
-                                <text x="27.1" y="44" font-size="6.5" fill="#94a3b8" text-anchor="middle">65</text>
-                                <text x="69.5" y="10" font-size="6.5" fill="#94a3b8" text-anchor="middle">120</text>
-                                <text x="130.5" y="10" font-size="6.5" fill="#94a3b8" text-anchor="middle">185</text>
-                                <text x="185" y="112" font-size="7" fill="#94a3b8" text-anchor="middle">305</text>
+                                <!-- 關鍵風速刻度標籤 -->
+                                <text x="27.1" y="44" class="g-tick" text-anchor="middle">65</text>
+                                <text x="69.5" y="10" class="g-tick" text-anchor="middle">120</text>
+                                <text x="130.5" y="10" class="g-tick" text-anchor="middle">185</text>
 
-                                <!-- 指針群組 (帶平滑動畫 transition) -->
-                                <g id="gaugeNeedleGroup" transform="translate(100, 100)" style="transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);">
-                                    <polygon points="0,-3 -70,0 0,3" fill="#0f172a" class="dark:fill-slate-100" />
-                                    <circle cx="0" cy="0" r="6" fill="#0284c7" />
+                                <!-- 指針群組 -->
+                                <g class="g-needle" id="gaugeNeedleGroup" style="transform-origin: 100px 100px;">
+                                    <line x1="100" y1="100" x2="100" y2="30" />
+                                    <circle cx="100" cy="100" r="5.5" fill="var(--cat)" />
                                 </g>
                             </svg>
 
                             <!-- 中心風速數字顯示 -->
-                            <div class="absolute bottom-1 flex flex-col items-center">
-                                <span id="gaugeWindValue" class="text-3xl md:text-4xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white transition-all duration-500">0</span>
-                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400 mt-[-2px]">km/h</span>
+                            <div class="gauge-val">
+                                <b id="gaugeWindValue">0</b>
+                                <small>km/h</small>
                             </div>
                         </div>
 
@@ -346,13 +376,13 @@
 
             if (windValEl) windValEl.textContent = windKmh;
 
-            let clampedWind = Math.max(0, Math.min(305, windKmh));
-            // 修正角度計算：0 km/h 對應 0°（左側），305 km/h 對應 180°（右側）
-            let angle = (clampedWind / 305) * 180;
+            let clampedWind = Math.max(0, Math.min(240, windKmh));
+            // 修正角度對應：0 km/h 映射至 -90°（左側），305 km/h 映射至 +90°（右側）
+            let angle = -90 + (clampedWind / 240) * 180;
 
             if (needleGroup) {
                 setTimeout(() => {
-                    needleGroup.style.transform = `translate(100px, 100px) rotate(${angle}deg)`;
+                    needleGroup.style.transform = `rotate(${angle}deg)`;
                 }, 100);
             }
         }
