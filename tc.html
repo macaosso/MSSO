@@ -197,8 +197,12 @@
                     <div id="gaugeStormInfo" class="space-y-4">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span id="gaugeStormBadge" class="px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm bg-cyan-500">載入中</span>
-                            <span id="gaugeStormTimePill" class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1">
-                                <i class="fa-solid fa-clock text-[8px]"></i> -
+                            <span id="gaugeStormTimePill" class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1.5 shadow-sm">
+                                <span class="relative flex h-2 w-2">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                </span>
+                                <span id="gaugeStormTimePillText">-</span>
                             </span>
                         </div>
                         <div>
@@ -499,7 +503,7 @@
             const nameEl = document.getElementById('gaugeStormName');
             const latLonEl = document.getElementById('gaugeStormLatLon');
             const timeEl = document.getElementById('gaugeStormTime');
-            const timePillEl = document.getElementById('gaugeStormTimePill');
+            const timePillTextEl = document.getElementById('gaugeStormTimePillText');
             const bulletinEl = document.getElementById('gaugeStormBulletin');
             const cardEl = document.getElementById('activeSystemGaugeCard');
             const gaugeContainer = document.getElementById('windGaugeContainer');
@@ -511,7 +515,6 @@
 
             if (cardEl) cardEl.style.display = 'block';
 
-            // 1. 顯示強度名稱並依據強度更改顏色
             if (badgeEl) {
                 badgeEl.textContent = stormData.intensityObj.name || '熱帶氣旋';
                 badgeEl.style.backgroundColor = stormData.intensityObj.color || '#0284c7';
@@ -520,10 +523,11 @@
             
             if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
             
-            // 4. 將即時標籤改為顯示時間
-            if (timePillEl) timePillEl.textContent = stormData.time || '-';
+            // 更新紅色標籤內的時間文字，保留閃爍紅點
+            if (timePillTextEl) {
+                timePillTextEl.textContent = stormData.time || '-';
+            }
             
-            // 6. 填入熱帶氣旋報文
             if (bulletinEl) {
                 bulletinEl.textContent = generateTyphoonBulletin(stormData);
             }
@@ -602,6 +606,17 @@
             }
             return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近${windClause}${movementClause}。`;
         }
+
+        const TC_INTENSITY_TABLE = [
+            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#64748b" },
+            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#94a3b8" },
+            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#38bdf8" },
+            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#34d399" },
+            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#fbbf24" },
+            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#fb923c" },
+            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#f87171" },
+            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#c084fc" }
+        ];
 
         function getIntensity(windInput, isEx) {
             if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
