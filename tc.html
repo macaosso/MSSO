@@ -196,23 +196,23 @@
                     <!-- 左側：活躍氣旋詳細資訊 -->
                     <div id="gaugeStormInfo" class="space-y-4">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span id="gaugeStormBadge" class="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-white shadow-sm">載入中</span>
-                            <span id="gaugeStormId" class="text-xs font-mono text-slate-400">--</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1">
-                                <i class="fa-solid fa-circle text-[6px]"></i> 即時
+                            <span id="gaugeStormBadge" class="px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm bg-cyan-500">載入中</span>
+                            <span id="gaugeStormTimePill" class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300 flex items-center gap-1">
+                                <i class="fa-solid fa-clock text-[8px]"></i> -
                             </span>
                         </div>
                         <div>
                             <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">載入中...</h2>
-                            <p id="gaugeStormCategory" class="text-sm font-semibold text-cyan-600 dark:text-cyan-400 mt-0.5">請稍候</p>
+                            <!-- 熱帶氣旋報文 (移至名稱下方) -->
+                            <div class="mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans" id="gaugeStormBulletin">
+                                請稍候...
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-3 pt-2 text-xs text-slate-600 dark:text-slate-300">
-                            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <span class="text-slate-400 block mb-0.5">中心位置</span>
+                            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center">
                                 <span id="gaugeStormLatLon" class="font-mono font-semibold text-slate-700 dark:text-slate-200">-</span>
                             </div>
-                            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <span class="text-slate-400 block mb-0.5">觀測時間</span>
+                            <div class="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center">
                                 <span id="gaugeStormTime" class="font-mono font-semibold text-slate-700 dark:text-slate-200">-</span>
                             </div>
                         </div>
@@ -449,10 +449,8 @@
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
                 
-                // 使用柔和的 ease-out 緩動函數
                 const easeProgress = 1 - Math.pow(1 - progress, 4);
                 
-                // 指針與進度條共用同一個比例，保證完美鎖死與同步
                 const currentFrac = targetFrac * easeProgress;
                 const currentVal = speed * easeProgress;
 
@@ -498,11 +496,11 @@
         // 更新風速儀表盤與左側資訊
         function updateWindGauge(stormData) {
             const badgeEl = document.getElementById('gaugeStormBadge');
-            const idEl = document.getElementById('gaugeStormId');
             const nameEl = document.getElementById('gaugeStormName');
-            const catEl = document.getElementById('gaugeStormCategory');
             const latLonEl = document.getElementById('gaugeStormLatLon');
             const timeEl = document.getElementById('gaugeStormTime');
+            const timePillEl = document.getElementById('gaugeStormTimePill');
+            const bulletinEl = document.getElementById('gaugeStormBulletin');
             const cardEl = document.getElementById('activeSystemGaugeCard');
             const gaugeContainer = document.getElementById('windGaugeContainer');
 
@@ -513,10 +511,23 @@
 
             if (cardEl) cardEl.style.display = 'block';
 
-            if (badgeEl) badgeEl.textContent = stormData.intensityCode || 'TC';
-            if (idEl) idEl.textContent = stormData.name ? `SYSTEM - ${stormData.name}` : 'ACTIVE SYSTEM';
+            // 1. 顯示強度名稱並依據強度更改顏色
+            if (badgeEl) {
+                badgeEl.textContent = stormData.intensityObj.name || '熱帶氣旋';
+                badgeEl.style.backgroundColor = stormData.intensityObj.color || '#0284c7';
+                badgeEl.style.color = '#ffffff';
+            }
+            
             if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
-            if (catEl) catEl.textContent = stormData.category || '熱帶氣旋';
+            
+            // 4. 將即時標籤改為顯示時間
+            if (timePillEl) timePillEl.textContent = stormData.time || '-';
+            
+            // 6. 填入熱帶氣旋報文
+            if (bulletinEl) {
+                bulletinEl.textContent = generateTyphoonBulletin(stormData);
+            }
+
             if (latLonEl) latLonEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
             if (timeEl) timeEl.textContent = stormData.time || '-';
 
@@ -528,7 +539,6 @@
             }
             if (isNaN(windKmh)) windKmh = 0;
 
-            // 渲染並執行同步動畫儀表盤
             if (gaugeContainer) {
                 renderGaugeHTML(gaugeContainer, windKmh);
             }
@@ -592,6 +602,17 @@
             }
             return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近${windClause}${movementClause}。`;
         }
+
+        const TC_INTENSITY_TABLE = [
+            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#64748b" },
+            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#94a3b8" },
+            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#38bdf8" },
+            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#34d399" },
+            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#fbbf24" },
+            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#fb923c" },
+            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#f87171" },
+            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#c084fc" }
+        ];
 
         function getIntensity(windInput, isEx) {
             if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
