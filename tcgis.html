@@ -47,6 +47,16 @@
         .pulse-beacon {
             animation: pulse-ring 2s infinite ease-in-out;
         }
+        /* 逆時針旋轉動畫 */
+        @keyframes spin-anti-clockwise {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(-360deg); }
+        }
+        svg image[href*="tc_icon"], svg image[xlink\\:href*="tc_icon"] {
+            animation: spin-anti-clockwise 4s linear infinite;
+            transform-origin: center;
+            transform-box: fill-box;
+        }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-[#08101a] text-slate-800 dark:text-slate-200 transition-colors duration-300">
@@ -314,7 +324,6 @@
             return smooth;
         }
 
-        // Expanded error hours and corresponding radii including 3h, 6h, 12h, 18h, 36h, 60h
         const ERROR_HOURS = [0, 3, 6, 12, 18, 24, 36, 48, 60, 72, 96, 120];
         const ERROR_RADII_KM = [15, 26, 36, 58, 79, 100, 135, 170, 212.5, 255, 345, 465];
 
@@ -715,7 +724,8 @@
                 return;
             }
 
-            myChart = echarts.init(chartDom);
+            // 使用 SVG 渲染器以便 CSS 動態轉動圖示
+            myChart = echarts.init(chartDom, null, { renderer: 'svg' });
 
             myChart.showLoading({
                 text: '載入 GIS 向量圖資與解析 CSV 檔案...',
@@ -1029,7 +1039,7 @@
                             name: `${st.name} - ${node.time}`,
                             value: [...node.coord, 1],
                             itemStyle: { color: intensity.color },
-                            symbolSize: isEye ? 16 : 9,
+                            symbolSize: isEye ? 32 : 9,
                             isEye: isEye,
                             nodeInfo: node,
                             stormName: st.name,
@@ -1037,6 +1047,7 @@
                         };
                     });
 
+                    // 繪製一般節點（非當前點）
                     seriesList.push({
                         type: 'scatter',
                         coordinateSystem: 'geo',
@@ -1045,15 +1056,18 @@
                         symbol: 'circle'
                     });
 
+                    // 繪製當前點（颱風眼），改用 icon/tc_icon/xx.png 並帶有反時針旋轉
                     const eyeData = scatterData.filter(d => d.isEye);
                     seriesList.push({
-                        type: 'effectScatter',
+                        type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 6,
                         data: eyeData,
-                        symbolSize: 20,
-                        rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                        itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' }
+                        symbol: function(value, params) {
+                            const intensity = params.data.intensityObj || getIntensity(params.data.nodeInfo.wind, params.data.nodeInfo.isEx);
+                            return `image://icon/tc_icon/${intensity.code}.png`;
+                        },
+                        symbolSize: 32
                     });
                 }
             };
