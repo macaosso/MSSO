@@ -81,15 +81,16 @@
         <!-- 頁面主要內容包裝 -->
         <div class="page-wrapper space-y-6" id="dashboard-content">
             
-            <!-- 即時活躍系統與風速儀表盤專區（新增於GIS路徑圖上方） -->
+            <!-- 即時活躍系統與風速儀表盤專區（支援多氣旋切換） -->
             <div class="warning-card bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors" id="activeSystemGaugeCard">
-                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800 gap-3">
                     <span class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                         <i class="fa-solid fa-gauge-high text-cyan-500"></i> 即時活躍系統與風速儀表盤
                     </span>
-                    <span class="text-[10px] px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 font-medium flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span> 即時監測
-                    </span>
+                    <!-- 多氣旋切換按鈕列 -->
+                    <div id="gaugeStormTabs" class="flex flex-wrap items-center gap-1.5">
+                        <!-- 動態生成 -->
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
@@ -126,7 +127,7 @@
                                 <!-- 背景軌道弧形 -->
                                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" class="dark:stroke-slate-800" />
                                 
-                                <!-- 彩色弧形刻度 -->
+                                <!-- 彩色弧形刻度（根據 0-305 km/h 比例分段） -->
                                 <!-- 1. 低壓區 (<=40): #DDDFE2 -->
                                 <path d="M 20 100 A 80 80 0 0 1 26.7 67.9" fill="none" stroke="#DDDFE2" stroke-width="14" stroke-linecap="butt" />
                                 <!-- 2. 熱帶低氣壓 (41-62): #6DD8FA -->
@@ -293,7 +294,6 @@
     <!-- 引入獨立的 tc.js 邏輯 -->
     <script src="tc.js"></script>
     <script>
-
         // 分級代碼與中文名稱對照字典
         const intensityNameMap = {
             "Ex": "溫帶氣旋",
@@ -306,7 +306,6 @@
             "SuTY": "超強颱風"
         };
 
-        // 方位中文化對照字典
         const chineseDirections = {
             "N": "北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
             "E": "東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
@@ -314,7 +313,9 @@
             "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
         };
 
-        // 更新風速儀表盤函數（支援動畫與刻度對應）
+        let allActiveStorms = {};
+
+        // 更新風速儀表盤與左側資訊
         function updateWindGauge(stormData) {
             const needleGroup = document.getElementById('gaugeNeedleGroup');
             const windValEl = document.getElementById('gaugeWindValue');
@@ -340,7 +341,6 @@
             if (latLonEl) latLonEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
             if (timeEl) timeEl.textContent = stormData.time || '-';
 
-            // 解析風速數值 (km/h)
             let windKmh = 0;
             if (typeof stormData.wind === 'string' && stormData.wind.includes('km/h')) {
                 windKmh = parseFloat(stormData.wind.replace(' km/h', '')) || 0;
@@ -351,7 +351,6 @@
 
             if (windValEl) windValEl.textContent = windKmh;
 
-            // 計算儀表盤指針角度 (0 km/h 對應 -90度，305 km/h 對應 +90度)
             let clampedWind = Math.max(0, Math.min(305, windKmh));
             let angle = -90 + (clampedWind / 305) * 180;
 
@@ -362,7 +361,21 @@
             }
         }
 
-        // 時間轉中文格式函數（只取時間不取日期）
+        // 切換儀表盤顯示的氣旋
+        function switchGaugeStorm(stormKey, btnElement) {
+            const stormData = allActiveStorms[stormKey];
+            if (stormData) {
+                updateWindGauge(stormData);
+            }
+            const buttons = document.querySelectorAll('#gaugeStormTabs button');
+            buttons.forEach(btn => {
+                btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+            });
+            if (btnElement) {
+                btnElement.className = "px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors";
+            }
+        }
+
         function formatChineseTime(timeStr) {
             if (!timeStr) return '';
             const parts = timeStr.split(' ');
@@ -371,27 +384,18 @@
             const hour = parseInt(timePart.split(':')[0], 10);
             if (isNaN(hour)) return '';
 
-            if (hour >= 0 && hour <= 5) {
-                return `凌晨${hour}時`;
-            } else if (hour >= 6 && hour <= 11) {
-                return `早上${hour}時`;
-            } else if (hour === 12) {
-                return `正午12時`;
-            } else if (hour >= 13 && hour <= 18) {
-                return `下午${hour - 12}時`;
-            } else if (hour >= 19 && hour <= 23) {
-                return `晚上${hour - 12}時`;
-            }
+            if (hour >= 0 && hour <= 5) return `凌晨${hour}時`;
+            if (hour >= 6 && hour <= 11) return `早上${hour}時`;
+            if (hour === 12) return `正午12時`;
+            if (hour >= 13 && hour <= 18) return `下午${hour - 12}時`;
+            if (hour >= 19 && hour <= 23) return `晚上${hour - 12}時`;
             return '';
         }
 
-        // 生成熱帶氣旋報文函數
         function generateTyphoonBulletin(stormData) {
             if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
-            
             const chineseTime = formatChineseTime(stormData.time);
             const timePrefix = chineseTime ? `${chineseTime}，` : '';
-            
             const distParts = stormData.distToMacau.split(' ');
             const engDir = distParts[0];
             const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
@@ -409,12 +413,10 @@
                 const movEngDir = movParts[0];
                 const movSpeed = movParts[1] ? movParts[1].replace('km/h', '').trim() : '';
                 const movDirChinese = chineseDirections[movEngDir] || movEngDir;
-                
                 if (movDirChinese && movSpeed) {
                     movementClause = `，向${movDirChinese}移動，時速${movSpeed}公里`;
                 }
             }
-            
             return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近${windClause}${movementClause}。`;
         }
 
@@ -433,9 +435,7 @@
         const MACAU_COORDS = [113.5685, 22.1595];
 
         function getDistanceAndDirectionToMacau(tLon, tLat) {
-            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) {
-                return "未知距離";
-            }
+            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) return "未知距離";
             const R = 6371;
             const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
             const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
@@ -443,8 +443,7 @@
                       Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) *
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            let dist = R * c;
-            dist = Math.round(dist / 10) * 10;
+            let dist = Math.round(R * c / 10) * 10;
 
             const lat1Rad = MACAU_COORDS[1] * Math.PI / 180;
             const lat2Rad = tLat * Math.PI / 180;
@@ -453,20 +452,13 @@
             let brng = Math.atan2(y, x) * 180 / Math.PI;
             brng = (brng + 360) % 360;
 
-            const directions = [
-                "N", "NNE", "NE", "ENE",
-                "E", "ESE", "SE", "SSE",
-                "S", "SSW", "SW", "WSW",
-                "W", "WNW", "NW", "NNW"
-            ];
+            const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
             const index = Math.round((brng % 360) / 22.5) % 16;
             return `${directions[index]} ${dist}公里`;
         }
 
         function getDirection(lon1, lat1, lon2, lat2) {
-            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) {
-                return "靜止";
-            }
+            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) return "靜止";
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const lat1Rad = lat1 * Math.PI / 180;
             const lat2Rad = lat2 * Math.PI / 180;
@@ -474,12 +466,7 @@
             const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
             let brng = Math.atan2(y, x) * 180 / Math.PI;
             brng = (brng + 360) % 360;
-            const directions = [
-                "N", "NNE", "NE", "ENE",
-                "E", "ESE", "SE", "SSE",
-                "S", "SSW", "SW", "WSW",
-                "W", "WNW", "NW", "NNW"
-            ];
+            const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
             return directions[Math.round((brng % 360) / 22.5) % 16];
         }
 
@@ -489,23 +476,18 @@
         function getRadiusForHour(hour) {
             if (hour <= ERROR_HOURS[0]) return ERROR_RADII_KM[0];
             if (hour >= ERROR_HOURS[ERROR_HOURS.length - 1]) return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
-
             for (let i = 0; i < ERROR_HOURS.length - 1; i++) {
                 if (hour >= ERROR_HOURS[i] && hour <= ERROR_HOURS[i + 1]) {
                     const h1 = ERROR_HOURS[i], h2 = ERROR_HOURS[i + 1];
                     const r1 = ERROR_RADII_KM[i], r2 = ERROR_RADII_KM[i + 1];
-                    const factor = (hour - h1) / (h2 - h1);
-                    return r1 + factor * (r2 - r1);
+                    return r1 + ((hour - h1) / (h2 - h1)) * (r2 - r1);
                 }
             }
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
         }
 
-        function calculateMovementStr(forecastPoints, forecastCoords, pastCoordsOnly) {
-            if (!forecastPoints || forecastPoints.length < 2) {
-                return '-';
-            }
-
+        function calculateMovementStr(forecastPoints) {
+            if (!forecastPoints || forecastPoints.length < 2) return '-';
             let p0 = forecastPoints[0];
             let p1 = null;
             for (let i = 1; i < forecastPoints.length; i++) {
@@ -514,22 +496,14 @@
                     break;
                 }
             }
-            if (!p1) {
-                p1 = forecastPoints[1];
-            }
-
+            if (!p1) p1 = forecastPoints[1];
             const hour = p1.hour > 0 ? p1.hour : 3;
             const direction = getDirection(p0.lon, p0.lat, p1.lon, p1.lat);
-
             const R = 6371;
             const dLat = (p1.lat - p0.lat) * Math.PI / 180;
             const dLon = (p1.lon - p0.lon) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(p0.lat * Math.PI / 180) * Math.cos(p1.lat * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const dist = R * c;
-
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(p0.lat * Math.PI / 180) * Math.cos(p1.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const speed = Math.round(dist / hour);
             return `${direction} ${speed} km/h`;
         }
@@ -588,40 +562,19 @@
                 categoryDesc = intensityNameMap[currentMeta.category];
             }
 
-            let pastCoordsOnly = [];
             let forecastPoints = [];
-            let forecastCoords = [];
-
             let tempForecastRows = rows.filter(r => r.category.toLowerCase() === 'current' || r.category.toLowerCase() === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
-            if (tempForecastRows.length === 0 && rows.length > 0) {
-                tempForecastRows = rows;
-            }
+            if (tempForecastRows.length === 0) tempForecastRows = rows;
 
             tempForecastRows.forEach(fr => {
                 let hour = 0;
                 if (fr.category.toLowerCase() !== 'current' && fr.category.toLowerCase() !== '0h' && fr.category !== '0') {
                     hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
                 }
-                forecastCoords.push([fr.lon, fr.lat]);
-                forecastPoints.push({
-                    lon: fr.lon,
-                    lat: fr.lat,
-                    hour: hour,
-                    radius: getRadiusForHour(hour)
-                });
+                forecastPoints.push({ lon: fr.lon, lat: fr.lat, hour: hour });
             });
 
-            let pastRows = rows.filter(r => r.category.toLowerCase() === 'past' || r.category.toLowerCase() === 'current' || r.category.toLowerCase() === '0h' || r.category === '0');
-            if (pastRows.length === 0 && rows.length > 0) {
-                pastRows = [rows[0]];
-            }
-            pastRows.forEach(pt => {
-                pastCoordsOnly.push([pt.lon, pt.lat]);
-            });
-
-            const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : (pastCoordsOnly.length > 0 ? [pastCoordsOnly[pastCoordsOnly.length - 1]] : [[currentMeta.lon, currentMeta.lat]]);
-            const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
-            
+            const movementStr = calculateMovementStr(forecastPoints);
             const windDisplay = currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`;
             const distToMacau = getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat);
 
@@ -638,7 +591,6 @@
             };
         }
 
-        // 主題切換邏輯
         const themeToggleBtn = document.getElementById('theme-toggle');
         if (themeToggleBtn) {
             themeToggleBtn.addEventListener('click', () => {
@@ -652,8 +604,7 @@
             });
         }
 
-        // 切換路徑圖
-        function switchTrackImage(imagePath, btnElement, csvLetter) {
+        function switchTrackImage(imagePath, btnElement) {
             const imgEl = document.getElementById('tcTrackImageViewer');
             const mapContainer = document.getElementById('tcMapContainer');
             
@@ -672,17 +623,20 @@
             }
         }
 
-        // 自動掃描並讀取所有活躍的熱帶氣旋 CSV 檔案數據
         async function initTrackButtonsAndLoadAllData() {
             const container = document.getElementById('trackImageButtons');
+            const gaugeTabsContainer = document.getElementById('gaugeStormTabs');
             const detailPanelContent = document.getElementById('tcDetailContent');
+            const gaugeCard = document.getElementById('activeSystemGaugeCard');
             if (!container) return;
 
-            container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this, null)" class="px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors">全部熱帶氣旋</button>`;
+            container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this)" class="px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors">全部熱帶氣旋</button>`;
+            if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
 
             const files = ['A', 'B', 'C', 'D', 'E', 'F'];
             let allCyclonesHtml = '';
             let activeCount = 0;
+            allActiveStorms = {};
 
             for (const f of files) {
                 const csvPath = `TCdata/${f}.csv`;
@@ -696,26 +650,37 @@
 
                     const stormData = parseCSVToTyphoon(text, f);
                     if (!stormData) continue;
+                    
                     activeCount++;
+                    allActiveStorms[f] = stormData;
 
-                    // 如果是第一個活躍氣旋，更新儀表盤
+                    // 1. 路徑圖切換按鈕
+                    const btn = document.createElement('button');
+                    btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                    btn.textContent = stormData.name;
+                    btn.onclick = function() { switchTrackImage(imgPath, this); };
+                    container.appendChild(btn);
+
+                    // 2. 儀表盤多氣旋切換按鈕
+                    if (gaugeTabsContainer) {
+                        const gaugeBtn = document.createElement('button');
+                        gaugeBtn.className = activeCount === 1 ? "px-3 py-1 text-xs bg-cyan-500 text-white rounded-xl shadow-sm transition-colors" : "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
+                        gaugeBtn.textContent = stormData.name;
+                        gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
+                        gaugeTabsContainer.appendChild(gaugeBtn);
+                    }
+
+                    // 預設載入第一個活躍氣旋到儀表盤
                     if (activeCount === 1) {
                         updateWindGauge(stormData);
                     }
 
-                    // 建立動態切換按鈕
-                    const btn = document.createElement('button');
-                    btn.className = "px-3 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors";
-                    btn.textContent = stormData.name;
-                    btn.onclick = function() { switchTrackImage(imgPath, this, f); };
-                    container.appendChild(btn);
-
-                    // 組裝該氣旋的即時數據卡片與熱帶氣旋報文
+                    // 3. 即時數據表格面板
                     allCyclonesHtml += `
                         <div class="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-white dark:bg-slate-900 shadow-sm mb-3 last:mb-0">
                             <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2 flex justify-between items-center">
                                 <span>${stormData.name}</span>
-                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${stormData.intensityObj.color}20; color: ${stormData.intensityObj.color}">${stormData.category} </span>
+                                <span class="text-[11px] px-2 py-0.5 rounded-full font-semibold" style="background-color: ${stormData.intensityObj.color}20; color: ${stormData.intensityObj.color}">${stormData.category}</span>
                             </div>
                             <table class="w-full text-left border-collapse text-xs">
                                 <tbody>
@@ -757,16 +722,19 @@
                 }
             }
 
+            // 若只有 1 個或 0 個氣旋，隱藏儀表盤切換按鈕列
+            if (gaugeTabsContainer && activeCount <= 1) {
+                gaugeTabsContainer.style.display = 'none';
+            } else if (gaugeTabsContainer) {
+                gaugeTabsContainer.style.display = 'flex';
+            }
+
             if (activeCount === 0) {
-                if (detailPanelContent) {
-                    detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">現時沒有活躍的熱帶氣旋數據。</p>';
-                }
-                const cardEl = document.getElementById('activeSystemGaugeCard');
-                if (cardEl) cardEl.style.display = 'none';
+                if (detailPanelContent) detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">現時沒有活躍的熱帶氣旋數據。</p>';
+                if (gaugeCard) gaugeCard.style.display = 'none';
             } else {
-                if (detailPanelContent) {
-                    detailPanelContent.innerHTML = allCyclonesHtml;
-                }
+                if (detailPanelContent) detailPanelContent.innerHTML = allCyclonesHtml;
+                if (gaugeCard) gaugeCard.style.display = 'block';
             }
 
             checkAllPngAndHandleMessage();
@@ -783,7 +751,6 @@
             allImg.src = 'output/TC/all.png';
         }
 
-        // 農曆簡體轉繁體
         function toTraditionalLunar(text) {
             if (!text) return '';
             const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
@@ -830,16 +797,10 @@
             const tcNewsCard = document.getElementById('tcNewsCard');
             const tcNewsContentEl = document.getElementById('tcNewsContent');
             if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
-                if (tcNewsCard) {
-                    tcNewsCard.style.display = 'none';
-                }
+                if (tcNewsCard) tcNewsCard.style.display = 'none';
             } else {
-                if (tcNewsCard) {
-                    tcNewsCard.style.display = 'block';
-                }
-                if (tcNewsContentEl) {
-                    tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
-                }
+                if (tcNewsCard) tcNewsCard.style.display = 'block';
+                if (tcNewsContentEl) tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
             }
 
             if (typeof TC_WARNING_DATA !== 'undefined' && typeof renderTcForecastTable === 'function') {
