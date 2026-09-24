@@ -603,7 +603,7 @@
             return symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-300' };
         }
 
-        // 新增的進階 7 天天氣預報圖示與條件判斷函式
+        // 更新後的進階 7 天天氣預報圖示與條件判斷函式 (含 sun + cloud + rain 與 rain < 8h 邏輯)
         function getAdvancedDailyWeatherIcon(dayIndex, data) {
             const dailyCode = data.daily.weather_code[dayIndex];
             const maxTemp = data.daily.temperature_2m_max[dayIndex];
@@ -620,7 +620,7 @@
             let sunHours = 0;
             let cloudHours = 0;
             let rainHours = 0;
-            let drizzleHours = 0; // groupCounts['D']
+            let drizzleHours = 0;
             let hasThunderstormOrShowers = false;
             let hasSnowOrFreezingRain = false;
             let hasFog = false;
@@ -660,7 +660,6 @@
                 rainHours = (dailyCode >= 51 && dailyCode <= 82) ? 6 : 0;
             }
 
-            // 1. Base WMO Weather Code Mapping
             let icon = 'fas fa-cloud';
             let text = '多雲';
 
@@ -711,15 +710,15 @@
                     break;
             }
 
-            // 3. Sunlight, Cloud, and Rain Duration Adjustments
-            if (sunHours > 12 && cloudHours > 0 && rainHours > 0) {
-                icon = 'fas fa-cloud-sun-rain text-blue-400';
-                text = '陽光雲雨';
-            }
-
-            if (icon === 'fas fa-cloud-sun-rain text-blue-400' && rainHours < 8) {
-                icon = 'fas fa-cloud-sun text-yellow-400';
-                text = '部分多雲';
+            // 檢查 sun + cloud + rain 且 rain 期間小於 8 小時的邏輯
+            if (sunHours > 0 && cloudHours > 0 && rainHours > 0) {
+                if (rainHours < 8) {
+                    icon = 'fas fa-cloud-sun text-yellow-400';
+                    text = '部分多雲';
+                } else {
+                    icon = 'fas fa-cloud-sun-rain text-blue-400';
+                    text = '陽光雲雨';
+                }
             }
 
             const hasSevereWeather = hasFog || hasHeavyRain || hasSnowOrFreezingRain || hasThunderstormOrShowers || (rainHours >= 8);
@@ -736,7 +735,6 @@
                 }
             }
 
-            // 2. Temperature-Based Overrides
             const hasOverrideExclusion = hasThunderstormOrShowers || hasSnowOrFreezingRain;
             if (maxTemp >= 32.5 && !hasOverrideExclusion) {
                 icon = 'fas fa-temperature-arrow-up text-orange-500';
@@ -1221,7 +1219,6 @@
                 const dayIndex = startIndex + i;
                 const dateStr = data.daily.time[dayIndex];
                 
-                // 使用更新後的進階圖示條件判斷
                 const dayIcon = getAdvancedDailyWeatherIcon(dayIndex, data);
 
                 const popVal = Math.round(popMaxs[i]);
@@ -1263,10 +1260,10 @@
                     </div>
                 `;
 
+                // Description below the icon omitted entirely as requested
                 iconsHtml += `
                     <div class="flex flex-col items-center justify-center">
-                        <i class="fa-solid ${dayIcon.icon} text-3xl mb-1"></i>
-                        <span class="text-[11px] text-slate-500 dark:text-slate-400">${dayIcon.text}</span>
+                        <i class="fa-solid ${dayIcon.icon} text-3xl"></i>
                     </div>
                 `;
 
