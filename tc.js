@@ -84,14 +84,14 @@ function renderTcForecastTable(data) {
 
 // 風速分級規則對應表
 const TC_INTENSITY_TABLE = [
-    { max_wind: -1,    name: "溫帶氣旋",     color: "#DDDFE2" },
-    { max_wind: 40,    name: "低壓區",       color: "#DDDFE2" },
-    { max_wind: 62,    name: "熱帶低氣壓",   color: "#6DD8FA" },
-    { max_wind: 87,    name: "熱帶風暴",     color: "#9DD79C" },
-    { max_wind: 117,   name: "強烈熱帶風暴", color: "#FFD363" },
-    { max_wind: 149,   name: "颱風",         color: "#F78A31" },
-    { max_wind: 184,   name: "強颱風",       color: "#FF6F6F" },
-    { max_wind: 9999,  name: "超強颱風",     color: "#DE82FF" }
+    { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#DDDFE2" },
+    { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#DDDFE2" },
+    { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#6DD8FA" },
+    { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#9DD79C" },
+    { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#FFD363" },
+    { max_wind: 149,  code: "TY",   name: "颱風",         color: "#F78A31" },
+    { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#FF6F6F" },
+    { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#DE82FF" }
 ];
 
 function getTcIntensity(windKmh) {
