@@ -589,19 +589,19 @@
             }
         }
 
-        // 條件式樣式函數：根據等級設定對應的顏色與字體大小
+        // 等級標籤樣式：順序為 低 | 中 | 高 | 極高，縮小字體並套用對應背景色
         function getLevelStyle(level) {
             switch (level) {
                 case '低':
-                    return 'text-green-500 text-xl font-bold';
+                    return 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-medium px-2 py-0.5 rounded';
                 case '中':
-                    return 'text-yellow-500 text-xl font-bold';
+                    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 text-xs font-semibold px-2 py-0.5 rounded';
                 case '高':
-                    return 'text-orange-500 text-xl font-bold';
+                    return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 text-xs font-semibold px-2 py-0.5 rounded';
                 case '極高':
-                    return 'text-red-600 text-2xl font-extrabold';
+                    return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 text-xs font-bold px-2 py-0.5 rounded';
                 default:
-                    return 'text-slate-500 text-xl font-bold';
+                    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-xs px-2 py-0.5 rounded';
             }
         }
 
@@ -1212,6 +1212,16 @@
                 const impactResult = getRainfallImpactLevel(popVal, precipSumVal);
                 const levelStyle = getLevelStyle(impactResult.label);
 
+                // 條件式樣式：百分比 >= 80% 才改變文字顏色（無背景色）
+                const popColorClass = popVal >= 80 
+                    ? 'text-blue-600 dark:text-blue-400 font-bold' 
+                    : 'text-slate-600 dark:text-slate-400';
+
+                // 條件式樣式：降雨量 >= 10mm 才改變文字顏色（無背景色）
+                const rainColorClass = precipSumVal >= 10 
+                    ? 'text-blue-600 dark:text-blue-400 font-bold' 
+                    : 'text-slate-600 dark:text-slate-400';
+
                 const dateObj = new Date(dateStr);
                 const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
                 const monthDay = `${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
@@ -1236,10 +1246,11 @@
                 maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
                 minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
 
-                // 降雨影響區塊：降雨機率百分比在上，條件式樣式的等級標籤在下
+                // 降雨機率、降雨量、等級標籤
                 popRowHtml += `
                     <div class="flex flex-col items-center justify-center gap-1">
-                        <span class="px-2 py-0.5 rounded text-[10px] ${impactResult.class}">${popVal}%</span>
+                        <span class="${popColorClass} text-xs">${popVal}%</span>
+                        <span class="${rainColorClass} text-[11px]">${precipSumVal.toFixed(1)}mm</span>
                         <span class="${levelStyle}">${impactResult.label}</span>
                     </div>
                 `;
@@ -1276,7 +1287,7 @@
                     ${minTempHtml}
                 </div>
                 <div class="mt-3">
-                    <div class="text-xs font-medium text-slate-400 mb-2 px-1">降雨影響</div>
+                    <div class="text-xs font-medium text-slate-400 mb-2 px-1">降雨資訊與影響等級</div>
                     ${popRowHtml}
                 </div>
             `;
