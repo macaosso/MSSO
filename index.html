@@ -669,23 +669,40 @@
             let hasSnowOrFreezingRain = false;
             let hasFog = false;
             let hasHeavyRain = false;
+            let thunderstormHours = 0;
+            let maxHourlyRainfall = 0;
 
             hourlyIndices.forEach(idx => {
                 const hCode = data.hourly.weather_code[idx];
+                const hRain = data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0;
+
+                if (hRain > maxHourlyRainfall) {
+                    maxHourlyRainfall = hRain;
+                }
+
                 if (hCode === 0 || hCode === 1) sunHours++;
                 if (hCode >= 2 && hCode <= 4) cloudHours++;
                 if ((hCode >= 51 && hCode <= 67) || (hCode >= 80 && hCode <= 82)) rainHours++;
                 if (hCode === 51 || hCode === 53) drizzleHours++;
                 if (hCode >= 80 && hCode <= 99) hasThunderstormOrShowers = true;
+                if (hCode >= 95 && hCode <= 99) thunderstormHours++;
                 if ((hCode >= 66 && hCode <= 69) || (hCode >= 70 && hCode <= 79) || (hCode >= 83 && hCode <= 88)) hasSnowOrFreezingRain = true;
                 if (hCode === 45 || hCode === 48) hasFog = true;
                 if (hCode === 63 || hCode === 65 || hCode === 82) hasHeavyRain = true;
             });
 
-            if (hourlyIndices.length === 0) {
-                sunHours = (dailyCode === 0 || dailyCode === 1) ? 14 : 5;
-                cloudHours = (dailyCode === 2 || dailyCode === 3) ? 10 : 2;
-                rainHours = (dailyCode >= 51 && dailyCode <= 82) ? 6 : 0;
+            const accumulatedRainfall = data.daily.precipitation_sum ? (data.daily.precipitation_sum[dayIndex] || 0) : 0;
+
+            // 1. Highest Priority Rule: Hourly rainfall >= 20mm OR Accumulated rainfall >= 50mm
+            if (maxHourlyRainfall >= 20 || accumulatedRainfall >= 50) {
+                return { icon: 'fas fa-cloud-showers-water text-blue-500', text: '暴雨' };
+            }
+
+            // 2. Thunderstorm Duration Rules
+            if (thunderstormHours >= 2) {
+                return { icon: 'fas fa-cloud-bolt text-blue-400', text: '雷雨' };
+            } else if (thunderstormHours === 1) {
+                return { icon: 'fas fa-cloud-bolt-sun text-blue-400', text: '雷雨間晴' };
             }
 
             let icon = 'fas fa-cloud';
@@ -813,7 +830,7 @@
 
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
                     { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
@@ -1212,12 +1229,10 @@
                 const impactResult = getRainfallImpactLevel(popVal, precipSumVal);
                 const levelStyle = getLevelStyle(impactResult.label);
 
-                // 條件式樣式：百分比 >= 80% 才改變文字顏色（無背景色）
                 const popColorClass = popVal >= 80 
                     ? 'text-blue-600 dark:text-blue-400 font-bold' 
                     : 'text-slate-600 dark:text-slate-400';
 
-                // 條件式樣式：降雨量 >= 10mm 才改變文字顏色（無背景色）
                 const rainColorClass = precipSumVal >= 10 
                     ? 'text-blue-600 dark:text-blue-400 font-bold' 
                     : 'text-slate-600 dark:text-slate-400';
@@ -1246,7 +1261,6 @@
                 maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
                 minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
 
-                // 降雨機率、降雨量、等級標籤
                 popRowHtml += `
                     <div class="flex flex-col items-center justify-center gap-1">
                         <span class="${popColorClass} text-xs">${popVal}%</span>
