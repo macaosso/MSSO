@@ -562,20 +562,19 @@
 
         // 警告矩陣降雨影響評估函式 (結合 降雨機率 與 降雨量)
         function getRainfallImpactLevel(probability, precipitationSum) {
-            // 如果降雨量小於等於 1.0mm (解決 0.1mm 高概率誤報問題)，影響直接評估為「低」
             if (precipitationSum <= 1.0) {
                 return { label: '低', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' };
             }
 
-            let impactScore = 1; // 低影響
-            if (precipitationSum > 25) impactScore = 4; // 極高影響
-            else if (precipitationSum > 10) impactScore = 3; // 高影響
-            else if (precipitationSum > 3) impactScore = 2; // 中影響
+            let impactScore = 1;
+            if (precipitationSum > 25) impactScore = 4;
+            else if (precipitationSum > 10) impactScore = 3;
+            else if (precipitationSum > 3) impactScore = 2;
 
-            let likelihoodScore = 1; // 低機率
-            if (probability >= 85) likelihoodScore = 4; // 極可能
-            else if (probability >= 60) likelihoodScore = 3; // 可能
-            else if (probability >= 30) likelihoodScore = 2; // 中等
+            let likelihoodScore = 1;
+            if (probability >= 85) likelihoodScore = 4;
+            else if (probability >= 60) likelihoodScore = 3;
+            else if (probability >= 30) likelihoodScore = 2;
 
             const matrixValue = impactScore * likelihoodScore;
 
@@ -587,6 +586,22 @@
                 return { label: '中', class: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold' };
             } else {
                 return { label: '低', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' };
+            }
+        }
+
+        // 條件式樣式函數：根據等級設定對應的顏色與字體大小
+        function getLevelStyle(level) {
+            switch (level) {
+                case '低':
+                    return 'text-green-500 text-xl font-bold';
+                case '中':
+                    return 'text-yellow-500 text-xl font-bold';
+                case '高':
+                    return 'text-orange-500 text-xl font-bold';
+                case '極高':
+                    return 'text-red-600 text-2xl font-extrabold';
+                default:
+                    return 'text-slate-500 text-xl font-bold';
             }
         }
 
@@ -798,7 +813,6 @@
 
         async function fetchWeatherData() {
             try {
-                // 擴充每日查詢欄位以包含 precipitation_sum（降雨量總和）
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
                 
                 const districtUrls = [
@@ -1195,8 +1209,8 @@
                 const popVal = Math.round(popMaxs[i]);
                 const precipSumVal = precipSums[i] || 0;
                 
-                // 套用警告矩陣計算降雨影響 (低、中、高、極高)
                 const impactResult = getRainfallImpactLevel(popVal, precipSumVal);
+                const levelStyle = getLevelStyle(impactResult.label);
 
                 const dateObj = new Date(dateStr);
                 const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
@@ -1222,10 +1236,11 @@
                 maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
                 minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
 
+                // 降雨影響區塊：降雨機率百分比在上，條件式樣式的等級標籤在下
                 popRowHtml += `
                     <div class="flex flex-col items-center justify-center gap-1">
-                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">${impactResult.label}</span>
                         <span class="px-2 py-0.5 rounded text-[10px] ${impactResult.class}">${popVal}%</span>
+                        <span class="${levelStyle}">${impactResult.label}</span>
                     </div>
                 `;
             }
