@@ -1,144 +1,695 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>降雨警戒影響矩陣介紹與模擬器</title>
-    <!-- 引入 Tailwind CSS -->
+    <title>降雨影響評估矩陣系統 | Rainfall Impact Matrix Assessment System</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-50 text-slate-800 min-h-screen py-10 px-4">
-
-    <div class="max-w-4xl mx-auto space-y-8">
-        
-        <!-- 標題與介紹 -->
-        <header class="text-center space-y-3">
-            <h1 class="text-3xl font-ext500 font-bold text-slate-900 tracking-tight">降雨警戒影響矩陣</h1>
-            <p class="text-slate-600 max-w-2xl mx-auto">
-                參考國際標準的影響矩陣（Impact Matrix），結合<strong>降雨量（衝擊程度）</strong>與<strong>降雨機率（發生可能性）</strong>，為您精準評估與預警不同的降雨風險等級。
-            </p>
-        </header>
-
-        <!-- 主要互動區 -->
-        <div class="grid md:grid-cols-2 gap-6">
-            
-            <!-- 模擬器輸入區 -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-                <h2 class="text-xl font-semibold text-slate-800 border-b pb-3">即時評估模擬器</h2>
-                
-                <div class="space-y-4">
-                    <!-- 降雨量輸入 -->
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">預估降雨量 (毫米 / mm)</label>
-                        <input type="number" id="precipitationInput" value="35" min="0" step="1" 
-                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                            oninput="updateEvaluation()">
-                    </div>
-
-                    <!-- 降雨機率輸入 -->
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">降雨機率 (%)</label>
-                        <input type="number" id="probabilityInput" value="85" min="0" max="100" step="1" 
-                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                            oninput="updateEvaluation()">
-                    </div>
-                </div>
-
-                <!-- 評估結果顯示 -->
-                <div class="mt-6 pt-4 border-t border-slate-100">
-                    <span class="text-sm text-slate-500 block mb-2">當前計算結果：</span>
-                    <div id="resultBox" class="p-4 rounded-xl text-center font-medium transition-all duration-300">
-                        <!-- 動態填入結果樣式與標籤 -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- 矩陣邏輯說明 -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                <h2 class="text-xl font-semibold text-slate-800 border-b pb-3">矩陣評估標準</h2>
-                <ul class="space-y-3 text-sm text-slate-600">
-                    <li class="flex items-start space-x-2">
-                        <span class="bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded text-xs mt-0.5">低</span>
-                        <span>降雨量 $\le$ 1.0mm 或綜合矩陣分數偏低，對日常生活影響有限。</span>
-                    </li>
-                    <li class="flex items-start space-x-2">
-                        <span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-xs mt-0.5">中</span>
-                        <span>矩陣分數達到 20 分以上，可能對戶外活動造成干擾。</span>
-                    </li>
-                    <li class="flex items-start space-x-2">
-                        <span class="bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded text-xs mt-0.5">高</span>
-                        <span>矩陣分數達到 35 分以上，需提防局部積水與交通影響。</span>
-                    </li>
-                    <li class="flex items-start space-x-2">
-                        <span class="bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded text-xs mt-0.5">極高</span>
-                        <span>矩陣分數 $\ge$ 45 或高衝擊伴隨極高發生機率，具備顯著災害風險。</span>
-                    </li>
-                </ul>
-            </div>
-
-        </div>
-
-        <!-- 矩陣對照圖解說明區 -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4 text-center">
-            <h2 class="text-xl font-semibold text-slate-800">影響矩陣對照概念</h2>
-            <p class="text-sm text-slate-600 max-w-xl mx-auto">
-                正如影響矩陣圖表所示，風險是由<strong>「事件影響程度 (Impact)」</strong>與<strong>「發生機率 (Likelihood)」</strong>交織而成。當兩者皆高時，會落入紅色或紫色警戒區。
-            </p>
-            <div class="grid grid-cols-4 gap-2 max-w-md mx-auto pt-2">
-                <div class="bg-slate-200 p-4 rounded-lg text-xs font-medium text-slate-600 flex items-center justify-center">低影響 / 低機率</div>
-                <div class="bg-amber-100 p-4 rounded-lg text-xs font-medium text-amber-800 flex items-center justify-center">中等警戒</div>
-                <div class="bg-orange-400 text-white p-4 rounded-lg text-xs font-medium flex items-center justify-center">高警戒</div>
-                <div class="bg-red-600 text-white p-4 rounded-lg text-xs font-bold flex items-center justify-center">極高警戒</div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- JavaScript 邏輯 -->
     <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-effect {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(14, 165, 233, 0.05) 50%, transparent 70%);
+            z-index: -1;
+            filter: blur(60px);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <header class="sticky top-0 z-50 glass-card border-b border-slate-200/50 dark:border-slate-800/50 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="cloud-rain" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <span class="font-extrabold text-lg bg-gradient-to-r from-indigo-600 to-cyan-500 bg-clip-text text-transparent">降雨影響評估矩陣</span>
+                    <span class="hidden sm:inline-block ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-medium">v2.6 Core</span>
+                </div>
+            </div>
+            <nav class="hidden md:flex items-center space-x-8 text-sm font-medium">
+                <a href="#simulator" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">互動模擬器</a>
+                <a href="#matrix-grid" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">矩陣對照表</a>
+                <a href="#code-section" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">核心演算法</a>
+                <a href="#use-cases" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition">應用場景</a>
+            </nav>
+            <div class="flex items-center space-x-3">
+                <button id="theme-toggle" class="p-2 rounded-xl bg-slate-200/60 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition" aria-label="切換主題">
+                    <i data-lucide="sun" class="w-5 h-5 hidden dark:block text-amber-400"></i>
+                    <i data-lucide="moon" class="w-5 h-5 block dark:hidden text-slate-700"></i>
+                </button>
+                <a href="#simulator" class="hidden sm:inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-lg shadow-indigo-600/20 transition">
+                    <span>立即體驗</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <section class="relative overflow-hidden py-20 lg:py-28">
+        <div class="glow-effect top-10 left-1/2 -translate-x-1/2"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400 text-xs sm:text-sm font-semibold mb-6 shadow-sm">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                <span>結合降雨機率與降雨量的科學化風險評估</span>
+            </div>
+            <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight max-w-4xl mx-auto leading-tight">
+                精準預測氣象衝擊 <br>
+                <span class="bg-gradient-to-r from-indigo-600 via-sky-500 to-emerald-500 bg-clip-text text-transparent">守護城市與日常安全</span>
+            </h1>
+            <p class="mt-6 text-lg sm:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                透過加權風險矩陣自動化評估模型，即時量化降雨帶來的潛在威脅。從低風險到極高風險，為防災應變與智慧管理提供堅實數據支援。
+            </p>
+            <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="#simulator" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold shadow-xl shadow-indigo-600/30 flex items-center justify-center space-x-2 transition transform hover:-translate-y-0.5">
+                    <i data-lucide="play-circle" class="w-5 h-5"></i>
+                    <span>體驗互動評估模擬器</span>
+                </a>
+                <a href="#code-section" class="w-full sm:w-auto px-8 py-4 rounded-2xl glass-card hover:bg-slate-100 dark:hover:bg-slate-900 font-semibold border border-slate-300 dark:border-slate-700 flex items-center justify-center space-x-2 transition">
+                    <i data-lucide="code" class="w-5 h-5"><span>檢視核心原始碼</span></i>
+                </a>
+            </div>
+
+            <!-- Quick metrics banner -->
+            <div class="mt-16 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                <div class="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="text-xs text-slate-500 dark:text-slate-400">評估維度</div>
+                    <div class="text-2xl font-bold mt-1 text-indigo-600 dark:text-indigo-400">雙維度矩陣</div>
+                    <div class="text-xs text-slate-400 mt-1">機率 % × 雨量 mm</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="text-xs text-slate-500 dark:text-slate-400">分級級距</div>
+                    <div class="text-2xl font-bold mt-1 text-sky-600 dark:text-sky-400">4 階風險評級</div>
+                    <div class="text-xs text-slate-400 mt-1">低、中、高、極高</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="text-xs text-slate-500 dark:text-slate-400">運算效能</div>
+                    <div class="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">零延遲即時</div>
+                    <div class="text-xs text-slate-400 mt-1">前端原生 JavaScript</div>
+                </div>
+                <div class="glass-card p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-left">
+                    <div class="text-xs text-slate-500 dark:text-slate-400">適應場景</div>
+                    <div class="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">跨領域應用</div>
+                    <div class="text-xs text-slate-400 mt-1">防災、農業、通勤</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="simulator" class="py-20 bg-slate-100/50 dark:bg-slate-900/50 border-y border-slate-200/60 dark:border-slate-800/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">互動降雨影響評估模擬器</h2>
+                <p class="mt-4 text-slate-600 dark:text-slate-400">
+                    調整下方滑桿設定「降雨機率」與「降雨量」，系統將即時套用評估矩陣函式，計算出對應的影響等級與視覺化徽章。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <!-- Controls Column -->
+                <div class="lg:col-span-6 glass-card p-6 sm:p-8 rounded-3xl shadow-xl space-y-8">
+                    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+                        <h3 class="font-bold text-lg flex items-center space-x-2">
+                            <i data-lucide="sliders" class="w-5 h-5 text-indigo-600"></i>
+                            <span>氣象參數設定</span>
+                        </h3>
+                        <button onclick="resetSliders()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center space-x-1">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                            <span>重設預設值</span>
+                        </button>
+                    </div>
+
+                    <!-- Probability Slider -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label for="prob-slider" class="text-sm font-semibold flex items-center space-x-2">
+                                <i data-lucide="percent" class="w-4 h-4 text-sky-500"></i>
+                                <span>降雨機率 (Probability)</span>
+                            </label>
+                            <span id="prob-value" class="px-3 py-1 rounded-xl bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold text-sm">60 %</span>
+                        </div>
+                        <input id="prob-slider" type="range" min="0" max="100" value="60" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600" oninput="updateSimulation()">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>0% (無雨)</span>
+                            <span>50% (中等)</span>
+                            <span>100% (確定)</span>
+                        </div>
+                    </div>
+
+                    <!-- Precipitation Sum Slider -->
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label for="precip-slider" class="text-sm font-semibold flex items-center space-x-2">
+                                <i data-lucide="droplets" class="w-4 h-4 text-blue-500"></i>
+                                <span>降雨量累計 (Precipitation Sum)</span>
+                            </label>
+                            <span id="precip-value" class="px-3 py-1 rounded-xl bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-sm">6.5 mm</span>
+                        </div>
+                        <input id="precip-slider" type="range" min="0" max="15" step="0.5" value="6.5" class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600" oninput="updateSimulation()">
+                        <div class="flex justify-between text-xs text-slate-400">
+                            <span>0 mm</span>
+                            <span>7.5 mm</span>
+                            <span>15 mm+</span>
+                        </div>
+                    </div>
+
+                    <!-- Preset Quick Buttons -->
+                    <div class="pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3">快速情境套用：</div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <button onclick="setPreset(20, 0.5)" class="p-2 rounded-xl text-xs font-medium bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition">微雨低標</button>
+                            <button onclick="setPreset(60, 6.5)" class="p-2 rounded-xl text-xs font-medium bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition">中等陣雨</button>
+                            <button onclick="setPreset(85, 9.0)" class="p-2 rounded-xl text-xs font-medium bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition">豪雨警戒</button>
+                            <button onclick="setPreset(95, 12.0)" class="p-2 rounded-xl text-xs font-medium bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 transition">極端暴雨</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Column -->
+                <div class="lg:col-span-6 glass-card p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col justify-between space-y-6">
+                    <div>
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+                            <h3 class="font-bold text-lg flex items-center space-x-2">
+                                <i data-lucide="shield-alert" class="w-5 h-5 text-indigo-600"></i>
+                                <span>評估結果分析</span>
+                            </h3>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-semibold flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>計算完成</span>
+                            </span>
+                        </div>
+
+                        <!-- Result Card Display -->
+                        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="p-4 rounded-2xl bg-white/50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800">
+                                <div class="text-xs text-slate-500 dark:text-slate-400">計算出的影響等級 (Impact Level)</div>
+                                <div class="mt-3 flex items-center space-x-3">
+                                    <div id="result-badge-container">
+                                        <!-- Dynamic Level Badge injected via JS -->
+                                        <span class="px-3 py-1 rounded text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">中</span>
+                                    </div>
+                                    <span id="result-label-text" class="text-2xl font-black">中級影響</span>
+                                </div>
+                            </div>
+                            <div class="p-4 rounded-2xl bg-white/50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800">
+                                <div class="text-xs text-slate-500 dark:text-slate-400">矩陣綜合評分 (Matrix Score)</div>
+                                <div class="mt-2 flex items-baseline space-x-2">
+                                    <span id="result-matrix-score" class="text-3xl font-black text-indigo-600 dark:text-indigo-400">6</span>
+                                    <span class="text-xs text-slate-400">分 (Impact × Likelihood)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detailed Breakdown -->
+                        <div class="mt-6 space-y-3">
+                            <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">評分維度細節：</div>
+                            <div class="grid grid-cols-2 gap-3 text-sm">
+                                <div class="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 flex justify-between items-center">
+                                    <span class="text-slate-600 dark:text-slate-400">雨量得分 (Impact):</span>
+                                    <span id="impact-score-val" class="font-bold">2 分</span>
+                                </div>
+                                <div class="p-3 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 flex justify-between items-center">
+                                    <span class="text-slate-600 dark:text-slate-400">機率得分 (Likelihood):</span>
+                                    <span id="likelihood-score-val" class="font-bold">3 分</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendation Box -->
+                    <div id="recommendation-box" class="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 text-sm flex items-start space-x-3">
+                        <i data-lucide="info" class="w-5 h-5 shrink-0 text-amber-600 mt-0.5"></i>
+                        <div>
+                            <strong class="font-bold">建議行動：</strong>
+                            <span id="recommendation-text">降雨達中等門檻，外出請攜帶雨具，戶外作業請留意積水路段。</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="matrix-grid" class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">4x4 評估矩陣對照表</h2>
+                <p class="mt-4 text-slate-600 dark:text-slate-400">
+                    系統透過「降雨量衝擊程度」與「降雨機率發生可能」交叉對照。您的當前設定將在下方矩陣中即時標註高亮位置。
+                </p>
+            </div>
+
+            <div class="max-w-4xl mx-auto glass-card p-6 sm:p-8 rounded-3xl shadow-xl overflow-x-auto">
+                <div class="min-w-[600px]">
+                    <div class="grid grid-cols-5 gap-2 text-center text-xs font-bold mb-3 text-slate-500 dark:text-slate-400">
+                        <div class="text-left py-2">雨量 \ 機率</div>
+                        <div class="py-2 bg-slate-200/50 dark:bg-slate-800 rounded-lg">低 (&lt;50%)</div>
+                        <div class="py-2 bg-slate-200/50 dark:bg-slate-800 rounded-lg">中 (50-69%)</div>
+                        <div class="py-2 bg-slate-200/50 dark:bg-slate-800 rounded-lg">高 (70-89%)</div>
+                        <div class="py-2 bg-slate-200/50 dark:bg-slate-800 rounded-lg">極高 (&gt;=90%)</div>
+                    </div>
+
+                    <!-- Matrix Rows -->
+                    <div class="space-y-2">
+                        <!-- Row 4: Impact 4 (>=10mm) -->
+                        <div class="grid grid-cols-5 gap-2 items-center text-xs">
+                            <div class="font-bold text-slate-700 dark:text-slate-300 py-3 text-left">極高 (&gt;=10mm)</div>
+                            <div id="cell-4-1" class="p-3 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 text-center transition font-medium">高</div>
+                            <div id="cell-4-2" class="p-3 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-center transition font-medium">高</div>
+                            <div id="cell-4-3" class="p-3 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-center transition font-medium">高</div>
+                            <div id="cell-4-4" class="p-3 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 text-center transition font-bold shadow-sm">極高</div>
+                        </div>
+                        <!-- Row 3: Impact 3 (8-9.9mm) -->
+                        <div class="grid grid-cols-5 gap-2 items-center text-xs">
+                            <div class="font-bold text-slate-700 dark:text-slate-300 py-3 text-left">高 (8-9.9mm)</div>
+                            <div id="cell-3-1" class="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-center transition font-medium">中</div>
+                            <div id="cell-3-2" class="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-center transition font-medium">中</div>
+                            <div id="cell-3-3" class="p-3 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-center transition font-medium">高</div>
+                            <div id="cell-3-4" class="p-3 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-center transition font-medium">高</div>
+                        </div>
+                        <!-- Row 2: Impact 2 (6-7.9mm) -->
+                        <div class="grid grid-cols-5 gap-2 items-center text-xs">
+                            <div class="font-bold text-slate-700 dark:text-slate-300 py-3 text-left">中 (6-7.9mm)</div>
+                            <div id="cell-2-1" class="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-center transition">低</div>
+                            <div id="cell-2-2" class="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-center transition font-medium">中</div>
+                            <div id="cell-2-3" class="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-center transition font-medium">中</div>
+                            <div id="cell-2-4" class="p-3 rounded-xl bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-300 text-center transition font-medium">高</div>
+                        </div>
+                        <!-- Row 1: Impact 1 (4-5.9mm) -->
+                        <div class="grid grid-cols-5 gap-2 items-center text-xs">
+                            <div class="font-bold text-slate-700 dark:text-slate-300 py-3 text-left">低 (4-5.9mm)</div>
+                            <div id="cell-1-1" class="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-center transition">低</div>
+                            <div id="cell-1-2" class="p-3 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-center transition">低</div>
+                            <div id="cell-1-3" class="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-center transition font-medium">中</div>
+                            <div id="cell-1-4" class="p-3 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-center transition font-medium">中</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
+                    <span class="inline-block w-3 h-3 rounded-full bg-indigo-600 animate-ping"></span>
+                    <span>當前模擬數值所處之矩陣座標會自動於上方加粗外框顯示。</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="code-section" class="py-20 bg-slate-100/50 dark:bg-slate-900/50 border-y border-slate-200/60 dark:border-slate-800/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">核心演算法與程式碼</h2>
+                <p class="mt-4 text-slate-600 dark:text-slate-400">
+                    系統完全基於乾淨、模組化的原生 JavaScript 函式實作，便於輕鬆整合至您的前端網頁、行動App或後端系統。
+                </p>
+            </div>
+
+            <div class="max-w-4xl mx-auto glass-card rounded-3xl shadow-xl overflow-hidden border border-slate-300 dark:border-slate-800">
+                <div class="bg-slate-900 px-6 py-4 flex items-center justify-between text-slate-400 text-xs font-mono">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                        <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                        <span class="ml-2 text-slate-300 font-bold">rainfall_matrix.js</span>
+                    </div>
+                    <button onclick="copyCode()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition text-xs">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span id="copy-btn-text">複製程式碼</span>
+                    </button>
+                </div>
+                <div class="p-6 bg-slate-950 text-slate-200 font-mono text-xs sm:text-sm overflow-x-auto leading-relaxed">
+                    <pre><code id="source-code-block">        // 警告矩陣降雨影響評估函式 (結合 降雨機率 與 降雨量)
         function getRainfallImpactLevel(probability, precipitationSum) {
-            if (precipitationSum <= 1.0) {
-                return { label: '低', class: 'bg-blue-100 text-blue-700 border border-blue-200 font-bold text-lg' };
+            if (precipitationSum &lt;= 1.0) {
+                return { label: '低', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' };
             }
 
-            let impactScore = 1;
-            if (precipitationSum > 100) impactScore = 10;
-            else if (precipitationSum > 50) impactScore = 9;
-            else if (precipitationSum > 25) impactScore = 7;
-            else if (precipitationSum > 10) impactScore = 4;
+            let impactScore = 0;
+            if (precipitationSum &gt;= 10) impactScore = 4;
+            else if (precipitationSum &gt;= 8) impactScore = 3;
+            else if (precipitationSum &gt;= 6) impactScore = 2;
+            else if (precipitationSum &gt;= 4) impactScore = 1;
 
-            let likelihoodScore = 1;
-            if (probability >= 95) likelihoodScore = 5;
-            else if (probability >= 80) likelihoodScore = 4;
-            else if (probability >= 60) likelihoodScore = 3;
-            else if (probability >= 30) likelihoodScore = 2;
+            let likelihoodScore = 0;
+            if (probability &gt;= 90) likelihoodScore = 4;
+            else if (probability &gt;= 70) likelihoodScore = 3;
+            else if (probability &gt;= 50) likelihoodScore = 2;
+            else if (probability &gt;= 30) likelihoodScore = 1;
 
             const matrixValue = impactScore * likelihoodScore;
 
-            if (matrixValue >= 45 || (impactScore >= 7 && likelihoodScore >= 5)) {
-                return { label: '極高', class: 'bg-purple-100 text-purple-700 border border-purple-200 font-bold text-lg' };
-            } else if (matrixValue >= 35) {
-                return { label: '高', class: 'bg-red-100 text-red-700 border border-red-200 font-bold text-lg' };
-            } else if (matrixValue >= 20) {
-                return { label: '中', class: 'bg-amber-100 text-amber-800 border border-amber-200 font-bold text-lg' };
+            if (matrixValue &gt;= 16 || (impactScore &gt;= 4 &amp;&amp; likelihoodScore &gt;= 4)) {
+                return { label: '極高', class: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold' };
+            } else if (matrixValue &gt;= 8 || (impactScore &gt;= 3)) {
+                return { label: '高', class: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-bold' };
+            } else if (matrixValue &gt;= 3 || (impactScore &gt;= 3)) {
+                return { label: '中', class: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold' };
             } else {
-                return { label: '低', class: 'bg-blue-100 text-blue-700 border border-blue-200 font-bold text-lg' };
+                return { label: '低', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' };
             }
         }
 
-        function updateEvaluation() {
-            const precip = parseFloat(document.getElementById('precipitationInput').value) || 0;
-            const prob = parseFloat(document.getElementById('probabilityInput').value) || 0;
+        // 等級標籤樣式：順序為 低 | 中 | 高 | 極高，縮小字體並套用對應背景色
+        function getLevelStyle(level) {
+            switch (level) {
+                case '低':
+                    return 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-medium px-2 py-0.5 rounded';
+                case '中':
+                    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 text-xs font-semibold px-2 py-0.5 rounded';
+                case '高':
+                    return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 text-xs font-semibold px-2 py-0.5 rounded';
+                case '極高':
+                    return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 text-xs font-bold px-2 py-0.5 rounded';
+                default:
+                    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-xs px-2 py-0.5 rounded';
+            }
+        }</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
 
-            const result = getRainfallImpactLevel(prob, precip);
-            const resultBox = document.getElementById('resultBox');
+    <section id="use-cases" class="py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">多元應用場景</h2>
+                <p class="mt-4 text-slate-600 dark:text-slate-400">
+                    降雨影響評估矩陣系統適用於多個關鍵領域，協助決策者提前部署、防患未然。
+                </p>
+            </div>
 
-            resultBox.className = `p-4 rounded-xl text-center transition-all duration-300 ${result.class}`;
-            resultBox.innerHTML = `影響等級評定：<span class="text-2xl ml-2">${result.label}</span>`;
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Use Case 1 -->
+                <div class="glass-card p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-indigo-500/50 transition">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 flex items-center justify-center mb-6">
+                            <i data-lucide="shield" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2">防災應變指揮</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            針對豪雨、颱風來襲時，即時對各行政區進行淹水及土石流風險等級判定，提前調派防災機具。
+                        </p>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center space-x-1">
+                        <span>高精度預警支援</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </div>
+                </div>
+
+                <!-- Use Case 2 -->
+                <div class="glass-card p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-indigo-500/50 transition">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-6">
+                            <i data-lucide="sprout" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2">智慧農業管理</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            評估短延時強降雨對溫室作物與露天農田的排水需求，協助農民提前啟動抽水及防護網。
+                        </p>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center space-x-1">
+                        <span>減少農損風險</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </div>
+                </div>
+
+                <!-- Use Case 3 -->
+                <div class="glass-card p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-indigo-500/50 transition">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-6">
+                            <i data-lucide="building-2" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2">都會交通管理</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            結合捷運站點與地下道積水警戒，動態發布交通疏導建議與淹水熱區警示，維護市民安全。
+                        </p>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center space-x-1">
+                        <span>智慧城市營運</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </div>
+                </div>
+
+                <!-- Use Case 4 -->
+                <div class="glass-card p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-indigo-500/50 transition">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-6">
+                            <i data-lucide="navigation" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2">日常通勤導航</h3>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                            為市民提供通勤路線的天氣衝擊指數，自動推薦替代路線或提早出門建議，提升生活便利性。
+                        </p>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-xs font-semibold text-indigo-600 dark:text-indigo-400 flex items-center space-x-1">
+                        <span>守護個人出行</span>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-slate-900 text-slate-400 py-12 border-t border-slate-800 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold">
+                    <i data-lucide="cloud-rain" class="w-5 h-5"></i>
+                </div>
+                <span class="font-bold text-white text-base">降雨影響評估矩陣系統</span>
+            </div>
+            <p class="text-xs text-center md:text-left">
+                &copy; 2026 Rainfall Impact Matrix Assessment System. All rights reserved. Built with Tailwind CSS & Native JavaScript.
+            </p>
+            <div class="flex items-center space-x-4 text-xs">
+                <a href="#simulator" class="hover:text-white transition">模擬器</a>
+                <a href="#matrix-grid" class="hover:text-white transition">對照矩陣</a>
+                <a href="#code-section" class="hover:text-white transition">演算法</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Theme Toggle functionality
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const htmlElement = document.documentElement;
+
+        // Check local storage or system preference
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            htmlElement.classList.add('dark');
+        } else {
+            htmlElement.classList.remove('dark');
         }
 
-        // 初始化執行一次
-        updateEvaluation();
+        themeToggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            if (htmlElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        // Exact User-Provided JavaScript Logic Functions
+        function getRainfallImpactLevel(probability, precipitationSum) {
+            if (precipitationSum <= 1.0) {
+                return { label: '低', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' };
+            }
+
+            let impactScore = 0;
+            if (precipitationSum >= 10) impactScore = 4;
+            else if (precipitationSum >= 8) impactScore = 3;
+            else if (precipitationSum >= 6) impactScore = 2;
+            else if (precipitationSum >= 4) impactScore = 1;
+
+            let likelihoodScore = 0;
+            if (probability >= 90) likelihoodScore = 4;
+            else if (probability >= 70) likelihoodScore = 3;
+            else if (probability >= 50) likelihoodScore = 2;
+            else if (probability >= 30) likelihoodScore = 1;
+
+            const matrixValue = impactScore * likelihoodScore;
+
+            if (matrixValue >= 16 || (impactScore >= 4 && likelihoodScore >= 4)) {
+                return { label: '極高', class: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold' };
+            } else if (matrixValue >= 8 || (impactScore >= 3)) {
+                return { label: '高', class: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 font-bold' };
+            } else if (matrixValue >= 3 || (impactScore >= 3)) {
+                return { label: '中', class: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-semibold' };
+            } else {
+                return { label: '低', class: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' };
+            }
+        }
+
+        function getLevelStyle(level) {
+            switch (level) {
+                case '低':
+                    return 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-medium px-2.5 py-1 rounded';
+                case '中':
+                    return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300 text-xs font-semibold px-2.5 py-1 rounded';
+                case '高':
+                    return 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300 text-xs font-semibold px-2.5 py-1 rounded';
+                case '極高':
+                    return 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 text-xs font-bold px-2.5 py-1 rounded';
+                default:
+                    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-xs px-2.5 py-1 rounded';
+            }
+        }
+
+        // Helper calculations to show scores for debugging/display
+        function getScores(probability, precipitationSum) {
+            let impactScore = 0;
+            if (precipitationSum <= 1.0) impactScore = 0;
+            else if (precipitationSum >= 10) impactScore = 4;
+            else if (precipitationSum >= 8) impactScore = 3;
+            else if (precipitationSum >= 6) impactScore = 2;
+            else if (precipitationSum >= 4) impactScore = 1;
+
+            let likelihoodScore = 0;
+            if (probability >= 90) likelihoodScore = 4;
+            else if (probability >= 70) likelihoodScore = 3;
+            else if (probability >= 50) likelihoodScore = 2;
+            else if (probability >= 30) likelihoodScore = 1;
+
+            return {
+                impactScore,
+                likelihoodScore,
+                matrixValue: impactScore * likelihoodScore
+            };
+        }
+
+        // Update Simulation UI
+        function updateSimulation() {
+            const prob = parseInt(document.getElementById('prob-slider').value);
+            const precip = parseFloat(document.getElementById('precip-slider').value);
+
+            document.getElementById('prob-value').textContent = prob + ' %';
+            document.getElementById('precip-value').textContent = precip.toFixed(1) + ' mm';
+
+            const result = getRainfallImpactLevel(prob, precip);
+            const scores = getScores(prob, precip);
+
+            // Update badge container
+            const badgeContainer = document.getElementById('result-badge-container');
+            const styledClass = getLevelStyle(result.label);
+            badgeContainer.innerHTML = `<span class="${styledClass}">${result.label}</span>`;
+
+            document.getElementById('result-label-text').textContent = result.label + '級影響';
+            document.getElementById('result-matrix-score').textContent = scores.matrixValue;
+            document.getElementById('impact-score-val').textContent = scores.impactScore + ' 分 (' + precip + 'mm)';
+            document.getElementById('likelihood-score-val').textContent = scores.likelihoodScore + ' 分 (' + prob + '%)';
+
+            // Update recommendation box
+            const recBox = document.getElementById('recommendation-box');
+            const recText = document.getElementById('recommendation-text');
+            
+            if (result.label === '極高') {
+                recBox.className = 'p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-purple-900 dark:text-purple-200 text-sm flex items-start space-x-3';
+                recText.textContent = '極端降雨威脅！請立即戒備，非必要請勿外出，防範嚴重淹水與土石流災害。';
+            } else if (result.label === '高') {
+                recBox.className = 'p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-900 dark:text-red-200 text-sm flex items-start space-x-3';
+                recText.textContent = '降雨威脅顯著，低窪地區請注意積水，戶外活動建議取消或延期。';
+            } else if (result.label === '中') {
+                recBox.className = 'p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 text-sm flex items-start space-x-3';
+                recText.textContent = '降雨達中等門檻，外出請攜帶雨具，行車請保持安全距離。';
+            } else {
+                recBox.className = 'p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-blue-900 dark:text-blue-200 text-sm flex items-start space-x-3';
+                recText.textContent = '天氣狀況平穩或僅有微量降雨，無顯著衝擊，適合各項日常與戶外活動。';
+            }
+
+            // Highlight Matrix Grid Cell
+            highlightMatrixCell(scores.impactScore, scores.likelihoodScore);
+        }
+
+        function highlightMatrixCell(impact, likelihood) {
+            // Reset all cell styles
+            for (let r = 1; r <= 4; r++) {
+                for (let c = 1; c <= 4; c++) {
+                    const cell = document.getElementById(`cell-${r}-${c}`);
+                    if (cell) {
+                        cell.classList.remove('ring-4', 'ring-indigo-600', 'scale-105', 'z-10', 'shadow-lg');
+                    }
+                }
+            }
+
+            // If impact and likelihood are valid indices (1-4)
+            if (impact >= 1 && impact <= 4 && likelihood >= 1 && likelihood <= 4) {
+                const activeCell = document.getElementById(`cell-${impact}-${likelihood}`);
+                if (activeCell) {
+                    activeCell.classList.add('ring-4', 'ring-indigo-600', 'scale-105', 'z-10', 'shadow-lg');
+                }
+            }
+        }
+
+        function setPreset(prob, precip) {
+            document.getElementById('prob-slider').value = prob;
+            document.getElementById('precip-slider').value = precip;
+            updateSimulation();
+        }
+
+        function resetSliders() {
+            setPreset(60, 6.5);
+        }
+
+        function copyCode() {
+            const codeText = document.getElementById('source-code-block').innerText;
+            document.execCommand('copy');
+            // Fallback for clipboard API if needed
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(codeText);
+            }
+            
+            const btnText = document.getElementById('copy-btn-text');
+            btnText.textContent = '已複製成功！';
+            setTimeout(() => {
+                btnText.textContent = '複製程式碼';
+            }, 2000);
+        }
+
+        // Initial run on load
+        window.onload = function() {
+            updateSimulation();
+        };
     </script>
 </body>
 </html>
