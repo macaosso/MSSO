@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - v2.1.3</title>
+    <title>MSSO GIS 颱風監控系統 - v2.1.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -58,7 +58,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v2.1.3</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v2.1.4</span>
                 </h1>
                 <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -130,7 +130,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                MSSO GIS 向量引擎 • v2.1.3 節點動態時速運算
+                MSSO GIS 向量引擎 • v2.1.4 平行非同步載入優化
             </div>
         </aside>
 
@@ -476,7 +476,7 @@
             return parseFloat(catLower.replace(/h/g, '')) || 0;
         }
 
-        // 原始即時資料解析器 (維持原有格式)
+        // 原始即時資料解析器
         function parseCSVToTyphoon(csvText, letter) {
             const lines = csvText.split('\n');
             let currentMeta = null;
@@ -662,7 +662,7 @@
             };
         }
 
-        // 歷史資料格式解析器 (支援 time,name,lat,lon,wind 格式)
+        // 歷史資料格式解析器
         function parseHistoricalCSVToTyphoon(csvText, fileId, year) {
             const lines = csvText.split('\n');
             let rows = [];
@@ -751,30 +751,33 @@
             };
         }
 
-        // 根據年份載入對應的 CSV 資料 (支援即時 A~F.csv 與歷史 {yy}{nn}.csv / {yy}TD{i}.csv 命名格式)
+        // **高效率平行非同步載入：使用 Promise.all 同時發起所有檔案請求，大幅縮短載入時間**
         async function loadTyphoonCSVsForYear(year) {
             let loaded = {};
             
             if (year === 'current') {
                 const files = ['A', 'B', 'C', 'D', 'E', 'F'];
-                for (let f of files) {
+                const promises = files.map(async (f) => {
                     try {
                         const response = await fetch(`TCdata/${f}.csv`);
-                        if (!response.ok) continue;
+                        if (!response.ok) return null;
                         const text = await response.text();
-                        if (!text || text.trim() === '') continue;
-
+                        if (!text || text.trim() === '') return null;
                         const stormData = parseCSVToTyphoon(text, f);
-                        if (stormData) {
-                            loaded[f.toLowerCase()] = stormData;
-                        }
+                        return { key: f.toLowerCase(), data: stormData };
                     } catch (err) {
-                        console.log(`TCdata/${f}.csv 無內容或略過`);
+                        return null;
                     }
-                }
+                });
+
+                const results = await Promise.all(promises);
+                results.forEach(res => {
+                    if (res && res.data) {
+                        loaded[res.key] = res.data;
+                    }
+                });
             } else {
-                // 自動掃描歷史資料夾格式，如 2401.csv ~ 2440.csv 以及 24TD1.csv ~ 24TD15.csv
-                const yy = year.slice(2); // '2024' -> '24', '2025' -> '25', '2026' -> '26'
+                const yy = year.slice(2); // '2024' -> '24'
                 let files = [];
                 for (let i = 1; i <= 40; i++) {
                     files.push(yy + String(i).padStart(2, '0'));
@@ -783,21 +786,26 @@
                     files.push(yy + 'TD' + i);
                 }
 
-                for (let f of files) {
+                // 同時發送所有 55 個檔案請求 (Promise.all 併發處理)
+                const promises = files.map(async (f) => {
                     try {
                         const response = await fetch(`TCdata/pastTC/${year}/${f}.csv`);
-                        if (!response.ok) continue;
+                        if (!response.ok) return null;
                         const text = await response.text();
-                        if (!text || text.trim() === '') continue;
-
+                        if (!text || text.trim() === '') return null;
                         const stormData = parseHistoricalCSVToTyphoon(text, f, year);
-                        if (stormData) {
-                            loaded[f.toLowerCase()] = stormData;
-                        }
+                        return { key: f.toLowerCase(), data: stormData };
                     } catch (err) {
-                        // 略過不存在的檔案
+                        return null;
                     }
-                }
+                });
+
+                const results = await Promise.all(promises);
+                results.forEach(res => {
+                    if (res && res.data) {
+                        loaded[res.key] = res.data;
+                    }
+                });
             }
             return loaded;
         }
@@ -850,7 +858,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 GIS 向量圖資與解析 CSV 檔案...',
+                text: '載入 GIS 向量圖資與平行解析歷史 CSV...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(8, 16, 26, 0.9)',
@@ -904,7 +912,7 @@
             currentSelectedYear = year;
             if (myChart) {
                 myChart.showLoading({
-                    text: `載入 ${year === 'current' ? '即時' : year + '年歷史'} GIS 向量圖資與解析檔案...`,
+                    text: `載入 ${year === 'current' ? '即時' : year + '年歷史'} 資料中...`,
                     color: '#3b82f6',
                     textColor: '#cbd5e1',
                     maskColor: 'rgba(8, 16, 26, 0.9)',
