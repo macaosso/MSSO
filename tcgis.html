@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - v2.1.2</title>
+    <title>MSSO GIS 颱風監控系統 - v2.1.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -58,7 +58,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v2.1.2</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v2.1.3</span>
                 </h1>
                 <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -98,6 +98,16 @@
             </div>
 
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- Year Selector -->
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">歷史資料年份選擇</label>
+                    <select id="year-select" onchange="switchYear(this.value)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                        <option value="2024">2024 年</option>
+                        <option value="2025">2025 年</option>
+                        <option value="2026" selected>2026 年</option>
+                    </select>
+                </div>
+
                 <!-- Storm Selector -->
                 <div class="space-y-1.5">
                     <label class="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400 tracking-wider">活動颱風系統</label>
@@ -119,7 +129,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                MSSO GIS 向量引擎 • v2.1.2 節點動態時速運算
+                MSSO GIS 向量引擎 • v2.1.3 節點動態時速運算
             </div>
         </aside>
 
@@ -314,7 +324,6 @@
             return smooth;
         }
 
-        // Expanded error hours and corresponding radii including 3h, 6h, 12h, 18h, 36h, 60h
         const ERROR_HOURS = [0, 3, 6, 12, 18, 24, 36, 48, 60, 72, 96, 120];
         const ERROR_RADII_KM = [15, 26, 36, 58, 79, 100, 135, 170, 212.5, 255, 345, 465];
 
@@ -456,6 +465,7 @@
 
         let typhoons = {};
         let currentStormKey = 'all';
+        let currentYear = '2026';
         let myChart = null;
         let mapLoaded = false;
 
@@ -467,209 +477,373 @@
 
         function parseCSVToTyphoon(csvText, letter) {
             const lines = csvText.split('\n');
-            let currentMeta = null;
+            let headerCols = [];
             let rows = [];
 
             for (let line of lines) {
                 line = line.trim();
-                if (!line || line.startsWith('#') || line.toLowerCase().startsWith('category')) continue;
+                if (!line || line.startsWith('#')) continue;
                 const cols = line.split(',').map(c => c.trim());
-                if (cols.length < 6) continue;
-
-                const category = cols[0].toLowerCase();
-                const time = cols[1];
-                const rowName = cols[2];
-                const lat = parseFloat(cols[3]);
-                const lon = parseFloat(cols[4]);
-                const rawWind = cols[5];
-
-                if (isNaN(lat) || isNaN(lon)) continue;
-
-                let isEx = false;
-                let windVal = 0;
-                if (rawWind && rawWind.toUpperCase() === 'EX') {
-                    isEx = true;
-                } else {
-                    windVal = parseFloat(rawWind) || 0;
+                
+                if (!headerCols.length && (cols[0].toLowerCase().includes('time') || cols[0].toLowerCase().includes('category'))) {
+                    headerCols = cols.map(c => c.toLowerCase());
+                    continue;
                 }
-
-                if (category === 'current' || category === '0h' || category === '0') {
-                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx };
-                }
-
-                rows.push({ category, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
+                rows.push(cols);
             }
 
             if (rows.length === 0) return null;
 
-            if (!currentMeta) {
-                const anchor = rows.find(r => r.category === '0h' || r.category === 'current' || r.category === '0') || rows[0];
-                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx };
+            // 判斷格式: 
+            // 格式 A (目前/預報): category, time, name, lat, lon, wind (6欄以上)
+            // 格式 B (歷史軌跡): time, name, lat, lon, wind (5欄)
+            let isHistoricalFormat = false;
+            if (headerCols.length === 5 && !headerCols.includes('category')) {
+                isHistoricalFormat = true;
+            } else if (rows[0].length === 5 && !['past', 'current', '0h', 'ex', 'ts', 'ty', 'sty', 'suty'].includes(rows[0][0].toLowerCase())) {
+                isHistoricalFormat = true;
             }
 
-            const name = currentMeta.name;
-            const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
-            const categoryDesc = `${intensityObj.name}`;
+            if (isHistoricalFormat) {
+                // 處理歷史格式: time, name, lat, lon, wind (後續列 name 可能為空)
+                let lastValidName = `Typhoon ${letter.toUpperCase()}`;
+                let parsedRows = [];
 
-            let past = [];
-            let pastCoordsOnly = [];
-            let forecastCoords = [];
-            let forecastPoints = [];
-            let pastNodes = [];
-            let forecastNodes = [];
-
-            let tempForecastRows = rows.filter(r => {
-                const cat = r.category.toLowerCase();
-                return cat === 'current' || cat === '0h' || cat === '0' || cat.includes('h') || !isNaN(parseInt(cat));
-            });
-
-            if (tempForecastRows.length === 0 && rows.length > 0) {
-                tempForecastRows = rows;
-            }
-
-            let fPointsForCalc = [];
-            let fCoordsForCalc = [];
-            tempForecastRows.forEach(fr => {
-                let hour = getHourFromCategory(fr.category);
-                fCoordsForCalc.push([fr.lon, fr.lat]);
-                fPointsForCalc.push({
-                    lon: fr.lon,
-                    lat: fr.lat,
-                    hour: hour,
-                    radius: getRadiusForHour(hour)
-                });
-            });
-
-            rows.forEach((r, idx) => {
-                const intensity = getIntensity(r.wind, r.isEx);
-                
-                let movementStr = '-';
-                const catLower = String(r.category).toLowerCase();
-                const isPast = catLower === 'past';
-                
-                if (!isPast) {
-                    const fIndex = tempForecastRows.findIndex(fr => fr === r);
-                    if (fIndex !== -1) {
-                        let nextFr = tempForecastRows[fIndex + 1];
-                        let prevFr = (fIndex + 1 >= tempForecastRows.length && fIndex > 0) ? tempForecastRows[fIndex - 1] : null;
-                        
-                        if (nextFr) {
-                            let hA = getHourFromCategory(r.category);
-                            let hB = getHourFromCategory(nextFr.category);
-                            let dt = hB - hA;
-                            if (dt <= 0) dt = 3; 
-                            
-                            let dist = turf.distance(
-                                turf.point([r.lon, r.lat]),
-                                turf.point([nextFr.lon, nextFr.lat]),
-                                { units: 'kilometers' }
-                            );
-                            let direction = getDirection(r.lon, r.lat, nextFr.lon, nextFr.lat);
-                            let speed = Math.round(dist / dt);
-                            movementStr = `${direction} ${speed} km/h`;
-                        } else if (prevFr) {
-                            let hA = getHourFromCategory(prevFr.category);
-                            let hB = getHourFromCategory(r.category);
-                            let dt = hB - hA;
-                            if (dt <= 0) dt = 3;
-                            
-                            let dist = turf.distance(
-                                turf.point([prevFr.lon, prevFr.lat]),
-                                turf.point([r.lon, r.lat]),
-                                { units: 'kilometers' }
-                            );
-                            let direction = getDirection(prevFr.lon, prevFr.lat, r.lon, r.lat);
-                            let speed = Math.round(dist / dt);
-                            movementStr = `${direction} ${speed} km/h`;
-                        }
+                rows.forEach(cols => {
+                    if (cols.length < 5) return;
+                    let time = cols[0];
+                    let nameField = cols[1];
+                    if (nameField && nameField !== '') {
+                        lastValidName = nameField;
                     }
-                }
+                    let lat = parseFloat(cols[2]);
+                    let lon = parseFloat(cols[3]);
+                    let rawWind = cols[4];
 
-                const nodeInfo = {
-                    time: r.time,
-                    categoryCode: intensity.code,
-                    categoryName: intensity.name,
-                    color: intensity.color,
-                    wind: r.isEx ? '-' : `${r.wind} km/h`,
-                    isEx: r.isEx,
-                    coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
-                    lat: r.lat,
-                    lon: r.lon,
-                    coord: [r.lon, r.lat],
-                    movementDir: movementStr,
-                    distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
-                    isPast: isPast
+                    if (isNaN(lat) || isNaN(lon)) return;
+
+                    let isEx = false;
+                    let windVal = 0;
+                    if (rawWind && rawWind.toUpperCase() === 'EX') {
+                        isEx = true;
+                    } else {
+                        windVal = parseFloat(rawWind) || 0;
+                    }
+
+                    parsedRows.push({
+                        time,
+                        name: lastValidName,
+                        lat,
+                        lon,
+                        wind: windVal,
+                        isEx,
+                        rawWind
+                    });
+                });
+
+                if (parsedRows.length === 0) return null;
+
+                // 確保依時間排序
+                parsedRows.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+                const latestRow = parsedRows[parsedRows.length - 1];
+                const name = latestRow.name;
+                const intensityObj = getIntensity(latestRow.wind, latestRow.isEx);
+                const categoryDesc = `${intensityObj.name}`;
+
+                let past = [];
+                let pastCoordsOnly = [];
+                let pastNodes = [];
+
+                parsedRows.forEach((r, idx) => {
+                    const intensity = getIntensity(r.wind, r.isEx);
+                    const isLatest = (idx === parsedRows.length - 1);
+
+                    let movementStr = '-';
+                    if (idx > 0) {
+                        let prevR = parsedRows[idx - 1];
+                        let dtHours = (new Date(r.time) - new Date(prevR.time)) / 3600000;
+                        if (dtHours <= 0) dtHours = 3;
+                        let dist = turf.distance(turf.point([prevR.lon, prevR.lat]), turf.point([r.lon, r.lat]), {units: 'kilometers'});
+                        let direction = getDirection(prevR.lon, prevR.lat, r.lon, r.lat);
+                        let speed = Math.round(dist / dtHours);
+                        movementStr = `${direction} ${speed} km/h`;
+                    }
+
+                    const nodeInfo = {
+                        time: r.time,
+                        categoryCode: intensity.code,
+                        categoryName: intensity.name,
+                        color: intensity.color,
+                        wind: r.isEx ? '-' : `${r.wind} km/h`,
+                        isEx: r.isEx,
+                        coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
+                        lat: r.lat,
+                        lon: r.lon,
+                        coord: [r.lon, r.lat],
+                        movementDir: movementStr,
+                        distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
+                        isPast: true
+                    };
+
+                    past.push({ coord: [r.lon, r.lat], wind: r.wind, isEx: r.isEx });
+                    pastCoordsOnly.push([r.lon, r.lat]);
+                    pastNodes.push(nodeInfo);
+                });
+
+                const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1];
+                const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : `${latestRow.lat.toFixed(1)}°N, ${latestRow.lon.toFixed(1)}°E`;
+                const movementStr = pastNodes.length >= 2 ? pastNodes[pastNodes.length - 1].movementDir : '-';
+
+                return {
+                    name,
+                    category: categoryDesc,
+                    intensityObj,
+                    wind: latestRow.isEx ? '-' : `${latestRow.wind} km/h`,
+                    time: latestRow.time,
+                    movement: movementStr,
+                    coords: coordsStr,
+                    past,
+                    pastCoordsOnly,
+                    forecast: [lastCoord],
+                    forecastPoints: [{ lon: lastCoord[0], lat: lastCoord[1], hour: 0, radius: 15 }],
+                    nodes: pastNodes,
+                    pastNodes,
+                    forecastNodes: []
                 };
 
-                if (r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0') {
-                    pastNodes.push(nodeInfo);
-                }
-                if (r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h') || !isNaN(parseInt(r.category))) {
-                    forecastNodes.push(nodeInfo);
-                }
-            });
+            } else {
+                // 處理原本的格式 (category, time, name, lat, lon, wind)
+                let currentMeta = null;
+                let standardRows = [];
 
-            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
-            if (pastRows.length === 0 && rows.length > 0) {
-                pastRows = [rows[0]];
+                rows.forEach(cols => {
+                    if (cols.length < 6) return;
+                    const category = cols[0].toLowerCase();
+                    const time = cols[1];
+                    const rowName = cols[2];
+                    const lat = parseFloat(cols[3]);
+                    const lon = parseFloat(cols[4]);
+                    const rawWind = cols[5];
+
+                    if (isNaN(lat) || isNaN(lon)) return;
+
+                    let isEx = false;
+                    let windVal = 0;
+                    if (rawWind && rawWind.toUpperCase() === 'EX') {
+                        isEx = true;
+                    } else {
+                        windVal = parseFloat(rawWind) || 0;
+                    }
+
+                    if (category === 'current' || category === '0h' || category === '0') {
+                        currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx };
+                    }
+
+                    standardRows.push({ category, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
+                });
+
+                if (standardRows.length === 0) return null;
+
+                if (!currentMeta) {
+                    const anchor = standardRows.find(r => r.category === '0h' || r.category === 'current' || r.category === '0') || standardRows[0];
+                    currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx };
+                }
+
+                const name = currentMeta.name;
+                const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
+                const categoryDesc = `${intensityObj.name}`;
+
+                let past = [];
+                let pastCoordsOnly = [];
+                let forecastCoords = [];
+                let forecastPoints = [];
+                let pastNodes = [];
+                let forecastNodes = [];
+
+                let tempForecastRows = standardRows.filter(r => {
+                    const cat = r.category.toLowerCase();
+                    return cat === 'current' || cat === '0h' || cat === '0' || cat.includes('h') || !isNaN(parseInt(cat));
+                });
+
+                if (tempForecastRows.length === 0 && standardRows.length > 0) {
+                    tempForecastRows = standardRows;
+                }
+
+                let fPointsForCalc = [];
+                let fCoordsForCalc = [];
+                tempForecastRows.forEach(fr => {
+                    let hour = getHourFromCategory(fr.category);
+                    fCoordsForCalc.push([fr.lon, fr.lat]);
+                    fPointsForCalc.push({
+                        lon: fr.lon,
+                        lat: fr.lat,
+                        hour: hour,
+                        radius: getRadiusForHour(hour)
+                    });
+                });
+
+                standardRows.forEach((r, idx) => {
+                    const intensity = getIntensity(r.wind, r.isEx);
+                    let movementStr = '-';
+                    const catLower = String(r.category).toLowerCase();
+                    const isPast = catLower === 'past';
+                    
+                    if (!isPast) {
+                        const fIndex = tempForecastRows.findIndex(fr => fr === r);
+                        if (fIndex !== -1) {
+                            let nextFr = tempForecastRows[fIndex + 1];
+                            let prevFr = (fIndex + 1 >= tempForecastRows.length && fIndex > 0) ? tempForecastRows[fIndex - 1] : null;
+                            
+                            if (nextFr) {
+                                let hA = getHourFromCategory(r.category);
+                                let hB = getHourFromCategory(nextFr.category);
+                                let dt = hB - hA;
+                                if (dt <= 0) dt = 3; 
+                                
+                                let dist = turf.distance(turf.point([r.lon, r.lat]), turf.point([nextFr.lon, nextFr.lat]), { units: 'kilometers' });
+                                let direction = getDirection(r.lon, r.lat, nextFr.lon, nextFr.lat);
+                                let speed = Math.round(dist / dt);
+                                movementStr = `${direction} ${speed} km/h`;
+                            } else if (prevFr) {
+                                let hA = getHourFromCategory(prevFr.category);
+                                let hB = getHourFromCategory(r.category);
+                                let dt = hB - hA;
+                                if (dt <= 0) dt = 3;
+                                
+                                let dist = turf.distance(turf.point([prevFr.lon, prevFr.lat]), turf.point([r.lon, r.lat]), { units: 'kilometers' });
+                                let direction = getDirection(prevFr.lon, prevFr.lat, r.lon, r.lat);
+                                let speed = Math.round(dist / dt);
+                                movementStr = `${direction} ${speed} km/h`;
+                            }
+                        }
+                    }
+
+                    const nodeInfo = {
+                        time: r.time,
+                        categoryCode: intensity.code,
+                        categoryName: intensity.name,
+                        color: intensity.color,
+                        wind: r.isEx ? '-' : `${r.wind} km/h`,
+                        isEx: r.isEx,
+                        coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
+                        lat: r.lat,
+                        lon: r.lon,
+                        coord: [r.lon, r.lat],
+                        movementDir: movementStr,
+                        distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
+                        isPast: isPast
+                    };
+
+                    if (r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0') {
+                        pastNodes.push(nodeInfo);
+                    }
+                    if (r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h') || !isNaN(parseInt(r.category))) {
+                        forecastNodes.push(nodeInfo);
+                    }
+                });
+
+                let pastRows = standardRows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
+                if (pastRows.length === 0 && standardRows.length > 0) {
+                    pastRows = [standardRows[0]];
+                }
+                pastRows.forEach(pt => {
+                    past.push({ coord: [pt.lon, pt.lat], wind: pt.wind, isEx: pt.isEx });
+                    pastCoordsOnly.push([pt.lon, pt.lat]);
+                });
+
+                forecastCoords = fCoordsForCalc;
+                forecastPoints = fPointsForCalc;
+
+                const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1] || forecastCoords[0] || [currentMeta.lon, currentMeta.lat];
+                const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : `${currentMeta.lat.toFixed(1)}°N, ${currentMeta.lon.toFixed(1)}°E`;
+                const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
+                const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
+
+                let nodeMap = new Map();
+                [...pastNodes, ...forecastNodes].forEach(node => {
+                    nodeMap.set(node.time + "_" + node.coordStr, node);
+                });
+                let nodes = Array.from(nodeMap.values());
+
+                return {
+                    name,
+                    category: categoryDesc,
+                    intensityObj,
+                    wind: currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`,
+                    time: currentMeta.time,
+                    movement: movementStr,
+                    coords: coordsStr,
+                    past,
+                    pastCoordsOnly,
+                    forecast: forecastCoords.length > 0 ? forecastCoords : [lastCoord],
+                    forecastPoints,
+                    nodes,
+                    pastNodes,
+                    forecastNodes
+                };
             }
-            pastRows.forEach(pt => {
-                past.push({ coord: [pt.lon, pt.lat], wind: pt.wind, isEx: pt.isEx });
-                pastCoordsOnly.push([pt.lon, pt.lat]);
-            });
-
-            forecastCoords = fCoordsForCalc;
-            forecastPoints = fPointsForCalc;
-
-            const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1] || forecastCoords[0] || [currentMeta.lon, currentMeta.lat];
-            const coordsStr = lastCoord ? `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E` : `${currentMeta.lat.toFixed(1)}°N, ${currentMeta.lon.toFixed(1)}°E`;
-            const fCoordsForStorm = forecastCoords.length > 0 ? forecastCoords : [lastCoord];
-            const movementStr = calculateMovementStr(forecastPoints, fCoordsForStorm, pastCoordsOnly);
-
-            let nodeMap = new Map();
-            [...pastNodes, ...forecastNodes].forEach(node => {
-                nodeMap.set(node.time + "_" + node.coordStr, node);
-            });
-            let nodes = Array.from(nodeMap.values());
-
-            return {
-                name,
-                category: categoryDesc,
-                intensityObj,
-                wind: currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`,
-                time: currentMeta.time,
-                movement: movementStr,
-                coords: coordsStr,
-                past,
-                pastCoordsOnly,
-                forecast: forecastCoords.length > 0 ? forecastCoords : [lastCoord],
-                forecastPoints,
-                nodes,
-                pastNodes,
-                forecastNodes
-            };
         }
 
-        async function loadAllTyphoonCSVs() {
-            const files = ['A', 'B', 'C', 'D', 'E', 'F'];
+        async function loadAllTyphoonCSVs(year = '2026') {
+            let candidates = [];
+            for (let i = 0; i < 26; i++) {
+                candidates.push(String.fromCharCode(65 + i)); // A-Z
+            }
+            for (let i = 1; i <= 30; i++) {
+                candidates.push(String(i));
+                candidates.push(String(i).padStart(2, '0'));
+            }
+            candidates = [...new Set(candidates)];
+
             let loaded = {};
 
-            for (let f of files) {
+            await Promise.all(candidates.map(async (f) => {
                 try {
-                    const response = await fetch(`TCdata/${f}.csv`);
-                    if (!response.ok) continue;
+                    const response = await fetch(`TCdata/pastTC/${year}/${f}.csv`);
+                    if (!response.ok) return;
                     const text = await response.text();
-                    if (!text || text.trim() === '') continue;
+                    if (!text || text.trim() === '') return;
 
                     const stormData = parseCSVToTyphoon(text, f);
                     if (stormData) {
                         loaded[f.toLowerCase()] = stormData;
                     }
                 } catch (err) {
-                    console.log(`TCdata/${f}.csv 無內容或略過`);
+                    // 略過不存在的檔案
                 }
-            }
+            }));
+
             return loaded;
+        }
+
+        async function switchYear(year) {
+            currentYear = year;
+            if (myChart) {
+                myChart.showLoading({
+                    text: `載入 ${year} 年 GIS 向量圖資與解析 CSV 檔案...`,
+                    color: '#3b82f6',
+                    textColor: '#cbd5e1',
+                    maskColor: 'rgba(8, 16, 26, 0.9)',
+                    zlevel: 0
+                });
+            }
+
+            typhoons = await loadAllTyphoonCSVs(currentYear);
+
+            if (myChart) {
+                myChart.hideLoading();
+            }
+
+            const keys = Object.keys(typhoons);
+            if (keys.length > 0) {
+                currentStormKey = keys[0];
+            } else {
+                currentStormKey = 'all';
+            }
+
+            updateStormSelectUI();
+            renderChart(true);
         }
 
         function getStormBounds(stKey) {
@@ -730,7 +904,7 @@
             try {
                 const [worldResp, csvTyphoons] = await Promise.all([
                     fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson'),
-                    loadAllTyphoonCSVs()
+                    loadAllTyphoonCSVs(currentYear)
                 ]);
 
                 const worldJson = await worldResp.json();
@@ -1116,7 +1290,7 @@
                     left: 'center',
                     top: 'center',
                     style: {
-                        text: '當前西北太平洋沒有熱帶氣旋活躍',
+                        text: `${currentYear} 年選定目錄中沒有熱帶氣旋記錄`,
                         fill: isDark ? '#94a3b8' : '#64748b',
                         fontSize: 18,
                         fontWeight: 'bold',
@@ -1200,18 +1374,18 @@
             if (keys.length === 0) {
                 document.getElementById('storm-name').innerText = "無活動系統";
                 const catEl = document.getElementById('storm-category');
-                catEl.innerText = "正常";
+                catEl.innerText = `${currentYear} 年無紀錄`;
                 catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                 catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
                 catEl.style.color = '#3b82f6';
-                stormStatsContent.innerHTML = `<div class="text-center text-slate-500 py-3 text-xs">當前西北太平洋沒有熱帶氣旋活躍</div>`;
+                stormStatsContent.innerHTML = `<div class="text-center text-slate-500 py-3 text-xs">${currentYear} 年指定資料夾內沒有找到有效熱帶氣旋 CSV 檔案</div>`;
                 return;
             }
 
             if (currentStormKey === 'all' && keys.length > 1) {
-                document.getElementById('storm-name').innerText = "活動颱風系統 (全部)";
+                document.getElementById('storm-name').innerText = `活動颱風系統 (${currentYear} 全部)`;
                 const catEl = document.getElementById('storm-category');
-                catEl.innerText = `共 ${keys.length} 個系統監控中`;
+                catEl.innerText = `共 ${keys.length} 個系統`;
                 catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
                 catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
                 catEl.style.color = '#3b82f6';
@@ -1254,7 +1428,7 @@
                 const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
 
                 let forecastTableRows = '';
-                if (storm.forecastNodes) {
+                if (storm.forecastNodes && storm.forecastNodes.length > 0) {
                     storm.forecastNodes.forEach(node => {
                         forecastTableRows += `
                             <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/40">
@@ -1265,6 +1439,8 @@
                             </tr>
                         `;
                     });
+                } else {
+                    forecastTableRows = `<tr><td colspan="4" class="py-2 text-center text-slate-400 text-[11px]">歷史氣旋無預報路徑節點</td></tr>`;
                 }
 
                 let pastTableRows = '';
@@ -1285,7 +1461,7 @@
                     <div class="space-y-3">
                         <div class="space-y-2 text-xs">
                             <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">預報時間</span>
+                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">最後記錄時間</span>
                                 <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
                             </div>
                             <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -1307,7 +1483,7 @@
                         </div>
 
                         <!-- 預報路徑表 -->
-                        <details open class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
+                        <details class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
                             <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
                                 <span><i class="fa-solid fa-route text-blue-500 dark:text-blue-400 mr-1.5"></i> 預報路徑表</span>
                                 <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
@@ -1330,7 +1506,7 @@
                         </details>
 
                         <!-- 歷史軌跡表 -->
-                        <details class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
+                        <details open class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
                             <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
                                 <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
                                 <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
