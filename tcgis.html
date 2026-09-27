@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - v2.1.2</title>
+    <title>MSSO GIS 颱風監控系統 - v2.1.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -58,7 +58,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v2.1.2</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v2.1.3</span>
                 </h1>
                 <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與高密度誤差圈系統</p>
             </div>
@@ -130,7 +130,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                MSSO GIS 向量引擎 • v2.1.2 節點動態時速運算
+                MSSO GIS 向量引擎 • v2.1.3 節點動態時速運算
             </div>
         </aside>
 
@@ -663,10 +663,10 @@
         }
 
         // 歷史資料格式解析器 (支援 time,name,lat,lon,wind 格式)
-        function parseHistoricalCSVToTyphoon(csvText, letter, year) {
+        function parseHistoricalCSVToTyphoon(csvText, fileId, year) {
             const lines = csvText.split('\n');
             let rows = [];
-            let currentStormName = `Typhoon ${letter.toUpperCase()} (${year})`;
+            let currentStormName = `Typhoon ${fileId.toUpperCase()} (${year})`;
 
             for (let line of lines) {
                 line = line.trim();
@@ -698,7 +698,7 @@
 
             if (rows.length === 0) return null;
 
-            const name = rows.find(r => r.name && r.name !== `Typhoon ${letter.toUpperCase()} (${year})`)?.name || currentStormName;
+            const name = rows.find(r => r.name && r.name !== `Typhoon ${fileId.toUpperCase()} (${year})`)?.name || currentStormName;
             const lastRow = rows[rows.length - 1];
             const maxWind = Math.max(...rows.map(r => r.wind));
             const intensityObj = getIntensity(maxWind, false);
@@ -751,7 +751,7 @@
             };
         }
 
-        // 根據年份載入對應的 CSV 資料 (保持原本 TCdata/A~F.csv 抓取邏輯)
+        // 根據年份載入對應的 CSV 資料 (支援即時 A~F.csv 與歷史 {yy}{nn}.csv / {yy}TD{i}.csv 命名格式)
         async function loadTyphoonCSVsForYear(year) {
             let loaded = {};
             
@@ -773,8 +773,16 @@
                     }
                 }
             } else {
-                // 自動偵測指定歷史年份資料夾底下的所有 CSV 檔案 (A~Z)
-                const files = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+                // 自動掃描歷史資料夾格式，如 2401.csv ~ 2440.csv 以及 24TD1.csv ~ 24TD15.csv
+                const yy = year.slice(2); // '2024' -> '24', '2025' -> '25', '2026' -> '26'
+                let files = [];
+                for (let i = 1; i <= 40; i++) {
+                    files.push(yy + String(i).padStart(2, '0'));
+                }
+                for (let i = 1; i <= 15; i++) {
+                    files.push(yy + 'TD' + i);
+                }
+
                 for (let f of files) {
                     try {
                         const response = await fetch(`TCdata/pastTC/${year}/${f}.csv`);
