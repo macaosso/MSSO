@@ -262,6 +262,7 @@
             let minVal = Infinity;
             let bestCoord = coordsList[0];
             coordsList.forEach(c => {
+                if (!c || isNaN(c[0]) || isNaN(c[1])) return;
                 const [lon, lat] = c;
                 const R = 6371;
                 const dLat = (lat - MACAU_COORDS[1]) * Math.PI / 180;
@@ -625,7 +626,6 @@
                     categoryName: intensity.name,
                     color: intensity.color,
                     wind: r.isEx ? '-' : `${r.wind} km/h`,
-                    rawWind: r.wind,
                     isEx: r.isEx,
                     coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
                     lat: r.lat,
@@ -675,7 +675,6 @@
                 time: currentMeta.time,
                 movement: movementStr,
                 coords: coordsStr,
-                currentDistToMacau: getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat),
                 past,
                 pastCoordsOnly,
                 forecast: forecastCoords.length > 0 ? forecastCoords : [lastCoord],
@@ -740,7 +739,6 @@
                     categoryName: intensity.name,
                     color: intensity.color,
                     wind: r.isEx ? '-' : `${r.wind} km/h`,
-                    rawWind: r.wind,
                     isEx: r.isEx,
                     coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
                     lat: r.lat,
@@ -766,7 +764,6 @@
                 time: lastRow.time,
                 movement: "-",
                 coords: coordsStr,
-                currentDistToMacau: getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]),
                 past,
                 pastCoordsOnly,
                 forecast: [lastCoord],
@@ -849,11 +846,14 @@
 
             let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
             allCoords.forEach(c => {
+                if (!c || isNaN(c[0]) || isNaN(c[1])) return;
                 if (c[0] < minLon) minLon = c[0];
                 if (c[0] > maxLon) maxLon = c[0];
                 if (c[1] < minLat) minLat = c[1];
                 if (c[1] > maxLat) maxLat = c[1];
             });
+            if (minLon === Infinity || maxLon === -Infinity) return { center: [130, 15], zoom: 4.2 };
+
             const center = [(minLon + maxLon) / 2, (minLat + maxLat) / 2];
             const lonSpan = maxLon - minLon;
             const latSpan = maxLat - minLat;
@@ -997,11 +997,14 @@
                     data: [[0]],
                     renderItem: function(params, api) {
                         const points = ring.map(coord => api.coord(coord));
-                        if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) return;
+                        if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) {
+                            return { type: 'group', silent: true }; // Prevent undefined return error & hoverState error
+                        }
                         return {
                             type: 'polygon',
                             shape: { points: points },
-                            style: styleOpts
+                            style: styleOpts,
+                            silent: true
                         };
                     },
                     silent: true
@@ -1157,22 +1160,25 @@
                 }
 
                 if (showPast && st.pastCoordsOnly && st.pastCoordsOnly.length >= 2) {
-                    seriesList.push({
-                        type: 'lines',
-                        coordinateSystem: 'geo',
-                        z: 3,
-                        polyline: true,
-                        lineStyle: { color: isDark ? '#ffffff' : '#334155', width: 1.8, opacity: 0.95 },
-                        data: [{ coords: st.pastCoordsOnly }],
-                        silent: true
-                    });
+                    const validPastCoords = st.pastCoordsOnly.filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
+                    if (validPastCoords.length >= 2) {
+                        seriesList.push({
+                            type: 'lines',
+                            coordinateSystem: 'geo',
+                            z: 3,
+                            polyline: true,
+                            lineStyle: { color: isDark ? '#ffffff' : '#334155', width: 1.8, opacity: 0.95 },
+                            data: [{ coords: validPastCoords }],
+                            silent: true
+                        });
+                    }
                 }
 
                 const pastScatterData = st.past.map(pt => {
                     const intensity = getIntensity(pt.wind, pt.isEx);
                     return {
                         name: `${st.name} 軌跡點`,
-                        value: [...pt.coord, 1],
+                        value: pt.coord ? [...pt.coord, 1] : [MACAU_COORDS[0], MACAU_COORDS[1], 1],
                         itemStyle: { color: intensity.color },
                         symbolSize: 7,
                         windVal: pt.wind,
@@ -1191,33 +1197,36 @@
                 });
 
                 if (showForecast && smoothForecastCoords && smoothForecastCoords.length >= 2 && currentSelectedYear === 'current') {
-                    seriesList.push({
-                        type: 'lines',
-                        coordinateSystem: 'geo',
-                        z: 3,
-                        polyline: true,
-                        effect: {
-                            show: true,
-                            period: 4,
-                            trailLength: 0.2,
-                            color: isDark ? '#ffffff' : '#334155',
-                            symbol: 'circle',
-                            symbolSize: 4
-                        },
-                        lineStyle: { color: isDark ? '#ffffff' : '#334155', width: 2.2, type: 'dashed', opacity: 0.9 },
-                        data: [{ coords: smoothForecastCoords }],
-                        silent: true
-                    });
+                    const validForecastCoords = smoothForecastCoords.filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
+                    if (validForecastCoords.length >= 2) {
+                        seriesList.push({
+                            type: 'lines',
+                            coordinateSystem: 'geo',
+                            z: 3,
+                            polyline: true,
+                            effect: {
+                                show: true,
+                                period: 4,
+                                trailLength: 0.2,
+                                color: isDark ? '#ffffff' : '#334155',
+                                symbol: 'circle',
+                                symbolSize: 4
+                            },
+                            lineStyle: { color: isDark ? '#ffffff' : '#334155', width: 2.2, type: 'dashed', opacity: 0.9 },
+                            data: [{ coords: validForecastCoords }],
+                            silent: true
+                        });
+                    }
                 }
 
                 if (showNodes && st.nodes) {
                     const scatterData = st.nodes.map((node) => {
-                        const intensity = getIntensity(node.rawWind, node.isEx);
+                        const intensity = getIntensity(node.wind, node.isEx);
                         const isEye = (currentSelectedYear === 'current') && (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
 
                         return {
                             name: `${st.name} - ${node.time}`,
-                            value: [...node.coord, 1],
+                            value: node.coord ? [...node.coord, 1] : [MACAU_COORDS[0], MACAU_COORDS[1], 1],
                             itemStyle: { color: intensity.color },
                             symbolSize: isEye ? 16 : 9,
                             isEye: isEye,
@@ -1409,7 +1418,7 @@
                 let listHtml = '<div class="space-y-2 pr-1 max-h-72 overflow-y-auto">';
                 keys.forEach(key => {
                     const st = typhoons[key];
-                    const distDisplay = currentSelectedYear === 'current' ? (st.currentDistToMacau || getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly)) : getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly);
+                    const closestDist = getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly);
                     listHtml += `
                         <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5 shadow-sm">
                             <div class="flex justify-between items-center font-bold text-slate-800 dark:text-white">
@@ -1418,7 +1427,7 @@
                             </div>
                             <div class="space-y-1 text-[11px] text-slate-600 dark:text-slate-300 font-mono">
                                 <div>中心最大風速: <span class="text-slate-800 dark:text-slate-200">${st.wind}</span></div>
-                                <div>距離澳門: <span class="text-slate-800 dark:text-slate-200">${distDisplay}</span></div>
+                                <div>最近距離澳門: <span class="text-slate-800 dark:text-slate-200">${closestDist}</span></div>
                             </div>
                         </div>
                     `;
@@ -1438,7 +1447,6 @@
                 catEl.style.color = storm.intensityObj.color;
                 
                 const closestDist = getClosestDistanceAndDirectionToMacau(storm.pastCoordsOnly);
-                const distDisplay = currentSelectedYear === 'current' ? (storm.currentDistToMacau || closestDist) : closestDist;
 
                 let forecastTableRows = '';
                 if (storm.forecastNodes && currentSelectedYear === 'current') {
@@ -1505,8 +1513,8 @@
                                     <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
                                 </div>
                                 <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${distDisplay}</span>
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">最近距離澳門</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
                                 </div>
                             </div>
 
@@ -1565,7 +1573,7 @@
                                 </div>
                                 <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
                                     <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${distDisplay}</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
                                 </div>
                             </div>
 
@@ -1606,28 +1614,17 @@
                     `;
                 }
 
-                // 渲染風速變化曲線圖表（包含預報資料、過濾 0/Ex 點、套用強度分級顏色）
+                // 渲染風速變化曲線圖表
                 setTimeout(() => {
                     const windChartDom = document.getElementById('wind-speed-chart');
                     if (windChartDom) {
                         let chartTimes = [];
                         let chartWinds = [];
-                        
-                        let nodesToUse = [];
-                        if (currentSelectedYear === 'current' && storm.nodes) {
-                            nodesToUse = storm.nodes;
-                        } else {
-                            nodesToUse = storm.pastNodes || [];
-                        }
-
+                        let nodesToUse = storm.pastNodes || [];
                         nodesToUse.forEach(n => {
-                            let wNum = parseFloat(n.rawWind);
-                            const isExVal = n.isEx || (typeof n.rawWind === 'string' && n.rawWind.toUpperCase() === 'EX');
-                            // 若偵測到 0 或 Ex 則不顯示該點
-                            if (isNaN(wNum) || wNum === 0 || isExVal) {
-                                return;
-                            }
                             chartTimes.push(n.time);
+                            let wNum = parseFloat(n.wind) || 0;
+                            if (n.isEx) wNum = 0;
                             chartWinds.push(wNum);
                         });
 
@@ -1635,19 +1632,6 @@
                         windChart.setOption({
                             animation: true,
                             grid: { top: 15, bottom: 25, left: 30, right: 15 },
-                            visualMap: {
-                                show: false,
-                                dimension: 1,
-                                pieces: [
-                                    {gt: 0, le: 40, color: '#64748b'},   // LPA / 低壓區
-                                    {gt: 40, le: 62, color: '#0284c7'},  // TD 熱帶低氣壓
-                                    {gt: 62, le: 87, color: '#16a34a'},  // TS 熱帶風暴
-                                    {gt: 87, le: 117, color: '#ca8a04'}, // STS 強烈熱帶風暴
-                                    {gt: 117, le: 149, color: '#ea580c'},// TY 颱風
-                                    {gt: 149, le: 184, color: '#dc2626'},// STY 強颱風
-                                    {gt: 184, color: '#9333ea'}          // SuTY 超強颱風
-                                ]
-                            },
                             xAxis: {
                                 type: 'category',
                                 data: chartTimes,
@@ -1665,7 +1649,14 @@
                                 data: chartWinds,
                                 type: 'line',
                                 smooth: true,
-                                lineStyle: { width: 2 }
+                                lineStyle: { color: storm.intensityObj.color, width: 2 },
+                                itemStyle: { color: storm.intensityObj.color },
+                                areaStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                        { offset: 0, color: storm.intensityObj.color + '66' },
+                                        { offset: 1, color: storm.intensityObj.color + '00' }
+                                    ])
+                                }
                             }],
                             tooltip: {
                                 trigger: 'axis',
