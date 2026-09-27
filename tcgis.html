@@ -625,6 +625,7 @@
                     categoryName: intensity.name,
                     color: intensity.color,
                     wind: r.isEx ? '-' : `${r.wind} km/h`,
+                    rawWind: r.wind,
                     isEx: r.isEx,
                     coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
                     lat: r.lat,
@@ -674,6 +675,7 @@
                 time: currentMeta.time,
                 movement: movementStr,
                 coords: coordsStr,
+                currentDistToMacau: getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat),
                 past,
                 pastCoordsOnly,
                 forecast: forecastCoords.length > 0 ? forecastCoords : [lastCoord],
@@ -738,6 +740,7 @@
                     categoryName: intensity.name,
                     color: intensity.color,
                     wind: r.isEx ? '-' : `${r.wind} km/h`,
+                    rawWind: r.wind,
                     isEx: r.isEx,
                     coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
                     lat: r.lat,
@@ -763,6 +766,7 @@
                 time: lastRow.time,
                 movement: "-",
                 coords: coordsStr,
+                currentDistToMacau: getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]),
                 past,
                 pastCoordsOnly,
                 forecast: [lastCoord],
@@ -1208,7 +1212,7 @@
 
                 if (showNodes && st.nodes) {
                     const scatterData = st.nodes.map((node) => {
-                        const intensity = getIntensity(node.wind, node.isEx);
+                        const intensity = getIntensity(node.rawWind, node.isEx);
                         const isEye = (currentSelectedYear === 'current') && (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
 
                         return {
@@ -1405,7 +1409,7 @@
                 let listHtml = '<div class="space-y-2 pr-1 max-h-72 overflow-y-auto">';
                 keys.forEach(key => {
                     const st = typhoons[key];
-                    const closestDist = getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly);
+                    const distDisplay = currentSelectedYear === 'current' ? (st.currentDistToMacau || getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly)) : getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly);
                     listHtml += `
                         <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5 shadow-sm">
                             <div class="flex justify-between items-center font-bold text-slate-800 dark:text-white">
@@ -1414,7 +1418,7 @@
                             </div>
                             <div class="space-y-1 text-[11px] text-slate-600 dark:text-slate-300 font-mono">
                                 <div>中心最大風速: <span class="text-slate-800 dark:text-slate-200">${st.wind}</span></div>
-                                <div>最近距離澳門: <span class="text-slate-800 dark:text-slate-200">${closestDist}</span></div>
+                                <div>距離澳門: <span class="text-slate-800 dark:text-slate-200">${distDisplay}</span></div>
                             </div>
                         </div>
                     `;
@@ -1434,6 +1438,7 @@
                 catEl.style.color = storm.intensityObj.color;
                 
                 const closestDist = getClosestDistanceAndDirectionToMacau(storm.pastCoordsOnly);
+                const distDisplay = currentSelectedYear === 'current' ? (storm.currentDistToMacau || closestDist) : closestDist;
 
                 let forecastTableRows = '';
                 if (storm.forecastNodes && currentSelectedYear === 'current') {
@@ -1500,8 +1505,8 @@
                                     <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
                                 </div>
                                 <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">最近距離澳門</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${distDisplay}</span>
                                 </div>
                             </div>
 
@@ -1560,7 +1565,7 @@
                                 </div>
                                 <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
                                     <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${distDisplay}</span>
                                 </div>
                             </div>
 
@@ -1601,17 +1606,28 @@
                     `;
                 }
 
-                // 渲染風速變化曲線圖表
+                // 渲染風速變化曲線圖表（包含預報資料、過濾 0/Ex 點、套用強度分級顏色）
                 setTimeout(() => {
                     const windChartDom = document.getElementById('wind-speed-chart');
                     if (windChartDom) {
                         let chartTimes = [];
                         let chartWinds = [];
-                        let nodesToUse = storm.pastNodes || [];
+                        
+                        let nodesToUse = [];
+                        if (currentSelectedYear === 'current' && storm.nodes) {
+                            nodesToUse = storm.nodes;
+                        } else {
+                            nodesToUse = storm.pastNodes || [];
+                        }
+
                         nodesToUse.forEach(n => {
+                            let wNum = parseFloat(n.rawWind);
+                            const isExVal = n.isEx || (typeof n.rawWind === 'string' && n.rawWind.toUpperCase() === 'EX');
+                            // 若偵測到 0 或 Ex 則不顯示該點
+                            if (isNaN(wNum) || wNum === 0 || isExVal) {
+                                return;
+                            }
                             chartTimes.push(n.time);
-                            let wNum = parseFloat(n.wind) || 0;
-                            if (n.isEx) wNum = 0;
                             chartWinds.push(wNum);
                         });
 
@@ -1619,6 +1635,19 @@
                         windChart.setOption({
                             animation: true,
                             grid: { top: 15, bottom: 25, left: 30, right: 15 },
+                            visualMap: {
+                                show: false,
+                                dimension: 1,
+                                pieces: [
+                                    {gt: 0, le: 40, color: '#64748b'},   // LPA / 低壓區
+                                    {gt: 40, le: 62, color: '#0284c7'},  // TD 熱帶低氣壓
+                                    {gt: 62, le: 87, color: '#16a34a'},  // TS 熱帶風暴
+                                    {gt: 87, le: 117, color: '#ca8a04'}, // STS 強烈熱帶風暴
+                                    {gt: 117, le: 149, color: '#ea580c'},// TY 颱風
+                                    {gt: 149, le: 184, color: '#dc2626'},// STY 強颱風
+                                    {gt: 184, color: '#9333ea'}          // SuTY 超強颱風
+                                ]
+                            },
                             xAxis: {
                                 type: 'category',
                                 data: chartTimes,
@@ -1636,14 +1665,7 @@
                                 data: chartWinds,
                                 type: 'line',
                                 smooth: true,
-                                lineStyle: { color: storm.intensityObj.color, width: 2 },
-                                itemStyle: { color: storm.intensityObj.color },
-                                areaStyle: {
-                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                        { offset: 0, color: storm.intensityObj.color + '66' },
-                                        { offset: 1, color: storm.intensityObj.color + '00' }
-                                    ])
-                                }
+                                lineStyle: { width: 2 }
                             }],
                             tooltip: {
                                 trigger: 'axis',
