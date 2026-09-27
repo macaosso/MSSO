@@ -257,6 +257,28 @@
             return `${directions[index]} ${dist}公里`;
         }
 
+        function getClosestDistanceAndDirectionToMacau(coordsList) {
+            if (!coordsList || coordsList.length === 0) return "未知距離";
+            let minVal = Infinity;
+            let bestCoord = coordsList[0];
+            coordsList.forEach(c => {
+                const [lon, lat] = c;
+                const R = 6371;
+                const dLat = (lat - MACAU_COORDS[1]) * Math.PI / 180;
+                const dLon = (lon - MACAU_COORDS[0]) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c_val = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                let dist = R * c_val;
+                if (dist < minVal) {
+                    minVal = dist;
+                    bestCoord = c;
+                }
+            });
+            return getDistanceAndDirectionToMacau(bestCoord[0], bestCoord[1]);
+        }
+
         function getDirection(lon1, lat1, lon2, lat2) {
             if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) {
                 return "靜止";
@@ -737,9 +759,9 @@
                 name,
                 category: categoryDesc,
                 intensityObj,
-                wind: `${lastRow.wind} km/h`,
+                wind: `${maxWind} km/h`, // 中心最大風速設定為歷史最大風速
                 time: lastRow.time,
-                movement: "歷史軌跡資料",
+                movement: "-",
                 coords: coordsStr,
                 past,
                 pastCoordsOnly,
@@ -1189,7 +1211,8 @@
                 if (showNodes && st.nodes) {
                     const scatterData = st.nodes.map((node) => {
                         const intensity = getIntensity(node.wind, node.isEx);
-                        const isEye = (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
+                        // 歷史資料模式下不顯示紅色閃爍動畫 (isEye 設為 false)
+                        const isEye = (currentSelectedYear === 'current') && (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
 
                         return {
                             name: `${st.name} - ${node.time}`,
@@ -1212,15 +1235,17 @@
                     });
 
                     const eyeData = scatterData.filter(d => d.isEye);
-                    seriesList.push({
-                        type: 'effectScatter',
-                        coordinateSystem: 'geo',
-                        z: 6,
-                        data: eyeData,
-                        symbolSize: 20,
-                        rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                        itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' }
-                    });
+                    if (eyeData.length > 0) {
+                        seriesList.push({
+                            type: 'effectScatter',
+                            coordinateSystem: 'geo',
+                            z: 6,
+                            data: eyeData,
+                            symbolSize: 20,
+                            rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
+                            itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' }
+                        });
+                    }
                 }
             };
 
@@ -1383,8 +1408,7 @@
                 let listHtml = '<div class="space-y-2 pr-1 max-h-72 overflow-y-auto">';
                 keys.forEach(key => {
                     const st = typhoons[key];
-                    const lastCoord = (st.pastCoordsOnly && st.pastCoordsOnly.length > 0) ? st.pastCoordsOnly[st.pastCoordsOnly.length - 1] : (st.forecast && st.forecast.length > 0 ? st.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
-                    const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
+                    const closestDist = getClosestDistanceAndDirectionToMacau(st.pastCoordsOnly);
                     listHtml += `
                         <div class="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-lg p-2.5 text-xs space-y-1.5 shadow-sm">
                             <div class="flex justify-between items-center font-bold text-slate-800 dark:text-white">
@@ -1392,10 +1416,8 @@
                                 <span class="text-[10px] px-1.5 py-0.5 rounded border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.category}</span>
                             </div>
                             <div class="space-y-1 text-[11px] text-slate-600 dark:text-slate-300 font-mono">
-                                <div>時間: <span class="text-slate-800 dark:text-slate-200">${st.time || '-'}</span></div>
-                                <div>風速: <span class="text-slate-800 dark:text-slate-200">${st.wind}</span></div>
-                                <div>位置: <span class="text-slate-800 dark:text-slate-200">${st.coords}</span></div>
-                                <div>距離澳門: <span class="text-slate-800 dark:text-slate-200">${dist}</span></div>
+                                <div>中心最大風速: <span class="text-slate-800 dark:text-slate-200">${st.wind}</span></div>
+                                <div>最近距離澳門: <span class="text-slate-800 dark:text-slate-200">${closestDist}</span></div>
                             </div>
                         </div>
                     `;
@@ -1414,8 +1436,7 @@
                 catEl.style.borderColor = `${storm.intensityObj.color}55`;
                 catEl.style.color = storm.intensityObj.color;
                 
-                const lastCoord = (storm.pastCoordsOnly && storm.pastCoordsOnly.length > 0) ? storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1] : (storm.forecast && storm.forecast.length > 0 ? storm.forecast[0] : [MACAU_COORDS[0], MACAU_COORDS[1]]);
-                const dist = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
+                const closestDist = getClosestDistanceAndDirectionToMacau(storm.pastCoordsOnly);
 
                 let forecastTableRows = '';
                 if (storm.forecastNodes && currentSelectedYear === 'current') {
@@ -1473,57 +1494,98 @@
                     `;
                 }
 
-                stormStatsContent.innerHTML = `
-                    <div class="space-y-3">
-                        <div class="space-y-2 text-xs">
-                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">${currentSelectedYear === 'current' ? '預報時間' : '記錄時間'}</span>
-                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
+                if (currentSelectedYear !== 'current') {
+                    // 歷史資料模式摘要卡片（移除記錄時間、位置、移動狀態；中心最大風速與最近距離澳門）
+                    stormStatsContent.innerHTML = `
+                        <div class="space-y-3">
+                            <div class="space-y-2 text-xs">
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">中心最大風速</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">最近距離澳門</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
+                                </div>
                             </div>
-                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">中心最大風速</span>
-                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
-                            </div>
-                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">位置</span>
-                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.coords}</span>
-                            </div>
-                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">移動狀態</span>
-                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.movement}</span>
-                            </div>
-                            <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
-                                <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${dist}</span>
-                            </div>
+
+                            <!-- 歷史路徑記錄表 -->
+                            <details open class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
+                                <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
+                                    <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> 歷史路徑記錄表</span>
+                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
+                                </summary>
+                                <div class="p-2 overflow-x-auto max-h-48">
+                                    <table class="w-full text-left text-[11px] font-mono">
+                                        <thead>
+                                            <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
+                                                <th class="pb-1 px-1">時間</th>
+                                                <th class="pb-1 px-1">級別</th>
+                                                <th class="pb-1 px-1">風速</th>
+                                                <th class="pb-1 px-1">位置</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                            ${pastTableRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
                         </div>
-
-                        ${forecastSectionHtml}
-
-                        <!-- 歷史軌跡表 -->
-                        <details ${currentSelectedYear !== 'current' ? 'open' : ''} class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
-                            <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
-                                <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> ${currentSelectedYear === 'current' ? '歷史軌跡表' : '歷史路徑記錄表'}</span>
-                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
-                            </summary>
-                            <div class="p-2 overflow-x-auto max-h-48">
-                                <table class="w-full text-left text-[11px] font-mono">
-                                    <thead>
-                                        <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
-                                            <th class="pb-1 px-1">時間</th>
-                                            <th class="pb-1 px-1">級別</th>
-                                            <th class="pb-1 px-1">風速</th>
-                                            <th class="pb-1 px-1">位置</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                        ${pastTableRows}
-                                    </tbody>
-                                </table>
+                    `;
+                } else {
+                    stormStatsContent.innerHTML = `
+                        <div class="space-y-3">
+                            <div class="space-y-2 text-xs">
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">預報時間</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">中心最大風速</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">位置</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.coords}</span>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">移動狀態</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.movement}</span>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
+                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
+                                </div>
                             </div>
-                        </details>
-                    </div>
-                `;
+
+                            ${forecastSectionHtml}
+
+                            <!-- 歷史軌跡表 -->
+                            <details class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg overflow-hidden shadow-sm">
+                                <summary class="p-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
+                                    <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
+                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
+                                </summary>
+                                <div class="p-2 overflow-x-auto max-h-48">
+                                    <table class="w-full text-left text-[11px] font-mono">
+                                        <thead>
+                                            <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
+                                                <th class="pb-1 px-1">時間</th>
+                                                <th class="pb-1 px-1">級別</th>
+                                                <th class="pb-1 px-1">風速</th>
+                                                <th class="pb-1 px-1">位置</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                            ${pastTableRows}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
+                        </div>
+                    `;
+                }
             }
         }
 
