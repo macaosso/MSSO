@@ -334,6 +334,12 @@
         const expandedYears = new Set();
         const reportCategories = ['all', 'monthly', 'special'];
 
+        const alertStates = {
+            hot: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
+            cold: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
+            rainy: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null }
+        };
+
         function formatMSTTime(date = new Date()) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -341,6 +347,49 @@
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        // 解析 nowcast.csv：支援多列 enabled === true 並合併，若 conditionText 和 iconClass 為空則回退至 API 數據
+        function parseNowcastText(text) {
+            try {
+                const lines = text.trim().split('\n');
+                if (lines.length < 2) return null;
+                
+                const headers = lines[0].split(',').map(h => h.trim());
+                let enabledRows = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const values = line.split(',').map(v => v.trim());
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index] !== undefined ? values[index] : '';
+                    });
+                    
+                    if (row.enabled && row.enabled.toLowerCase() === 'true') {
+                        enabledRows.push(row);
+                    }
+                }
+                
+                if (enabledRows.length === 0) return { enabled: false };
+                
+                // 合併多個啟用列的數據
+                let conditionTexts = enabledRows.map(r => r.conditionText).filter(Boolean);
+                let iconClasses = enabledRows.map(r => r.iconClass).filter(Boolean);
+                let rainTexts = enabledRows.map(r => r.rainText).filter(Boolean);
+                
+                return {
+                    enabled: true,
+                    conditionText: conditionTexts.join(' / '),
+                    iconClass: iconClasses.join(' '),
+                    rainText: rainTexts.join(' ')
+                };
+            } catch (error) {
+                console.error("解析 nowcast.csv 失敗：", error);
+                return null;
+            }
         }
 
         function initReportsData() {
@@ -812,32 +861,6 @@
             if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
-        async function fetchNowcastData() {
-            try {
-                // Added timestamp query parameter to bypass browser caching and fetch the updated file
-                const response = await fetch(`nowcast.csv?t=${new Date().getTime()}`);
-                if (!response.ok) return null;
-                const text = await response.text();
-                const lines = text.trim().split('\n');
-                if (lines.length < 2) return null;
-                
-                const headers = lines[0].split(',').map(h => h.trim());
-                const values = lines[1].split(',').map(v => v.trim());
-                
-                const data = {};
-                headers.forEach((header, index) => {
-                    data[header] = values[index] !== undefined ? values[index] : '';
-                });
-                
-                // Convert enabled string to boolean
-                data.enabled = data.enabled === 'true';
-                return data;
-            } catch (error) {
-                console.error("無法讀取 nowcast.csv：", error);
-                return null;
-            }
-        }
-
         async function fetchWeatherData() {
             try {
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
@@ -848,14 +871,22 @@
                     { name: '路環', lat: 22.1178268, lon: 113.5524237 }
                 ];
 
-                const [weatherRes, ...districtRes] = await Promise.all([
+                const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
                     fetch(weatherUrl),
+                    fetch(`nowcast.csv?t=${new Date().getTime()}`).catch(() => null),
                     ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&hourly=temperature_2m&timezone=Asia/Macau&past_days=1`))
                 ]);
 
                 globalWeatherData = await weatherRes.json();
+                
+                if (nowcastRes && nowcastRes.ok) {
+                    const nowcastText = await nowcastRes.text();
+                    globalNowcastData = parseNowcastText(nowcastText);
+                } else {
+                    globalNowcastData = null;
+                }
+
                 globalDistrictData = await Promise.all(districtRes.map(res => res.json()));
-                globalNowcastData = await fetchNowcastData();
 
                 renderDashboard();
                 renderReports();
@@ -895,7 +926,25 @@
             const data = globalWeatherData;
             const curr = data.current;
             const isNight = checkIfNight(now, data.daily, 1); 
-            let weatherInfo = getWeatherDetails(curr.weather_code, isNight);
+            
+            // 取得 API 預設天氣資訊
+            const apiWeatherInfo = getWeatherDetails(curr.weather_code, isNight);
+            
+            // 套用 nowcast.csv 覆蓋邏輯（若啟用）
+            let weatherInfo = { ...apiWeatherInfo };
+            let customRainText = '';
+
+            if (globalNowcastData && globalNowcastData.enabled) {
+                if (globalNowcastData.conditionText) {
+                    weatherInfo.text = globalNowcastData.conditionText;
+                }
+                if (globalNowcastData.iconClass) {
+                    weatherInfo.icon = globalNowcastData.iconClass;
+                }
+                if (globalNowcastData.rainText) {
+                    customRainText = globalNowcastData.rainText;
+                }
+            }
             
             const macauDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
             const todayIdx = data.daily.time.findIndex(d => d === macauDateStr) !== -1 ? data.daily.time.findIndex(d => d === macauDateStr) : 1;
@@ -915,25 +964,14 @@
                 document.getElementById('moonset-time').innerText = moonsetDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false });
             }
         
-            // Check nowcast data override
-            let conditionText = weatherInfo.text;
-            let iconClass = weatherInfo.icon;
-            let customRainText = null;
-
-            if (globalNowcastData && globalNowcastData.enabled) {
-                conditionText = globalNowcastData.conditionText;
-                iconClass = globalNowcastData.iconClass;
-                customRainText = globalNowcastData.rainText;
-            }
-
             const tempCat = getTempCategory(curr.temperature_2m);
-            document.getElementById('current-icon').innerHTML = `<i class="${iconClass}"></i>`;
+            document.getElementById('current-icon').innerHTML = `<i class="fa-solid ${weatherInfo.icon}"></i>`;
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
             const tempBadgeEl = document.getElementById('current-temp-badge');
             tempBadgeEl.textContent = tempCat.label;
             tempBadgeEl.className = `px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm ${tempCat.class}`;
         
-            document.getElementById('current-condition').innerText = conditionText;
+            document.getElementById('current-condition').innerText = weatherInfo.text;
             document.getElementById('current-high-low').innerHTML = `
                 <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
                 <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
@@ -951,7 +989,7 @@
             document.getElementById('current-apparent-temp').innerText = `${Math.round(apparentTemp)}°C`;
             const apparentBadgeEl = document.getElementById('current-apparent-badge');
             apparentBadgeEl.textContent = apparentCat.label;
-            apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentBadgeEl.className.includes('bg-') ? apparentCat.class : apparentCat.class}`;
+            apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentCat.class}`;
 
             const uvValue = curr.uv_index !== undefined ? Math.round(curr.uv_index) : 0;
             const uvCat = getUvCategory(uvValue);
@@ -980,7 +1018,7 @@
         
             const isHot = curr.temperature_2m >= 28 || next24Temps.some(t => t >= 29);
             const isCold = curr.temperature_2m <= 14 || next24Temps.some(t => t <= 13);
-            const isRainy = impact2h.label !== '低' || (globalNowcastData && globalNowcastData.enabled); 
+            const isRainy = impact2h.label !== '低' || Boolean(customRainText); 
             const isWindy = currentWindSpeed >= 32 || next12WindSpeeds.some(w => w >= 30);
         
             const alertsContainer = document.getElementById('alerts-container');
@@ -1000,7 +1038,13 @@
                         <div><span class="font-bold">低溫提示：</span>請適時添衣及注意保暖。</div>
                     </div>`;
             }
-            if (isRainy) {
+            if (customRainText) {
+                alertsContainer.innerHTML += `
+                    <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
+                        <div><span class="font-bold">降雨提示：</span>${customRainText}</div>
+                    </div>`;
+            } else if (isRainy && impact2h.label !== '低') {
                 let alertBg = 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400';
                 let alertIcon = 'fa-cloud-showers-heavy';
                 if (impact2h.label === '極高') {
@@ -1014,12 +1058,10 @@
                     alertIcon = 'fa-cloud-rain';
                 }
 
-                const rainMsg = customRainText ? customRainText : `未來2小時內預計有降雨影響（降雨機率 ${popVal}%，預估雨量 ${precipSum2h.toFixed(1)}mm），外出時請做好防雨準備。`;
-
                 alertsContainer.innerHTML += `
                     <div class="flex items-center gap-3 ${alertBg} border p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid ${alertIcon} text-xl"></i>
-                        <div><span class="font-bold">降雨提示：</span>${rainMsg}</div>
+                        <div><span class="font-bold">降雨提示（影響等級：${impact2h.label}）：</span>未來2小時內預計有降雨影響（降雨機率 ${popVal}%，預估雨量 ${precipSum2h.toFixed(1)}mm），外出時請做好防雨準備。</div>
                     </div>`;
             }
             if (isWindy) {
