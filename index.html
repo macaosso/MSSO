@@ -332,13 +332,19 @@
         let activeDistrictIndex = null;
         let currentReportFilter = 'all';
         const expandedYears = new Set();
-        const reportCategories = ['all', 'monthly', 'special'];
+        const districtHourlyCache = {}; // 快取各分區歷史溫度數據
 
-        const alertStates = {
-            hot: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
-            cold: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null },
-            rainy: { status: 'inactive', issuedTime: null, cancelTime: null, removeTimer: null }
-        };
+        const CACHE_KEY_WEATHER = 'msso_weather_data_v1';
+        const CACHE_KEY_DISTRICTS = 'msso_district_data_v1';
+        const CACHE_KEY_NOWCAST = 'msso_nowcast_data_v1';
+        const CACHE_TIME_KEY = 'msso_cache_time_v1';
+        const CACHE_TTL = 5 * 60 * 1000; // 5分鐘快取有效期
+
+        const districtUrls = [
+            { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
+            { name: '氹仔', lat: 22.1595, lon: 113.5685 },
+            { name: '路環', lat: 22.1178268, lon: 113.5524237 }
+        ];
 
         function formatMSTTime(date = new Date()) {
             const year = date.getFullYear();
@@ -349,7 +355,6 @@
             return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
-        // 解析 nowcast.csv：支援多列 enabled === true 並合併，若 conditionText 和 iconClass 為空則回退至 API 數據
         function parseNowcastText(text) {
             try {
                 const lines = text.trim().split('\n');
@@ -375,7 +380,6 @@
                 
                 if (enabledRows.length === 0) return { enabled: false };
                 
-                // 合併多個啟用列的數據
                 let conditionTexts = enabledRows.map(r => r.conditionText).filter(Boolean);
                 let iconClasses = enabledRows.map(r => r.iconClass).filter(Boolean);
                 let rainTexts = enabledRows.map(r => r.rainText).filter(Boolean);
@@ -861,20 +865,39 @@
             if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
-        async function fetchWeatherData() {
+        async function fetchWeatherData(isBackground = false) {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
-                
-                const districtUrls = [
-                    { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
-                    { name: '氹仔', lat: 22.1595, lon: 113.5685 },
-                    { name: '路環', lat: 22.1178268, lon: 113.5524237 }
-                ];
+                // 如果不是背景更新，先檢查 localStorage 快取以實現秒開 (Stale-While-Revalidate)
+                if (!isBackground) {
+                    const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
+                    const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
+                    const cachedNowcast = localStorage.getItem(CACHE_KEY_NOWCAST);
+                    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
+                    if (cachedWeather && cachedDistricts && cachedTime && (Date.now() - parseInt(cachedTime) < CACHE_TTL)) {
+                        globalWeatherData = JSON.parse(cachedWeather);
+                        globalDistrictData = JSON.parse(cachedDistricts);
+                        globalNowcastData = cachedNowcast ? JSON.parse(cachedNowcast) : null;
+
+                        renderDashboard();
+                        renderReports();
+
+                        document.getElementById('loading').classList.add('hidden');
+                        document.getElementById('dashboard-content').classList.remove('hidden');
+
+                        // 在背景靜默更新最新數據
+                        fetchWeatherData(true);
+                        return;
+                    }
+                }
+
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
+
+                // 分區初期只請求即時天氣與溫度代碼，不請求大量 hourly 數據，提升初次載入速度
                 const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
                     fetch(weatherUrl),
-                    fetch(`nowcast.csv?t=${new Date().getTime()}`).catch(() => null),
-                    ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&hourly=temperature_2m&timezone=Asia/Macau&past_days=1`))
+                    fetch(`nowcast.csv`).catch(() => null),
+                    ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&timezone=Asia/Macau`))
                 ]);
 
                 globalWeatherData = await weatherRes.json();
@@ -888,6 +911,12 @@
 
                 globalDistrictData = await Promise.all(districtRes.map(res => res.json()));
 
+                // 儲存至 localStorage 快取
+                localStorage.setItem(CACHE_KEY_WEATHER, JSON.stringify(globalWeatherData));
+                localStorage.setItem(CACHE_KEY_DISTRICTS, JSON.stringify(globalDistrictData));
+                localStorage.setItem(CACHE_KEY_NOWCAST, JSON.stringify(globalNowcastData));
+                localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+
                 renderDashboard();
                 renderReports();
 
@@ -896,7 +925,9 @@
 
             } catch (error) {
                 console.error("無法載入天氣數據：", error);
-                document.getElementById('loading').innerHTML = `<p class="text-red-500 dark:text-red-400">無法載入天氣數據，請檢查網絡連線。</p>`;
+                if (!globalWeatherData) {
+                    document.getElementById('loading').innerHTML = `<p class="text-red-500 dark:text-red-400">無法載入天氣數據，請檢查網絡連線。</p>`;
+                }
             }
         }
 
@@ -914,9 +945,28 @@
             renderHourlySection();
         }
 
-        function toggleDistrictChart(index) {
-            activeDistrictIndex = activeDistrictIndex === index ? null : index;
+        // 點擊分區時按需載入該分區的歷史 24 小時溫度趨勢圖 (Lazy Load)
+        async function toggleDistrictChart(index) {
+            if (activeDistrictIndex === index) {
+                activeDistrictIndex = null;
+                renderDistricts();
+                return;
+            }
+            
+            activeDistrictIndex = index;
             renderDistricts();
+
+            if (!districtHourlyCache[index]) {
+                try {
+                    const d = districtUrls[index];
+                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&hourly=temperature_2m&timezone=Asia/Macau&past_days=1`);
+                    const data = await res.json();
+                    districtHourlyCache[index] = data.hourly;
+                    renderDistricts();
+                } catch (e) {
+                    console.error("無法載入分區歷史數據：", e);
+                }
+            }
         }
 
         function renderDashboard() {
@@ -927,10 +977,8 @@
             const curr = data.current;
             const isNight = checkIfNight(now, data.daily, 1); 
             
-            // 取得 API 預設天氣資訊
             const apiWeatherInfo = getWeatherDetails(curr.weather_code, isNight);
             
-            // 套用 nowcast.csv 覆蓋邏輯（若啟用）
             let weatherInfo = { ...apiWeatherInfo };
             let customRainText = '';
 
@@ -1091,43 +1139,53 @@
                 const dWeather = getWeatherDetails(loc.current.weather_code, isNight);
                 const isOpen = activeDistrictIndex === index;
 
-                const currentHourIdx = loc.hourly.time.findIndex(t => new Date(t) >= now) || 24;
-                const startIdx = Math.max(0, currentHourIdx - 23);
-                const pastTimes = loc.hourly.time.slice(startIdx, currentHourIdx + 1);
-                const pastTemps = loc.hourly.temperature_2m.slice(startIdx, currentHourIdx + 1).map(t => Math.round(t));
-
                 let chartHtml = '';
-                if (isOpen && pastTemps.length > 0) {
-                    const cMax = Math.max(...pastTemps) + 1;
-                    const cMin = Math.min(...pastTemps) - 1;
-                    const range = cMax - cMin || 1;
-                    const svgH = 70;
-                    const points = pastTemps.map((t, i) => {
-                        const x = (i / (pastTemps.length - 1)) * 260 + 10;
-                        const y = svgH - ((t - cMin) / range) * (svgH - 20) - 10;
-                        return `${x},${y}`;
-                    }).join(' ');
+                if (isOpen) {
+                    const hourlyData = districtHourlyCache[index];
+                    if (!hourlyData) {
+                        chartHtml = `
+                            <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 text-center py-4 text-xs text-slate-400">
+                                <i class="fa-solid fa-spinner fa-spin text-cyan-500 mr-1.5"></i> 正在載入歷史溫度趨勢...
+                            </div>
+                        `;
+                    } else {
+                        const currentHourIdx = hourlyData.time.findIndex(t => new Date(t) >= now) || hourlyData.temperature_2m.length - 1;
+                        const startIdx = Math.max(0, currentHourIdx - 23);
+                        const pastTemps = hourlyData.temperature_2m.slice(startIdx, currentHourIdx + 1).map(t => Math.round(t));
 
-                    chartHtml = `
-                        <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 animate-fadeIn">
-                            <div class="text-[11px] font-medium text-slate-400 mb-2 flex justify-between items-center">
-                                <span>過去 24 小時溫度趨勢</span>
-                                <span class="text-cyan-500 font-bold">${pastTemps[pastTemps.length - 1]}°C (現時)</span>
-                            </div>
-                            <svg viewBox="0 0 280 ${svgH}" class="w-full h-[70px] overflow-visible">
-                                <polyline fill="none" stroke="#06b6d4" stroke-width="2.5" points="${points}" />
-                                ${pastTemps.map((t, i) => {
-                                    const x = (i / (pastTemps.length - 1)) * 260 + 10;
-                                    const y = svgH - ((t - cMin) / range) * (svgH - 20) - 10;
-                                    return `<circle cx="${x}" cy="${y}" r="3" fill="#06b6d4" />`;
-                                }).join('')}
-                            </svg>
-                            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
-                                <span>24小時前</span>
-                                <span>現在</span>
-                            </div>
-                        </div>
-                    `;
+                        if (pastTemps.length > 0) {
+                            const cMax = Math.max(...pastTemps) + 1;
+                            const cMin = Math.min(...pastTemps) - 1;
+                            const range = cMax - cMin || 1;
+                            const svgH = 70;
+                            const points = pastTemps.map((t, i) => {
+                                const x = (i / (pastTemps.length - 1)) * 260 + 10;
+                                const y = svgH - ((t - cMin) / range) * (svgH - 20) - 10;
+                                return `${x},${y}`;
+                            }).join(' ');
+
+                            chartHtml = `
+                                <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 animate-fadeIn">
+                                    <div class="text-[11px] font-medium text-slate-400 mb-2 flex justify-between items-center">
+                                        <span>過去 24 小時溫度趨勢</span>
+                                        <span class="text-cyan-500 font-bold">${pastTemps[pastTemps.length - 1]}°C (現時)</span>
+                                    </div>
+                                    <svg viewBox="0 0 280 ${svgH}" class="w-full h-[70px] overflow-visible">
+                                        <polyline fill="none" stroke="#06b6d4" stroke-width="2.5" points="${points}" />
+                                        ${pastTemps.map((t, i) => {
+                                            const x = (i / (pastTemps.length - 1)) * 260 + 10;
+                                            const y = svgH - ((t - cMin) / range) * (svgH - 20) - 10;
+                                            return `<circle cx="${x}" cy="${y}" r="3" fill="#06b6d4" />`;
+                                        }).join('')}
+                                    </svg>
+                                    <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                                        <span>24小時前</span>
+                                        <span>現在</span>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
                 }
 
                 const card = document.createElement('div');
