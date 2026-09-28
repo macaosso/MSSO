@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控系統 - v3.0.1</title>
+    <title>MSSO GIS 颱風監控系統 - v3.0.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -58,7 +58,7 @@
             </div>
             <div>
                 <h1 class="text-base sm:text-lg font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v3.0.1</span>
+                    MSSO GIS <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30"> v3.0.2</span>
                 </h1>
                 <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">氣象監視、精準節點插值平滑與風速曲線分析系統</p>
             </div>
@@ -130,7 +130,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500">
-                MSSO GIS 向量引擎 • v3.0.1 氣象曲線分析
+                MSSO GIS 向量引擎 • v3.0.2 氣象曲線分析
             </div>
         </aside>
 
@@ -882,7 +882,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v3.0.1 GIS 向量圖資與平行解析歷史 CSV...',
+                text: '載入 v3.0.2 GIS 向量圖資與平行解析歷史 CSV...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(8, 16, 26, 0.9)',
@@ -998,7 +998,7 @@
                     renderItem: function(params, api) {
                         const points = ring.map(coord => api.coord(coord));
                         if (!points || points.some(p => !p || isNaN(p[0]) || isNaN(p[1]))) {
-                            return { type: 'group', silent: true }; // Prevent undefined return error & hoverState error
+                            return { type: 'group', silent: true };
                         }
                         return {
                             type: 'polygon',
@@ -1521,7 +1521,7 @@
                                 </div>
                             </div>
 
-                            <!-- v3.0.1 中心最大風速變化曲線卡片 -->
+                            <!-- v3.0.2 中心最大風速變化曲線卡片（支援動態強度分段色階） -->
                             <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm space-y-1.5">
                                 <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                                     <span><i class="fa-solid fa-chart-line text-emerald-500 mr-1"></i> 中心最大風速變化曲線</span>
@@ -1580,7 +1580,7 @@
                                 </div>
                             </div>
 
-                            <!-- v3.0.1 中心最大風速變化曲線卡片 -->
+                            <!-- v3.0.2 中心最大風速變化曲線卡片（支援動態強度分段色階） -->
                             <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-lg p-2.5 shadow-sm space-y-1.5">
                                 <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                                     <span><i class="fa-solid fa-chart-line text-emerald-500 mr-1"></i> 中心最大風速變化曲線</span>
@@ -1617,7 +1617,7 @@
                     `;
                 }
 
-                // 渲染風速變化曲線圖表（依強度分級顏色設定每個資料點顏色）
+                // 渲染風速變化曲線圖表（透過 visualMap 根據風速值動態變換曲線與面積圖顏色）
                 setTimeout(() => {
                     const windChartDom = document.getElementById('wind-speed-chart');
                     if (windChartDom) {
@@ -1643,6 +1643,20 @@
                         windChart.setOption({
                             animation: true,
                             grid: { top: 15, bottom: 25, left: 30, right: 15 },
+                            visualMap: {
+                                show: false,
+                                type: 'piecewise',
+                                dimension: 1,
+                                pieces: [
+                                    { max: 40, color: '#64748b' },
+                                    { min: 41, max: 62, color: '#0284c7' },
+                                    { min: 63, max: 87, color: '#16a34a' },
+                                    { min: 88, max: 117, color: '#ca8a04' },
+                                    { min: 118, max: 149, color: '#ea580c' },
+                                    { min: 150, max: 184, color: '#dc2626' },
+                                    { min: 185, color: '#9333ea' }
+                                ]
+                            },
                             xAxis: {
                                 type: 'category',
                                 data: chartTimes,
@@ -1662,13 +1676,8 @@
                                 showAllSymbol: true,
                                 symbolSize: 6,
                                 smooth: true,
-                                lineStyle: { color: storm.intensityObj.color, width: 2 },
-                                areaStyle: {
-                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                        { offset: 0, color: storm.intensityObj.color + '66' },
-                                        { offset: 1, color: storm.intensityObj.color + '00' }
-                                    ])
-                                }
+                                lineStyle: { width: 2 },
+                                areaStyle: { opacity: 0.25 }
                             }],
                             tooltip: {
                                 trigger: 'axis',
