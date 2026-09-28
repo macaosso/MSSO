@@ -678,8 +678,8 @@
                 2: isNight ? { text: '天色明朗', icon: 'fas fa-cloud-moon text-indigo-200' } : { text: '天色明朗', icon: 'fas fa-cloud-sun text-yellow-400' },
                 3: { text: '多雲', icon: 'fas fa-cloud text-slate-300' },
                 45: { text: '大霧', icon: 'fas fa-smog text-slate-400' },
-                51: { text: '部分時間有陽光', icon: 'fas fa-cloud-sun text-yellow-400' },
-                53: { text: '短暫時間有陽光', icon: 'fas fa-cloud-sun text-yellow-400' },
+                51: { text: '輕微毛毛雨', icon: 'fas fa-cloud-sun text-yellow-400' },
+                53: { text: '毛毛雨', icon: 'fas fa-cloud-sun text-yellow-400' },
                 61: { text: '微雨', icon: 'fas fa-cloud-sun text-yellow-400' },
                 80: { text: '陣雨', icon: 'fas fa-cloud-showers-heavy text-blue-400' },
                 95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-400' }
@@ -893,10 +893,10 @@
 
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
 
-                // 分區初期只請求即時天氣與溫度代碼，不請求大量 hourly 數據，提升初次載入速度
+                // 恢復 nowcast.csv 的時間戳快取破壞（cache buster）
                 const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
                     fetch(weatherUrl),
-                    fetch(`nowcast.csv`).catch(() => null),
+                    fetch(`nowcast.csv?t=` + Date.now()).catch(() => null),
                     ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&timezone=Asia/Macau`))
                 ]);
 
