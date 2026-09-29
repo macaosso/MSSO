@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.1</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.2</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -143,7 +143,7 @@
 </head>
 <body class="h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-[#070f1a] text-slate-800 dark:text-slate-200 transition-colors duration-300">
 
-    <!-- 頂部導航欄 (v4.1.1 升級版) -->
+    <!-- 頂部導航欄 (v4.1.2 升級版) -->
     <header class="glass-panel h-16 flex items-center justify-between px-4 sm:px-6 z-35 shrink-0 transition-all duration-300 shadow-sm border-b">
         <div class="flex items-center space-x-4 sm:space-x-6">
             <div class="flex items-center space-x-3">
@@ -154,7 +154,7 @@
                 <div>
                     <h1 class="text-sm sm:text-base font-extrabold tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
                         MSSO 熱帶氣旋 GIS 
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-400/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-400/30 font-mono">v4.1.1</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-400/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-400/30 font-mono">v4.1.2</span>
                     </h1>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono tracking-tight">實時及歷史熱帶氣旋 GIS 監控系統</p>
                 </div>
@@ -278,7 +278,7 @@
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800/80 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono flex items-center justify-between px-4">
                 <span>MSSO GIS 向量引擎</span>
-                <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold">v4.1.1</span>
+                <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold">v4.1.2</span>
             </div>
         </aside>
 
@@ -313,7 +313,7 @@
                 </div>
             </div>
 
-            <!-- 3. 數據列表檢視 (3個表格) -->
+            <!-- 3. 數據列表檢視 -->
             <div id="tables-view-container" class="w-full h-full flex-1 p-4 sm:p-6 overflow-y-auto hidden flex-col space-y-6 animate-view-fade">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                     <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1161,7 +1161,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v4.1.1 GIS 向量圖資與氣旋檔案...',
+                text: '載入 v4.1.2 GIS 向量圖資與氣旋檔案...',
                 color: '#38bdf8',
                 textColor: '#f8fafc',
                 maskColor: 'rgba(7, 15, 26, 0.88)',
@@ -1215,6 +1215,10 @@
 
         async function switchYear(year) {
             currentSelectedYear = year;
+            const yearSelect = document.getElementById('year-select');
+            if (yearSelect && yearSelect.value !== year) {
+                yearSelect.value = year;
+            }
             const yearLabel = document.getElementById('header-year-label');
             if (yearLabel) {
                 yearLabel.innerText = year === 'current' ? '即時監控' : `${year}年`;
@@ -1303,7 +1307,35 @@
             renderChart(false);
         }
 
-        function filterStormList() {
+        async function filterStormList() {
+            const searchInput = document.getElementById('storm-search');
+            const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            
+            if (keyword.length > 0) {
+                const keys = Object.keys(typhoons);
+                const matchedInCurrent = keys.some(k => {
+                    const st = typhoons[k];
+                    return st && (st.name.toLowerCase().includes(keyword) || k.toLowerCase().includes(keyword));
+                });
+
+                if (!matchedInCurrent) {
+                    let targetYear = null;
+                    if (keyword.startsWith('26') || keyword.includes('2026')) targetYear = '2026';
+                    else if (keyword.startsWith('25') || keyword.includes('2025')) targetYear = '2025';
+                    else if (keyword.startsWith('24') || keyword.includes('2024')) targetYear = '2024';
+                    else if (['a', 'b', 'c', 'd', 'e', 'f'].includes(keyword)) targetYear = 'current';
+
+                    if (targetYear && targetYear !== currentSelectedYear) {
+                        await switchYear(targetYear);
+                        const searchInputAfter = document.getElementById('storm-search');
+                        if (searchInputAfter) searchInputAfter.value = keyword;
+                        renderSidebar();
+                        renderChart(false);
+                        return;
+                    }
+                }
+            }
+
             renderSidebar();
             renderChart(false);
         }
@@ -1597,46 +1629,49 @@
             if (!storm) return;
 
             const buildRows = (nodes) => {
-                if (!nodes || nodes.length === 0) return `<tr><td colspan="7" class="text-center py-4 text-slate-400">無數據</td></tr>`;
+                if (!nodes || nodes.length === 0) return `<tr><td colspan="6" class="text-center py-4 text-slate-400">無數據</td></tr>`;
                 return nodes.map(n => {
                     const dist = n.distToMacau || getDistanceAndDirectionToMacau(n.lon, n.lat);
                     const speed = n.movementDir || '-';
                     const windStr = n.isEx ? '-' : n.wind;
                     return `
                         <tr class="hover:bg-slate-100/80 dark:hover:bg-slate-800/40 transition-colors">
-                            <td class="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 font-medium">${n.time || '-'}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
-                            <td class="py-2.5 px-3">
+                            <td class="py-2.5 px-2 sm:px-3 font-mono text-slate-700 dark:text-slate-300 font-medium">${n.time || '-'}</td>
+                            <td class="hidden sm:table-cell py-2.5 px-2 sm:px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
+                            <td class="hidden sm:table-cell py-2.5 px-2 sm:px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
+                            <td class="py-2.5 px-2 sm:px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
+                            <td class="hidden sm:table-cell py-2.5 px-2 sm:px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
+                            <td class="py-2.5 px-2 sm:px-3">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold border shadow-sm" style="background-color: ${n.color}15; border-color: ${n.color}40; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
                             </td>
-                            <td class="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-100">${windStr}</td>
+                            <td class="py-2.5 px-2 sm:px-3 font-mono font-bold text-slate-800 dark:text-slate-100">${windStr}</td>
                         </tr>
                     `;
                 }).join('');
             };
 
             const buildForecastRows = (nodes) => {
-                if (!nodes || nodes.length === 0) return `<tr><td colspan="8" class="text-center py-4 text-slate-400">無預報數據</td></tr>`;
-                return nodes.map(n => {
+                const filteredNodes = nodes ? nodes.filter(n => {
+                    const cat = String(n.category).toLowerCase();
+                    return cat !== 'current' && cat !== '0h' && cat !== '0';
+                }) : [];
+
+                if (filteredNodes.length === 0) return `<tr><td colspan="6" class="text-center py-4 text-slate-400">無預報數據</td></tr>`;
+                return filteredNodes.map(n => {
                     const dist = n.distToMacau || getDistanceAndDirectionToMacau(n.lon, n.lat);
                     const speed = n.movementDir || '-';
                     const windStr = n.isEx ? '-' : n.wind;
-                    const catLabel = n.category || 'Forecast';
                     return `
                         <tr class="hover:bg-slate-100/80 dark:hover:bg-slate-800/40 transition-colors">
-                            <td class="py-2.5 px-3 font-mono text-blue-600 dark:text-blue-400 font-bold">${catLabel}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 font-medium">${n.time || '-'}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
-                            <td class="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
-                            <td class="py-2.5 px-3">
+                            <td class="py-2.5 px-2 sm:px-3 font-mono text-slate-700 dark:text-slate-300 font-medium">${n.time || '-'}</td>
+                            <td class="hidden sm:table-cell py-2.5 px-2 sm:px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
+                            <td class="hidden sm:table-cell py-2.5 px-2 sm:px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
+                            <td class="py-2.5 px-2 sm:px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
+                            <td class="hidden sm:table-cell py-2.5 px-2 sm:px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
+                            <td class="py-2.5 px-2 sm:px-3">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold border shadow-sm" style="background-color: ${n.color}15; border-color: ${n.color}40; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
                             </td>
-                            <td class="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-100">${windStr}</td>
+                            <td class="py-2.5 px-2 sm:px-3 font-mono font-bold text-slate-800 dark:text-slate-100">${windStr}</td>
                         </tr>
                     `;
                 }).join('');
@@ -1657,13 +1692,13 @@
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2.5 px-3">時間</th>
-                                        <th class="pb-2.5 px-3">北緯</th>
-                                        <th class="pb-2.5 px-3">東經</th>
-                                        <th class="pb-2.5 px-3">距離澳門</th>
-                                        <th class="pb-2.5 px-3">移動速度</th>
-                                        <th class="pb-2.5 px-3">強度</th>
-                                        <th class="pb-2.5 px-3">風速</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">時間</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">北緯</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">東經</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">距離澳門</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">移動速度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">強度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1683,14 +1718,13 @@
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2.5 px-3">24H/48H/...</th>
-                                        <th class="pb-2.5 px-3">時間</th>
-                                        <th class="pb-2.5 px-3">北緯</th>
-                                        <th class="pb-2.5 px-3">東經</th>
-                                        <th class="pb-2.5 px-3">距離澳門</th>
-                                        <th class="pb-2.5 px-3">移動速度</th>
-                                        <th class="pb-2.5 px-3">強度</th>
-                                        <th class="pb-2.5 px-3">風速</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">時間</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">北緯</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">東經</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">距離澳門</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">移動速度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">強度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1710,13 +1744,13 @@
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2.5 px-3">時間</th>
-                                        <th class="pb-2.5 px-3">北緯</th>
-                                        <th class="pb-2.5 px-3">東經</th>
-                                        <th class="pb-2.5 px-3">距離澳門</th>
-                                        <th class="pb-2.5 px-3">移動速度</th>
-                                        <th class="pb-2.5 px-3">強度</th>
-                                        <th class="pb-2.5 px-3">風速</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">時間</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">北緯</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">東經</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">距離澳門</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">移動速度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">強度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1736,13 +1770,13 @@
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2.5 px-3">時間</th>
-                                        <th class="pb-2.5 px-3">北緯</th>
-                                        <th class="pb-2.5 px-3">東經</th>
-                                        <th class="pb-2.5 px-3">距離澳門</th>
-                                        <th class="pb-2.5 px-3">移動速度</th>
-                                        <th class="pb-2.5 px-3">強度</th>
-                                        <th class="pb-2.5 px-3">風速</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">時間</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">北緯</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">東經</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">距離澳門</th>
+                                        <th class="hidden sm:table-cell pb-2.5 px-2 sm:px-3">移動速度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">強度</th>
+                                        <th class="pb-2.5 px-2 sm:px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
