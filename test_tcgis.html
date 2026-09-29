@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.6</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -60,7 +60,7 @@
                 </div>
                 <div>
                     <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.6</span>
+                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.7</span>
                     </h1>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono">實時及歷史熱帶氣旋GIS</p>
                 </div>
@@ -171,7 +171,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                MSSO GIS 向量引擎 • v4.0.6 氣象圖表分析
+                MSSO GIS 向量引擎 • v4.0.7 氣象圖表分析
             </div>
         </aside>
 
@@ -357,6 +357,66 @@
                 "W", "WNW", "NW", "NNW"
             ];
             return directions[Math.round((brng % 360) / 22.5) % 16];
+        }
+
+        function calculatePastMovement(pastNodes, currentIndex) {
+            const curr = pastNodes[currentIndex];
+            if (!curr || !curr.time) return "-";
+            const currTime = new Date(curr.time).getTime();
+            if (isNaN(currTime)) return "-";
+
+            let targetNode = null;
+            for (let j = currentIndex + 1; j < pastNodes.length; j++) {
+                const nextTime = new Date(pastNodes[j].time).getTime();
+                if (!isNaN(nextTime)) {
+                    const diffHours = (nextTime - currTime) / (3600 * 1000);
+                    if (Math.abs(diffHours - 6) < 0.5) {
+                        targetNode = pastNodes[j];
+                        break;
+                    }
+                }
+            }
+
+            if (!targetNode) {
+                for (let j = currentIndex + 1; j < pastNodes.length; j++) {
+                    const nextTime = new Date(pastNodes[j].time).getTime();
+                    if (!isNaN(nextTime)) {
+                        const diffHours = (nextTime - currTime) / (3600 * 1000);
+                        if (diffHours > 0 && diffHours <= 9) {
+                            targetNode = pastNodes[j];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!targetNode && currentIndex >= 2) {
+                for (let j = currentIndex - 1; j >= 0; j--) {
+                    const prevTime = new Date(pastNodes[j].time).getTime();
+                    if (!isNaN(prevTime)) {
+                        const diffHours = (currTime - prevTime) / (3600 * 1000);
+                        if (Math.abs(diffHours - 6) < 0.5) {
+                            const dist = turf.distance(turf.point([pastNodes[j].lon, pastNodes[j].lat]), turf.point([curr.lon, curr.lat]), { units: 'kilometers' });
+                            const direction = getDirection(pastNodes[j].lon, pastNodes[j].lat, curr.lon, curr.lat);
+                            const speed = Math.round(dist / 6);
+                            return `${direction} ${speed} km/h`;
+                        }
+                    }
+                }
+            }
+
+            if (targetNode) {
+                const dist = turf.distance(turf.point([curr.lon, curr.lat]), turf.point([targetNode.lon, targetNode.lat]), { units: 'kilometers' });
+                const currTimeNum = new Date(curr.time).getTime();
+                const targetTimeNum = new Date(targetNode.time).getTime();
+                const hoursDiff = (targetTimeNum - currTimeNum) / (3600 * 1000);
+                const actualHours = hoursDiff > 0 ? hoursDiff : 6;
+                const direction = getDirection(curr.lon, curr.lat, targetNode.lon, targetNode.lat);
+                const speed = Math.round(dist / actualHours);
+                return `${direction} ${speed} km/h`;
+            }
+
+            return "-";
         }
 
         function generateCircleCoords(centerLon, centerLat, radiusKm, numPoints = 64) {
@@ -635,9 +695,38 @@
                 });
             });
 
+            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
+            if (pastRows.length === 0 && rows.length > 0) {
+                pastRows = [rows[0]];
+            }
+
+            pastRows.forEach((r) => {
+                const intensity = getIntensity(r.wind, r.isEx);
+                pastNodes.push({
+                    category: r.category,
+                    time: r.time,
+                    categoryCode: intensity.code,
+                    categoryName: intensity.name,
+                    color: intensity.color,
+                    wind: r.isEx ? '-' : `${r.wind} km/h`,
+                    windVal: r.wind,
+                    isEx: r.isEx,
+                    coordStr: `${r.lat.toFixed(1)}°N, ${r.lon.toFixed(1)}°E`,
+                    lat: r.lat,
+                    lon: r.lon,
+                    coord: [r.lon, r.lat],
+                    movementDir: '-',
+                    distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
+                    isPast: true
+                });
+            });
+
+            pastNodes.forEach((node, idx) => {
+                node.movementDir = calculatePastMovement(pastNodes, idx);
+            });
+
             rows.forEach((r) => {
                 const intensity = getIntensity(r.wind, r.isEx);
-                
                 let movementStr = '-';
                 const catLower = String(r.category).toLowerCase();
                 const isPast = catLower === 'past';
@@ -680,6 +769,8 @@
                     }
                 }
 
+                if (isPast) return; // already added
+
                 const nodeInfo = {
                     category: r.category,
                     time: r.time,
@@ -695,21 +786,11 @@
                     coord: [r.lon, r.lat],
                     movementDir: movementStr,
                     distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
-                    isPast: isPast
+                    isPast: false
                 };
-
-                if (r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0') {
-                    pastNodes.push(nodeInfo);
-                }
-                if (r.category === 'current' || r.category === '0h' || r.category === '0' || r.category.toLowerCase().includes('h') || !isNaN(parseInt(r.category))) {
-                    forecastNodes.push(nodeInfo);
-                }
+                forecastNodes.push(nodeInfo);
             });
 
-            let pastRows = rows.filter(r => r.category === 'past' || r.category === 'current' || r.category === '0h' || r.category === '0');
-            if (pastRows.length === 0 && rows.length > 0) {
-                pastRows = [rows[0]];
-            }
             pastRows.forEach(pt => {
                 past.push({ coord: [pt.lon, pt.lat], wind: pt.wind, isEx: pt.isEx });
                 pastCoordsOnly.push([pt.lon, pt.lat]);
@@ -794,7 +875,7 @@
 
             rows.forEach((r) => {
                 const intensity = getIntensity(r.wind, r.isEx);
-                const nodeInfo = {
+                pastNodes.push({
                     category: 'past',
                     time: r.time,
                     categoryCode: intensity.code,
@@ -810,11 +891,35 @@
                     movementDir: '-',
                     distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
                     isPast: true
-                };
-                pastNodes.push(nodeInfo);
-                past.push({ coord: [r.lon, r.lat], wind: r.wind, isEx: r.isEx });
-                pastCoordsOnly.push([r.lon, r.lat]);
+                });
             });
+
+            pastNodes.forEach((node, idx) => {
+                node.movementDir = calculatePastMovement(pastNodes, idx);
+            });
+
+            pastNodes.forEach(node => {
+                past.push({ coord: [node.lon, node.lat], wind: node.windVal, isEx: node.isEx });
+                pastCoordsOnly.push([node.lon, node.lat]);
+            });
+
+            let closestDist = "-";
+            let closestCoords = "-";
+            let closestTime = "-";
+            let minDist = Infinity;
+            let closestNode = null;
+            pastNodes.forEach(node => {
+                const d = turf.distance(turf.point([node.lon, node.lat]), turf.point(MACAU_COORDS), { units: 'kilometers' });
+                if (d < minDist) {
+                    minDist = d;
+                    closestNode = node;
+                }
+            });
+            if (closestNode) {
+                closestDist = closestNode.distToMacau;
+                closestCoords = closestNode.coordStr;
+                closestTime = closestNode.time;
+            }
 
             const lastCoord = pastCoordsOnly[pastCoordsOnly.length - 1] || [113.5685, 22.1595];
             const coordsStr = `${lastCoord[1].toFixed(1)}°N, ${lastCoord[0].toFixed(1)}°E`;
@@ -833,7 +938,10 @@
                 forecastPoints: [],
                 nodes: pastNodes,
                 pastNodes,
-                forecastNodes: []
+                forecastNodes: [],
+                closestDist,
+                closestCoords,
+                closestTime
             };
         }
 
@@ -945,7 +1053,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v4.0.6 GIS 向量圖資與氣旋檔案...',
+                text: '載入 v4.0.7 GIS 向量圖資與氣旋檔案...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(7, 15, 26, 0.9)',
@@ -1207,7 +1315,7 @@
                         type: 'line',
                         showAllSymbol: true,
                         symbolSize: 8,
-                        smooth: false, // 需求 3：不需要平滑曲線
+                        smooth: false,
                         lineStyle: { width: 3 },
                         areaStyle: { opacity: 0.3 }
                     }],
@@ -1467,14 +1575,13 @@
                         listHtml += `<div class="space-y-1.5">`;
                         filteredKeys.forEach(k => {
                             const st = typhoons[k];
-                            // 需求 2：歷史活躍系統列表不需要顯示日期，強度字型放大
                             listHtml += `
                                 <div onclick="switchStorm('${k}')" class="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 hover:border-blue-500 cursor-pointer transition flex items-center justify-between">
                                     <div>
                                         <div class="font-bold text-xs text-slate-900 dark:text-white">${st.name}</div>
-                                        <div class="${isHistorical ? 'text-sm font-bold mt-0.5' : 'text-[10px]'}" style="color: ${st.intensityObj.color};">${st.category}</div>
+                                        <div class="${isHistorical ? 'text-[10px] text-slate-400 font-medium mt-0.5' : 'text-[10px]'}" style="color: ${st.intensityObj.color};">${st.category}</div>
                                     </div>
-                                    <div class="text-right ${isHistorical ? 'text-xs font-bold' : 'text-[10px]'} font-mono text-slate-500">
+                                    <div class="text-right ${isHistorical ? 'text-sm font-bold font-mono text-slate-900 dark:text-white' : 'text-[10px] font-mono text-slate-500'}">
                                         <div>${st.wind}</div>
                                         ${isHistorical ? '' : `<div>${st.time}</div>`}
                                     </div>
@@ -1489,27 +1596,56 @@
                     if (st) {
                         let backButtonHtml = `<button onclick="switchStorm('all')" class="w-full mb-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 返回所有氣旋清單</button>`;
                         
-                        stormStatsContent.innerHTML = `
-                            ${backButtonHtml}
-                            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
-                                <span class="font-bold text-slate-900 dark:text-white text-sm">${st.name}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
-                            </div>
-                            <div class="space-y-2 text-xs font-mono">
-                                <div class="flex justify-between"><span class="text-slate-400">當前風速:</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">移動方向:</span><span class="font-bold">${st.movement}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">中心位置:</span><span class="font-bold">${st.coords}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">更新時間:</span><span class="font-bold">${st.time}</span></div>
-                            </div>
-                            <div class="pt-2 grid grid-cols-2 gap-2">
-                                <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-chart-line"></i> 風速圖表
-                                </button>
-                                <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-table"></i> 數據列表
-                                </button>
-                            </div>
-                        `;
+                        const isHistorical = currentSelectedYear !== 'current';
+                        if (isHistorical) {
+                            stormStatsContent.innerHTML = `
+                                ${backButtonHtml}
+                                <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
+                                    <span class="font-bold text-slate-900 dark:text-white text-sm">${st.name}</span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
+                                </div>
+                                <div class="space-y-2 text-xs font-mono">
+                                    <div class="flex justify-between"><span class="text-slate-400">最高風速：</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">最接近距離:</span><span class="font-bold">${st.closestDist || '-'}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">最接近位置:</span><span class="font-bold">${st.closestCoords || '-'}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">最接近時間:</span><span class="font-bold">${st.closestTime || '-'}</span></div>
+                                </div>
+                                <div class="pt-2 grid grid-cols-2 gap-2">
+                                    <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-chart-line"></i> 風速圖表
+                                    </button>
+                                    <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-table"></i> 數據列表
+                                    </button>
+                                </div>
+                            `;
+                        } else {
+                            const lastCoord = st.pastCoordsOnly && st.pastCoordsOnly.length > 0 ? st.pastCoordsOnly[st.pastCoordsOnly.length - 1] : (st.forecast && st.forecast.length > 0 ? st.forecast[0] : [113.5685, 22.1595]);
+                            const distMacau = getDistanceAndDirectionToMacau(lastCoord[0], lastCoord[1]);
+
+                            stormStatsContent.innerHTML = `
+                                ${backButtonHtml}
+                                <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
+                                    <span class="font-bold text-slate-900 dark:text-white text-sm">${st.name}</span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
+                                </div>
+                                <div class="space-y-2 text-xs font-mono">
+                                    <div class="flex justify-between"><span class="text-slate-400">更新時間:</span><span class="font-bold">${st.time}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">當前風速:</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">中心位置:</span><span class="font-bold">${st.coords}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">距離澳門:</span><span class="font-bold">${distMacau}</span></div>
+                                    <div class="flex justify-between"><span class="text-slate-400">移動方向:</span><span class="font-bold">${st.movement}</span></div>
+                                </div>
+                                <div class="pt-2 grid grid-cols-2 gap-2">
+                                    <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-chart-line"></i> 風速圖表
+                                    </button>
+                                    <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                        <i class="fa-solid fa-table"></i> 數據列表
+                                    </button>
+                                </div>
+                            `;
+                        }
                     }
                 }
             }
