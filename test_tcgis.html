@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.3</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -60,7 +60,7 @@
                 </div>
                 <div>
                     <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.3</span>
+                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.4</span>
                     </h1>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono">實時及歷史熱帶氣旋GIS</p>
                 </div>
@@ -149,8 +149,8 @@
                     </div>
                 </div>
 
-                <!-- 強度快捷過濾標籤列 (無中文，含 SuTY, STY) -->
-                <div class="flex items-center gap-1 overflow-x-auto pb-1 text-[10px] scrollbar-none">
+                <!-- 強度快捷過濾標籤列 (即時監控預設隱藏) -->
+                <div id="intensity-filter-bar" class="hidden items-center gap-1 overflow-x-auto pb-1 text-[10px] scrollbar-none">
                     <button onclick="filterByIntensity('all')" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-medium shrink-0 transition">全部</button>
                     <button onclick="filterByIntensity('SuTY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">SuTY</button>
                     <button onclick="filterByIntensity('STY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">STY</button>
@@ -164,10 +164,6 @@
             <!-- 颱風詳情統計與動態清單卡片區 -->
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
                 <div class="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3.5 space-y-3 shadow-sm">
-                    <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
-                        <span id="storm-name" class="font-bold text-slate-900 dark:text-white text-sm">檢查中...</span>
-                        <span id="storm-category" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">狀態</span>
-                    </div>
                     <div id="storm-stats-content">
                         <!-- 動態填充統計或清單 -->
                     </div>
@@ -175,7 +171,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                MSSO GIS 向量引擎 • v4.0.3 氣象曲線分析
+                MSSO GIS 向量引擎 • v4.0.4 氣象曲線分析
             </div>
         </aside>
 
@@ -341,29 +337,6 @@
             ];
             const index = Math.round((brng % 360) / 22.5) % 16;
             return `${directions[index]} ${dist} km`;
-        }
-
-        function getClosestDistanceAndDirectionToMacau(coordsList) {
-            if (!coordsList || coordsList.length === 0) return "未知距離";
-            let minVal = Infinity;
-            let bestCoord = coordsList[0];
-            coordsList.forEach(c => {
-                if (!c || isNaN(c[0]) || isNaN(c[1])) return;
-                const [lon, lat] = c;
-                const R = 6371;
-                const dLat = (lat - MACAU_COORDS[1]) * Math.PI / 180;
-                const dLon = (lon - MACAU_COORDS[0]) * Math.PI / 180;
-                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                          Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
-                          Math.sin(dLon/2) * Math.sin(dLon/2);
-                const c_val = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                let dist = R * c_val;
-                if (dist < minVal) {
-                    minVal = dist;
-                    bestCoord = c;
-                }
-            });
-            return getDistanceAndDirectionToMacau(bestCoord[0], bestCoord[1]);
         }
 
         function getDirection(lon1, lat1, lon2, lat2) {
@@ -972,7 +945,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v4.0.3 GIS 向量圖資與氣旋檔案...',
+                text: '載入 v4.0.4 GIS 向量圖資與氣旋檔案...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(7, 15, 26, 0.9)',
@@ -1029,6 +1002,12 @@
                 yearLabel.innerText = year === 'current' ? '即時監控' : `${year}年`;
             }
 
+            // 即時監控隱藏強度過濾按鈕，歷史年份顯示
+            const filterBar = document.getElementById('intensity-filter-bar');
+            if (filterBar) {
+                filterBar.style.display = (year === 'current') ? 'none' : 'flex';
+            }
+
             if (myChart) {
                 myChart.showLoading({
                     text: `載入 ${year === 'current' ? '即時' : year + '年歷史'} 檔案中...`,
@@ -1079,10 +1058,22 @@
             selectEl.innerHTML = html;
         }
 
-        // 修復 TS/STS 顏色 Bug：精確比對 onclick 內的代碼
+        // 實作 switchStorm 函數修復返回所有氣旋清單失效問題
+        function switchStorm(stKey) {
+            currentStormKey = stKey;
+            const selectEl = document.getElementById('storm-select');
+            if (selectEl) selectEl.value = stKey;
+            renderChart(true);
+            if (currentView === 'stats') {
+                renderLargeIntensityGraph();
+            } else if (currentView === 'tables') {
+                renderDataTablesView();
+            }
+        }
+
         function filterByIntensity(code) {
             activeIntensityFilter = code;
-            const buttons = document.querySelectorAll('.overflow-x-auto button');
+            const buttons = document.querySelectorAll('#intensity-filter-bar button');
             buttons.forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('bg-slate-200', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
@@ -1256,11 +1247,12 @@
             const storm = typhoons[stormKey];
             if (!storm) return;
 
-            // Helper to build table rows
+            // Helper to build table rows (新增移動速度於距離澳門右側)
             const buildRows = (nodes) => {
-                if (!nodes || nodes.length === 0) return `<tr><td colspan="6" class="text-center py-3 text-slate-400">無數據</td></tr>`;
+                if (!nodes || nodes.length === 0) return `<tr><td colspan="7" class="text-center py-3 text-slate-400">無數據</td></tr>`;
                 return nodes.map(n => {
                     const dist = n.distToMacau || getDistanceAndDirectionToMacau(n.lon, n.lat);
+                    const speed = n.movementDir || '-';
                     const windStr = n.isEx ? '-' : n.wind;
                     return `
                         <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
@@ -1268,6 +1260,7 @@
                             <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
                             <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
                             <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
+                            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
                             <td class="py-2 px-3">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold border" style="background-color: ${n.color}22; border-color: ${n.color}55; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
                             </td>
@@ -1278,9 +1271,10 @@
             };
 
             const buildForecastRows = (nodes) => {
-                if (!nodes || nodes.length === 0) return `<tr><td colspan="7" class="text-center py-3 text-slate-400">無預報數據</td></tr>`;
+                if (!nodes || nodes.length === 0) return `<tr><td colspan="8" class="text-center py-3 text-slate-400">無預報數據</td></tr>`;
                 return nodes.map(n => {
                     const dist = n.distToMacau || getDistanceAndDirectionToMacau(n.lon, n.lat);
+                    const speed = n.movementDir || '-';
                     const windStr = n.isEx ? '-' : n.wind;
                     const catLabel = n.category || 'Forecast';
                     return `
@@ -1290,6 +1284,7 @@
                             <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
                             <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
                             <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
+                            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
                             <td class="py-2 px-3">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold border" style="background-color: ${n.color}22; border-color: ${n.color}55; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
                             </td>
@@ -1299,7 +1294,8 @@
                 }).join('');
             };
 
-            let html = `<div class="font-bold text-sm text-blue-600 dark:text-blue-400 mb-2">${storm.name} (${storm.category})</div>`;
+            // 要求 5: 更改為 「強烈熱帶風暴 洛鞍 (2601)」 格式
+            let html = `<div class="font-bold text-sm text-blue-600 dark:text-blue-400 mb-2">${storm.category} ${storm.name}</div>`;
 
             if (currentSelectedYear === 'current') {
                 // (1) Current Data Table
@@ -1317,6 +1313,7 @@
                                         <th class="pb-2 px-3">北緯</th>
                                         <th class="pb-2 px-3">東經</th>
                                         <th class="pb-2 px-3">距離澳門</th>
+                                        <th class="pb-2 px-3">移動速度</th>
                                         <th class="pb-2 px-3">強度</th>
                                         <th class="pb-2 px-3">風速</th>
                                     </tr>
@@ -1344,6 +1341,7 @@
                                         <th class="pb-2 px-3">北緯</th>
                                         <th class="pb-2 px-3">東經</th>
                                         <th class="pb-2 px-3">距離澳門</th>
+                                        <th class="pb-2 px-3">移動速度</th>
                                         <th class="pb-2 px-3">強度</th>
                                         <th class="pb-2 px-3">風速</th>
                                     </tr>
@@ -1370,6 +1368,7 @@
                                         <th class="pb-2 px-3">北緯</th>
                                         <th class="pb-2 px-3">東經</th>
                                         <th class="pb-2 px-3">距離澳門</th>
+                                        <th class="pb-2 px-3">移動速度</th>
                                         <th class="pb-2 px-3">強度</th>
                                         <th class="pb-2 px-3">風速</th>
                                     </tr>
@@ -1396,6 +1395,7 @@
                                         <th class="pb-2 px-3">北緯</th>
                                         <th class="pb-2 px-3">東經</th>
                                         <th class="pb-2 px-3">距離澳門</th>
+                                        <th class="pb-2 px-3">移動速度</th>
                                         <th class="pb-2 px-3">強度</th>
                                         <th class="pb-2 px-3">風速</th>
                                     </tr>
@@ -1458,11 +1458,69 @@
                 if (keyword && !st.name.toLowerCase().includes(keyword) && !k.toLowerCase().includes(keyword)) {
                     return false;
                 }
-                if (activeIntensityFilter !== 'all') {
+                if (activeIntensityFilter !== 'all' && currentSelectedYear !== 'current') {
                     if (st.intensityObj.code !== activeIntensityFilter) return false;
                 }
                 return true;
             });
+
+            // 更新側邊欄的單一颱風統計資訊內容（要求 4：將返回所有氣旋清單按鈕放置於氣旋標題上方）
+            const stormStatsContent = document.getElementById('storm-stats-content');
+            if (stormStatsContent) {
+                if (currentStormKey === 'all' || keys.length <= 1) {
+                    let listHtml = `<div class="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">活躍系統列表 (${filteredKeys.length})</div>`;
+                    if (filteredKeys.length === 0) {
+                        listHtml += `<div class="text-xs text-slate-400 py-4 text-center">無符合條件的氣旋系統</div>`;
+                    } else {
+                        listHtml += `<div class="space-y-1.5">`;
+                        filteredKeys.forEach(k => {
+                            const st = typhoons[k];
+                            listHtml += `
+                                <div onclick="switchStorm('${k}')" class="p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 hover:border-blue-500 cursor-pointer transition flex items-center justify-between">
+                                    <div>
+                                        <div class="font-bold text-xs text-slate-900 dark:text-white">${st.name}</div>
+                                        <div class="text-[10px]" style="color: ${st.intensityObj.color};">${st.category}</div>
+                                    </div>
+                                    <div class="text-right text-[10px] font-mono text-slate-500">
+                                        <div>${st.wind}</div>
+                                        <div>${st.time}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        listHtml += `</div>`;
+                    }
+                    stormStatsContent.innerHTML = listHtml;
+                } else {
+                    const st = typhoons[currentStormKey];
+                    if (st) {
+                        // 要求 4：返回所有氣旋清單按鈕放在上方
+                        let backButtonHtml = `<button onclick="switchStorm('all')" class="w-full mb-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 返回所有氣旋清單</button>`;
+                        
+                        stormStatsContent.innerHTML = `
+                            ${backButtonHtml}
+                            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
+                                <span class="font-bold text-slate-900 dark:text-white text-sm">${st.name}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
+                            </div>
+                            <div class="space-y-2 text-xs font-mono">
+                                <div class="flex justify-between"><span class="text-slate-400">當前風速:</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400">移動方向:</span><span class="font-bold">${st.movement}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400">中心位置:</span><span class="font-bold">${st.coords}</span></div>
+                                <div class="flex justify-between"><span class="text-slate-400">更新時間:</span><span class="font-bold">${st.time}</span></div>
+                            </div>
+                            <div class="pt-2 grid grid-cols-2 gap-2">
+                                <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-chart-line"></i> 風速曲線
+                                </button>
+                                <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-table"></i> 數據列表
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+            }
 
             if (showGrid) {
                 const minorLines = [];
@@ -1793,341 +1851,22 @@
                         
                         if (d.windVal || d.isEx) {
                             const windDisplay = d.isEx ? '-' : `${d.windVal} km/h`;
-                            return `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''} </div>
-                                    <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${windDisplay} (${d.intensityObj.code})</span></div>`;
+                            return `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''} 軌跡點</div>
+                                    <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${windDisplay} (${d.intensityObj.code})</span></div>
+                                    <div style="font-size:11px;">位置: <span style="font-weight:bold;">${d.value[1].toFixed(1)}°N, ${d.value[0].toFixed(1)}°E</span></div>`;
                         }
-
                         return params.name || '';
                     }
                 },
                 series: seriesList
             };
 
-            try {
-                myChart.setOption(option, true);
-            } catch (err) {
-                console.error("ECharts setOption error:", err);
-            }
-
-            const stormStatsContent = document.getElementById('storm-stats-content');
-            if (!stormStatsContent) return;
-            
-            if (keys.length === 0) {
-                document.getElementById('storm-name').innerText = "無活動系統";
-                const catEl = document.getElementById('storm-category');
-                catEl.innerText = "正常";
-                catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-                catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                catEl.style.color = '#3b82f6';
-                stormStatsContent.innerHTML = `<div class="text-center text-slate-500 py-3 text-xs">${currentSelectedYear === 'current' ? '當前西北太平洋沒有熱帶氣旋活躍' : `${currentSelectedYear} 年無歷史資料`}</div>`;
-                return;
-            }
-
-            if (currentStormKey === 'all') {
-                document.getElementById('storm-name').innerText = `活動颱風系統 (全部)`;
-                const catEl = document.getElementById('storm-category');
-                catEl.innerText = `共 ${filteredKeys.length} / ${keys.length} 個系統`;
-                catEl.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-                catEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-                catEl.style.color = '#3b82f6';
-                
-                let listHtml = '<div class="space-y-2 pr-1 max-h-[calc(100vh-280px)] overflow-y-auto">';
-                filteredKeys.forEach(key => {
-                    const st = typhoons[key];
-                    const currentCoord = st.pastCoordsOnly && st.pastCoordsOnly.length > 0 ? st.pastCoordsOnly[st.pastCoordsOnly.length - 1] : [MACAU_COORDS[0], MACAU_COORDS[1]];
-                    const currentDist = getDistanceAndDirectionToMacau(currentCoord[0], currentCoord[1]);
-                    listHtml += `
-                        <div onclick="switchStorm('${key}')" class="bg-white dark:bg-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 rounded-xl p-3 text-xs space-y-2 shadow-sm cursor-pointer transition">
-                            <div class="flex justify-between items-center font-bold text-slate-800 dark:text-white">
-                                <span class="truncate pr-2">${st.name}</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full border shrink-0" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code}</span>
-                            </div>
-                            <div class="grid grid-cols-2 gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                                <div>風速: <span class="text-slate-800 dark:text-slate-200 font-bold">${st.wind}</span></div>
-                                <div class="text-right truncate">距澳: <span class="text-slate-800 dark:text-slate-200 font-bold">${currentDist}</span></div>
-                            </div>
-                        </div>
-                    `;
-                });
-                listHtml += '</div>';
-                stormStatsContent.innerHTML = listHtml;
-            } else {
-                const stormKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
-                const storm = typhoons[stormKey];
-                if (!storm) return;
-                document.getElementById('storm-name').innerText = storm.name;
-                
-                const catEl = document.getElementById('storm-category');
-                catEl.innerText = storm.category;
-                catEl.style.backgroundColor = `${storm.intensityObj.color}22`;
-                catEl.style.borderColor = `${storm.intensityObj.color}55`;
-                catEl.style.color = storm.intensityObj.color;
-                
-                const currentCoord = storm.pastCoordsOnly && storm.pastCoordsOnly.length > 0 ? storm.pastCoordsOnly[storm.pastCoordsOnly.length - 1] : [MACAU_COORDS[0], MACAU_COORDS[1]];
-                const currentDist = getDistanceAndDirectionToMacau(currentCoord[0], currentCoord[1]);
-                const closestDist = getClosestDistanceAndDirectionToMacau(storm.pastCoordsOnly);
-
-                let forecastTableRows = '';
-                if (storm.forecastNodes) {
-                    storm.forecastNodes.forEach(node => {
-                        forecastTableRows += `
-                            <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/40">
-                                <td class="py-1 px-1 text-slate-700 dark:text-slate-300">${node.time}</td>
-                                <td class="py-1 px-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
-                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.wind}</td>
-                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.coordStr}</td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                let pastTableRows = '';
-                if (storm.pastNodes) {
-                    storm.pastNodes.forEach(node => {
-                        pastTableRows += `
-                            <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/40">
-                                <td class="py-1 px-1 text-slate-700 dark:text-slate-300">${node.time}</td>
-                                <td class="py-1 px-1"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold border" style="background-color: ${node.color}22; border-color: ${node.color}55; color: ${node.color};">${node.categoryCode}</span></td>
-                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.wind}</td>
-                                <td class="py-1 px-1 text-slate-800 dark:text-slate-200">${node.coordStr}</td>
-                            </tr>
-                        `;
-                    });
-                }
-
-                let forecastSectionHtml = '';
-                if (currentSelectedYear === 'current' && forecastTableRows !== '') {
-                    forecastSectionHtml = `
-                        <details open class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
-                            <summary class="p-2.5 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
-                                <span><i class="fa-solid fa-route text-blue-500 dark:text-blue-400 mr-1.5"></i> 預報路徑表</span>
-                                <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
-                            </summary>
-                            <div class="p-2 overflow-x-auto">
-                                <table class="w-full text-left text-[11px] font-mono">
-                                    <thead>
-                                        <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
-                                            <th class="pb-1 px-1">時間</th>
-                                            <th class="pb-1 px-1">級別</th>
-                                            <th class="pb-1 px-1">風速</th>
-                                            <th class="pb-1 px-1">位置</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                        ${forecastTableRows}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </details>
-                    `;
-                }
-
-                let backButtonHtml = `<button onclick="switchStorm('all')" class="w-full mb-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 返回所有氣旋清單</button>`;
-
-                if (currentSelectedYear !== 'current') {
-                    stormStatsContent.innerHTML = `
-                        <div class="space-y-3">
-                            ${backButtonHtml}
-                            <div class="space-y-2 text-xs">
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">中心最大風速</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
-                                </div>
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">最近距離澳門</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${closestDist}</span>
-                                </div>
-                            </div>
-
-                            <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 shadow-sm space-y-1.5">
-                                <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                                    <span><i class="fa-solid fa-chart-line text-emerald-500 mr-1"></i> 中心最大風速變化曲線</span>
-                                    <span class="text-[10px] text-slate-400 font-mono">km/h</span>
-                                </div>
-                                <div id="wind-speed-chart" class="w-full h-36"></div>
-                            </div>
-
-                            <details open class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
-                                <summary class="p-2.5 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
-                                    <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> 歷史路徑記錄表</span>
-                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
-                                </summary>
-                                <div class="p-2 overflow-x-auto max-h-48">
-                                    <table class="w-full text-left text-[11px] font-mono">
-                                        <thead>
-                                            <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
-                                                <th class="pb-1 px-1">時間</th>
-                                                <th class="pb-1 px-1">級別</th>
-                                                <th class="pb-1 px-1">風速</th>
-                                                <th class="pb-1 px-1">位置</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                            ${pastTableRows}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </details>
-                        </div>
-                    `;
-                } else {
-                    stormStatsContent.innerHTML = `
-                        <div class="space-y-3">
-                            ${backButtonHtml}
-                            <div class="space-y-2 text-xs">
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">預報時間</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.time || '-'}</span>
-                                </div>
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">中心最大風速</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.wind}</span>
-                                </div>
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">位置</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.coords}</span>
-                                </div>
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">移動速度</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${storm.movement}</span>
-                                </div>
-                                <div class="bg-white dark:bg-slate-800/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[10px]">距離澳門</span>
-                                    <span class="font-mono text-slate-800 dark:text-slate-200 font-bold text-[11px]">${currentDist}</span>
-                                </div>
-                            </div>
-
-                            <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 shadow-sm space-y-1.5">
-                                <div class="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                                    <span><i class="fa-solid fa-chart-line text-emerald-500 mr-1"></i> 中心最大風速變化曲線</span>
-                                    <span class="text-[10px] text-slate-400 font-mono">km/h</span>
-                                </div>
-                                <div id="wind-speed-chart" class="w-full h-36"></div>
-                            </div>
-
-                            ${forecastSectionHtml}
-
-                            <details class="group bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-xl overflow-hidden shadow-sm">
-                                <summary class="p-2.5 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none bg-slate-100 dark:bg-slate-800/70 hover:bg-slate-200 dark:hover:bg-slate-700/70 flex justify-between items-center transition">
-                                    <span><i class="fa-solid fa-history text-cyan-500 dark:text-cyan-400 mr-1.5"></i> 歷史軌跡表</span>
-                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180"></i>
-                                </summary>
-                                <div class="p-2 overflow-x-auto max-h-48">
-                                    <table class="w-full text-left text-[11px] font-mono">
-                                        <thead>
-                                            <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400 text-[10px]">
-                                                <th class="pb-1 px-1">時間</th>
-                                                <th class="pb-1 px-1">級別</th>
-                                                <th class="pb-1 px-1">風速</th>
-                                                <th class="pb-1 px-1">位置</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                            ${pastTableRows}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </details>
-                        </div>
-                    `;
-                }
-
-                setTimeout(() => {
-                    const windChartDom = document.getElementById('wind-speed-chart');
-                    if (windChartDom) {
-                        let chartTimes = [];
-                        let chartData = [];
-                        let nodesToUse = storm.pastNodes || [];
-                        nodesToUse.forEach(n => {
-                            chartTimes.push(n.time);
-                            let wNum = parseFloat(n.wind) || 0;
-                            if (n.isEx) wNum = 0;
-                            let intensity = getIntensity(n.wind, n.isEx);
-                            chartData.push({
-                                value: wNum,
-                                itemStyle: { color: intensity.color },
-                                intensityObj: intensity,
-                                nodeInfo: n
-                            });
-                        });
-
-                        let windChart = echarts.getInstanceByDom(windChartDom) || echarts.init(windChartDom);
-                        windChart.setOption({
-                            animation: true,
-                            grid: { top: 15, bottom: 25, left: 30, right: 15 },
-                            visualMap: {
-                                show: false,
-                                type: 'piecewise',
-                                dimension: 1,
-                                pieces: [
-                                    { max: 40, color: '#64748b' },
-                                    { min: 41, max: 62, color: '#0284c7' },
-                                    { min: 63, max: 87, color: '#16a34a' },
-                                    { min: 88, max: 117, color: '#ca8a04' },
-                                    { min: 118, max: 149, color: '#ea580c' },
-                                    { min: 150, max: 184, color: '#dc2626' },
-                                    { min: 185, color: '#9333ea' }
-                                ]
-                            },
-                            xAxis: {
-                                type: 'category',
-                                data: chartTimes,
-                                axisLabel: { fontSize: 8, color: isDark ? '#94a3b8' : '#64748b', interval: 'auto' },
-                                axisTick: { alignWithLabel: true }
-                            },
-                            yAxis: {
-                                type: 'value',
-                                name: 'km/h',
-                                nameTextStyle: { fontSize: 8, color: isDark ? '#94a3b8' : '#64748b' },
-                                axisLabel: { fontSize: 8, color: isDark ? '#94a3b8' : '#64748b' },
-                                splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' } }
-                            },
-                            series: [{
-                                data: chartData,
-                                type: 'line',
-                                showAllSymbol: true,
-                                symbolSize: 6,
-                                smooth: true,
-                                lineStyle: { width: 2 },
-                                areaStyle: { opacity: 0.25 }
-                            }],
-                            tooltip: {
-                                trigger: 'axis',
-                                backgroundColor: tooltipBg,
-                                borderColor: tooltipBorder,
-                                textStyle: { color: tooltipText, fontSize: 11 },
-                                formatter: function(params) {
-                                    if (!params || params.length === 0) return '';
-                                    const p = params[0];
-                                    const d = p.data;
-                                    if (!d) return p.name;
-                                    return `<div style="font-weight:bold; margin-bottom:2px;">${p.axisValue}</div>
-                                            <div>風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${p.value} km/h (${d.intensityObj.code} - ${d.intensityObj.name})</span></div>`;
-                                }
-                            }
-                        });
-                        windChart.resize();
-                    }
-                }, 50);
-            }
+            myChart.setOption(option, true);
         }
 
-        function switchStorm(key) {
-            currentStormKey = key;
-            const selectEl = document.getElementById('storm-select');
-            if (selectEl) selectEl.value = key;
-            if (currentView === 'map') {
-                renderChart(true);
-            } else if (currentView === 'stats') {
-                renderLargeIntensityGraph();
-            } else if (currentView === 'tables') {
-                renderDataTablesView();
-            }
-        }
-
-        window.onload = function() {
+        window.addEventListener('DOMContentLoaded', () => {
             initVectorMap();
-        };
+        });
     </script>
 </body>
 </html>
