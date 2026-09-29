@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.4</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -60,7 +60,7 @@
                 </div>
                 <div>
                     <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.4</span>
+                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.5</span>
                     </h1>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono">實時及歷史熱帶氣旋GIS</p>
                 </div>
@@ -171,7 +171,7 @@
             </div>
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                MSSO GIS 向量引擎 • v4.0.4 氣象曲線分析
+                MSSO GIS 向量引擎 • v4.0.5 氣象圖表分析
             </div>
         </aside>
 
@@ -195,7 +195,7 @@
             <div id="stats-view-container" class="w-full h-full flex-1 p-6 overflow-y-auto hidden flex-col space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
                     <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <i class="fa-solid fa-chart-line text-emerald-500"></i> 風速變化曲線
+                        <i class="fa-solid fa-chart-line text-emerald-500"></i> 風速變化圖表
                     </h2>
                     <button onclick="switchView('map')" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs px-3 py-1.5 rounded-xl transition font-semibold">
                         <i class="fa-solid fa-arrow-left mr-1"></i> 返回地圖
@@ -945,7 +945,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v4.0.4 GIS 向量圖資與氣旋檔案...',
+                text: '載入 v4.0.5 GIS 向量圖資與氣旋檔案...',
                 color: '#3b82f6',
                 textColor: '#cbd5e1',
                 maskColor: 'rgba(7, 15, 26, 0.9)',
@@ -1002,7 +1002,6 @@
                 yearLabel.innerText = year === 'current' ? '即時監控' : `${year}年`;
             }
 
-            // 即時監控隱藏強度過濾按鈕，歷史年份顯示
             const filterBar = document.getElementById('intensity-filter-bar');
             if (filterBar) {
                 filterBar.style.display = (year === 'current') ? 'none' : 'flex';
@@ -1030,6 +1029,11 @@
 
             updateStormSelectUI();
             renderChart(true);
+            if (currentView === 'stats') {
+                renderLargeIntensityGraph();
+            } else if (currentView === 'tables') {
+                renderDataTablesView();
+            }
         }
 
         function updateStormSelectUI() {
@@ -1043,13 +1047,6 @@
                 return;
             }
 
-            if (keys.length === 1) {
-                if (!typhoons[currentStormKey]) currentStormKey = keys[0];
-                const st = typhoons[keys[0]];
-                selectEl.innerHTML = `<option value="${keys[0]}" selected>${st.category} ${st.name}</option>`;
-                return;
-            }
-
             let html = `<option value="all" ${currentStormKey === 'all' ? 'selected' : ''}>活動颱風系統 (全部 - ${keys.length}個)</option>`;
             keys.forEach(k => {
                 const st = typhoons[k];
@@ -1058,7 +1055,6 @@
             selectEl.innerHTML = html;
         }
 
-        // 實作 switchStorm 函數修復返回所有氣旋清單失效問題
         function switchStorm(stKey) {
             currentStormKey = stKey;
             const selectEl = document.getElementById('storm-select');
@@ -1131,6 +1127,7 @@
 
             if (view === 'map') {
                 renderChart(false);
+                if (myChart) myChart.resize();
             } else if (view === 'stats') {
                 renderLargeIntensityGraph();
             } else if (view === 'tables') {
@@ -1172,7 +1169,7 @@
                 let chartInstance = echarts.getInstanceByDom(chartDom) || echarts.init(chartDom);
                 chartInstance.setOption({
                     title: {
-                        text: `${storm.name} - 中心最大風速變化曲線`,
+                        text: `${storm.name} - 中心最大風速變化圖表`,
                         left: 'center',
                         textStyle: { fontSize: 14, color: isDark ? '#f8fafc' : '#0f172a' }
                     },
@@ -1210,7 +1207,7 @@
                         type: 'line',
                         showAllSymbol: true,
                         symbolSize: 8,
-                        smooth: true,
+                        smooth: false, // 需求 3：不需要平滑曲線
                         lineStyle: { width: 3 },
                         areaStyle: { opacity: 0.3 }
                     }],
@@ -1228,7 +1225,7 @@
                                     <div>風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${p.value} km/h (${d.intensityObj.code} - ${d.intensityObj.name})</span></div>`;
                         }
                     }
-                });
+                }, true);
                 chartInstance.resize();
             }, 50);
         }
@@ -1247,7 +1244,6 @@
             const storm = typhoons[stormKey];
             if (!storm) return;
 
-            // Helper to build table rows (新增移動速度於距離澳門右側)
             const buildRows = (nodes) => {
                 if (!nodes || nodes.length === 0) return `<tr><td colspan="7" class="text-center py-3 text-slate-400">無數據</td></tr>`;
                 return nodes.map(n => {
@@ -1294,11 +1290,9 @@
                 }).join('');
             };
 
-            // 要求 5: 更改為 「強烈熱帶風暴 洛鞍 (2601)」 格式
             let html = `<div class="font-bold text-sm text-blue-600 dark:text-blue-400 mb-2">${storm.category} ${storm.name}</div>`;
 
             if (currentSelectedYear === 'current') {
-                // (1) Current Data Table
                 const currentNodes = storm.nodes ? storm.nodes.filter(n => n.category === 'current' || n.category === '0h' || n.category === '0') : [];
                 html += `
                     <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
@@ -1326,7 +1320,6 @@
                     </div>
                 `;
 
-                // (2) Forecast Data Table
                 html += `
                     <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -1354,7 +1347,6 @@
                     </div>
                 `;
 
-                // (3) Past Data Table
                 html += `
                     <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -1381,7 +1373,6 @@
                     </div>
                 `;
             } else {
-                // Historical storm: past data table
                 html += `
                     <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
@@ -1464,10 +1455,11 @@
                 return true;
             });
 
-            // 更新側邊欄的單一颱風統計資訊內容（要求 4：將返回所有氣旋清單按鈕放置於氣旋標題上方）
+            // 側邊欄狀態渲染
             const stormStatsContent = document.getElementById('storm-stats-content');
             if (stormStatsContent) {
-                if (currentStormKey === 'all' || keys.length <= 1) {
+                if (currentStormKey === 'all') {
+                    const isHistorical = currentSelectedYear !== 'current';
                     let listHtml = `<div class="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">活躍系統列表 (${filteredKeys.length})</div>`;
                     if (filteredKeys.length === 0) {
                         listHtml += `<div class="text-xs text-slate-400 py-4 text-center">無符合條件的氣旋系統</div>`;
@@ -1475,15 +1467,16 @@
                         listHtml += `<div class="space-y-1.5">`;
                         filteredKeys.forEach(k => {
                             const st = typhoons[k];
+                            // 需求 2：歷史活躍系統列表不需要顯示日期，強度字型放大
                             listHtml += `
-                                <div onclick="switchStorm('${k}')" class="p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 hover:border-blue-500 cursor-pointer transition flex items-center justify-between">
+                                <div onclick="switchStorm('${k}')" class="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 hover:border-blue-500 cursor-pointer transition flex items-center justify-between">
                                     <div>
                                         <div class="font-bold text-xs text-slate-900 dark:text-white">${st.name}</div>
-                                        <div class="text-[10px]" style="color: ${st.intensityObj.color};">${st.category}</div>
+                                        <div class="${isHistorical ? 'text-sm font-bold mt-0.5' : 'text-[10px]'}" style="color: ${st.intensityObj.color};">${st.category}</div>
                                     </div>
-                                    <div class="text-right text-[10px] font-mono text-slate-500">
+                                    <div class="text-right ${isHistorical ? 'text-xs font-bold' : 'text-[10px]'} font-mono text-slate-500">
                                         <div>${st.wind}</div>
-                                        <div>${st.time}</div>
+                                        ${isHistorical ? '' : `<div>${st.time}</div>`}
                                     </div>
                                 </div>
                             `;
@@ -1494,7 +1487,6 @@
                 } else {
                     const st = typhoons[currentStormKey];
                     if (st) {
-                        // 要求 4：返回所有氣旋清單按鈕放在上方
                         let backButtonHtml = `<button onclick="switchStorm('all')" class="w-full mb-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 返回所有氣旋清單</button>`;
                         
                         stormStatsContent.innerHTML = `
@@ -1511,7 +1503,7 @@
                             </div>
                             <div class="pt-2 grid grid-cols-2 gap-2">
                                 <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-chart-line"></i> 風速曲線
+                                    <i class="fa-solid fa-chart-line"></i> 風速圖表
                                 </button>
                                 <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
                                     <i class="fa-solid fa-table"></i> 數據列表
