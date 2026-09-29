@@ -3,11 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.0.9</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.0</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
         }
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -15,92 +39,174 @@
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <!-- Turf.js Spatial Analysis Library for Cone Envelopes -->
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+    
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
+        
         #echarts-map {
             width: 100%;
             height: 100%;
             min-height: 450px;
         }
-        /* 自定義捲軸 */
+
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.3);
-            border-radius: 3px;
+            background: rgba(148, 163, 184, 0.25);
+            border-radius: 9999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(100, 116, 139, 0.5);
+            background: rgba(148, 163, 184, 0.45);
         }
+
+        /* Animations */
         @keyframes pulse-ring {
-            0% { transform: scale(0.9); opacity: 0.9; }
-            50% { transform: scale(1.6); opacity: 0.1; }
-            100% { transform: scale(0.9); opacity: 0.9; }
+            0% { transform: scale(0.95); opacity: 0.9; }
+            50% { transform: scale(1.5); opacity: 0.15; }
+            100% { transform: scale(0.95); opacity: 0.9; }
         }
         .pulse-beacon {
             animation: pulse-ring 2s infinite ease-in-out;
+        }
+
+        @keyframes viewFadeIn {
+            from { opacity: 0; transform: translateY(6px) scale(0.995); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .animate-view-fade {
+            animation: viewFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .dark .glass-panel {
+            background: rgba(10, 18, 32, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(30, 41, 59, 0.7);
+        }
+
+        .glass-card {
+            background: rgba(248, 250, 252, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(30, 41, 59, 0.8);
+        }
+
+        /* Active Nav Tab Indicator */
+        .nav-tab {
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .nav-tab.active {
+            color: #0284c7;
+            font-weight: 700;
+        }
+        .dark .nav-tab.active {
+            color: #38bdf8;
+        }
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 20%;
+            right: 20%;
+            height: 2px;
+            background: #0284c7;
+            border-radius: 2px;
+            box-shadow: 0 0 8px #0284c7;
+        }
+        .dark .nav-tab.active::after {
+            background: #38bdf8;
+            box-shadow: 0 0 8px #38bdf8;
         }
     </style>
 </head>
 <body class="h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-[#070f1a] text-slate-800 dark:text-slate-200 transition-colors duration-300">
 
-    <!-- 頂部導航欄 (升級版介面) -->
-    <header class="bg-white/90 dark:bg-[#0a1220]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/80 h-16 flex items-center justify-between px-4 sm:px-6 z-35 shrink-0 transition-colors duration-300">
-        <div class="flex items-center space-x-4">
+    <!-- 頂部導航欄 (v4.1.0 升級版) -->
+    <header class="glass-panel h-16 flex items-center justify-between px-4 sm:px-6 z-35 shrink-0 transition-all duration-300 shadow-sm border-b">
+        <div class="flex items-center space-x-4 sm:space-x-6">
             <div class="flex items-center space-x-3">
-                <div class="bg-blue-600/10 dark:bg-blue-600/20 border border-blue-500/40 p-2 rounded-xl text-blue-600 dark:text-blue-400 shadow-sm">
-                    <i class="fa-solid fa-hurricane text-xl animate-spin" style="animation-duration: 8s; animation-direction: reverse;"></i>
+                <div class="relative flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-cyan-500/20 dark:from-blue-600/30 dark:to-cyan-600/30 border border-blue-500/30 p-2 rounded-xl text-blue-600 dark:text-blue-400 shadow-sm">
+                    <i class="fa-solid fa-hurricane text-xl animate-spin" style="animation-duration: 9s; animation-direction: reverse;"></i>
+                    <span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping opacity-75"></span>
                 </div>
                 <div>
-                    <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                        MSSO 熱帶氣旋 GIS <span class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">v4.0.9</span>
+                    <h1 class="text-sm sm:text-base font-extrabold tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
+                        MSSO 熱帶氣旋 GIS 
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-400/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-400/30 font-mono">v4.1.0</span>
                     </h1>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono">實時及歷史熱帶氣旋GIS</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono tracking-tight">實時及歷史熱帶氣旋 GIS 監控系統</p>
                 </div>
             </div>
             
-            <div class="hidden xl:flex items-center space-x-1 pl-4 border-l border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
-                <span onclick="switchView('map')" class="px-2 py-1 hover:text-slate-900 dark:hover:text-white cursor-pointer transition">地圖</span>
-                <span onclick="switchView('stats')" class="px-2 py-1 hover:text-slate-900 dark:hover:text-white cursor-pointer transition">統計圖表</span>
-                <span onclick="switchView('tables')" class="px-2 py-1 hover:text-slate-900 dark:hover:text-white cursor-pointer transition">數據列表</span>
+            <!-- 導航分頁選項 -->
+            <div class="hidden xl:flex items-center space-x-1 pl-4 border-l border-slate-200 dark:border-slate-800 text-xs font-semibold">
+                <button id="nav-btn-map" onclick="switchView('map')" class="nav-tab active px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
+                    <i class="fa-solid fa-map-location-dot mr-1.5 opacity-80"></i>地圖
+                </button>
+                <button id="nav-btn-stats" onclick="switchView('stats')" class="nav-tab px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
+                    <i class="fa-solid fa-chart-line mr-1.5 opacity-80"></i>統計圖表
+                </button>
+                <button id="nav-btn-tables" onclick="switchView('tables')" class="nav-tab px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
+                    <i class="fa-solid fa-table-list mr-1.5 opacity-80"></i>數據列表
+                </button>
             </div>
         </div>
 
-        <div class="flex items-center space-x-3 sm:space-x-4">
+        <div class="flex items-center space-x-2.5 sm:space-x-3">
             <!-- 年份與洋區選擇快捷標籤 -->
-            <div class="hidden sm:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 px-3 py-1 rounded-xl text-xs">
-                <span class="text-slate-500 dark:text-slate-400">年份</span>
+            <div class="hidden sm:flex items-center space-x-2 bg-slate-200/60 dark:bg-slate-900/80 border border-slate-300/60 dark:border-slate-800/80 px-3 py-1.5 rounded-xl text-xs font-medium">
+                <span class="text-slate-500 dark:text-slate-400 text-[11px]">年份</span>
                 <span id="header-year-label" class="font-bold text-blue-600 dark:text-blue-400">即時監控</span>
                 <span class="text-slate-300 dark:text-slate-700">|</span>
-                <span class="text-slate-500 dark:text-slate-400">洋區</span>
+                <span class="text-slate-500 dark:text-slate-400 text-[11px]">洋區</span>
                 <span class="font-bold text-slate-700 dark:text-slate-200">西北太平洋</span>
             </div>
 
             <!-- 系統時間 -->
-            <div class="hidden md:flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl text-xs font-mono shadow-inner">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <div class="hidden md:flex items-center space-x-2 bg-slate-200/60 dark:bg-slate-900/80 border border-slate-300/60 dark:border-slate-800/80 px-3 py-1.5 rounded-xl text-xs font-mono shadow-inner">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
                 <span class="text-slate-700 dark:text-slate-300"><span id="utc-clock" class="text-cyan-600 dark:text-cyan-400 font-bold">00:00:00</span> MST</span>
             </div>
 
-            <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-xl text-sm border border-slate-300 dark:border-slate-700 transition">
+            <!-- 行動裝置選單觸發按鈕 -->
+            <button onclick="toggleMobileSidebar()" class="md:hidden bg-slate-200/80 dark:bg-slate-800/80 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-xl text-sm border border-slate-300/60 dark:border-slate-700/60 transition active:scale-95">
                 <i class="fa-solid fa-bars"></i>
             </button>
 
-            <a href="https://macaosso.github.io/MSSO/index.html" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2 rounded-xl text-xs font-semibold shadow-sm transition flex items-center justify-center w-8 h-8" title="返回首頁">
+            <!-- 主頁連結 -->
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bg-slate-200/80 dark:bg-slate-800/80 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 p-2 rounded-xl text-xs font-semibold shadow-sm transition active:scale-95 flex items-center justify-center w-8 h-8 border border-slate-300/50 dark:border-slate-700/50" title="返回首頁">
                 <i class="fa-solid fa-house"></i>
             </a>
 
             <!-- 主題切換按鈕 -->
-            <button id="theme-toggle" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm w-8 h-8 flex items-center justify-center" title="切換主題">
+            <button id="theme-toggle" class="p-2 rounded-xl bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all shadow-sm w-8 h-8 flex items-center justify-center active:scale-95 border border-slate-300/50 dark:border-slate-700/50" title="切換主題">
                 <i class="fa-solid fa-moon dark:hidden"></i>
-                <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                <i class="fa-solid fa-sun hidden dark:inline text-amber-400"></i>
             </button>
         </div>
     </header>
@@ -109,32 +215,32 @@
     <div class="flex-1 flex relative overflow-hidden">
         
         <!-- 左側升級版檔案庫控制與側邊欄 -->
-        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 z-30 w-80 sm:w-88 bg-white/95 dark:bg-[#0a1220]/95 md:bg-white md:dark:bg-[#0a1220] backdrop-blur-md border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-2xl shrink-0">
+        <aside id="sidebar" class="absolute md:relative inset-y-0 left-0 z-30 w-80 sm:w-88 glass-panel md:bg-white md:dark:bg-[#0a1220] flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0 shadow-2xl shrink-0 border-r border-slate-200 dark:border-slate-800/80">
             
             <!-- 搜尋與控制表單區 -->
-            <div class="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
+            <div class="p-4 border-b border-slate-200 dark:border-slate-800/80 space-y-3">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <i class="fa-solid fa-folder-open text-blue-500"></i> 熱帶氣旋檔案庫管理
+                    <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-folder-open text-blue-500 dark:text-blue-400"></i> 熱帶氣旋檔案庫
                     </h2>
-                    <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
                         <i class="fa-solid fa-xmark text-lg"></i>
                     </button>
                 </div>
 
                 <!-- 搜尋框 -->
                 <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400 dark:text-slate-500">
                         <i class="fa-solid fa-magnifying-glass text-xs"></i>
                     </span>
-                    <input type="text" id="storm-search" placeholder="搜尋編號或名稱" oninput="filterStormList()" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                    <input type="text" id="storm-search" placeholder="搜尋編號或名稱..." oninput="filterStormList()" class="w-full bg-slate-100 dark:bg-slate-900/90 border border-slate-300/80 dark:border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition shadow-inner">
                 </div>
 
                 <!-- 下拉選單：年份與系統 -->
                 <div class="grid grid-cols-2 gap-2">
                     <div class="space-y-1">
-                        <label class="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">年份選擇</label>
-                        <select id="year-select" onchange="switchYear(this.value)" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                        <label class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">年份選擇</label>
+                        <select id="year-select" onchange="switchYear(this.value)" class="w-full bg-slate-100 dark:bg-slate-900/90 border border-slate-300/80 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition cursor-pointer">
                             <option value="current" selected>即時監控</option>
                             <option value="2026">2026</option>
                             <option value="2025">2025</option>
@@ -142,78 +248,79 @@
                         </select>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">活動颱風系統</label>
-                        <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition">
+                        <label class="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">活動颱風系統</label>
+                        <select id="storm-select" onchange="switchStorm(this.value)" class="w-full bg-slate-100 dark:bg-slate-900/90 border border-slate-300/80 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 transition cursor-pointer">
                             <option value="all" selected>載入中...</option>
                         </select>
                     </div>
                 </div>
 
                 <!-- 強度快捷過濾標籤列 (即時監控預設隱藏) -->
-                <div id="intensity-filter-bar" class="hidden items-center gap-1 overflow-x-auto pb-1 text-[10px] scrollbar-none">
-                    <button onclick="filterByIntensity('all')" class="px-2 py-1 rounded-lg bg-blue-600 text-white font-medium shrink-0 transition">全部</button>
-                    <button onclick="filterByIntensity('SuTY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">SuTY</button>
-                    <button onclick="filterByIntensity('STY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">STY</button>
-                    <button onclick="filterByIntensity('TY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">TY</button>
-                    <button onclick="filterByIntensity('STS')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">STS</button>
-                    <button onclick="filterByIntensity('TS')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">TS</button>
-                    <button onclick="filterByIntensity('TD')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium shrink-0 hover:bg-slate-300 transition">TD</button>
+                <div id="intensity-filter-bar" class="hidden items-center gap-1 overflow-x-auto pb-1 text-[10px] scrollbar-none pt-1">
+                    <button onclick="filterByIntensity('all')" class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-bold shrink-0 transition shadow-sm">全部</button>
+                    <button onclick="filterByIntensity('SuTY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold shrink-0 hover:bg-slate-300 dark:hover:bg-slate-700 transition">SuTY</button>
+                    <button onclick="filterByIntensity('STY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold shrink-0 hover:bg-slate-300 dark:hover:bg-slate-700 transition">STY</button>
+                    <button onclick="filterByIntensity('TY')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold shrink-0 hover:bg-slate-300 dark:hover:bg-slate-700 transition">TY</button>
+                    <button onclick="filterByIntensity('STS')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold shrink-0 hover:bg-slate-300 dark:hover:bg-slate-700 transition">STS</button>
+                    <button onclick="filterByIntensity('TS')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold shrink-0 hover:bg-slate-300 dark:hover:bg-slate-700 transition">TS</button>
+                    <button onclick="filterByIntensity('TD')" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-semibold shrink-0 hover:bg-slate-300 dark:hover:bg-slate-700 transition">TD</button>
                 </div>
             </div>
 
             <!-- 颱風詳情統計與動態清單卡片區 -->
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                <div class="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3.5 space-y-3 shadow-sm">
+                <div class="glass-card rounded-2xl p-3.5 space-y-3 shadow-sm border border-slate-200/80 dark:border-slate-800/80">
                     <div id="storm-stats-content">
                         <!-- 動態填充統計或清單 -->
                     </div>
                 </div>
             </div>
 
-            <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-                MSSO GIS 向量引擎 • v4.0.9 氣象圖表分析
+            <div class="p-3 border-t border-slate-200 dark:border-slate-800/80 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono flex items-center justify-between px-4">
+                <span>MSSO GIS 向量引擎</span>
+                <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold">v4.1.0</span>
             </div>
         </aside>
 
         <!-- 主內容畫布區 (包含 地圖、統計圖表、數據列表 檢視切換) -->
         <main class="flex-1 relative h-full bg-slate-100 dark:bg-[#070f1a] min-h-0 min-w-0 flex flex-col transition-colors duration-300">
             <!-- 1. 地圖檢視 -->
-            <div id="map-view-container" class="w-full h-full flex-1 relative flex flex-col">
+            <div id="map-view-container" class="w-full h-full flex-1 relative flex flex-col animate-view-fade">
                 <div id="echarts-map" class="w-full h-full flex-1"></div>
 
                 <!-- 強度分級圖例 (右下角升級版) -->
-                <div class="absolute bottom-6 right-6 z-20 bg-white/90 dark:bg-[#0a1220]/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 pointer-events-none hidden sm:block max-w-xs transition-colors duration-300">
-                    <div class="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                <div class="absolute bottom-6 right-6 z-20 glass-panel p-4 rounded-2xl shadow-2xl text-xs space-y-2.5 pointer-events-none hidden sm:block max-w-xs transition-colors duration-300 border border-slate-200/80 dark:border-slate-800/80">
+                    <div class="font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-1.5 flex items-center justify-between">
                         <span class="flex items-center gap-1.5"><i class="fa-solid fa-palette text-blue-500 dark:text-blue-400"></i> 強度分級</span>
-                        <span class="text-[10px] text-slate-400 font-mono">km/h</span>
+                        <span class="text-[10px] text-slate-400 font-mono bg-slate-200/60 dark:bg-slate-800/80 px-1.5 py-0.5 rounded">km/h</span>
                     </div>
                     <div id="intensity-legend" class="grid grid-cols-1 gap-1.5 text-[11px]"></div>
                 </div>
             </div>
 
             <!-- 2. 統計圖表放大檢視 -->
-            <div id="stats-view-container" class="w-full h-full flex-1 p-6 overflow-y-auto hidden flex-col space-y-4">
+            <div id="stats-view-container" class="w-full h-full flex-1 p-4 sm:p-6 overflow-y-auto hidden flex-col space-y-4 animate-view-fade">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                    <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <i class="fa-solid fa-chart-line text-emerald-500"></i> 風速變化圖表
+                    <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-emerald-500"></i> 風速變化歷史圖表
                     </h2>
-                    <button onclick="switchView('map')" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs px-3 py-1.5 rounded-xl transition font-semibold">
-                        <i class="fa-solid fa-arrow-left mr-1"></i> 返回地圖
+                    <button onclick="switchView('map')" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs px-3.5 py-1.5 rounded-xl transition font-bold active:scale-95 flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> 返回地圖
                     </button>
                 </div>
-                <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm flex-1 flex flex-col min-h-[400px]">
-                    <div id="large-wind-speed-chart" class="w-full flex-1 min-h-[350px]"></div>
+                <div class="glass-card rounded-2xl p-4 sm:p-6 shadow-sm flex-1 flex flex-col min-h-[420px]">
+                    <div id="large-wind-speed-chart" class="w-full flex-1 min-h-[380px]"></div>
                 </div>
             </div>
 
             <!-- 3. 數據列表檢視 (3個表格) -->
-            <div id="tables-view-container" class="w-full h-full flex-1 p-6 overflow-y-auto hidden flex-col space-y-6">
+            <div id="tables-view-container" class="w-full h-full flex-1 p-4 sm:p-6 overflow-y-auto hidden flex-col space-y-6 animate-view-fade">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                    <h2 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                         <i class="fa-solid fa-table text-blue-500"></i> 氣旋詳細數據列表
                     </h2>
-                    <button onclick="switchView('map')" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs px-3 py-1.5 rounded-xl transition font-semibold">
-                        <i class="fa-solid fa-arrow-left mr-1"></i> 返回地圖
+                    <button onclick="switchView('map')" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs px-3.5 py-1.5 rounded-xl transition font-bold active:scale-95 flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> 返回地圖
                     </button>
                 </div>
                 <div id="data-tables-content" class="space-y-6">
@@ -292,13 +399,14 @@
 
         const legendContainer = document.getElementById('intensity-legend');
         if (legendContainer) {
+            legendContainer.innerHTML = '';
             TC_INTENSITY_TABLE.forEach(item => {
                 const div = document.createElement('div');
                 div.className = "flex items-center justify-between space-x-3";
                 div.innerHTML = `
                     <div class="flex items-center space-x-2">
-                        <span class="w-3 h-3 rounded-full inline-block shadow shrink-0" style="background-color: ${item.color};"></span>
-                        <span class="text-slate-700 dark:text-slate-300 font-medium">${item.code} - ${item.name}</span>
+                        <span class="w-2.5 h-2.5 rounded-full inline-block shadow-sm shrink-0" style="background-color: ${item.color};"></span>
+                        <span class="text-slate-700 dark:text-slate-300 font-semibold text-[11px]">${item.code} - ${item.name}</span>
                     </div>
                     <span class="text-slate-500 dark:text-slate-400 font-mono text-[10px] shrink-0">${item.rangeText}</span>
                 `;
@@ -1053,10 +1161,10 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v4.0.9 GIS 向量圖資與氣旋檔案...',
-                color: '#3b82f6',
-                textColor: '#cbd5e1',
-                maskColor: 'rgba(7, 15, 26, 0.9)',
+                text: '載入 v4.1.0 GIS 向量圖資與氣旋檔案...',
+                color: '#38bdf8',
+                textColor: '#f8fafc',
+                maskColor: 'rgba(7, 15, 26, 0.88)',
                 zlevel: 0
             });
 
@@ -1120,9 +1228,9 @@
             if (myChart) {
                 myChart.showLoading({
                     text: `載入 ${year === 'current' ? '即時' : year + '年歷史'} 檔案中...`,
-                    color: '#3b82f6',
-                    textColor: '#cbd5e1',
-                    maskColor: 'rgba(7, 15, 26, 0.9)',
+                    color: '#38bdf8',
+                    textColor: '#f8fafc',
+                    maskColor: 'rgba(7, 15, 26, 0.88)',
                     zlevel: 0
                 });
             }
@@ -1183,12 +1291,12 @@
             activeIntensityFilter = code;
             const buttons = document.querySelectorAll('#intensity-filter-bar button');
             buttons.forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('bg-slate-200', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
+                btn.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+                btn.classList.add('bg-slate-200', 'dark:bg-slate-800/80', 'text-slate-700', 'dark:text-slate-300');
                 const onclickAttr = btn.getAttribute('onclick') || '';
                 if (onclickAttr.includes(`'${code}'`) || (code === 'all' && onclickAttr.includes("'all'"))) {
-                    btn.classList.remove('bg-slate-200', 'dark:bg-slate-800', 'text-slate-600', 'dark:text-slate-300');
-                    btn.classList.add('bg-blue-600', 'text-white');
+                    btn.classList.remove('bg-slate-200', 'dark:bg-slate-800/80', 'text-slate-700', 'dark:text-slate-300');
+                    btn.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
                 }
             });
             renderSidebar();
@@ -1239,6 +1347,19 @@
             if (statsContainer) statsContainer.style.display = (view === 'stats') ? 'flex' : 'none';
             if (tablesContainer) tablesContainer.style.display = (view === 'tables') ? 'flex' : 'none';
 
+            // 更新頂部 Nav Tab 高亮狀態
+            const tabs = ['map', 'stats', 'tables'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`nav-btn-${t}`);
+                if (btn) {
+                    if (t === view) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                }
+            });
+
             renderSidebar();
 
             if (view === 'map') {
@@ -1273,22 +1394,25 @@
 
             if (currentStormKey === 'all') {
                 const isHistorical = currentSelectedYear !== 'current';
-                let listHtml = `<div class="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">活躍系統列表 (${filteredKeys.length})</div>`;
+                let listHtml = `<div class="font-extrabold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2.5 flex items-center justify-between">
+                    <span>活躍系統列表</span>
+                    <span class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] text-slate-500 font-mono">${filteredKeys.length}</span>
+                </div>`;
                 if (filteredKeys.length === 0) {
-                    listHtml += `<div class="text-xs text-slate-400 py-4 text-center">無符合條件的氣旋系統</div>`;
+                    listHtml += `<div class="text-xs text-slate-400 py-6 text-center font-medium">無符合條件的氣旋系統</div>`;
                 } else {
-                    listHtml += `<div class="space-y-1.5">`;
+                    listHtml += `<div class="space-y-2">`;
                     filteredKeys.forEach(k => {
                         const st = typhoons[k];
                         listHtml += `
-                            <div onclick="switchStorm('${k}')" class="p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 hover:border-blue-500 cursor-pointer transition flex items-center justify-between">
-                                <div>
-                                    <div class="${isHistorical ? 'text-[10px] text-slate-400 font-medium mb-0.5' : 'text-[10px] font-medium'}" style="color: ${st.intensityObj.color};">${st.category}</div>
-                                    <div class="font-bold text-xs text-slate-900 dark:text-white">${st.name}</div>
+                            <div onclick="switchStorm('${k}')" class="p-3 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 hover:border-blue-500/80 hover:shadow-md cursor-pointer transition-all duration-200 group flex items-center justify-between">
+                                <div class="space-y-0.5">
+                                    <div class="${isHistorical ? 'text-[10px] text-slate-400 font-semibold' : 'text-[10px] font-bold'}" style="color: ${st.intensityObj.color};">${st.category}</div>
+                                    <div class="font-bold text-xs text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">${st.name}</div>
                                 </div>
-                                <div class="text-right ${isHistorical ? 'text-sm font-bold font-mono text-slate-900 dark:text-white' : 'text-[10px] font-mono text-slate-500'}">
-                                    <div>${st.wind}</div>
-                                    ${isHistorical ? '' : `<div>${st.time}</div>`}
+                                <div class="text-right ${isHistorical ? 'text-xs font-bold font-mono text-slate-800 dark:text-slate-100' : 'text-[10px] font-mono text-slate-500'}">
+                                    <div class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</div>
+                                    ${isHistorical ? '' : `<div class="text-[9px] text-slate-400">${st.time}</div>`}
                                 </div>
                             </div>
                         `;
@@ -1299,27 +1423,27 @@
             } else {
                 const st = typhoons[currentStormKey];
                 if (st) {
-                    let backButtonHtml = `<button onclick="switchStorm('all')" class="w-full mb-3 bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> 返回所有氣旋清單</button>`;
+                    let backButtonHtml = `<button onclick="switchStorm('all')" class="w-full mb-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold py-2 px-3 rounded-xl text-xs transition-all active:scale-95 flex items-center justify-center gap-2"><i class="fa-solid fa-arrow-left"></i> 返回所有氣旋清單</button>`;
                     
                     const isHistorical = currentSelectedYear !== 'current';
                     if (isHistorical) {
                         stormStatsContent.innerHTML = `
                             ${backButtonHtml}
-                            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
-                                <span class="font-bold text-slate-900 dark:text-white text-sm">${st.name}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
+                            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2.5 mb-2.5">
+                                <span class="font-extrabold text-slate-900 dark:text-white text-sm tracking-wide">${st.name}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-sm" style="background-color: ${st.intensityObj.color}15; border-color: ${st.intensityObj.color}40; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
                             </div>
                             <div class="space-y-2 text-xs font-mono">
-                                <div class="flex justify-between"><span class="text-slate-400">最高風速：</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">最接近距離:</span><span class="font-bold">${st.closestDist || '-'}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">最接近位置:</span><span class="font-bold">${st.closestCoords || '-'}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">最接近時間:</span><span class="font-bold">${st.closestTime || '-'}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">最高風速：</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">最接近距離:</span><span class="font-bold text-slate-700 dark:text-slate-200">${st.closestDist || '-'}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">最接近位置:</span><span class="font-bold text-slate-700 dark:text-slate-200">${st.closestCoords || '-'}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">最接近時間:</span><span class="font-bold text-slate-700 dark:text-slate-200">${st.closestTime || '-'}</span></div>
                             </div>
-                            <div class="pt-2 grid grid-cols-2 gap-2">
-                                <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                            <div class="pt-3 grid grid-cols-2 gap-2">
+                                <button onclick="switchView('stats')" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 text-xs py-2 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm">
                                     <i class="fa-solid fa-chart-line"></i> 風速圖表
                                 </button>
-                                <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                <button onclick="switchView('tables')" class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/25 text-xs py-2 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm">
                                     <i class="fa-solid fa-table"></i> 數據列表
                                 </button>
                             </div>
@@ -1330,22 +1454,22 @@
 
                         stormStatsContent.innerHTML = `
                             ${backButtonHtml}
-                            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2 mb-2">
-                                <span class="font-bold text-slate-900 dark:text-white text-sm">${st.name}</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border" style="background-color: ${st.intensityObj.color}22; border-color: ${st.intensityObj.color}55; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
+                            <div class="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2.5 mb-2.5">
+                                <span class="font-extrabold text-slate-900 dark:text-white text-sm tracking-wide">${st.name}</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border shadow-sm" style="background-color: ${st.intensityObj.color}15; border-color: ${st.intensityObj.color}40; color: ${st.intensityObj.color};">${st.intensityObj.code} - ${st.category}</span>
                             </div>
                             <div class="space-y-2 text-xs font-mono">
-                                <div class="flex justify-between"><span class="text-slate-400">更新時間:</span><span class="font-bold">${st.time}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">當前風速:</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">中心位置:</span><span class="font-bold">${st.coords}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">距離澳門:</span><span class="font-bold">${distMacau}</span></div>
-                                <div class="flex justify-between"><span class="text-slate-400">移動方向:</span><span class="font-bold">${st.movement}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">更新時間:</span><span class="font-bold text-slate-700 dark:text-slate-200">${st.time}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">當前風速:</span><span class="font-bold" style="color: ${st.intensityObj.color};">${st.wind}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">中心位置:</span><span class="font-bold text-slate-700 dark:text-slate-200">${st.coords}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">距離澳門:</span><span class="font-bold text-slate-700 dark:text-slate-200">${distMacau}</span></div>
+                                <div class="flex justify-between py-0.5"><span class="text-slate-400">移動方向:</span><span class="font-bold text-slate-700 dark:text-slate-200">${st.movement}</span></div>
                             </div>
-                            <div class="pt-2 grid grid-cols-2 gap-2">
-                                <button onclick="switchView('stats')" class="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                            <div class="pt-3 grid grid-cols-2 gap-2">
+                                <button onclick="switchView('stats')" class="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 text-xs py-2 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm">
                                     <i class="fa-solid fa-chart-line"></i> 風速圖表
                                 </button>
-                                <button onclick="switchView('tables')" class="bg-blue-600/10 hover:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs py-1.5 rounded-xl font-semibold transition flex items-center justify-center gap-1">
+                                <button onclick="switchView('tables')" class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/25 text-xs py-2 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 shadow-sm">
                                     <i class="fa-solid fa-table"></i> 數據列表
                                 </button>
                             </div>
@@ -1362,7 +1486,7 @@
                 
                 const keys = Object.keys(typhoons);
                 if (keys.length === 0) {
-                    chartDom.innerHTML = '<div class="text-center text-slate-400 py-20 text-sm">無可用的氣旋數據</div>';
+                    chartDom.innerHTML = '<div class="text-center text-slate-400 py-20 text-sm font-medium">無可用的氣旋數據</div>';
                     return;
                 }
                 const stormKey = (currentStormKey === 'all' || !typhoons[currentStormKey]) ? keys[0] : currentStormKey;
@@ -1391,10 +1515,11 @@
                     title: {
                         text: `${storm.name} - 中心最大風速變化圖表`,
                         left: 'center',
-                        textStyle: { fontSize: 14, color: isDark ? '#f8fafc' : '#0f172a' }
+                        textStyle: { fontSize: 15, fontWeight: 'bold', color: isDark ? '#f8fafc' : '#0f172a', fontFamily: 'Plus Jakarta Sans' }
                     },
-                    animation: true,
-                    grid: { top: 50, bottom: 40, left: 50, right: 20 },
+                    animationDuration: 1000,
+                    animationEasing: 'cubicOut',
+                    grid: { top: 55, bottom: 45, left: 55, right: 25 },
                     visualMap: {
                         show: false,
                         type: 'piecewise',
@@ -1412,36 +1537,43 @@
                     xAxis: {
                         type: 'category',
                         data: chartTimes,
-                        axisLabel: { fontSize: 11, color: isDark ? '#94a3b8' : '#64748b', interval: 'auto' },
+                        axisLabel: { fontSize: 11, fontFamily: 'JetBrains Mono', color: isDark ? '#94a3b8' : '#64748b', interval: 'auto' },
                         axisTick: { alignWithLabel: true }
                     },
                     yAxis: {
                         type: 'value',
                         name: 'km/h',
-                        nameTextStyle: { fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' },
-                        axisLabel: { fontSize: 11, color: isDark ? '#94a3b8' : '#64748b' },
-                        splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' } }
+                        nameTextStyle: { fontSize: 11, fontFamily: 'JetBrains Mono', color: isDark ? '#94a3b8' : '#64748b' },
+                        axisLabel: { fontSize: 11, fontFamily: 'JetBrains Mono', color: isDark ? '#94a3b8' : '#64748b' },
+                        splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } }
                     },
                     series: [{
                         data: chartData,
                         type: 'line',
                         showAllSymbol: true,
                         symbolSize: 8,
-                        smooth: false,
-                        lineStyle: { width: 3 },
-                        areaStyle: { opacity: 0.3 }
+                        smooth: true,
+                        lineStyle: { width: 3.5 },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(2, 132, 199, 0.35)' },
+                                { offset: 1, color: 'rgba(2, 132, 199, 0.02)' }
+                            ])
+                        }
                     }],
                     tooltip: {
                         trigger: 'axis',
-                        backgroundColor: isDark ? '#0a1220' : '#ffffff',
+                        backgroundColor: isDark ? 'rgba(10, 18, 32, 0.9)' : 'rgba(255, 255, 255, 0.95)',
                         borderColor: isDark ? '#334155' : '#cbd5e1',
+                        borderRadius: 12,
+                        padding: [10, 14],
                         textStyle: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: 12 },
                         formatter: function(params) {
                             if (!params || params.length === 0) return '';
                             const p = params[0];
                             const d = p.data;
                             if (!d) return p.name;
-                            return `<div style="font-weight:bold; margin-bottom:4px;">${p.axisValue}</div>
+                            return `<div style="font-weight:bold; margin-bottom:4px; font-family:'JetBrains Mono';">${p.axisValue}</div>
                                     <div>風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${p.value} km/h (${d.intensityObj.code} - ${d.intensityObj.name})</span></div>`;
                         }
                     }
@@ -1456,7 +1588,7 @@
 
             const keys = Object.keys(typhoons);
             if (keys.length === 0) {
-                container.innerHTML = '<div class="text-center text-slate-400 py-12 text-sm">無可用的氣旋數據列表</div>';
+                container.innerHTML = '<div class="text-center text-slate-400 py-12 text-sm font-medium">無可用的氣旋數據列表</div>';
                 return;
             }
 
@@ -1465,71 +1597,73 @@
             if (!storm) return;
 
             const buildRows = (nodes) => {
-                if (!nodes || nodes.length === 0) return `<tr><td colspan="7" class="text-center py-3 text-slate-400">無數據</td></tr>`;
+                if (!nodes || nodes.length === 0) return `<tr><td colspan="7" class="text-center py-4 text-slate-400">無數據</td></tr>`;
                 return nodes.map(n => {
                     const dist = n.distToMacau || getDistanceAndDirectionToMacau(n.lon, n.lat);
                     const speed = n.movementDir || '-';
                     const windStr = n.isEx ? '-' : n.wind;
                     return `
-                        <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
-                            <td class="py-2 px-3 font-mono text-slate-700 dark:text-slate-300">${n.time || '-'}</td>
-                            <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
-                            <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
-                            <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
-                            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
-                            <td class="py-2 px-3">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border" style="background-color: ${n.color}22; border-color: ${n.color}55; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
+                        <tr class="hover:bg-slate-100/80 dark:hover:bg-slate-800/40 transition-colors">
+                            <td class="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 font-medium">${n.time || '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
+                            <td class="py-2.5 px-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border shadow-sm" style="background-color: ${n.color}15; border-color: ${n.color}40; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
                             </td>
-                            <td class="py-2 px-3 font-mono font-bold" style="color: ${n.color};">${windStr}</td>
+                            <td class="py-2.5 px-3 font-mono font-bold" style="color: ${n.color};">${windStr}</td>
                         </tr>
                     `;
                 }).join('');
             };
 
             const buildForecastRows = (nodes) => {
-                if (!nodes || nodes.length === 0) return `<tr><td colspan="8" class="text-center py-3 text-slate-400">無預報數據</td></tr>`;
+                if (!nodes || nodes.length === 0) return `<tr><td colspan="8" class="text-center py-4 text-slate-400">無預報數據</td></tr>`;
                 return nodes.map(n => {
                     const dist = n.distToMacau || getDistanceAndDirectionToMacau(n.lon, n.lat);
                     const speed = n.movementDir || '-';
                     const windStr = n.isEx ? '-' : n.wind;
                     const catLabel = n.category || 'Forecast';
                     return `
-                        <tr class="hover:bg-slate-100 dark:hover:bg-slate-800/50 transition">
-                            <td class="py-2 px-3 font-mono text-blue-600 dark:text-blue-400 font-semibold">${catLabel}</td>
-                            <td class="py-2 px-3 font-mono text-slate-700 dark:text-slate-300">${n.time || '-'}</td>
-                            <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
-                            <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
-                            <td class="py-2 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
-                            <td class="py-2 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
-                            <td class="py-2 px-3">
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border" style="background-color: ${n.color}22; border-color: ${n.color}55; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
+                        <tr class="hover:bg-slate-100/80 dark:hover:bg-slate-800/40 transition-colors">
+                            <td class="py-2.5 px-3 font-mono text-blue-600 dark:text-blue-400 font-bold">${catLabel}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-700 dark:text-slate-300 font-medium">${n.time || '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lat !== undefined ? n.lat.toFixed(1) + '°N' : '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${n.lon !== undefined ? n.lon.toFixed(1) + '°E' : '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-800 dark:text-slate-200">${dist}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">${speed}</td>
+                            <td class="py-2.5 px-3">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border shadow-sm" style="background-color: ${n.color}15; border-color: ${n.color}40; color: ${n.color};">${n.categoryCode} (${n.categoryName})</span>
                             </td>
-                            <td class="py-2 px-3 font-mono font-bold" style="color: ${n.color};">${windStr}</td>
+                            <td class="py-2.5 px-3 font-mono font-bold" style="color: ${n.color};">${windStr}</td>
                         </tr>
                     `;
                 }).join('');
             };
 
-            let html = `<div class="font-bold text-sm text-blue-600 dark:text-blue-400 mb-2">${storm.category} ${storm.name}</div>`;
+            let html = `<div class="font-extrabold text-sm sm:text-base text-blue-600 dark:text-blue-400 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-hurricane"></i> ${storm.category} ${storm.name}
+            </div>`;
 
             if (currentSelectedYear === 'current') {
                 const currentNodes = storm.nodes ? storm.nodes.filter(n => n.category === 'current' || n.category === '0h' || n.category === '0') : [];
                 html += `
-                    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="glass-card rounded-2xl p-4 shadow-sm space-y-3 border border-slate-200/80 dark:border-slate-800/80">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye text-red-500"></i> 實時資訊
+                            <i class="fa-solid fa-bullseye text-rose-500"></i> 實時資訊
                         </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2 px-3">時間</th>
-                                        <th class="pb-2 px-3">北緯</th>
-                                        <th class="pb-2 px-3">東經</th>
-                                        <th class="pb-2 px-3">距離澳門</th>
-                                        <th class="pb-2 px-3">移動速度</th>
-                                        <th class="pb-2 px-3">強度</th>
-                                        <th class="pb-2 px-3">風速</th>
+                                        <th class="pb-2.5 px-3">時間</th>
+                                        <th class="pb-2.5 px-3">北緯</th>
+                                        <th class="pb-2.5 px-3">東經</th>
+                                        <th class="pb-2.5 px-3">距離澳門</th>
+                                        <th class="pb-2.5 px-3">移動速度</th>
+                                        <th class="pb-2.5 px-3">強度</th>
+                                        <th class="pb-2.5 px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1541,7 +1675,7 @@
                 `;
 
                 html += `
-                    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="glass-card rounded-2xl p-4 shadow-sm space-y-3 border border-slate-200/80 dark:border-slate-800/80">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
                             <i class="fa-solid fa-route text-blue-500"></i> 預報路徑
                         </h3>
@@ -1549,14 +1683,14 @@
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2 px-3">24H/48H/...</th>
-                                        <th class="pb-2 px-3">時間</th>
-                                        <th class="pb-2 px-3">北緯</th>
-                                        <th class="pb-2 px-3">東經</th>
-                                        <th class="pb-2 px-3">距離澳門</th>
-                                        <th class="pb-2 px-3">移動速度</th>
-                                        <th class="pb-2 px-3">強度</th>
-                                        <th class="pb-2 px-3">風速</th>
+                                        <th class="pb-2.5 px-3">24H/48H/...</th>
+                                        <th class="pb-2.5 px-3">時間</th>
+                                        <th class="pb-2.5 px-3">北緯</th>
+                                        <th class="pb-2.5 px-3">東經</th>
+                                        <th class="pb-2.5 px-3">距離澳門</th>
+                                        <th class="pb-2.5 px-3">移動速度</th>
+                                        <th class="pb-2.5 px-3">強度</th>
+                                        <th class="pb-2.5 px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1568,21 +1702,21 @@
                 `;
 
                 html += `
-                    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="glass-card rounded-2xl p-4 shadow-sm space-y-3 border border-slate-200/80 dark:border-slate-800/80">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-history text-cyan-500"></i> 過去路徑
+                            <i class="fa-solid fa-clock-rotate-left text-cyan-500"></i> 過去路徑
                         </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2 px-3">時間</th>
-                                        <th class="pb-2 px-3">北緯</th>
-                                        <th class="pb-2 px-3">東經</th>
-                                        <th class="pb-2 px-3">距離澳門</th>
-                                        <th class="pb-2 px-3">移動速度</th>
-                                        <th class="pb-2 px-3">強度</th>
-                                        <th class="pb-2 px-3">風速</th>
+                                        <th class="pb-2.5 px-3">時間</th>
+                                        <th class="pb-2.5 px-3">北緯</th>
+                                        <th class="pb-2.5 px-3">東經</th>
+                                        <th class="pb-2.5 px-3">距離澳門</th>
+                                        <th class="pb-2.5 px-3">移動速度</th>
+                                        <th class="pb-2.5 px-3">強度</th>
+                                        <th class="pb-2.5 px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1594,21 +1728,21 @@
                 `;
             } else {
                 html += `
-                    <div class="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm space-y-3">
+                    <div class="glass-card rounded-2xl p-4 shadow-sm space-y-3 border border-slate-200/80 dark:border-slate-800/80">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-history text-cyan-500"></i> 過去路徑
+                            <i class="fa-solid fa-clock-rotate-left text-cyan-500"></i> 過去路徑
                         </h3>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs font-mono">
                                 <thead>
                                     <tr class="border-b border-slate-200 dark:border-slate-700/60 text-slate-500 dark:text-slate-400">
-                                        <th class="pb-2 px-3">時間</th>
-                                        <th class="pb-2 px-3">北緯</th>
-                                        <th class="pb-2 px-3">東經</th>
-                                        <th class="pb-2 px-3">距離澳門</th>
-                                        <th class="pb-2 px-3">移動速度</th>
-                                        <th class="pb-2 px-3">強度</th>
-                                        <th class="pb-2 px-3">風速</th>
+                                        <th class="pb-2.5 px-3">時間</th>
+                                        <th class="pb-2.5 px-3">北緯</th>
+                                        <th class="pb-2.5 px-3">東經</th>
+                                        <th class="pb-2.5 px-3">距離澳門</th>
+                                        <th class="pb-2.5 px-3">移動速度</th>
+                                        <th class="pb-2.5 px-3">強度</th>
+                                        <th class="pb-2.5 px-3">風速</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800/50">
@@ -1643,10 +1777,10 @@
             const ringColor = isDark ? '#888888' : '#64748b';
             const ringLabelColor = isDark ? '#cbd5e1' : '#475569';
             
-            const macauBg = isDark ? 'rgba(10, 18, 32, 0.85)' : 'rgba(255, 255, 255, 0.85)';
+            const macauBg = isDark ? 'rgba(10, 18, 32, 0.88)' : 'rgba(255, 255, 255, 0.9)';
             const macauTextColor = isDark ? '#ffffff' : '#0f172a';
             
-            const tooltipBg = isDark ? '#0a1220' : '#ffffff';
+            const tooltipBg = isDark ? 'rgba(10, 18, 32, 0.92)' : 'rgba(255, 255, 255, 0.95)';
             const tooltipBorder = isDark ? '#334155' : '#cbd5e1';
             const tooltipText = isDark ? '#f8fafc' : '#0f172a';
 
@@ -1880,7 +2014,7 @@
                             data: eyeData,
                             symbolSize: 20,
                             rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                            itemStyle: { color: '#ef4444', shadowBlur: 12, shadowColor: '#ef4444' }
+                            itemStyle: { color: '#ef4444', shadowBlur: 14, shadowColor: '#ef4444' }
                         });
                     }
                 }
@@ -1914,8 +2048,8 @@
                         fontSize: 11,
                         fontWeight: 'bold',
                         backgroundColor: macauBg,
-                        padding: [3, 6],
-                        borderRadius: 4
+                        padding: [4, 7],
+                        borderRadius: 6
                     }
                 });
             }
@@ -1944,9 +2078,9 @@
                     style: {
                         text: keys.length === 0 ? (currentSelectedYear === 'current' ? '當前西北太平洋沒有熱帶氣旋活躍' : `${currentSelectedYear} 年無歷史資料記錄`) : '沒有符合條件的氣旋檔案',
                         fill: isDark ? '#94a3b8' : '#64748b',
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: 'bold',
-                        fontFamily: 'sans-serif'
+                        fontFamily: 'Plus Jakarta Sans, sans-serif'
                     }
                 }];
             }
@@ -1954,6 +2088,8 @@
             const option = {
                 backgroundColor: mapBgColor,
                 graphic: graphicItems,
+                animationDuration: 800,
+                animationEasing: 'cubicOut',
                 geo: {
                     map: 'world50m',
                     roam: true,
@@ -1973,7 +2109,9 @@
                     trigger: 'item',
                     backgroundColor: tooltipBg,
                     borderColor: tooltipBorder,
-                    textStyle: { color: tooltipText, fontSize: 12 },
+                    borderRadius: 12,
+                    padding: [10, 14],
+                    textStyle: { color: tooltipText, fontSize: 12, fontFamily: 'Plus Jakarta Sans, sans-serif' },
                     formatter: function(params) {
                         if (params.componentType === 'geo') {
                             if (isMobile) {
@@ -1988,14 +2126,14 @@
                         
                         if (d.name === '澳門') {
                             return `<div style="font-weight:bold;"><i class="fa-solid fa-location-dot" style="color:#0284c7;"></i> 澳門</div>
-                                    <div style="font-size:11px; font-family:monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
+                                    <div style="font-size:11px; font-family:JetBrains Mono;">經緯度: 22.1595°N, 113.5685°E</div>`;
                         }
                         
                         if (d.nodeInfo) {
                             let tooltipHtml = `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''}</div>
-                                    <div style="font-size:11px;">時間: <span style="font-weight:bold;">${d.nodeInfo.time}</span></div>
+                                    <div style="font-size:11px; font-family:JetBrains Mono;">時間: <span style="font-weight:bold;">${d.nodeInfo.time}</span></div>
                                     <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${d.nodeInfo.wind} (${d.intensityObj.code}) </span></div>
-                                    <div style="font-size:11px;">位置: <span style="font-weight:bold;">${d.nodeInfo.coordStr}</span></div>`;
+                                    <div style="font-size:11px; font-family:JetBrains Mono;">位置: <span style="font-weight:bold;">${d.nodeInfo.coordStr}</span></div>`;
                             if (!d.nodeInfo.isPast && currentSelectedYear === 'current') {
                                 tooltipHtml += `<div style="font-size:11px;">移動方向: <span style="font-weight:bold;">${d.nodeInfo.movementDir}</span></div>`;
                             }
@@ -2007,7 +2145,7 @@
                             const windDisplay = d.isEx ? '-' : `${d.windVal} km/h`;
                             return `<div style="font-weight:bold; color:#0284c7; margin-bottom:4px;">${d.stormName || ''} 軌跡點</div>
                                     <div style="font-size:11px;">風速: <span style="color:${d.intensityObj.color}; font-weight:bold;">${windDisplay} (${d.intensityObj.code})</span></div>
-                                    <div style="font-size:11px;">位置: <span style="font-weight:bold;">${d.value[1].toFixed(1)}°N, ${d.value[0].toFixed(1)}°E</span></div>`;
+                                    <div style="font-size:11px; font-family:JetBrains Mono;">位置: <span style="font-weight:bold;">${d.value[1].toFixed(1)}°N, ${d.value[0].toFixed(1)}°E</span></div>`;
                         }
                         return params.name || '';
                     }
