@@ -62,7 +62,7 @@
                         <i class="fa-solid fa-clipboard-list"></i>
                     </div>
                     <span>天氣警報與提示記錄</span>
-                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.0.0</span>
+                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.1.0</span>
                 </h1>
                 <div class="mt-2 space-y-0.5">
                     <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
@@ -94,25 +94,30 @@
         <div class="bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors space-y-6">
             
             <!-- 篩選與工具列 -->
-            <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
-                <div class="flex flex-wrap items-center gap-3">
-                    <!-- 類型篩選 -->
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">類型：</span>
-                        <select id="filterType" onchange="filterRecords()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                            <option value="all">全部類型</option>
-                        </select>
+            <div class="space-y-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-filter text-cyan-500"></i> 類型與條件篩選
                     </div>
-                    <!-- 年份篩選 -->
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">年份：</span>
-                        <select id="filterYear" onchange="filterRecords()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                            <option value="all">全部年份</option>
-                        </select>
+                    <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                        <!-- 年份篩選 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">年份：</span>
+                            <select id="filterYear" onchange="filterRecords()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                                <option value="all">全部年份</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div id="recordStats" class="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                    共 0 筆記錄
+
+                <!-- 分組按鈕容器 -->
+                <div id="typeButtonsContainer" class="space-y-3 bg-slate-50/60 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
+                    <!-- 動態載入按鈕群組 -->
+                </div>
+
+                <div class="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+                    <div id="activeFilterLabel" class="font-medium text-cyan-600 dark:text-cyan-400">目前顯示：全部類型</div>
+                    <div id="recordStats" class="font-medium">共 0 筆記錄</div>
                 </div>
             </div>
 
@@ -215,9 +220,24 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
+        // 定義完整的分組警報與提示清單
+        const warningGroups = {
+            "溫度警報": ["寒冷警報", "非常寒冷警報", "極為寒冷警報", "酷熱警報", "非常酷熱警報", "極為酷熱警報"],
+            "降雨警報": ["大雨警報", "暴雨警報", "大暴雨警報"],
+            "風力警報": ["注意警報", "戒備警報", "強風警報", "東北烈風警報", "東南烈風警報", "西北烈風警報", "西南烈風警報", "暴風警報", "颶風警報"],
+            "風暴潮與海嘯": ["風暴潮觀察警報", "風暴潮戒備警報", "風暴潮危險警報", "海嘯警報", "嚴重海嘯警報"]
+        };
+
+        const tipGroups = {
+            "氣溫與環境提示": ["低溫預警提示", "高溫預警提示", "火災危險提示", "空氣質量提示"],
+            "大風提示": ["黃色大風提示", "橙色大風提示", "紅色大風提示"],
+            "豪雨特別報告": ["豪雨特別報告", "大豪雨特別報告", "超大豪雨特別報告"]
+        };
+
         // 資料處理核心邏輯
         let allRecords = { W: [], T: [] };
         let currentTab = 'W';
+        let selectedType = 'all';
 
         async function loadRecordsData() {
             try {
@@ -226,8 +246,9 @@
                 const text = await response.text();
                 parseCSV(text);
                 updateTabCounts();
+                renderTypeButtons();
+                updateYearFilter();
                 renderTable();
-                updateFilters();
             } catch (err) {
                 console.error(err);
                 document.getElementById('recordTableBody').innerHTML = `
@@ -244,7 +265,6 @@
                 line = line.trim();
                 if (!line || line.toLowerCase().startsWith('category')) continue;
 
-                // 支援標準逗號分隔與冒號格式 (例如 T:超大豪雨特別報告...)
                 let cols = [];
                 if (line.includes(',')) {
                     cols = line.split(',').map(c => c.trim());
@@ -272,6 +292,7 @@
 
         function switchTab(tab) {
             currentTab = tab;
+            selectedType = 'all'; // 切換標籤時重置類型篩選
             const btnW = document.getElementById('tabBtnW');
             const btnT = document.getElementById('tabBtnT');
 
@@ -283,7 +304,8 @@
                 btnW.className = "px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800";
             }
 
-            updateFilters();
+            renderTypeButtons();
+            updateYearFilter();
             renderTable();
         }
 
@@ -292,29 +314,53 @@
             document.getElementById('countT').textContent = allRecords.T.length;
         }
 
-        function updateFilters() {
-            const records = allRecords[currentTab] || [];
-            
-            // 收集不重複的類型與年份
-            const typesSet = new Set();
-            const yearsSet = new Set();
+        function renderTypeButtons() {
+            const container = document.getElementById('typeButtonsContainer');
+            const groups = currentTab === 'W' ? warningGroups : tipGroups;
 
+            let html = `
+                <div class="mb-2">
+                    <button onclick="selectType('all')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${selectedType === 'all' ? 'bg-cyan-500 text-white shadow-md' : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-cyan-400'}">
+                        全部類型
+                    </button>
+                </div>
+            `;
+
+            for (const [groupName, items] of Object.entries(groups)) {
+                html += `
+                    <div class="space-y-1.5 pt-2 border-t border-slate-200/50 dark:border-slate-800/50 first:border-0 first:pt-0">
+                        <div class="text-[11px] font-bold text-slate-400 dark:text-slate-500">${groupName}</div>
+                        <div class="flex flex-wrap gap-1.5">
+                `;
+                items.forEach(item => {
+                    const isActive = selectedType === item;
+                    const activeClass = isActive 
+                        ? 'bg-cyan-500 text-white shadow-md' 
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-cyan-400 dark:hover:border-cyan-500';
+                    
+                    html += `<button onclick="selectType('${item}')" class="px-3 py-1 rounded-lg text-xs font-medium transition-all ${activeClass}">${item}</button>`;
+                });
+                html += `</div></div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function selectType(type) {
+            selectedType = type;
+            renderTypeButtons();
+            renderTable();
+        }
+
+        function updateYearFilter() {
+            const records = allRecords[currentTab] || [];
+            const yearsSet = new Set();
             records.forEach(r => {
-                typesSet.add(r.type);
                 if (r.start && r.start.length >= 4) {
                     yearsSet.add(r.start.substring(0, 4));
                 }
             });
 
-            // 更新類型下拉選單
-            const typeSelect = document.getElementById('filterType');
-            let typeHtml = '<option value="all">全部類型</option>';
-            Array.from(typesSet).sort().forEach(t => {
-                typeHtml += `<option value="${t}">${t}</option>`;
-            });
-            typeSelect.innerHTML = typeHtml;
-
-            // 更新年份下拉選單
             const yearSelect = document.getElementById('filterYear');
             let yearHtml = '<option value="all">全部年份</option>';
             Array.from(yearsSet).sort().reverse().forEach(y => {
@@ -330,12 +376,11 @@
         function renderTable() {
             const tbody = document.getElementById('recordTableBody');
             const statsEl = document.getElementById('recordStats');
-            const selectedType = document.getElementById('filterType').value;
+            const activeLabelEl = document.getElementById('activeFilterLabel');
             const selectedYear = document.getElementById('filterYear').value;
 
             let records = allRecords[currentTab] || [];
 
-            // 篩選
             const filtered = records.filter(r => {
                 const matchType = (selectedType === 'all' || r.type === selectedType);
                 const matchYear = (selectedYear === 'all' || (r.start && r.start.startsWith(selectedYear)));
@@ -343,6 +388,7 @@
             });
 
             statsEl.textContent = `共 ${filtered.length} 筆記錄`;
+            activeLabelEl.textContent = `目前顯示：${selectedType === 'all' ? '全部類型' : selectedType}`;
 
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-slate-400">沒有符合條件的記錄</td></tr>`;
@@ -351,7 +397,6 @@
 
             let html = '';
             filtered.forEach(r => {
-                // 根據類型給予精美的小徽章顏色
                 let badgeColor = currentTab === 'W' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
                 
                 html += `
