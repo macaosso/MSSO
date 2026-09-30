@@ -60,7 +60,7 @@
         }
     </script>
 </head>
-<body class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-zinc-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-300">
+<body id="page-body" class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-zinc-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-500">
 
     <!-- 容器 -->
     <div class="w-full max-w-7xl space-y-6 flex-grow animate-fade-in">
@@ -73,7 +73,7 @@
                         <i class="fa-solid fa-location-dot"></i>
                     </span>
                     <span>澳門天氣</span>
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 dark:bg-cyan-400/15 text-cyan-600 dark:text-cyan-400 tracking-wider">v2.0.1</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 dark:bg-cyan-400/15 text-cyan-600 dark:text-cyan-400 tracking-wider">v2.0.2</span>
                 </h1>
                 <div class="mt-2.5 space-y-0.5 pl-0.5">
                     <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
@@ -379,6 +379,41 @@
             { name: '氹仔', lat: 22.1595, lon: 113.5685 },
             { name: '路環', lat: 22.1178268, lon: 113.5524237 }
         ];
+
+        // 根據天氣狀況與日夜動態更新背景色系
+        function updateWeatherBackground(weatherCode, isNight) {
+            const body = document.getElementById('page-body');
+            const baseClasses = "text-slate-900 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-500";
+            
+            let bgClasses = "";
+            const isDark = document.documentElement.classList.contains('dark');
+
+            if (isDark) {
+                if (isNight) {
+                    bgClasses = "bg-gradient-to-br from-slate-950 via-indigo-950/80 to-zinc-950";
+                } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(weatherCode)) {
+                    bgClasses = "bg-gradient-to-br from-slate-950 via-blue-950/70 to-slate-950";
+                } else if ([95, 96, 99].includes(weatherCode)) {
+                    bgClasses = "bg-gradient-to-br from-slate-950 via-purple-950/70 to-indigo-950/80";
+                } else {
+                    bgClasses = "bg-gradient-to-br from-slate-950 via-slate-900 to-zinc-950";
+                }
+            } else {
+                if (isNight) {
+                    bgClasses = "bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 text-slate-100";
+                } else if ([0, 1].includes(weatherCode)) {
+                    bgClasses = "bg-gradient-to-br from-sky-100 via-blue-50 to-amber-50";
+                } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(weatherCode)) {
+                    bgClasses = "bg-gradient-to-br from-blue-100 via-cyan-50 to-slate-100";
+                } else if ([95, 96, 99].includes(weatherCode)) {
+                    bgClasses = "bg-gradient-to-br from-indigo-100 via-purple-50 to-slate-200";
+                } else {
+                    bgClasses = "bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50";
+                }
+            }
+
+            body.className = `${bgClasses} ${baseClasses}`;
+        }
 
         function formatMSTTime(date = new Date()) {
             const year = date.getFullYear();
@@ -686,6 +721,11 @@
             } else {
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
+            }
+            if (globalWeatherData) {
+                const now = new Date();
+                const isNight = checkIfNight(now, globalWeatherData.daily, 1);
+                updateWeatherBackground(globalWeatherData.current.weather_code, isNight);
             }
         });
 
@@ -1006,6 +1046,9 @@
             const curr = data.current;
             const isNight = checkIfNight(now, data.daily, 1); 
             
+            // 更新動態天氣背景
+            updateWeatherBackground(curr.weather_code, isNight);
+
             const apiWeatherInfo = getWeatherDetails(curr.weather_code, isNight);
             
             let weatherInfo = { ...apiWeatherInfo };
