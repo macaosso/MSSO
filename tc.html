@@ -274,7 +274,7 @@
                 </div>
             </div>
 
-            <!-- 熱帶氣旋警報預測表格專區 (由 tc.js 中的 TC_WARNING_DATA 自動渲染與控制隱藏) -->
+            <!-- 熱帶氣旋警報預測表格專區 -->
             <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors" id="tcForecastTableCard">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/80 gap-2">
                     <span id="tableMainTitle" class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
@@ -387,6 +387,87 @@
     <!-- 引入獨立的 tc.js 邏輯 -->
     <script src="tc.js"></script>
     <script>
+        // 定義警報預測資料
+        const TC_WARNING_DATA = {
+            mainTitle: "受熱帶氣旋「沙德爾」可能發佈之警報",
+            updateTimeText: "2026-09-02  14:20 MST 更新",
+            tableRows: [
+                { signal: "注意警報", period: "", probability: "低" },
+                { signal: "戒備警報", period: "", probability: "" },
+                { signal: "強風警報", period: "", probability: "" },
+                { signal: "烈風警報", period: "", probability: "" },
+                { signal: "暴風警報", period: "", probability: "" },
+                { signal: "颶風警報", period: "", probability: "" },
+                { signal: "風暴潮觀察警報", period: "", probability: "" },
+                { signal: "風暴潮戒備警報", period: "", probability: "" },
+                { signal: "風暴潮危險警報", period: "", probability: "" }
+            ]
+        };
+
+        // 渲染熱帶氣旋警報預測表格
+        function renderTcForecastTable(data) {
+            const cardEl = document.getElementById('tcForecastTableCard');
+            const titleEl = document.getElementById('tableMainTitle');
+            const timeEl = document.getElementById('tableUpdateTime');
+            const contentEl = document.getElementById('tableContent');
+
+            if (!data || !data.tableRows || data.tableRows.length === 0) {
+                if (cardEl) cardEl.style.display = 'none';
+                return;
+            }
+
+            // 檢查是否有任何一行的機率有內容（例如包含「低」等字眼）
+            const hasValidData = data.tableRows.some(row => row.probability && row.probability.trim() !== '');
+            if (!hasValidData) {
+                if (cardEl) cardEl.style.display = 'none';
+                return;
+            }
+
+            if (cardEl) cardEl.style.display = 'block';
+            if (titleEl && data.mainTitle) {
+                titleEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-cyan-500"></i> ${data.mainTitle}`;
+            }
+            if (timeEl && data.updateTimeText) {
+                timeEl.textContent = data.updateTimeText;
+            }
+
+            let html = `
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                            <th class="py-2.5 px-3 font-semibold">警報信號</th>
+                            <th class="py-2.5 px-3 font-semibold">預測生效時間</th>
+                            <th class="py-2.5 px-3 font-semibold">發佈機率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            data.tableRows.forEach(row => {
+                const prob = row.probability ? row.probability.trim() : '';
+                const period = row.period ? row.period.trim() : '-';
+                
+                let probBadge = prob ? `<span class="px-2 py-0.5 rounded-md font-semibold bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300">${prob}</span>` : '<span class="text-slate-400">-</span>';
+
+                html += `
+                    <tr class="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td class="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">${row.signal}</td>
+                        <td class="py-2.5 px-3 text-slate-600 dark:text-slate-300">${period !== '' ? period : '-'}</td>
+                        <td class="py-2.5 px-3">${probBadge}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            if (contentEl) {
+                contentEl.innerHTML = html;
+            }
+        }
+
         // 儀表盤幾何與分級設定
         const SITE = {
             scaleMax: 250, 
@@ -436,7 +517,6 @@
             return speed > 250 ? '#7e22ce' : '#94a3b8';
         }
 
-        // 動態建構儀表盤 SVG 與結構
         function renderGaugeHTML(el, speed) {
             const bands = SITE.bands.map(([c, lo, hi, col]) => {
                 const startAngle = (lo / SITE.scaleMax) * 180;
@@ -470,7 +550,6 @@
             animateGauge(el);
         }
 
-        // 採用 requestAnimationFrame 確保指針與進度條絕對同步
         function animateGauge(el) {
             const speed = parseFloat(el.dataset.speed);
             if (isNaN(speed)) return;
@@ -526,7 +605,6 @@
             "SuTY": "超強颱風"
         };
 
-        // 距離專用方位字典
         const distanceDirections = {
             "N": "以北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
             "E": "以東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
@@ -534,7 +612,6 @@
             "W": "以西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
         };
 
-        // 移動專用方位字典
         const movementDirections = {
             "N": "北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
             "E": "東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
@@ -662,11 +739,14 @@
                 return { code: "Ex", name: "溫帶氣旋", color: "#64748b" };
             }
             const windKmh = parseFloat(windInput) || 0;
-            for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
-                let item = TC_INTENSITY_TABLE[i];
-                if (windKmh <= item.max_wind) return item;
+            if (typeof TC_INTENSITY_TABLE !== 'undefined') {
+                for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
+                    let item = TC_INTENSITY_TABLE[i];
+                    if (windKmh <= item.max_wind) return item;
+                }
+                return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
             }
-            return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
+            return { code: "TS", name: "熱帶風暴", color: "#34d399" };
         }
 
         const MACAU_COORDS = [113.5685, 22.1595];
@@ -1067,7 +1147,7 @@
                 if (tcNewsContentEl) tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
             }
 
-            // 渲染熱帶氣旋預測警報表格 (自動過濾空白機率與隱藏無資料表格)
+            // 渲染熱帶氣旋預測警報表格
             if (typeof TC_WARNING_DATA !== 'undefined' && typeof renderTcForecastTable === 'function') {
                 renderTcForecastTable(TC_WARNING_DATA);
             }
