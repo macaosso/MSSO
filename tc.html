@@ -45,10 +45,6 @@
             background: rgba(100, 116, 139, 0.4);
             border-radius: 4px;
         }
-        @keyframes spin-reverse {
-            from { transform: rotate(360deg); }
-            to { transform: rotate(0deg); }
-        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
@@ -253,13 +249,13 @@
                                 <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
                             </div>
                             <div class="p-3.5 rounded-2xl bg-cyan-50/50 dark:bg-slate-800/40 border border-cyan-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans shadow-sm" id="gaugeStormBulletin">
-                                請稍候...
+                                沒有數據
                             </div>
                         </div>
                     </div>
 
                     <!-- 右側：風速儀表盤圖表 -->
-                    <div class="flex flex-col items-center justify-center bg-gradient-to-b from-slate-50/80 to-slate-100/50 dark:from-slate-900/60 dark:to-slate-900/20 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-8 relative overflow-hidden shadow-sm">
+                    <div class="flex flex-col items-center justify-center bg-gradient-to-b from-slate-50/85 to-slate-100/50 dark:from-slate-900/60 dark:to-slate-900/20 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-8 relative overflow-hidden shadow-sm">
                         <div class="absolute inset-0 bg-radial from-cyan-500/5 to-transparent pointer-events-none"></div>
                         <div class="gauge relative z-10" id="windGaugeContainer" data-speed="0"></div>
                     </div>
@@ -291,7 +287,7 @@
                         熱帶氣旋警報
                     </span>
                 </div>
-                <div id="tcNewsContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
+                <div id="tcNewsContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">沒有數據</div>
             </div>
             
             <div class="warning-card bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300" id="tcCard">
@@ -301,7 +297,7 @@
                         熱帶氣旋資訊
                     </span>
                 </div>
-                <div id="tcContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
+                <div id="tcContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">沒有數據</div>
             </div>
 
             <!-- 熱帶氣旋路徑圖與即時數據專區（左右並排） -->
@@ -333,7 +329,7 @@
                             <span id="tcDetailBadge" class="text-[10px] px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300 font-bold tracking-wide">實時與預報</span>
                         </div>
                         <div id="tcDetailContent" class="text-xs text-slate-600 dark:text-slate-300 space-y-6">
-                            <p class="text-slate-400 text-center py-8">正在讀取熱帶氣旋數據...</p>
+                            <p class="text-slate-400 text-center py-8">沒有數據</p>
                         </div>
                     </div>
                 </div>
@@ -625,7 +621,7 @@
         }
 
         function generateTyphoonBulletin(stormData) {
-            if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
+            if (!stormData) return "沒有數據";
             const chineseTime = formatChineseTime(stormData.time);
             const timePrefix = chineseTime ? `${chineseTime}，` : '';
             const distParts = stormData.distToMacau.split(' ');
@@ -667,7 +663,7 @@
         const MACAU_COORDS = [113.5685, 22.1595];
 
         function getDistanceAndDirectionToMacau(tLon, tLat) {
-            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) return "未知距離";
+            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) return "沒有數據";
             const R = 6371;
             const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
             const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
@@ -822,7 +818,7 @@
                 lat: currentMeta.lat,
                 lon: currentMeta.lon,
                 distToMacau,
-                forecastRows: forecastRows.length > 0 ? forecastRows : rows.slice(1, 4) // Fallback if no explicit forecast rows
+                forecastRows: forecastRows.length > 0 ? forecastRows : rows.slice(1, 4)
             };
         }
 
@@ -859,7 +855,6 @@
         }
 
         function generateStormCardHtml(stormData) {
-            // Build forecast table rows with unified column widths for perfect alignment
             let forecastRowsHtml = '';
             if (stormData.forecastRows && stormData.forecastRows.length > 0) {
                 stormData.forecastRows.forEach(fr => {
@@ -876,7 +871,7 @@
                     `;
                 });
             } else {
-                forecastRowsHtml = `<tr><td colspan="5" class="py-4 text-center text-slate-400">暫無預報路徑數據</td></tr>`;
+                forecastRowsHtml = `<tr><td colspan="5" class="py-4 text-center text-slate-400">沒有數據</td></tr>`;
             }
 
             return `
@@ -898,7 +893,7 @@
                                 <tbody>
                                     <tr class="border-b border-slate-200/50 dark:border-slate-800/80">
                                         <td class="py-1.5 pr-2 text-slate-500 font-medium">實況時間</td>
-                                        <td class="py-1.5 pl-2 font-mono text-slate-700 dark:text-slate-300 font-semibold">${stormData.time || '-'}</td>
+                                        <td class="py-1.5 pl-2 font-mono text-slate-700 dark:text-slate-300 font-semibold">${stormData.time || '沒有數據'}</td>
                                     </tr>
                                     <tr class="border-b border-slate-200/50 dark:border-slate-800/80">
                                         <td class="py-1.5 pr-2 text-slate-500 font-medium">最大風速</td>
@@ -921,7 +916,7 @@
                         </div>
                     </div>
 
-                    <!-- 預報路徑表格 (Forecast Track Table with Time, Lat, Lon, Intensity) -->
+                    <!-- 預報路徑表格 -->
                     <div>
                         <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">預報路徑 (Forecast Track)</div>
                         <div class="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2.5 border border-slate-200/60 dark:border-slate-800 overflow-x-auto">
@@ -1018,53 +1013,6 @@
                 }
             }
 
-            if (activeCount === 0) {
-                const defaultStorms = {
-                    'A': {
-                        name: '舒力基 (2526)',
-                        category: '熱帶風暴',
-                        intensityObj: { code: 'TS', name: '熱帶風暴', color: '#34d399' },
-                        wind: '75 km/h',
-                        time: '2026-09-24 14:00',
-                        movement: 'WNW 20 km/h',
-                        lat: 18.6,
-                        lon: 132.8,
-                        distToMacau: 'E 2040 km',
-                        forecastRows: [
-                            { time: '2026-09-30 02:00', lat: 29.9, lon: 136.9, intensityObj: { name: '熱帶風暴', color: '#34d399' }, wind: '75 km/h' },
-                            { time: '2026-09-30 14:00', lat: 31.5, lon: 138.8, intensityObj: { name: '熱帶低氣壓', color: '#38bdf8' }, wind: '55 km/h' },
-                            { time: '2026-10-01 14:00', lat: 36.1, lon: 144.0, intensityObj: { name: '溫帶氣旋', color: '#64748b' }, wind: '-' }
-                        ]
-                    }
-                };
-
-                for (const [f, stormData] of Object.entries(defaultStorms)) {
-                    activeCount++;
-                    allActiveStorms[f] = stormData;
-                    const imgPath = `output/TC/${f}.png`;
-
-                    const btn = document.createElement('button');
-                    btn.className = "px-3.5 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-all";
-                    btn.textContent = stormData.name;
-                    btn.onclick = function() { switchTrackImage(imgPath, this); };
-                    container.appendChild(btn);
-
-                    if (gaugeTabsContainer) {
-                        const gaugeBtn = document.createElement('button');
-                        gaugeBtn.className = activeCount === 1 ? "px-3.5 py-1.5 text-xs font-semibold bg-cyan-500 text-white rounded-xl shadow-md transition-all" : "px-3.5 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-all";
-                        gaugeBtn.textContent = stormData.name;
-                        gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
-                        gaugeTabsContainer.appendChild(gaugeBtn);
-                    }
-
-                    if (activeCount === 1) {
-                        updateWindGauge(stormData);
-                    }
-
-                    allCyclonesHtml += generateStormCardHtml(stormData);
-                }
-            }
-
             if (gaugeTabsContainer) {
                 gaugeTabsContainer.style.display = activeCount === 0 ? 'none' : 'flex';
             }
@@ -1073,7 +1021,7 @@
             }
 
             if (activeCount === 0) {
-                if (detailPanelContent) detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">現時沒有活躍的熱帶氣旋數據。</p>';
+                if (detailPanelContent) detailPanelContent.innerHTML = '<p class="text-slate-400 text-center py-12">沒有數據</p>';
                 if (gaugeCard) gaugeCard.style.display = 'none';
             } else {
                 if (detailPanelContent) detailPanelContent.innerHTML = allCyclonesHtml;
@@ -1088,7 +1036,7 @@
             const allImg = new Image();
             allImg.onerror = function() {
                 if (mapContainer) {
-                    mapContainer.innerHTML = '<div class="text-slate-400 py-12 text-center text-sm">現時沒有熱帶氣旋路徑圖</div>';
+                    mapContainer.innerHTML = '<div class="text-slate-400 py-12 text-center text-sm">沒有數據</div>';
                 }
             };
             allImg.src = 'output/TC/all.png';
@@ -1130,7 +1078,10 @@
         window.addEventListener('DOMContentLoaded', () => {
             const tcCard = document.getElementById('tcCard');
             if (typeof tcText === 'undefined' || !tcText || tcText.trim() === '') {
-                if (tcCard) tcCard.style.display = 'none';
+                if (tcCard) {
+                    const tcContentEl = document.getElementById('tcContent');
+                    if (tcContentEl) tcContentEl.innerHTML = '沒有數據';
+                }
             } else {
                 if (tcCard) tcCard.style.display = 'block';
                 const tcContentEl = document.getElementById('tcContent');
@@ -1140,7 +1091,7 @@
             const tcNewsCard = document.getElementById('tcNewsCard');
             const tcNewsContentEl = document.getElementById('tcNewsContent');
             if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
-                if (tcNewsCard) tcNewsCard.style.display = 'none';
+                if (tcNewsContentEl) tcNewsContentEl.innerHTML = '沒有數據';
             } else {
                 if (tcNewsCard) tcNewsCard.style.display = 'block';
                 if (tcNewsContentEl) tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
