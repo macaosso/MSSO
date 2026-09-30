@@ -22,12 +22,22 @@
             width: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: rgba(100, 116, 139, 0.1);
+            background: rgba(100, 116, 139, 0.05);
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.4);
+            background: rgba(100, 116, 139, 0.25);
             border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.4);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
     </style>
     <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
@@ -50,57 +60,61 @@
         }
     </script>
 </head>
-<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
+<body class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-zinc-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-300">
 
     <!-- 容器 -->
-    <div class="w-full max-w-7xl space-y-6 flex-grow">
+    <div class="w-full max-w-7xl space-y-6 flex-grow animate-fade-in">
         
         <!-- 標頭 -->
-        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+        <header class="flex justify-between items-center bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl dark:shadow-cyan-950/20 transition-all duration-300">
             <div>
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                    <i class="fa-solid fa-location-dot text-cyan-500 dark:text-cyan-400"></i> 澳門天氣
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
+                    <span class="w-10 h-10 rounded-2xl bg-cyan-500/10 dark:bg-cyan-400/10 text-cyan-500 flex items-center justify-center text-xl shadow-inner">
+                        <i class="fa-solid fa-location-dot"></i>
+                    </span>
+                    澳門天氣
                 </h1>
-                <div class="mt-2 space-y-0.5">
-                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
-                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+                <div class="mt-2.5 space-y-0.5 pl-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
+                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400 font-medium">農曆計算中...</div>
                 </div>
             </div>
             <div class="flex items-center gap-4">
                 <!-- 主題切換按鈕 -->
-                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
-                    <i class="fa-solid fa-moon dark:hidden"></i>
-                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                <button id="theme-toggle" class="w-11 h-11 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 shadow-sm flex items-center justify-center active:scale-95 cursor-pointer" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400 text-lg"></i>
                 </button>
             </div>
         </header>
 
         <!-- 載入狀態 -->
-        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
-            <p>正在取得最新天氣數據...</p>
+        <div id="loading" class="text-center py-28 text-slate-500 dark:text-slate-400 space-y-3">
+            <i class="fa-solid fa-spinner fa-spin text-5xl text-cyan-500 dark:text-cyan-400"></i>
+            <p class="font-medium text-sm">正在取得最新天氣數據...</p>
         </div>
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
             
             <!-- NEW 新功能區塊 -->
-            <section class="bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-indigo-500/10 border border-cyan-500/30 dark:border-cyan-500/30 p-5 rounded-2xl shadow-lg dark:shadow-xl transition-colors relative overflow-hidden">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div class="flex items-center gap-3.5">
-                        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 dark:bg-cyan-400/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-2xl shadow-sm shrink-0">
-                            <i class="fa-solid fa-hurricane text-xl animate-spin" style="animation-duration: 6s; animation-direction: reverse;"></i>
+            <section class="bg-gradient-to-r from-cyan-500/15 via-blue-500/10 to-indigo-500/15 border border-cyan-500/30 dark:border-cyan-500/30 p-5 md:p-6 rounded-3xl shadow-lg dark:shadow-xl transition-all duration-300 relative overflow-hidden group">
+                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-cyan-500/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-500"></div>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-cyan-500/20 dark:bg-cyan-400/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-2xl shadow-sm shrink-0">
+                            <i class="fa-solid fa-hurricane text-2xl animate-spin" style="animation-duration: 8s; animation-direction: reverse;"></i>
                         </div>
                         <div>
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-cyan-500 text-white animate-pulse">NEW</span>
-                                <span class="text-xs font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">4.0.9</span>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500 text-white animate-pulse tracking-wider">NEW</span>
+                                <span class="text-xs font-bold text-cyan-600 dark:text-cyan-400 tracking-wider">v4.0.9</span>
                             </div>
-                            <h2 class="text-base md:text-lg font-bold text-slate-800 dark:text-white mt-0.5">GIS熱帶氣旋路徑圖</h2>
-                            <h4 class="text-base md:text-lg font-bold text-slate-800 dark:text-white mt-0.5">預報路徑 + 歷史數據庫</h4>
+                            <h2 class="text-base md:text-lg font-bold text-slate-800 dark:text-white">GIS熱帶氣旋路徑圖</h2>
+                            <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300 font-medium">預報路徑 + 歷史數據庫互動體驗</p>
                         </div>
                     </div>
-                    <a href="https://macaosso.github.io/MSSO/test_tcgis.html" target="_blank" class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-sm transition-all shadow-md hover:shadow-lg flex items-center gap-2 shrink-0" style="text-decoration: none;">
+                    <a href="https://macaosso.github.io/MSSO/test_tcgis.html" target="_blank" class="px-5 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-cyan-500/25 hover:shadow-lg flex items-center gap-2 shrink-0 active:scale-95" style="text-decoration: none;">
                         <span>立即體驗</span>
                         <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
                     </a>
@@ -114,65 +128,68 @@
                 <div class="lg:col-span-2 space-y-6">
 
                     <!-- 即時天氣 -->
-                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-cloud-sun text-yellow-500 dark:text-yellow-400"></i> 即時天氣
+                    <section class="bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 md:p-8 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300">
+                        <h2 class="text-lg font-bold mb-6 text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-xl bg-yellow-500/10 text-yellow-500 flex items-center justify-center text-base">
+                                <i class="fa-solid fa-cloud-sun"></i>
+                            </span>
+                            即時天氣
                         </h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                             <div class="flex items-center gap-6">
-                                <div id="current-icon" class="text-6xl md:text-7xl"></div>
+                                <div id="current-icon" class="text-6xl md:text-7xl drop-shadow-md"></div>
                                 <div>
                                     <div class="flex items-center gap-3 flex-wrap">
-                                        <div class="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white" id="current-temp">--°C</div>
-                                        <div id="current-temp-badge" class="px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm">--</div>
+                                        <div class="text-5xl md:text-6xl font-black tracking-tight text-slate-900 dark:text-white" id="current-temp">--°C</div>
+                                        <div id="current-temp-badge" class="px-3 py-1 rounded-xl text-xs font-bold shadow-sm">--</div>
                                     </div>
-                                    <div class="text-slate-500 dark:text-slate-400 font-medium text-lg mt-1" id="current-condition">--</div>
-                                    <div class="text-sm mt-2 flex gap-3" id="current-high-low">
-                                        <span class="dark:text-white font-medium">高: --°</span>
-                                        <span class="text-slate-400 dark:text-slate-500 font-medium">低: --°</span>
+                                    <div class="text-slate-600 dark:text-slate-300 font-semibold text-lg mt-1.5" id="current-condition">--</div>
+                                    <div class="text-sm mt-2 flex gap-3.5" id="current-high-low">
+                                        <span class="text-slate-700 dark:text-slate-200 font-semibold">高: --°</span>
+                                        <span class="text-slate-400 dark:text-slate-500 font-semibold">低: --°</span>
                                     </div>
                                 </div>
                             </div>
                             <!-- 天氣提示區塊 -->
-                            <div class="grid grid-cols-2 gap-4 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-6">
-                                <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
-                                    <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                        <svg class="w-4 h-4 text-blue-500 dark:text-blue-400 inline-block" viewBox="0 0 24 24" fill="currentColor">
+                            <div class="grid grid-cols-2 gap-3.5 border-t md:border-t-0 md:border-l border-slate-200/80 dark:border-slate-800/80 pt-5 md:pt-0 md:pl-6">
+                                <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 transition-all hover:border-cyan-500/30">
+                                    <div class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                        <svg class="w-4 h-4 text-blue-500 inline-block" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
                                             <text x="12" y="15.5" font-size="9" font-weight="900" fill="#ffffff" text-anchor="middle">%</text>
                                         </svg>
                                         相對濕度
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                    <div class="text-xl font-black mt-1.5 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
                                         <span id="current-humidity">--%</span>
-                                        <span id="current-humidity-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                        <span id="current-humidity-badge" class="px-2 py-0.5 rounded-lg text-xs font-bold">--</span>
                                     </div>
                                 </div>
-                                <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
-                                    <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                        <i class="fa-solid fa-temperature-half text-orange-500 dark:text-orange-400"></i> 體感溫度
+                                <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 transition-all hover:border-orange-500/30">
+                                    <div class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fa-solid fa-temperature-half text-orange-500"></i> 體感溫度
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                    <div class="text-xl font-black mt-1.5 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
                                         <span id="current-apparent-temp">--°C</span>
-                                        <span id="current-apparent-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                        <span id="current-apparent-badge" class="px-2 py-0.5 rounded-lg text-xs font-bold">--</span>
                                     </div>
                                 </div>
-                                <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
-                                    <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                        <i class="fa-solid fa-sun text-yellow-500 dark:text-yellow-400"></i> 紫外線指數
+                                <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 transition-all hover:border-yellow-500/30">
+                                    <div class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fa-solid fa-sun text-yellow-500"></i> 紫外線指數
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                    <div class="text-xl font-black mt-1.5 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
                                         <span id="current-uv">--</span>
-                                        <span id="current-uv-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                        <span id="current-uv-badge" class="px-2 py-0.5 rounded-lg text-xs font-bold">--</span>
                                     </div>
                                 </div>
-                                <div class="bg-slate-50 dark:bg-slate-950/50 p-4 rounded-xl border border-slate-200 dark:border-slate-800/65">
-                                    <div class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                                        <i class="fa-solid fa-cloud-rain text-blue-500 dark:text-blue-400"></i> 2小時降雨影響等級
+                                <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 transition-all hover:border-blue-500/30">
+                                    <div class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fa-solid fa-cloud-rain text-blue-500"></i> 2小時降雨影響
                                     </div>
-                                    <div class="text-xl font-bold mt-1 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
-                                        <span id="current-pop" class="text-base font-semibold text-slate-800 dark:text-slate-100">--</span>
-                                        <span id="current-pop-badge" class="px-2 py-0.5 rounded-md text-xs font-bold">--</span>
+                                    <div class="text-xl font-black mt-1.5 text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                                        <span id="current-pop" class="text-sm font-bold text-slate-800 dark:text-slate-100">--</span>
+                                        <span id="current-pop-badge" class="px-2 py-0.5 rounded-lg text-xs font-bold">--</span>
                                     </div>
                                 </div>
                             </div>
@@ -180,26 +197,32 @@
                     </section>
 
                     <!-- 24小時天氣預報 -->
-                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                <i class="fa-solid fa-clock text-cyan-500 dark:text-cyan-400"></i> 24小時天氣預報
+                    <section class="bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 md:p-8 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300">
+                        <div class="flex justify-between items-center mb-5">
+                            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                                <span class="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-500 flex items-center justify-center text-base">
+                                    <i class="fa-solid fa-clock"></i>
+                                </span>
+                                24小時天氣預報
                             </h2>
-                            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium">
-                                <button id="hourly-view-card" onclick="setHourlyView('card')" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all">卡片</button>
-                                <button id="hourly-view-chart" onclick="setHourlyView('chart')" class="px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all">圖表</button>
+                            <div class="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-semibold shadow-inner">
+                                <button id="hourly-view-card" onclick="setHourlyView('card')" class="px-4 py-2 rounded-xl bg-cyan-500 text-white shadow-md transition-all cursor-pointer">卡片</button>
+                                <button id="hourly-view-chart" onclick="setHourlyView('chart')" class="px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 transition-all cursor-pointer">圖表</button>
                             </div>
                         </div>
                         <div id="hourly-container"></div>
                     </section>
 
                     <!-- 7天天氣預報 -->
-                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                <i class="fa-solid fa-calendar-days text-purple-500 dark:text-purple-400"></i> 7天天氣預報
+                    <section class="bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 md:p-8 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300">
+                        <div class="flex justify-between items-center mb-5">
+                            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                                <span class="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center text-base">
+                                    <i class="fa-solid fa-calendar-days"></i>
+                                </span>
+                                7天天氣預報
                             </h2>
-                            <a href="https://macaosso.github.io/MSSO/7dayforecast.html" target="_blank" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 shadow-sm">
+                            <a href="https://macaosso.github.io/MSSO/7dayforecast.html" target="_blank" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95" style="text-decoration: none;">
                                 七日詳細天氣 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                             </a>
                         </div>
@@ -212,61 +235,67 @@
                 <div class="lg:col-span-1 space-y-6">
 
                     <!-- 分區天氣 -->
-                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                        <h2 class="text-lg font-semibold mb-2 text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-map-location-dot text-emerald-500 dark:text-emerald-400"></i> 分區天氣
+                    <section class="bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300">
+                        <h2 class="text-lg font-bold mb-1.5 text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-base">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                            </span>
+                            分區天氣
                         </h2>
-                        <p class="text-xs text-slate-400 mb-4">點擊下方分區可檢視過去 24 小時溫度趨勢</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-400 mb-4 font-medium">點擊下方分區可檢視過去 24 小時溫度趨勢</p>
                         <div class="space-y-3" id="district-container"></div>
                     </section>
 
                     <!-- 日出日落 -->
-                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                        <h2 class="text-lg font-semibold mb-4 text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-sun text-amber-500 dark:text-amber-400"></i> 日出日落
+                    <section class="bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300">
+                        <h2 class="text-lg font-bold mb-4 text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-base">
+                                <i class="fa-solid fa-sun"></i>
+                            </span>
+                            日出日落
                         </h2>
-                        <div class="grid grid-cols-2 gap-3"> 
+                        <div class="grid grid-cols-2 gap-3.5"> 
                             <!-- 日出 -->
-                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                            <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3.5 transition-all hover:border-amber-500/30">
                                 <div class="text-2xl text-amber-500 flex items-center gap-0.5">
                                     <i class="fa-solid fa-sun"></i>
                                     <i class="fa-solid fa-arrow-up text-xs text-cyan-500"></i>
                                 </div>
                                 <div>
-                                    <div class="text-slate-400 text-[11px]">日出</div>
+                                    <div class="text-slate-400 text-[11px] font-semibold">日出</div>
                                     <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="sunrise-time">--:--</div>
                                 </div>
                             </div>
                             <!-- 日落 -->
-                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                            <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3.5 transition-all hover:border-orange-500/30">
                                 <div class="text-2xl text-orange-500 flex items-center gap-0.5">
                                     <i class="fa-solid fa-sun"></i>
                                     <i class="fa-solid fa-arrow-down text-xs text-rose-500"></i>
                                 </div>
                                 <div>
-                                    <div class="text-slate-400 text-[11px]">日落</div>
+                                    <div class="text-slate-400 text-[11px] font-semibold">日落</div>
                                     <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="sunset-time">--:--</div>
                                 </div>
                             </div>
                             <!-- 月出 -->
-                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                            <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3.5 transition-all hover:border-indigo-500/30">
                                 <div class="text-2xl text-indigo-400 flex items-center gap-0.5">
                                     <i class="fa-solid fa-moon"></i>
                                     <i class="fa-solid fa-arrow-up text-xs text-cyan-500"></i>
                                 </div>
                                 <div>
-                                    <div class="text-slate-400 text-[11px]">月出</div>
+                                    <div class="text-slate-400 text-[11px] font-semibold">月出</div>
                                     <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="moonrise-time">--:--</div>
                                 </div>
                             </div>
                             <!-- 月落 -->
-                            <div class="bg-slate-50 dark:bg-slate-950/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex items-center gap-3">
+                            <div class="bg-slate-50/80 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 flex items-center gap-3.5 transition-all hover:border-slate-400/30">
                                 <div class="text-2xl text-slate-400 flex items-center gap-0.5">
                                     <i class="fa-solid fa-moon"></i>
                                     <i class="fa-solid fa-arrow-down text-xs text-rose-500"></i>
                                 </div>
                                 <div>
-                                    <div class="text-slate-400 text-[11px]">月落</div>
+                                    <div class="text-slate-400 text-[11px] font-semibold">月落</div>
                                     <div class="text-sm font-bold text-slate-800 dark:text-white mt-0.5" id="moonset-time">--:--</div>
                                 </div>
                             </div>
@@ -274,15 +303,18 @@
                     </section>
                     
                     <!-- 報告下載 -->
-                    <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
+                    <section class="bg-white/80 border border-slate-200/80 backdrop-blur-xl dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-all duration-300">
                         <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                <i class="fa-solid fa-file-pdf text-rose-500 dark:text-rose-400"></i> 報告下載
+                            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2.5">
+                                <span class="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center text-base">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                </span>
+                                報告下載
                             </h2>
-                            <div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-medium">
-                                <button onclick="filterReports('all')" id="btn-report-all" class="px-2.5 py-1 rounded-lg bg-cyan-500 text-white shadow-sm transition-all">全部</button>
-                                <button onclick="filterReports('monthly')" id="btn-report-monthly" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all">月報</button>
-                                <button onclick="filterReports('special')" id="btn-report-special" class="px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all">特別報告</button>
+                            <div class="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-semibold shadow-inner">
+                                <button onclick="filterReports('all')" id="btn-report-all" class="px-3 py-1.5 rounded-xl bg-cyan-500 text-white shadow-sm transition-all cursor-pointer">全部</button>
+                                <button onclick="filterReports('monthly')" id="btn-report-monthly" class="px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 transition-all cursor-pointer">月報</button>
+                                <button onclick="filterReports('special')" id="btn-report-special" class="px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 transition-all cursor-pointer">特別報告</button>
                             </div>
                         </div>
                         <div class="space-y-3" id="reports-container"></div>
@@ -293,27 +325,27 @@
     </div>
 
     <!-- 頁尾免責聲明與版權 -->
-    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
-        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
-        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    <footer class="w-full max-w-7xl mt-12 pt-6 border-t border-slate-200/80 dark:border-slate-800/80 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2 pb-24">
+        <p><strong class="font-semibold text-slate-700 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p class="font-medium">Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
     <!-- 底部固定導航欄 -->
-    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
-        <div class="max-w-xl mx-auto flex justify-around items-center">
-            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-cyan-600 dark:text-cyan-400 font-semibold transition-colors" style="text-decoration: none;">
+    <nav class="bottom-fixed-bar fixed bottom-3 left-4 right-4 z-50 max-w-lg mx-auto bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl rounded-3xl px-3 py-2 transition-all duration-300">
+        <div class="flex justify-around items-center">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-cyan-600 dark:text-cyan-400 font-bold transition-all hover:scale-105" style="text-decoration: none;">
                 <i class="fa-solid fa-cloud text-lg"></i>
                 <span class="text-[11px]">天氣實況</span>
             </a>
-            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
                 <i class="fa-solid fa-hurricane text-lg"></i>
                 <span class="text-[11px]">熱帶氣旋</span>
             </a>
-            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
                 <i class="fa-solid fa-chart-line text-lg"></i>
                 <span class="text-[11px]">天氣預報</span>
             </a>
-            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
                 <i class="fa-solid fa-wind text-lg"></i>
                 <span class="text-[11px]">空氣質素</span>
             </a>
@@ -435,9 +467,9 @@
                 const btn = document.getElementById(`btn-report-${cat}`);
                 if (btn) {
                     if (cat === category) {
-                        btn.className = "px-2.5 py-1 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
+                        btn.className = "px-3 py-1.5 rounded-xl bg-cyan-500 text-white shadow-sm transition-all cursor-pointer";
                     } else {
-                        btn.className = "px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+                        btn.className = "px-3 py-1.5 rounded-xl text-slate-600 dark:text-slate-300 transition-all cursor-pointer";
                     }
                 }
             });
@@ -477,18 +509,18 @@
                     [latestMonthly, latestSpecial].forEach(report => {
                         if (!report) return;
                         const card = document.createElement('div');
-                        card.className = "bg-gradient-to-r from-cyan-500/10 via-slate-50/50 to-slate-50/50 dark:from-cyan-950/30 dark:via-slate-900 dark:to-slate-900 p-3.5 rounded-xl border border-cyan-500/30 dark:border-cyan-500/30 flex flex-col gap-2.5 shadow-sm";
+                        card.className = "bg-gradient-to-r from-cyan-500/10 via-slate-50/50 to-slate-50/50 dark:from-cyan-950/30 dark:via-slate-900 dark:to-slate-900 p-4 rounded-2xl border border-cyan-500/30 dark:border-cyan-500/30 flex flex-col gap-2.5 shadow-sm";
                         card.innerHTML = `
                             <div class="flex justify-between items-center">
-                                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${report.badgeClass} flex items-center gap-1.5">
+                                <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${report.badgeClass} flex items-center gap-1.5">
                                     <i class="fa-solid fa-star text-amber-400 text-[10px]"></i> ${report.categoryName}
                                 </span>
                                 <span class="text-xs font-semibold text-cyan-600 dark:text-cyan-400">${report.date}</span>
                             </div>
                             <div class="flex items-center justify-between gap-3">
                                 <div class="text-sm font-bold text-slate-900 dark:text-white truncate flex-1">${report.title}</div>
-                                <a href="${report.url}" download class="py-1.5 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm shrink-0" style="text-decoration: none;">
-                                    <i class="fa-solid fa-download"></i> 下載檔案
+                                <a href="${report.url}" download class="py-1.5 px-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm shrink-0 active:scale-95" style="text-decoration: none;">
+                                    <i class="fa-solid fa-download"></i> 下載
                                 </a>
                             </div>
                         `;
@@ -513,10 +545,10 @@
             sortedYears.forEach(year => {
                 const isExpanded = expandedYears.has(year);
                 const yearSection = document.createElement('div');
-                yearSection.className = "border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-950/30";
+                yearSection.className = "border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-slate-950/30";
     
                 const headerHtml = `
-                    <button onclick="toggleYear('${year}')" class="w-full flex justify-between items-center p-3.5 bg-slate-100 dark:bg-slate-900/80 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-colors text-left font-bold text-slate-800 dark:text-slate-200 text-sm">
+                    <button onclick="toggleYear('${year}')" class="w-full flex justify-between items-center p-3.5 bg-slate-100/80 dark:bg-slate-900/80 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-colors text-left font-bold text-slate-800 dark:text-slate-200 text-sm cursor-pointer">
                         <span class="flex items-center gap-2">
                             <i class="fa-solid fa-folder${isExpanded ? '-open text-cyan-500' : ''}"></i> ${year} (${groupedByYear[year].length})
                         </span>
@@ -529,15 +561,15 @@
                     reportsHtml += `<div class="p-3 space-y-3 border-t border-slate-200 dark:border-slate-800">`;
                     groupedByYear[year].forEach(report => {
                         reportsHtml += `
-                            <div class="bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800/65 flex flex-col gap-2.5 shadow-sm">
+                            <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 flex flex-col gap-2.5 shadow-sm">
                                 <div class="flex justify-between items-center">
-                                    <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold ${report.badgeClass}">${report.categoryName}</span>
+                                    <span class="px-2 py-0.5 rounded-lg text-[11px] font-semibold ${report.badgeClass}">${report.categoryName}</span>
                                     <span class="text-xs text-slate-400">${report.date}</span>
                                 </div>
                                 <div class="flex items-center justify-between gap-3">
                                     <div class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate flex-1">${report.title}</div>
-                                    <a href="${report.url}" download class="py-1.5 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm shrink-0" style="text-decoration: none;">
-                                        <i class="fa-solid fa-download"></i> 下載檔案
+                                    <a href="${report.url}" download class="py-1.5 px-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm shrink-0 active:scale-95" style="text-decoration: none;">
+                                        <i class="fa-solid fa-download"></i> 下載
                                     </a>
                                 </div>
                             </div>
@@ -868,7 +900,6 @@
 
         async function fetchWeatherData(isBackground = false) {
             try {
-                // 如果不是背景更新，先檢查 localStorage 快取以實現秒開 (Stale-While-Revalidate)
                 if (!isBackground) {
                     const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
                     const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
@@ -886,7 +917,6 @@
                         document.getElementById('loading').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('hidden');
 
-                        // 在背景靜默更新最新數據
                         fetchWeatherData(true);
                         return;
                     }
@@ -894,7 +924,6 @@
 
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m,uv_index&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
 
-                // 恢復 nowcast.csv 的時間戳快取破壞（cache buster）
                 const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
                     fetch(weatherUrl),
                     fetch(`nowcast.csv?t=` + Date.now()).catch(() => null),
@@ -912,7 +941,6 @@
 
                 globalDistrictData = await Promise.all(districtRes.map(res => res.json()));
 
-                // 儲存至 localStorage 快取
                 localStorage.setItem(CACHE_KEY_WEATHER, JSON.stringify(globalWeatherData));
                 localStorage.setItem(CACHE_KEY_DISTRICTS, JSON.stringify(globalDistrictData));
                 localStorage.setItem(CACHE_KEY_NOWCAST, JSON.stringify(globalNowcastData));
@@ -937,16 +965,15 @@
             const btnCard = document.getElementById('hourly-view-card');
             const btnChart = document.getElementById('hourly-view-chart');
             if (mode === 'card') {
-                btnCard.className = "px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
-                btnChart.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+                btnCard.className = "px-4 py-2 rounded-xl bg-cyan-500 text-white shadow-md transition-all cursor-pointer";
+                btnChart.className = "px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 transition-all cursor-pointer";
             } else {
-                btnChart.className = "px-3 py-1.5 rounded-lg bg-cyan-500 text-white shadow-sm transition-all";
-                btnCard.className = "px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 transition-all";
+                btnChart.className = "px-4 py-2 rounded-xl bg-cyan-500 text-white shadow-md transition-all cursor-pointer";
+                btnCard.className = "px-4 py-2 rounded-xl text-slate-600 dark:text-slate-300 transition-all cursor-pointer";
             }
             renderHourlySection();
         }
 
-        // 點擊分區時按需載入該分區的歷史 24 小時溫度趨勢圖 (Lazy Load)
         async function toggleDistrictChart(index) {
             if (activeDistrictIndex === index) {
                 activeDistrictIndex = null;
@@ -1018,12 +1045,12 @@
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
             const tempBadgeEl = document.getElementById('current-temp-badge');
             tempBadgeEl.textContent = tempCat.label;
-            tempBadgeEl.className = `px-2.5 py-1 rounded-lg text-sm font-bold shadow-sm ${tempCat.class}`;
+            tempBadgeEl.className = `px-3 py-1 rounded-xl text-xs font-bold shadow-sm ${tempCat.class}`;
         
             document.getElementById('current-condition').innerText = weatherInfo.text;
             document.getElementById('current-high-low').innerHTML = `
-                <span class="text-slate-800 dark:text-white font-medium">高: ${todayMax}°</span>
-                <span class="text-slate-500 dark:text-slate-400 font-medium">低: ${todayMin}°</span>
+                <span class="text-slate-700 dark:text-slate-200 font-semibold">高: ${todayMax}°</span>
+                <span class="text-slate-400 dark:text-slate-500 font-semibold">低: ${todayMin}°</span>
             `;
 
             const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
@@ -1031,21 +1058,21 @@
             document.getElementById('current-humidity').innerText = `${humidityVal}%`;
             const humidityBadgeEl = document.getElementById('current-humidity-badge');
             humidityBadgeEl.textContent = humidityCat.label;
-            humidityBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${humidityCat.class}`;
+            humidityBadgeEl.className = `px-2 py-0.5 rounded-lg text-xs font-bold ${humidityCat.class}`;
             
             const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : curr.temperature_2m;
             const apparentCat = getTempCategory(apparentTemp);
             document.getElementById('current-apparent-temp').innerText = `${Math.round(apparentTemp)}°C`;
             const apparentBadgeEl = document.getElementById('current-apparent-badge');
             apparentBadgeEl.textContent = apparentCat.label;
-            apparentBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${apparentCat.class}`;
+            apparentBadgeEl.className = `px-2 py-0.5 rounded-lg text-xs font-bold ${apparentCat.class}`;
 
             const uvValue = curr.uv_index !== undefined ? Math.round(curr.uv_index) : 0;
             const uvCat = getUvCategory(uvValue);
             document.getElementById('current-uv').innerText = uvValue;
             const uvBadgeEl = document.getElementById('current-uv-badge');
             uvBadgeEl.textContent = uvCat.label;
-            uvBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${uvCat.class}`;
+            uvBadgeEl.className = `px-2 py-0.5 rounded-lg text-xs font-bold ${uvCat.class}`;
 
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next2Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 2);
@@ -1059,7 +1086,7 @@
             document.getElementById('current-pop').innerText = `${popVal}% / ${precipSum2h.toFixed(1)}mm`;
             const popBadgeEl = document.getElementById('current-pop-badge');
             popBadgeEl.textContent = impact2h.label;
-            popBadgeEl.className = `px-2 py-0.5 rounded-md text-xs font-bold ${impact2h.class}`;
+            popBadgeEl.className = `px-2 py-0.5 rounded-lg text-xs font-bold ${impact2h.class}`;
             
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 8);
             const currentWindSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
@@ -1075,23 +1102,23 @@
         
             if (isHot) {
                 alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
+                    <div class="flex items-center gap-3.5 bg-orange-500/10 border border-orange-500/30 text-orange-600 dark:text-orange-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-fire text-xl"></i>
-                        <div><span class="font-bold">高溫提示：</span>請提防中暑及補充水分。</div>
+                        <div class="text-sm"><span class="font-bold">高溫提示：</span>請提防中暑及補充水分。</div>
                     </div>`;
             }
             if (isCold) {
                 alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
+                    <div class="flex items-center gap-3.5 bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-snowflake text-xl"></i>
-                        <div><span class="font-bold">低溫提示：</span>請適時添衣及注意保暖。</div>
+                        <div class="text-sm"><span class="font-bold">低溫提示：</span>請適時添衣及注意保暖。</div>
                     </div>`;
             }
             if (customRainText) {
                 alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
+                    <div class="flex items-center gap-3.5 bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
-                        <div><span class="font-bold">降雨提示：</span>${customRainText}</div>
+                        <div class="text-sm"><span class="font-bold">降雨提示：</span>${customRainText}</div>
                     </div>`;
             } else if (isRainy && impact2h.label !== '低') {
                 let alertBg = 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400';
@@ -1108,16 +1135,16 @@
                 }
 
                 alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 ${alertBg} border p-4 rounded-2xl shadow-sm transition-colors">
-                        <i class="fa-solid ${alertIcon} text-xl"></i>
-                        <div><span class="font-bold">降雨提示（影響等級：${impact2h.label}）：</span>未來2小時內預計有降雨影響（降雨機率 ${popVal}%，預估雨量 ${precipSum2h.toFixed(1)}mm），外出時請做好防雨準備。</div>
+                    <div class="flex items-center gap-3.5 ${alertBg} border p-4 rounded-2xl shadow-sm transition-colors">
+                        <i class="fa-solid ${alertIcon} text-xl shrink-0"></i>
+                        <div class="text-sm"><span class="font-bold">降雨提示（影響等級：${impact2h.label}）：</span>未來2小時內預計有降雨影響（降雨機率 ${popVal}%，預估雨量 ${precipSum2h.toFixed(1)}mm），外出時請做好防雨準備。</div>
                     </div>`;
             }
             if (isWindy) {
                 alertsContainer.innerHTML += `
-                    <div class="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl shadow-sm transition-colors">
+                    <div class="flex items-center gap-3.5 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 p-4 rounded-2xl shadow-sm transition-colors">
                         <i class="fa-solid fa-wind text-xl"></i>
-                        <div><span class="font-bold">大風提示：</span>進行高空工作或戶外活動人士要注意大風所帶來的威脅。</div>
+                        <div class="text-sm"><span class="font-bold">大風提示：</span>進行高空工作或戶外活動人士要注意大風所帶來的威脅。</div>
                     </div>`;
             }
         
@@ -1167,7 +1194,7 @@
 
                             chartHtml = `
                                 <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 animate-fadeIn">
-                                    <div class="text-[11px] font-medium text-slate-400 mb-2 flex justify-between items-center">
+                                    <div class="text-[11px] font-semibold text-slate-400 mb-2 flex justify-between items-center">
                                         <span>過去 24 小時溫度趨勢</span>
                                         <span class="text-cyan-500 font-bold">${pastTemps[pastTemps.length - 1]}°C (現時)</span>
                                     </div>
@@ -1190,20 +1217,20 @@
                 }
 
                 const card = document.createElement('div');
-                card.className = `bg-slate-50 dark:bg-slate-950/50 border ${isOpen ? 'border-cyan-500 dark:border-cyan-400 ring-1 ring-cyan-500/30' : 'border-slate-200 dark:border-slate-800/65'} p-3.5 rounded-xl cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-900/80`;
+                card.className = `bg-slate-50/80 dark:bg-slate-950/40 border ${isOpen ? 'border-cyan-500 dark:border-cyan-400 ring-2 ring-cyan-500/20' : 'border-slate-200/70 dark:border-slate-800/70'} p-4 rounded-2xl cursor-pointer transition-all duration-200 hover:bg-slate-100/80 dark:hover:bg-slate-900/80 shadow-sm`;
                 card.innerHTML = `
                     <div class="flex items-center justify-between">
                         <div>
-                            <div class="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1">
+                            <div class="text-slate-500 dark:text-slate-400 text-xs font-semibold flex items-center gap-1.5">
                                 ${dName} <i class="fa-solid fa-chevron-down text-[10px] transition-transform ${isOpen ? 'rotate-180 text-cyan-500' : ''}"></i>
                             </div>
-                            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <span class="text-lg font-bold text-slate-800 dark:text-white">${dTemp}°C</span>
-                                <span class="px-2 py-0.5 rounded text-xs font-bold ${dCat.class}">${dCat.label}</span>
+                            <div class="flex items-center gap-2.5 mt-1 flex-wrap">
+                                <span class="text-xl font-black text-slate-800 dark:text-white">${dTemp}°C</span>
+                                <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold ${dCat.class}">${dCat.label}</span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-slate-600 dark:text-slate-300">${dWeather.text}</span>
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-xs font-medium text-slate-600 dark:text-slate-300">${dWeather.text}</span>
                             <i class="fa-solid ${dWeather.icon} text-2xl"></i>
                         </div>
                     </div>
@@ -1230,7 +1257,7 @@
 
             if (currentHourlyMode === 'card') {
                 const scrollBox = document.createElement('div');
-                scrollBox.className = "flex gap-4 overflow-x-auto pb-2 pt-1";
+                scrollBox.className = "flex gap-3.5 overflow-x-auto pb-2 pt-1";
 
                 for (let i = 0; i < times.length; i++) {
                     const hourDate = new Date(times[i]);
@@ -1241,12 +1268,12 @@
                     const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: false });
 
                     const card = document.createElement('div');
-                    card.className = "flex flex-col items-center justify-between bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 rounded-xl p-3 min-w-[85px] flex-shrink-0 text-center transition-colors";
+                    card.className = "flex flex-col items-center justify-between bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800/70 rounded-2xl p-3.5 min-w-[90px] flex-shrink-0 text-center transition-all hover:border-cyan-500/40 shadow-sm";
                     card.innerHTML = `
-                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">${hourLabel}</span>
-                        <i class="fa-solid ${hourIcon.icon} text-xl my-2"></i>
-                        <span class="text-base font-bold text-slate-800 dark:text-white">${temps[i]}°C</span>
-                        <div class="text-[11px] text-blue-600 dark:text-blue-400 mt-1 flex items-center gap-1">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-bold">${hourLabel}</span>
+                        <i class="fa-solid ${hourIcon.icon} text-xl my-2.5"></i>
+                        <span class="text-base font-black text-slate-800 dark:text-white">${temps[i]}°C</span>
+                        <div class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-1.5 flex items-center gap-1 bg-blue-500/10 px-2 py-0.5 rounded-md">
                             <i class="fa-solid fa-droplet text-[9px]"></i> ${pops[i]}%
                         </div>
                     `;
@@ -1255,7 +1282,7 @@
                 container.appendChild(scrollBox);
             } else {
                 const chartWrapper = document.createElement('div');
-                chartWrapper.className = "bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800/80 p-4 rounded-xl space-y-4 overflow-x-auto";
+                chartWrapper.className = "bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/70 dark:border-slate-800/70 p-4 rounded-2xl space-y-4 overflow-x-auto shadow-sm";
                 
                 const tMax = Math.max(...temps) + 1;
                 const tMin = Math.min(...temps) - 1;
@@ -1276,26 +1303,26 @@
                     const hourIcon = getWeatherDetails(codes[i], hourIsNight);
                     const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: false });
 
-                    iconsRow += `<div class="flex-shrink-0 w-[45px] text-center flex flex-col items-center"><i class="fa-solid ${hourIcon.icon} text-sm mb-1"></i><span class="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">${temps[i]}°</span></div>`;
-                    timesRow += `<div class="flex-shrink-0 w-[45px] text-center text-[10px] text-slate-400">${hourLabel}</div>`;
+                    iconsRow += `<div class="flex-shrink-0 w-[45px] text-center flex flex-col items-center"><i class="fa-solid ${hourIcon.icon} text-sm mb-1"></i><span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold">${temps[i]}°</span></div>`;
+                    timesRow += `<div class="flex-shrink-0 w-[45px] text-center text-[10px] font-semibold text-slate-400">${hourLabel}</div>`;
                 }
                 iconsRow += '</div>';
                 timesRow += '</div>';
 
                 chartWrapper.innerHTML = `
                     <div class="min-w-[1100px] space-y-2">
-                        <div class="flex justify-between text-xs text-slate-400 px-2">
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1"></span>溫度 (°C)</span>
-                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 mr-1"></span>相對濕度 (%)</span>
+                        <div class="flex justify-between text-xs font-semibold text-slate-400 px-2">
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 mr-1.5"></span>溫度 (°C)</span>
+                            <span><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 mr-1.5"></span>相對濕度 (%)</span>
                         </div>
                         ${iconsRow}
                         <div class="relative py-1">
                             <svg viewBox="0 0 1100 ${svgH}" class="w-full h-[90px] overflow-visible">
-                                <polyline fill="none" stroke="#f59e0b" stroke-width="2" points="${tempPoints}" />
-                                ${temps.map((t, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - ((t - tMin) / tRange) * (svgH - 25) - 10}" r="3" fill="#f59e0b" />`).join('')}
+                                <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="${tempPoints}" />
+                                ${temps.map((t, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - ((t - tMin) / tRange) * (svgH - 25) - 10}" r="3.5" fill="#f59e0b" />`).join('')}
                                 
                                 <polyline fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4" points="${humidPoints}" />
-                                ${humids.map((h, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - (h / 100) * (svgH - 25) - 10}" r="2.5" fill="#3b82f6" />`).join('')}
+                                ${humids.map((h, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - (h / 100) * (svgH - 25) - 10}" r="3" fill="#3b82f6" />`).join('')}
                             </svg>
                         </div>
                         ${timesRow}
@@ -1329,11 +1356,11 @@
             const tableWrapper = document.createElement('div');
             tableWrapper.className = "min-w-[620px]";
 
-            let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 border-b border-slate-200 dark:border-slate-800">';
+            let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 border-b border-slate-200/80 dark:border-slate-800/80">';
             let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
             let maxTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
             let minTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
-            let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 border-t border-slate-200 dark:border-slate-800">';
+            let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 border-t border-slate-200/80 dark:border-slate-800/80">';
 
             let maxPoints = [];
             let minPoints = [];
@@ -1351,7 +1378,7 @@
 
                 const rainColorClass = precipSumVal >= 10 
                     ? 'text-blue-600 dark:text-blue-400 font-bold' 
-                    : 'text-slate-600 dark:text-slate-400';
+                    : 'text-slate-500 dark:text-slate-400';
 
                 const dateObj = new Date(dateStr);
                 const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
@@ -1364,7 +1391,7 @@
                 daysHtml += `
                     <div>
                         <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${dayName}</div>
-                        <div class="text-xs text-slate-400 mt-0.5">${monthDay}</div>
+                        <div class="text-xs text-slate-400 mt-0.5 font-medium">${monthDay}</div>
                     </div>
                 `;
 
@@ -1374,14 +1401,14 @@
                     </div>
                 `;
 
-                maxTempHtml += `<div class="text-sm font-semibold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
-                minTempHtml += `<div class="text-sm font-semibold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
+                maxTempHtml += `<div class="text-sm font-bold text-amber-600 dark:text-amber-400">${maxTemps[i]}°C</div>`;
+                minTempHtml += `<div class="text-sm font-bold text-blue-500 dark:text-blue-400">${minTemps[i]}°C</div>`;
 
                 popRowHtml += `
                     <div class="flex flex-col items-center justify-center gap-1">
                         <span class="${levelStyle}">${impactResult.label}</span>
-                        <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">${popVal}%</span>
-                        <span class="${rainColorClass} text-[11px]">${precipSumVal.toFixed(1)}mm</span>
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${popVal}%</span>
+                        <span class="${rainColorClass} text-[11px] font-semibold">${precipSumVal.toFixed(1)}mm</span>
                     </div>
                 `;
             }
@@ -1410,14 +1437,14 @@
             tableWrapper.innerHTML = `
                 ${daysHtml}
                 ${iconsHtml}
-                <div class="bg-slate-100/60 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2">
-                    <div class="text-xs font-medium text-slate-400 px-1">溫度趨勢</div>
+                <div class="bg-slate-100/70 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 space-y-2.5 shadow-inner">
+                    <div class="text-xs font-bold text-slate-400 px-1">溫度趨勢</div>
                     ${maxTempHtml}
                     ${svgChartHtml}
                     ${minTempHtml}
                 </div>
-                <div class="mt-3">
-                    <div class="text-xs font-medium text-slate-400 mb-2 px-1">降雨資訊與影響等級</div>
+                <div class="mt-4">
+                    <div class="text-xs font-bold text-slate-400 mb-2.5 px-1">降雨資訊與影響等級</div>
                     ${popRowHtml}
                 </div>
             `;
