@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T值強度換算工具 - 澳門民間氣象台 MSSO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <script>
+        const currentHour = new Date().getHours();
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            if (currentHour >= 8 && currentHour < 20) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-300">
+
+    <!-- 容器 -->
+    <div class="w-full max-w-5xl space-y-6 flex-grow">
+        
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight dark:text-white flex items-center gap-3">
+                    <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400">
+                        <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <span>Dvorak T值風速換算工具</span>
+                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.0.0</span>
+                </h1>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
+                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400 text-lg"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 轉換器主卡片 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- 左側：輸入與計算結果 -->
+            <div class="lg:col-span-7 bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 md:p-8 rounded-3xl shadow-xl dark:shadow-2xl transition-colors space-y-6 flex flex-col justify-between">
+                <div class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-cyan-500"></i> 輸入 T 號碼 (T-Number)
+                        </h2>
+                        <span id="tValueDisplay" class="px-3 py-1 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono font-bold text-lg">T 4.0</span>
+                    </div>
+
+                    <!-- 滑桿與數字輸入 -->
+                    <div class="space-y-3">
+                        <input type="range" id="tSlider" min="1.0" max="8.0" step="0.5" value="4.0" 
+                            class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                            oninput="onSliderChange(this.value)">
+                        
+                        <div class="flex justify-between items-center text-xs text-slate-400 font-mono">
+                            <span>T1.0</span>
+                            <span>T2.0</span>
+                            <span>T3.0</span>
+                            <span>T4.0</span>
+                            <span>T5.0</span>
+                            <span>T6.0</span>
+                            <span>T7.0</span>
+                            <span>T8.0</span>
+                        </div>
+                    </div>
+
+                    <!-- 快速預設按鈕 -->
+                    <div class="space-y-2">
+                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">快速選擇常見 T 值：</div>
+                        <div id="presetButtons" class="flex flex-wrap gap-2">
+                            <!-- 動態生成快速按鈕 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 計算結果展示面板 -->
+                <div class="mt-6 p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-950/50 border border-slate-200/60 dark:border-slate-800/60 space-y-4">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">計算結果與強度對應</div>
+                    
+                    <div class="grid grid-cols-2 gap-4 items-center">
+                        <div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">估算中心風速 (Intensity)</div>
+                            <div class="text-3xl md:text-4xl font-extrabold font-mono text-slate-800 dark:text-slate-100 mt-1">
+                                <span id="resultWind">--</span> <span class="text-sm font-normal text-slate-500">km/h</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">強度分級</div>
+                            <div id="resultBadge" class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-sm shadow-sm">
+                                <!-- 動態徽章 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-500 dark:text-slate-400 flex justify-between items-center">
+                        <span>公式：Intensity = -1.05 + 23.5T + 1.27T²</span>
+                        <span id="formulaResultText" class="font-mono"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側：風速分級對應表參考 -->
+            <div class="lg:col-span-5 bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors space-y-4 flex flex-col">
+                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-list-ul text-cyan-500"></i> 風速分級規則對應表
+                </h2>
+                <div class="text-xs text-slate-500 dark:text-slate-400">
+                    依據最高持續風速（km/h）劃分之熱帶氣旋強度分級標準：
+                </div>
+
+                <div class="space-y-2 flex-grow overflow-y-auto max-h-[420px] pr-1">
+                    <div id="intensityTableList" class="space-y-2">
+                        <!-- 動態帶入對應表 -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-5xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800/80 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-20">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本工具基於數學公式估算熱帶氣旋強度，僅供參考，實際數據以官方氣象機構發佈為準。</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-3 left-4 right-4 z-50 max-w-lg mx-auto bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl rounded-3xl px-3 py-2 transition-all duration-300">
+        <div class="flex justify-around items-center">
+            <a href="index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="t-converter.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-cyan-600 dark:text-cyan-400 font-bold transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-calculator text-lg"></i>
+                <span class="text-[11px]">T值換算</span>
+            </a>
+            <a href="records.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-clipboard-list text-lg"></i>
+                <span class="text-[11px]">歷史記錄</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 邏輯腳本 -->
+    <script>
+        // 主題切換
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        // 日期與農曆
+        function toTraditionalLunar(text) {
+            if (!text) return '';
+            const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
+            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+
+            const lunarEl = document.getElementById('lunar-date');
+            if (lunarEl && typeof Solar !== 'undefined') {
+                try {
+                    const solar = Solar.fromDate(now);
+                    const lunar = solar.getLunar();
+                    lunarEl.textContent = `${lunar.getYearInGanZhi()}${toTraditionalLunar(lunar.getYearShengXiao())}年${toTraditionalLunar(lunar.getMonthInChinese())}月${toTraditionalLunar(lunar.getDayInChinese())}日`;
+                } catch (e) {
+                    lunarEl.textContent = '';
+                }
+            }
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 風速分級規則對應表
+        const TC_INTENSITY_TABLE = [
+            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#DDDFE2" },
+            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#DDDFE2" },
+            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#6DD8FA" },
+            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#9DD79C" },
+            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#FFD363" },
+            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#F78A31" },
+            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#FF6F6F" },
+            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#DE82FF" }
+        ];
+
+        // 初始化快速選擇按鈕
+        function initPresetButtons() {
+            const container = document.getElementById('presetButtons');
+            const commonTs = [1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0];
+            let html = '';
+            commonTs.forEach(t => {
+                html += `<button onclick="setTValue(${t})" class="px-3 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-cyan-500 transition-all">T${t.toFixed(1)}</button>`;
+            });
+            container.innerHTML = html;
+        }
+
+        // 初始化右側對應表清單
+        function renderIntensityTableList(currentCode = '') {
+            const container = document.getElementById('intensityTableList');
+            let html = '';
+            TC_INTENSITY_TABLE.forEach((item, index) => {
+                const isHighlight = item.code === currentCode;
+                const borderStyle = isHighlight ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-slate-200/60 dark:border-slate-800/60';
+                
+                let rangeText = '';
+                if (index === 0) rangeText = '無固定風速';
+                else if (index === 1) rangeText = '≤ 40 km/h';
+                else if (item.max_wind === 9999) {
+                    const prevMax = TC_INTENSITY_TABLE[index - 1].max_wind;
+                    rangeText = `> ${prevMax} km/h`;
+                } else {
+                    const prevMax = TC_INTENSITY_TABLE[index - 1].max_wind;
+                    rangeText = `${prevMax + 1} - ${item.max_wind} km/h`;
+                }
+
+                html += `
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50/60 dark:bg-slate-950/40 border ${borderStyle} transition-all">
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${item.color};"></span>
+                            <div>
+                                <span class="font-bold text-xs text-slate-800 dark:text-slate-200">${item.name}</span>
+                                <span class="text-[10px] text-slate-400 ml-1.5 font-mono">(${item.code})</span>
+                            </div>
+                        </div>
+                        <div class="font-mono text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            ${rangeText}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // 計算風速與強度
+        function calculateIntensity(T) {
+            // 公式：Intensity = -1.05 + 23.5T + 1.27T^2
+            const wind = -1.05 + (23.5 * T) + (1.27 * T * T);
+            return Math.max(0, Math.round(wind));
+        }
+
+        function getIntensityInfo(windSpeed) {
+            for (let item of TC_INTENSITY_TABLE) {
+                if (windSpeed <= item.max_wind) {
+                    return item;
+                }
+            }
+            return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
+        }
+
+        function updateConversion(val) {
+            const T = parseFloat(val);
+            document.getElementById('tSlider').value = T;
+            document.getElementById('tValueDisplay').textContent = `T ${T.toFixed(1)}`;
+
+            const windSpeed = calculateIntensity(T);
+            const info = getIntensityInfo(windSpeed);
+
+            document.getElementById('resultWind').textContent = windSpeed;
+            
+            // 更新結果徽章
+            const badgeEl = document.getElementById('resultBadge');
+            badgeEl.innerHTML = `
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${info.color};"></span>
+                <span style="color: ${info.color === '#DDDFE2' ? '#334155' : info.color};">${info.name} (${info.code})</span>
+            `;
+            badgeEl.style.backgroundColor = `${info.color}20`; // 半透明背景
+
+            document.getElementById('formulaResultText').textContent = `-1.05 + 23.5(${T}) + 1.27(${T})² = ${windSpeed} km/h`;
+
+            // 同步高亮右側對應表
+            renderIntensityTableList(info.code);
+        }
+
+        function setTValue(val) {
+            updateConversion(val);
+        }
+
+        function onSliderChange(val) {
+            updateConversion(val);
+        }
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            initPresetButtons();
+            updateConversion(4.0); // 預設 T4.0
+        });
+    </script>
+</body>
+</html>
