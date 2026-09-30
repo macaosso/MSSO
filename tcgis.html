@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.2</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.3</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -143,7 +143,7 @@
 </head>
 <body class="h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-[#070f1a] text-slate-800 dark:text-slate-200 transition-colors duration-300">
 
-    <!-- 頂部導航欄 (v4.1.2 升級版) -->
+    <!-- 頂部導航欄 (v4.1.3 升級版) -->
     <header class="glass-panel h-16 flex items-center justify-between px-4 sm:px-6 z-35 shrink-0 transition-all duration-300 shadow-sm border-b">
         <div class="flex items-center space-x-4 sm:space-x-6">
             <div class="flex items-center space-x-3">
@@ -154,7 +154,7 @@
                 <div>
                     <h1 class="text-sm sm:text-base font-extrabold tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
                         MSSO 熱帶氣旋 GIS 
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-400/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-400/30 font-mono">v4.1.2</span>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 dark:bg-blue-400/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-400/30 font-mono">v4.1.3</span>
                     </h1>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden lg:block font-mono tracking-tight">實時及歷史熱帶氣旋 GIS 監控系統</p>
                 </div>
@@ -278,7 +278,7 @@
 
             <div class="p-3 border-t border-slate-200 dark:border-slate-800/80 text-center text-[11px] text-slate-400 dark:text-slate-500 font-mono flex items-center justify-between px-4">
                 <span>MSSO GIS 向量引擎</span>
-                <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold">v4.1.2</span>
+                <span class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold">v4.1.3</span>
             </div>
         </aside>
 
@@ -1161,7 +1161,7 @@
             myChart = echarts.init(chartDom);
 
             myChart.showLoading({
-                text: '載入 v4.1.2 GIS 向量圖資與氣旋檔案...',
+                text: '載入 v4.1.3 GIS 向量圖資與氣旋檔案...',
                 color: '#38bdf8',
                 textColor: '#f8fafc',
                 maskColor: 'rgba(7, 15, 26, 0.88)',
@@ -1511,6 +1511,7 @@
             }
         }
 
+        // v4.1.3: 升級版風速歷史與預報強度圖表繪製函數
         function renderLargeIntensityGraph() {
             setTimeout(() => {
                 const chartDom = document.getElementById('large-wind-speed-chart');
@@ -1525,33 +1526,136 @@
                 const storm = typhoons[stormKey];
                 if (!storm) return;
 
+                let pastNodes = storm.pastNodes || [];
+                let forecastNodes = storm.forecastNodes || [];
+
+                // 篩選出純未來的預報節點（排除與 pastNodes 末點重複的 current / 0h 錨點）
+                let futureForecastNodes = [];
+                if (currentSelectedYear === 'current' && forecastNodes.length > 0) {
+                    futureForecastNodes = forecastNodes.filter(fn => {
+                        const cat = String(fn.category).toLowerCase();
+                        if (cat === 'current' || cat === '0h' || cat === '0') return false;
+                        if (pastNodes.length > 0) {
+                            const lastPast = pastNodes[pastNodes.length - 1];
+                            if (fn.time === lastPast.time && fn.lat === lastPast.lat && fn.lon === lastPast.lon) return false;
+                        }
+                        return true;
+                    });
+                }
+
                 let chartTimes = [];
-                let chartData = [];
-                let nodesToUse = storm.pastNodes || [];
-                nodesToUse.forEach(n => {
-                    chartTimes.push(n.time);
-                    let wNum = parseFloat(n.wind) || 0;
+                let pastData = [];
+                let forecastData = [];
+
+                // 1. 處理歷史 / 實時數據點
+                pastNodes.forEach(n => {
+                    const timeDisplay = n.time || n.category;
+                    chartTimes.push(timeDisplay);
+                    let wNum = parseFloat(n.windVal) || 0;
                     if (n.isEx) wNum = 0;
-                    let intensity = getIntensity(n.wind, n.isEx);
-                    chartData.push({
+                    let intensity = getIntensity(n.windVal, n.isEx);
+                    pastData.push({
                         value: wNum,
                         itemStyle: { color: intensity.color },
                         intensityObj: intensity,
-                        nodeInfo: n
+                        nodeInfo: n,
+                        isForecast: false
                     });
+                    forecastData.push('-');
                 });
+
+                // 2. 處理預報數據點 (即時監控模式下)
+                if (futureForecastNodes.length > 0) {
+                    // 接縫點：將歷史實時線的最後一點設為預報虛線的起點，確保折線平滑無縫連接
+                    if (pastNodes.length > 0) {
+                        const junctionNode = pastNodes[pastNodes.length - 1];
+                        let jWind = parseFloat(junctionNode.windVal) || 0;
+                        if (junctionNode.isEx) jWind = 0;
+                        let jIntensity = getIntensity(jWind, junctionNode.isEx);
+                        
+                        forecastData[forecastData.length - 1] = {
+                            value: jWind,
+                            itemStyle: { color: jIntensity.color },
+                            intensityObj: jIntensity,
+                            nodeInfo: junctionNode,
+                            isForecast: true,
+                            symbol: 'none' // 避免與實時點符號重疊
+                        };
+                    }
+
+                    // 填入未來預報節點
+                    futureForecastNodes.forEach(n => {
+                        const timeDisplay = (n.time && n.category && n.time !== n.category) ? `${n.time} (${n.category})` : (n.time || n.category);
+                        chartTimes.push(timeDisplay);
+                        pastData.push('-');
+                        
+                        let wNum = parseFloat(n.windVal) || 0;
+                        if (n.isEx) wNum = 0;
+                        let intensity = getIntensity(n.windVal, n.isEx);
+                        forecastData.push({
+                            value: wNum,
+                            itemStyle: { color: intensity.color },
+                            intensityObj: intensity,
+                            nodeInfo: n,
+                            isForecast: true
+                        });
+                    });
+                }
 
                 const isDark = document.documentElement.classList.contains('dark');
                 let chartInstance = echarts.getInstanceByDom(chartDom) || echarts.init(chartDom);
+                
+                let seriesList = [
+                    {
+                        name: futureForecastNodes.length > 0 ? '歷史 / 實時風速' : '中心最大風速',
+                        data: pastData,
+                        type: 'line',
+                        showAllSymbol: true,
+                        symbolSize: 8,
+                        smooth: true,
+                        lineStyle: { width: 3.5, type: 'solid' },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(2, 132, 199, 0.35)' },
+                                { offset: 1, color: 'rgba(2, 132, 199, 0.02)' }
+                            ])
+                        }
+                    }
+                ];
+
+                if (futureForecastNodes.length > 0) {
+                    seriesList.push({
+                        name: '預報風速 (點虛線)',
+                        data: forecastData,
+                        type: 'line',
+                        showAllSymbol: true,
+                        symbolSize: 8,
+                        smooth: true,
+                        lineStyle: { width: 3, type: 'dotted' }, // 依需求使用點虛線
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                { offset: 0, color: 'rgba(234, 88, 12, 0.2)' },
+                                { offset: 1, color: 'rgba(234, 88, 12, 0.01)' }
+                            ])
+                        }
+                    });
+                }
+
                 chartInstance.setOption({
                     title: {
-                        text: `${storm.name} - 中心最大風速變化圖表`,
+                        text: futureForecastNodes.length > 0 ? `${storm.name} - 中心最大風速變化與預報圖表` : `${storm.name} - 中心最大風速變化圖表`,
                         left: 'center',
                         textStyle: { fontSize: 15, fontWeight: 'bold', color: isDark ? '#f8fafc' : '#0f172a', fontFamily: 'Plus Jakarta Sans' }
                     },
+                    legend: {
+                        show: futureForecastNodes.length > 0,
+                        top: 28,
+                        textStyle: { color: isDark ? '#cbd5e1' : '#475569', fontSize: 11, fontFamily: 'Plus Jakarta Sans' },
+                        data: ['歷史 / 實時風速', '預報風速 (點虛線)']
+                    },
                     animationDuration: 1000,
                     animationEasing: 'cubicOut',
-                    grid: { top: 55, bottom: 45, left: 55, right: 25 },
+                    grid: { top: futureForecastNodes.length > 0 ? 65 : 55, bottom: 45, left: 55, right: 25 },
                     visualMap: {
                         show: false,
                         type: 'piecewise',
@@ -1579,34 +1683,28 @@
                         axisLabel: { fontSize: 11, fontFamily: 'JetBrains Mono', color: isDark ? '#94a3b8' : '#64748b' },
                         splitLine: { lineStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' } }
                     },
-                    series: [{
-                        data: chartData,
-                        type: 'line',
-                        showAllSymbol: true,
-                        symbolSize: 8,
-                        smooth: true,
-                        lineStyle: { width: 3.5 },
-                        areaStyle: {
-                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                { offset: 0, color: 'rgba(2, 132, 199, 0.35)' },
-                                { offset: 1, color: 'rgba(2, 132, 199, 0.02)' }
-                            ])
-                        }
-                    }],
+                    series: seriesList,
                     tooltip: {
                         trigger: 'axis',
-                        backgroundColor: isDark ? 'rgba(10, 18, 32, 0.9)' : 'rgba(255, 255, 255, 0.95)',
+                        backgroundColor: isDark ? 'rgba(10, 18, 32, 0.92)' : 'rgba(255, 255, 255, 0.95)',
                         borderColor: isDark ? '#334155' : '#cbd5e1',
                         borderRadius: 12,
                         padding: [10, 14],
                         textStyle: { color: isDark ? '#f8fafc' : '#0f172a', fontSize: 12 },
                         formatter: function(params) {
                             if (!params || params.length === 0) return '';
-                            const p = params[0];
-                            const d = p.data;
-                            if (!d) return p.name;
-                            return `<div style="font-weight:bold; margin-bottom:4px; font-family:'JetBrains Mono';">${p.axisValue}</div>
-                                    <div>風速: <span class="font-bold text-slate-800 dark:text-slate-100">${p.value} km/h</span> <span style="color:${d.intensityObj.color}; font-weight:bold;">(${d.intensityObj.code} - ${d.intensityObj.name})</span></div>`;
+                            let validItem = params.find(p => p.data && p.data !== '-' && p.data.value !== undefined);
+                            if (!validItem) return params[0].axisValue;
+                            
+                            const d = validItem.data;
+                            const node = d.nodeInfo || {};
+                            const typeTag = d.isForecast ? '<span style="color:#f97316; font-weight:bold;">[預報]</span>' : '<span style="color:#10b981; font-weight:bold;">[實時/歷史]</span>';
+                            const catName = d.intensityObj ? `${d.intensityObj.code} - ${d.intensityObj.name}` : '';
+                            const catColor = d.intensityObj ? d.intensityObj.color : '#0284c7';
+
+                            return `<div style="font-weight:bold; margin-bottom:4px; font-family:'JetBrains Mono';">${validItem.axisValue} ${typeTag}</div>
+                                    <div>風速: <span style="font-weight:bold;">${d.value} km/h</span> <span style="color:${catColor}; font-weight:bold;">(${catName})</span></div>
+                                    ${node.coordStr ? `<div style="font-size:11px; color:#94a3b8; margin-top:2px;">中心位置: ${node.coordStr}</div>` : ''}`;
                         }
                     }
                 }, true);
@@ -2035,149 +2133,104 @@
                         type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 5,
-                        data: scatterData.filter(d => !d.isEye),
+                        data: scatterData,
                         symbol: 'circle'
                     });
-
-                    const eyeData = scatterData.filter(d => d.isEye);
-                    if (eyeData.length > 0) {
-                        seriesList.push({
-                            type: 'effectScatter',
-                            coordinateSystem: 'geo',
-                            z: 6,
-                            data: eyeData,
-                            symbolSize: 20,
-                            rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                            itemStyle: { color: '#ef4444', shadowBlur: 14, shadowColor: '#ef4444' }
-                        });
-                    }
                 }
             };
 
-            if (keys.length > 0) {
-                if (currentStormKey === 'all') {
-                    filteredKeys.forEach(k => renderTyphoonTracks(typhoons[k]));
-                } else {
-                    const targetKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
-                    renderTyphoonTracks(typhoons[targetKey]);
-                }
+            if (currentStormKey === 'all') {
+                filteredKeys.forEach(k => {
+                    if (typhoons[k]) renderTyphoonTracks(typhoons[k]);
+                });
+            } else {
+                if (typhoons[currentStormKey]) renderTyphoonTracks(typhoons[currentStormKey]);
             }
 
             if (showMacau) {
                 seriesList.push({
                     type: 'scatter',
                     coordinateSystem: 'geo',
-                    z: 7,
+                    z: 6,
                     data: [{
-                        name: '澳門',
-                        value: [113.5685, 22.1595, 1],
-                        itemStyle: { color: isDark ? '#ffffff' : '#0f172a' },
-                        symbolSize: 7
+                        name: '澳門 Macao',
+                        value: [...MACAU_COORDS, 1]
                     }],
+                    symbol: 'pin',
+                    symbolSize: 28,
+                    itemStyle: { color: '#ef4444' },
                     label: {
                         show: true,
-                        formatter: '{b}',
-                        position: 'right',
+                        formatter: '澳門',
+                        position: 'top',
                         color: macauTextColor,
-                        fontSize: 11,
-                        fontWeight: 'bold',
-                        fontFamily: '"Plus Jakarta Sans", sans-serif',
                         backgroundColor: macauBg,
-                        padding: [4, 7],
-                        borderRadius: 6
+                        padding: [3, 6],
+                        borderRadius: 6,
+                        borderColor: '#ef4444',
+                        borderWidth: 1,
+                        fontSize: 10,
+                        fontWeight: 'bold',
+                        fontFamily: '"Plus Jakarta Sans", sans-serif'
                     }
                 });
             }
 
             const bounds = getStormBounds(currentStormKey);
 
-            let centerToUse = bounds.center;
-            let zoomToUse = bounds.zoom;
-
-            if (!isStormSwitch && myChart) {
-                const prevOption = myChart.getOption();
-                if (prevOption && prevOption.geo && prevOption.geo[0]) {
-                    if (prevOption.geo[0].center) centerToUse = prevOption.geo[0].center;
-                    if (prevOption.geo[0].zoom) zoomToUse = prevOption.geo[0].zoom;
-                }
-            }
-
-            let graphicItems = [];
-            if (keys.length === 0 || filteredKeys.length === 0) {
-                graphicItems = [{
-                    type: 'text',
-                    z: 100,
-                    zlevel: 10,
-                    left: 'center',
-                    top: 'center',
-                    style: {
-                        text: keys.length === 0 ? (currentSelectedYear === 'current' ? '當前西北太平洋沒有熱帶氣旋活躍' : `${currentSelectedYear} 年無歷史資料記錄`) : '沒有符合條件的氣旋檔案',
-                        fill: isDark ? '#94a3b8' : '#64748b',
-                        fontSize: 16,
-                        fontWeight: 'bold',
-                        fontFamily: '"Plus Jakarta Sans", sans-serif'
-                    }
-                }];
-            }
-
             const option = {
                 backgroundColor: mapBgColor,
-                graphic: graphicItems,
-                animationDuration: 800,
-                animationEasing: 'cubicOut',
-                geo: {
-                    map: 'world50m',
-                    roam: true,
-                    center: centerToUse,
-                    zoom: zoomToUse,
-                    aspectScale: 1.0,
-                    label: { show: false },
-                    itemStyle: { areaColor: areaColor, borderColor: borderColor, borderWidth: 0.8 },
-                    emphasis: isMobile ? { disabled: true } : {
-                        focus: 'self',
-                        itemStyle: { areaColor: emphAreaColor, borderColor: emphBorderColor, borderWidth: 1.2 },
-                        label: { show: false }
-                    },
-                    select: { disabled: true }
-                },
                 tooltip: {
                     trigger: 'item',
                     backgroundColor: tooltipBg,
                     borderColor: tooltipBorder,
                     borderRadius: 12,
                     padding: [10, 14],
-                    textStyle: { color: tooltipText, fontSize: 12, fontFamily: '"Plus Jakarta Sans", sans-serif' },
-                    formatter: function(params) {
-                        if (params.componentType === 'geo') {
-                            if (isMobile) {
-                                return '';
-                            }
-                            const countryName = params.name || '';
-                            if (!countryName) return '';
-                            return `<div style="font-weight:bold; color:#0284c7; font-size:13px; font-family:'Plus Jakarta Sans', sans-serif;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
+                    textStyle: { color: tooltipText, fontSize: 12 },
+                    formatter: function (params) {
+                        if (!params.data) return '';
+                        if (params.seriesType === 'scatter' && params.data.nodeInfo) {
+                            const node = params.data.nodeInfo;
+                            const isPast = node.isPast;
+                            const typeTag = isPast ? '<span class="text-emerald-500 font-bold">[實時/歷史]</span>' : '<span class="text-amber-500 font-bold">[預報]</span>';
+                            return `<div style="font-weight:bold; margin-bottom:4px; font-family:'JetBrains Mono';">${params.data.stormName || ''} - ${node.time} ${typeTag}</div>
+                                    <div>強度: <span style="color:${node.color}; font-weight:bold;">${node.categoryCode} (${node.categoryName})</span></div>
+                                    <div>風速: <span class="font-bold">${node.wind}</span></div>
+                                    <div>位置: <span class="font-mono">${node.coordStr}</span></div>
+                                    <div>距離澳門: <span class="font-mono">${node.distToMacau}</span></div>
+                                    <div>移動方向: <span class="font-mono">${node.movementDir}</span></div>`;
+                        } else if (params.seriesType === 'scatter' && params.data.name === '澳門 Macao') {
+                            return `<div style="font-weight:bold; font-family:'Plus Jakarta Sans';">澳門特別行政區</div><div>坐標: 113.57°E, 22.16°N</div>`;
                         }
-                        const d = params.data;
-                        if (!d) return params.name || '';
-                        
-                        if (d.name === '澳門') {
-                            return `<div style="font-weight:bold; font-family:'Plus Jakarta Sans', sans-serif;"><i class="fa-solid fa-location-dot" style="color:#0284c7;"></i> 澳門</div>
-                                    <div style="font-size:11px; font-family:'Plus Jakarta Sans', sans-serif;">經緯度: 22.1595°N, 113.5685°E</div>`;
-                        }
-
-                        return `<div style="font-weight:bold; font-family:'Plus Jakarta Sans', sans-serif; color:${d.intensityObj.color};">${d.stormName || ''}</div>
-                                <div style="font-size:11px; font-family:'Plus Jakarta Sans', sans-serif;">時間: ${d.nodeInfo ? d.nodeInfo.time : '-'}</div>
-                                <div style="font-size:11px; font-family:'Plus Jakarta Sans', sans-serif;">風速: ${d.nodeInfo ? d.nodeInfo.wind : '-'} (${d.intensityObj.code})</div>
-                                <div style="font-size:11px; font-family:'Plus Jakarta Sans', sans-serif;">位置: ${d.nodeInfo ? d.nodeInfo.coordStr : '-'}</div>
-                                <div style="font-size:11px; font-family:'Plus Jakarta Sans', sans-serif;">距離澳門: ${d.nodeInfo ? d.nodeInfo.distToMacau : '-'}</div>`;
+                        return params.name;
+                    }
+                },
+                geo: {
+                    map: 'world50m',
+                    roam: true,
+                    center: isStormSwitch ? bounds.center : undefined,
+                    zoom: isStormSwitch ? bounds.zoom : undefined,
+                    itemStyle: {
+                        areaColor: areaColor,
+                        borderColor: borderColor,
+                        borderWidth: 0.8
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            areaColor: emphAreaColor,
+                            borderColor: emphBorderColor,
+                            borderWidth: 1.2
+                        },
+                        label: { show: false }
                     }
                 },
                 series: seriesList
             };
 
-            myChart.setOption(option, true);
+            myChart.setOption(option, isStormSwitch);
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('load', () => {
             initVectorMap();
         });
     </script>
