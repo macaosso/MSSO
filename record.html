@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天氣警報與提示記錄 - 澳門民間氣象台 MSSO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+    <style>
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 116, 139, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 4px;
+        }
+    </style>
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <script>
+        const currentHour = new Date().getHours();
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            if (currentHour >= 8 && currentHour < 20) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-300">
+
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
+        
+        <!-- 標頭 -->
+        <header class="flex justify-between items-center bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight dark:text-white flex items-center gap-3">
+                    <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                    </div>
+                    <span>天氣警報與提示記錄</span>
+                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.0.0</span>
+                </h1>
+                <div class="mt-2 space-y-0.5">
+                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
+                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm" title="切換主題">
+                    <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400 text-lg"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- 分類切換標籤 (Tabs) -->
+        <div class="flex items-center gap-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm w-fit">
+            <button onclick="switchTab('W')" id="tabBtnW" class="px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 bg-cyan-500 text-white shadow-md">
+                <i class="fa-solid fa-triangle-exclamation"></i> 天氣警報記錄 (W)
+                <span id="countW" class="px-2 py-0.5 rounded-full bg-white/20 text-xs">0</span>
+            </button>
+            <button onclick="switchTab('T')" id="tabBtnT" class="px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i class="fa-solid fa-circle-info"></i> 天氣提示記錄 (T)
+                <span id="countT" class="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-xs">0</span>
+            </button>
+        </div>
+
+        <!-- 內容主卡片 -->
+        <div class="bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors space-y-6">
+            
+            <!-- 篩選與工具列 -->
+            <div class="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- 類型篩選 -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">類型：</span>
+                        <select id="filterType" onchange="filterRecords()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                            <option value="all">全部類型</option>
+                        </select>
+                    </div>
+                    <!-- 年份篩選 -->
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">年份：</span>
+                        <select id="filterYear" onchange="filterRecords()" class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                            <option value="all">全部年份</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="recordStats" class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    共 0 筆記錄
+                </div>
+            </div>
+
+            <!-- 表格容器 -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs md:text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
+                            <th class="py-3 px-4 font-semibold">記錄類型</th>
+                            <th class="py-3 px-4 font-semibold">生效時間 (Start)</th>
+                            <th class="py-3 px-4 font-semibold">解除時間 (End)</th>
+                            <th class="py-3 px-4 font-semibold">持續時間 (Duration)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordTableBody">
+                        <tr>
+                            <td colspan="4" class="py-8 text-center text-slate-400">正在讀取記錄數據...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800/80 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-20">
+        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-3 left-4 right-4 z-50 max-w-lg mx-auto bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl rounded-3xl px-3 py-2 transition-all duration-300">
+        <div class="flex justify-around items-center">
+            <a href="index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span class="text-[11px]">天氣實況</span>
+            </a>
+            <a href="tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span class="text-[11px]">熱帶氣旋</span>
+            </a>
+            <a href="forecast.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span class="text-[11px]">天氣預報</span>
+            </a>
+            <a href="records.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-cyan-600 dark:text-cyan-400 font-bold transition-all hover:scale-105" style="text-decoration: none;">
+                <i class="fa-solid fa-clipboard-list text-lg"></i>
+                <span class="text-[11px]">歷史記錄</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 邏輯腳本 -->
+    <script>
+        // 主題切換
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        // 日期與農曆
+        function toTraditionalLunar(text) {
+            if (!text) return '';
+            const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
+            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+
+            const lunarEl = document.getElementById('lunar-date');
+            if (lunarEl && typeof Solar !== 'undefined') {
+                try {
+                    const solar = Solar.fromDate(now);
+                    const lunar = solar.getLunar();
+                    lunarEl.textContent = `${lunar.getYearInGanZhi()}${toTraditionalLunar(lunar.getYearShengXiao())}年${toTraditionalLunar(lunar.getMonthInChinese())}月${toTraditionalLunar(lunar.getDayInChinese())}日`;
+                } catch (e) {
+                    lunarEl.textContent = '';
+                }
+            }
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 資料處理核心邏輯
+        let allRecords = { W: [], T: [] };
+        let currentTab = 'W';
+
+        async function loadRecordsData() {
+            try {
+                const response = await fetch('data/record.csv');
+                if (!response.ok) throw new Error('無法讀取 record.csv');
+                const text = await response.text();
+                parseCSV(text);
+                updateTabCounts();
+                renderTable();
+                updateFilters();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('recordTableBody').innerHTML = `
+                    <tr><td colspan="4" class="py-8 text-center text-rose-500">無法載入資料檔案 (data/record.csv)，請確認路徑是否正確。</td></tr>
+                `;
+            }
+        }
+
+        function parseCSV(csvText) {
+            allRecords = { W: [], T: [] };
+            const lines = csvText.split('\n');
+            
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.toLowerCase().startsWith('category')) continue;
+
+                // 支援標準逗號分隔與冒號格式 (例如 T:超大豪雨特別報告...)
+                let cols = [];
+                if (line.includes(',')) {
+                    cols = line.split(',').map(c => c.trim());
+                } else if (line.includes(':')) {
+                    const firstColon = line.indexOf(':');
+                    const cat = line.substring(0, firstColon).trim();
+                    const rest = line.substring(firstColon + 1).trim();
+                    const restCols = rest.split(',').map(c => c.trim());
+                    cols = [cat, ...restCols];
+                }
+
+                if (cols.length >= 5) {
+                    const category = cols[0].toUpperCase(); // W 或 T
+                    const type = cols[1];
+                    const start = cols[2];
+                    const end = cols[3];
+                    const duration = cols[4];
+
+                    if (allRecords[category]) {
+                        allRecords[category].push({ type, start, end, duration });
+                    }
+                }
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            const btnW = document.getElementById('tabBtnW');
+            const btnT = document.getElementById('tabBtnT');
+
+            if (tab === 'W') {
+                btnW.className = "px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 bg-cyan-500 text-white shadow-md";
+                btnT.className = "px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800";
+            } else {
+                btnT.className = "px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 bg-cyan-500 text-white shadow-md";
+                btnW.className = "px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800";
+            }
+
+            updateFilters();
+            renderTable();
+        }
+
+        function updateTabCounts() {
+            document.getElementById('countW').textContent = allRecords.W.length;
+            document.getElementById('countT').textContent = allRecords.T.length;
+        }
+
+        function updateFilters() {
+            const records = allRecords[currentTab] || [];
+            
+            // 收集不重複的類型與年份
+            const typesSet = new Set();
+            const yearsSet = new Set();
+
+            records.forEach(r => {
+                typesSet.add(r.type);
+                if (r.start && r.start.length >= 4) {
+                    yearsSet.add(r.start.substring(0, 4));
+                }
+            });
+
+            // 更新類型下拉選單
+            const typeSelect = document.getElementById('filterType');
+            let typeHtml = '<option value="all">全部類型</option>';
+            Array.from(typesSet).sort().forEach(t => {
+                typeHtml += `<option value="${t}">${t}</option>`;
+            });
+            typeSelect.innerHTML = typeHtml;
+
+            // 更新年份下拉選單
+            const yearSelect = document.getElementById('filterYear');
+            let yearHtml = '<option value="all">全部年份</option>';
+            Array.from(yearsSet).sort().reverse().forEach(y => {
+                yearHtml += `<option value="${y}">${y}年</option>`;
+            });
+            yearSelect.innerHTML = yearHtml;
+        }
+
+        function filterRecords() {
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('recordTableBody');
+            const statsEl = document.getElementById('recordStats');
+            const selectedType = document.getElementById('filterType').value;
+            const selectedYear = document.getElementById('filterYear').value;
+
+            let records = allRecords[currentTab] || [];
+
+            // 篩選
+            const filtered = records.filter(r => {
+                const matchType = (selectedType === 'all' || r.type === selectedType);
+                const matchYear = (selectedYear === 'all' || (r.start && r.start.startsWith(selectedYear)));
+                return matchType && matchYear;
+            });
+
+            statsEl.textContent = `共 ${filtered.length} 筆記錄`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-12 text-center text-slate-400">沒有符合條件的記錄</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(r => {
+                // 根據類型給予精美的小徽章顏色
+                let badgeColor = currentTab === 'W' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+                
+                html += `
+                    <tr class="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td class="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold ${badgeColor}">${r.type}</span>
+                        </td>
+                        <td class="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">${r.start}</td>
+                        <td class="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-300">${r.end}</td>
+                        <td class="py-3.5 px-4 font-mono text-cyan-600 dark:text-cyan-400 font-semibold">${r.duration}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        // 初始化載入
+        window.addEventListener('DOMContentLoaded', () => {
+            loadRecordsData();
+        });
+    </script>
+</body>
+</html>
