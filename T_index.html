@@ -62,7 +62,7 @@
                         <i class="fa-solid fa-calculator"></i>
                     </div>
                     <span>Dvorak T值風速換算工具</span>
-                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.0.0</span>
+                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.1.0</span>
                 </h1>
                 <div class="mt-2 space-y-0.5">
                     <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
@@ -88,12 +88,18 @@
                         <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                             <i class="fa-solid fa-sliders text-cyan-500"></i> 輸入 T 號碼 (T-Number)
                         </h2>
-                        <span id="tValueDisplay" class="px-3 py-1 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono font-bold text-lg">T 4.0</span>
+                        <!-- 直接數值輸入框 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-500 font-semibold">數值：</span>
+                            <input type="number" id="tNumberInput" min="1.0" max="8.0" step="0.1" value="4.0" 
+                                class="w-20 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-cyan-600 dark:text-cyan-400 font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                                oninput="onNumberInputChange(this.value)">
+                        </div>
                     </div>
 
-                    <!-- 滑桿與數字輸入 -->
+                    <!-- 高精度滑桿 (Step 0.1) -->
                     <div class="space-y-3">
-                        <input type="range" id="tSlider" min="1.0" max="8.0" step="0.5" value="4.0" 
+                        <input type="range" id="tSlider" min="1.0" max="8.0" step="0.1" value="4.0" 
                             class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                             oninput="onSliderChange(this.value)">
                         
@@ -111,7 +117,7 @@
 
                     <!-- 快速預設按鈕 -->
                     <div class="space-y-2">
-                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">快速選擇常見 T 值：</div>
+                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">快速選擇常見整數 T 值：</div>
                         <div id="presetButtons" class="flex flex-wrap gap-2">
                             <!-- 動態生成快速按鈕 -->
                         </div>
@@ -137,7 +143,7 @@
                         </div>
                     </div>
 
-                    <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-500 dark:text-slate-400 flex justify-between items-center">
+                    <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-500 dark:text-slate-400 flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
                         <span>公式：Intensity = -1.05 + 23.5T + 1.27T²</span>
                         <span id="formulaResultText" class="font-mono"></span>
                     </div>
@@ -255,7 +261,7 @@
         // 初始化快速選擇按鈕
         function initPresetButtons() {
             const container = document.getElementById('presetButtons');
-            const commonTs = [1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0];
+            const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
             let html = '';
             commonTs.forEach(t => {
                 html += `<button onclick="setTValue(${t})" class="px-3 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-cyan-500 transition-all">T${t.toFixed(1)}</button>`;
@@ -317,9 +323,17 @@
         }
 
         function updateConversion(val) {
-            const T = parseFloat(val);
+            let T = parseFloat(val);
+            if (isNaN(T)) T = 1.0;
+            if (T < 1.0) T = 1.0;
+            if (T > 8.0) T = 8.0;
+
+            // 同步更新滑桿與數值輸入框
             document.getElementById('tSlider').value = T;
-            document.getElementById('tValueDisplay').textContent = `T ${T.toFixed(1)}`;
+            const numberInput = document.getElementById('tNumberInput');
+            if (document.activeElement !== numberInput) {
+                numberInput.value = T.toFixed(1);
+            }
 
             const windSpeed = calculateIntensity(T);
             const info = getIntensityInfo(windSpeed);
@@ -334,7 +348,7 @@
             `;
             badgeEl.style.backgroundColor = `${info.color}20`; // 半透明背景
 
-            document.getElementById('formulaResultText').textContent = `-1.05 + 23.5(${T}) + 1.27(${T})² = ${windSpeed} km/h`;
+            document.getElementById('formulaResultText').textContent = `-1.05 + 23.5(${T.toFixed(1)}) + 1.27(${T.toFixed(1)})² = ${windSpeed} km/h`;
 
             // 同步高亮右側對應表
             renderIntensityTableList(info.code);
@@ -346,6 +360,12 @@
 
         function onSliderChange(val) {
             updateConversion(val);
+        }
+
+        function onNumberInputChange(val) {
+            if (val !== '') {
+                updateConversion(val);
+            }
         }
 
         // 初始化
