@@ -6,7 +6,7 @@ const TC_WARNING_DATA = {
   mainTitle: "受熱帶氣旋「沙德爾」可能發佈之警報",
   updateTimeText: "2026-09-02  14:20 MST 更新",
   tableRows: [
-    { signal: "注意警報", period: "", probability: "" },
+    { signal: "注意警報", period: "", probability: "低" },
     { signal: "戒備警報", period: "", probability: "" },
     { signal: "強風警報", period: "", probability: "" },
     { signal: "烈風警報", period: "", probability: "" },
