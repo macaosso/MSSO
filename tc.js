@@ -1,12 +1,12 @@
-const tcText = ` `;
+const tcText = ` 晚上8時，熱帶風暴 彩雲(2627) 集結在澳門以東約3430公里，即在北緯16.5度，東經145.8度附近，其中心附近最高持續風速約為每小時75公里，向西北偏西移動，時速8公里。`;
 
 const tcWarnings = ``;
 
 const TC_WARNING_DATA = {
-  mainTitle: "受熱帶氣旋「沙德爾」可能發佈之警報",
-  updateTimeText: "2026-09-02  14:20 MST 更新",
+  mainTitle: "受熱帶氣旋「彩雲」可能發佈之警報",
+  updateTimeText: "2026-10-02  02:20 MST 更新",
   tableRows: [
-    { signal: "注意警報", period: "", probability: "" },
+    { signal: "注意警報", period: "", probability: "低" },
     { signal: "戒備警報", period: "", probability: "" },
     { signal: "強風警報", period: "", probability: "" },
     { signal: "烈風警報", period: "", probability: "" },
