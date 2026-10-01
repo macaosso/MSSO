@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>熱帶氣旋專區 - 澳門民間氣象台 MSSO</title>
-    <!-- Tailwind CSS -->
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (layout/spacing only) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -16,120 +22,178 @@
     <!-- 引入自動農曆計算套件 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     <style>
-        :root {
-            --surface-3: #e2e8f0;
-            --text: #0f172a;
-            --text-3: #94a3b8;
-            --cat: #0284c7;
-            --track-color: #e4edf5;
-            --needle-color: #102a43;
+        /* ============ Design tokens ============ */
+        :root, html:not(.dark) {
+            --bg-page:#edebe2; --bg:#f4f2ea; --bg-2:#eae8dc;
+            --line:#d6d3c4; --line-strong:#bfbcab;
+            --text:#1a1e20; --muted:#5c6663; --faint:#8b948f;
+            --accent:#0b9a6b; --cream:#181d20; --cream-text:#f1eee2;
+            --c-red-rgb:190,40,45; --c-orange-rgb:200,90,20; --c-amber-rgb:190,140,10;
+            --c-yellow-rgb:150,140,20; --c-green-rgb:11,154,107; --c-sky-rgb:20,120,180;
+            --c-blue-rgb:30,90,190; --c-indigo-rgb:80,70,200; --c-purple-rgb:140,70,210;
+            --c-rose-rgb:210,40,90; --c-cyan-rgb:10,140,160; --c-slate-rgb:90,100,105;
+            --track-color:#d6d3c4; --needle-color:#1a1e20; --text-3:#8b948f;
         }
-        .dark {
-            --surface-3: #334155;
-            --text: #f1f5f9;
-            --text-3: #64748b;
-            --cat: #38bdf8;
-            --track-color: #1e293b;
-            --needle-color: #f1f5f9;
-        }
-
-        ::-webkit-scrollbar {
-            height: 6px;
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(100, 116, 139, 0.1);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.4);
-            border-radius: 4px;
-        }
-        @keyframes spin-reverse {
-            from { transform: rotate(360deg); }
-            to { transform: rotate(0deg); }
+        html.dark {
+            --bg-page:#0b1013; --bg:#0e1418; --bg-2:#121a1f;
+            --line:#1f282e; --line-strong:#2b373e;
+            --text:#e6e9e9; --muted:#93a0a6; --faint:#5f6b72;
+            --accent:#3fd9a4; --cream:#e7e2d2; --cream-text:#12181b;
+            --c-red-rgb:255,107,107; --c-orange-rgb:255,150,90; --c-amber-rgb:255,200,87;
+            --c-yellow-rgb:230,225,130; --c-green-rgb:63,217,164; --c-sky-rgb:96,185,235;
+            --c-blue-rgb:96,155,235; --c-indigo-rgb:130,140,250; --c-purple-rgb:180,150,255;
+            --c-rose-rgb:255,110,150; --c-cyan-rgb:105,225,240; --c-slate-rgb:150,165,170;
+            --track-color:#1f282e; --needle-color:#e6e9e9; --text-3:#5f6b72;
         }
 
-        /* 風速儀表盤樣式 */
-        .gauge {
-            position: relative;
-            width: 100%;
-            max-width: 280px;
-            aspect-ratio: 200 / 128;
-            margin: 0 auto;
+        body {
+            font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+            -webkit-font-smoothing:antialiased;
+            background:var(--bg-page); color:var(--text);
         }
 
-        .gauge svg {
-            width: 100%;
-            height: 100%;
-            overflow: visible;
-            display: block;
+        /* ============ Scrollbar ============ */
+        ::-webkit-scrollbar { width:8px; height:8px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--line-strong); }
+        ::-webkit-scrollbar-thumb:hover { background:var(--faint); }
+
+        /* ============ Text helpers ============ */
+        .micro { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+        .dim { color:var(--faint); }
+        .mut { color:var(--muted); }
+        .accent { color:var(--accent); }
+        .num { font-variant-numeric:tabular-nums; }
+
+        @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+
+        /* ============ Panels ============ */
+        .panel { background:var(--bg); border:1px solid var(--line); }
+        .panel-head {
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:14px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap;
+        }
+        .panel-title { font-size:13px; font-weight:700; letter-spacing:.03em; display:flex; align-items:center; gap:9px; }
+        .panel-num { color:var(--accent); font-weight:800; }
+        .panel-body { padding:16px; }
+
+        /* ============ Brand ============ */
+        .brand-mark {
+            width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--accent);
+            position:relative; flex-shrink:0; font-size:20px;
+        }
+        .dot { width:6px; height:6px; border-radius:50%; background:var(--accent); display:inline-block; }
+        .pulse-dot { position:relative; }
+        .pulse-dot::after {
+            content:''; position:absolute; inset:0; border-radius:50%;
+            background:var(--accent); animation:pulseRing 2s infinite ease-in-out;
+        }
+        @keyframes pulseRing { 0%{transform:scale(1);opacity:.7;} 100%{transform:scale(2.6);opacity:0;} }
+
+        /* ============ Buttons ============ */
+        .icon-btn {
+            width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted);
+            cursor:pointer; transition:.15s; font-size:15px;
+        }
+        .icon-btn:hover { color:var(--text); border-color:var(--accent); }
+        .icon-btn:active { transform:translateY(1px); }
+        .ic-moon { display:inline; } .ic-sun { display:none; }
+        html.dark .ic-moon { display:none; } html.dark .ic-sun { display:inline; }
+
+        .btn {
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--text);
+            font-size:12px; font-weight:700; padding:10px 18px; cursor:pointer; transition:.15s;
+            display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none;
+        }
+        .btn:hover { border-color:var(--accent); color:var(--accent); }
+        .btn:active { transform:translateY(1px); }
+        .btn-primary { background:var(--cream); color:var(--cream-text); border-color:var(--cream); }
+        .btn-primary:hover { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+
+        /* ============ Chips (storm tabs / track buttons) ============ */
+        .chip {
+            padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted); transition:.15s;
+        }
+        .chip:hover { color:var(--text); border-color:var(--faint); }
+        .chip-active { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+        .chip-active:hover { color:var(--cream-text); border-color:var(--accent); }
+
+        /* ============ Badges & tags ============ */
+        .badge {
+            display:inline-flex; align-items:center; gap:4px; padding:2px 7px; font-size:10px; font-weight:700;
+            color:rgb(var(--bc-rgb,150,165,170)); background:rgba(var(--bc-rgb,150,165,170),.13);
+            border:1px solid rgba(var(--bc-rgb,150,165,170),.3);
+        }
+        .b-sky{--bc-rgb:var(--c-sky-rgb);} .b-rose{--bc-rgb:var(--c-rose-rgb);} .b-slate{--bc-rgb:var(--c-slate-rgb);}
+        .tag { display:inline-block; padding:2px 8px; font-size:11px; font-weight:700; }
+
+        /* ============ Data table ============ */
+        .data-table { width:100%; text-align:left; font-size:11px; border-collapse:collapse; }
+        .data-table thead th {
+            padding:9px 12px; border-bottom:1px solid var(--line-strong);
+            font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700;
+        }
+        .data-table tbody td { padding:10px 12px; border-bottom:1px solid var(--line); color:var(--text); }
+        .data-table tbody tr:hover { background:rgba(var(--c-green-rgb),.05); }
+
+        /* ============ KV table (storm info) ============ */
+        .kv-table { width:100%; text-align:left; border-collapse:collapse; font-size:11px; }
+        .kv-table td { padding:7px 0; border-bottom:1px solid var(--line); }
+        .kv-table tr:last-child td { border-bottom:none; }
+        .kv-table td:first-child { color:var(--muted); }
+        .kv-table td:last-child { color:var(--text); font-weight:600; text-align:right; }
+
+        /* ============ Bulletin / info box ============ */
+        .info-box {
+            background:var(--bg-2); border:1px solid var(--line); padding:12px;
+            font-size:12px; line-height:1.7; color:var(--text);
         }
 
-        .g-track {
-            fill: none;
-            stroke: var(--track-color);
-            stroke-width: 13;
-            stroke-linecap: round;
+        /* ============ Storm mini cards ============ */
+        .storm-mini {
+            position:relative; border:1px solid var(--line); background:var(--bg-2);
+            padding:14px 14px 14px 16px; margin-bottom:12px; overflow:hidden;
+        }
+        .storm-mini:last-child { margin-bottom:0; }
+        .storm-mini::before {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--sc,var(--accent));
         }
 
-        .g-band {
-            fill: none;
-            stroke-width: 4;
-            opacity: 0.85;
-            stroke-linecap: round;
-        }
+        /* ============ Legend ============ */
+        .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); }
+        .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
 
-        .g-prog {
-            fill: none;
-            stroke-width: 13;
-            stroke-linecap: round;
-            stroke-dasharray: 100;
-            stroke-dashoffset: 100;
-            transition: stroke 0.5s ease;
-        }
+        /* ============ Map / track image ============ */
+        .map-frame { background:#0b1013; border:1px solid var(--line-strong); }
 
-        .g-needle {
-            transform-origin: 100px 100px;
-            transform: rotate(0deg);
-        }
+        /* ============ Wind gauge ============ */
+        .gauge { position:relative; width:100%; max-width:280px; aspect-ratio:200/128; margin:0 auto; }
+        .gauge svg { width:100%; height:100%; overflow:visible; display:block; }
+        .g-track { fill:none; stroke:var(--track-color); stroke-width:13; stroke-linecap:round; }
+        .g-band { fill:none; stroke-width:4; opacity:0.85; stroke-linecap:round; }
+        .g-prog { fill:none; stroke-width:13; stroke-linecap:round; stroke-dasharray:100; stroke-dashoffset:100; transition:stroke 0.5s ease; }
+        .g-needle { transform-origin:100px 100px; transform:rotate(0deg); }
+        .g-needle line { stroke:var(--needle-color); stroke-width:3.5; stroke-linecap:round; }
+        .g-tick { font-size:7.5px; fill:var(--text-3); font-weight:700; font-family:inherit; }
+        .gauge-val { position:absolute; left:0; right:0; bottom:-2px; text-align:center; line-height:1; }
+        .gauge-val b { font-size:2.8em; font-weight:800; letter-spacing:.05em; color:var(--text); }
+        .gauge-val small { display:block; font-size:.72em; font-weight:700; color:var(--muted); margin-top:6px; letter-spacing:.1em; }
 
-        .g-needle line {
-            stroke: var(--needle-color);
-            stroke-width: 3.5;
-            stroke-linecap: round;
+        /* ============ Bottom nav ============ */
+        .bottom-fixed-bar { background:var(--bg); border:1px solid var(--line); }
+        .bottom-bar-btn {
+            position:relative; display:flex; flex-direction:column; align-items:center; gap:4px;
+            padding:6px 16px; color:var(--muted); font-size:11px; font-weight:700;
+            text-decoration:none; transition:color .15s; font-family:inherit;
         }
-
-        .g-tick {
-            font-size: 7.5px;
-            fill: var(--text-3);
-            font-weight: 700;
-            font-family: inherit;
-        }
-
-        .gauge-val {
-            position: absolute;
-            left: 0;
-            right: 0;
-            bottom: -2px;
-            text-align: center;
-            line-height: 1;
-        }
-
-        .gauge-val b {
-            font-size: 2.8em;
-            font-weight: 850;
-            letter-spacing: .05em;
-            color: var(--text);
-        }
-
-        .gauge-val small {
-            display: block;
-            font-size: .72em;
-            font-weight: 750;
-            color: var(--text-3);
-            margin-top: 6px;
-            letter-spacing: .1em;
+        .bottom-bar-btn i { font-size:16px; }
+        .bottom-bar-btn:hover { color:var(--text); }
+        .bottom-bar-btn.active { color:var(--accent); }
+        .bottom-bar-btn.active::after {
+            content:''; position:absolute; top:0; left:20%; right:20%; height:2px; background:var(--accent);
         }
     </style>
     <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
@@ -152,232 +216,209 @@
         }
     </script>
 </head>
-<body class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-300">
+<body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-28">
 
     <!-- 容器 -->
     <div class="w-full max-w-7xl space-y-6 flex-grow">
-        
+
         <!-- 標頭 -->
-        <header class="flex justify-between items-center bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight dark:text-white flex items-center gap-3">
-                    <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400">
-                        <i class="fa-solid fa-hurricane"></i>
+        <header class="panel flex justify-between items-center p-5 md:p-6">
+            <div class="flex items-center gap-4">
+                <div class="brand-mark">
+                    <i class="fa-solid fa-hurricane"></i>
+                    <span class="pulse-dot dot absolute -top-1 -right-1" style="width:6px;height:6px;"></span>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-2xl font-extrabold tracking-tight flex items-center gap-2 flex-wrap">
+                        熱帶氣旋專區
+                        <span class="badge b-sky">v1.1.4</span>
+                    </h1>
+                    <div class="mt-1.5 space-y-0.5">
+                        <div id="current-datetime" class="num text-xs md:text-sm font-bold accent">載入中...</div>
+                        <div id="lunar-date" class="text-[11px] mut">農曆計算中...</div>
                     </div>
-                    <span>熱帶氣旋專區</span>
-                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.1.4</span>
-                </h1>
-                <div class="mt-2 space-y-0.5">
-                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
-                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
                 <!-- 主題切換按鈕 -->
-                <button id="theme-toggle" class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm" title="切換主題">
-                    <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400 text-lg"></i>
+                <button id="theme-toggle" class="icon-btn" title="切換主題">
+                    <i class="fa-solid fa-moon ic-moon"></i>
+                    <i class="fa-solid fa-sun ic-sun accent"></i>
                 </button>
             </div>
         </header>
 
         <!-- 頁面主要內容包裝 -->
         <div class="page-wrapper space-y-6" id="dashboard-content">
-            <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors">
+
+            <!-- GIS 入口 -->
+            <div class="panel panel-body" id="gisEntryCard">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div class="flex items-center gap-4">
-                        <div class="p-3.5 rounded-2xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 shadow-sm">
-                            <i class="fa-solid fa-hurricane text-2xl" style="display: inline-block; animation: spin-reverse 8s linear infinite;"></i>
+                        <div class="brand-mark">
+                            <i class="fa-solid fa-hurricane" style="display:inline-block; animation:spin-reverse 8s linear infinite;"></i>
                         </div>
                         <div>
-                            <h2 class="text-base font-bold text-slate-800 dark:text-slate-200">熱帶氣旋GIS路徑圖</h2>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">提供互動式地理資訊系統（GIS）熱帶氣旋路徑追蹤與強度分析</p>
+                            <h2 class="text-sm font-bold" style="color:var(--text);">熱帶氣旋GIS路徑圖</h2>
+                            <p class="text-[11px] mut mt-0.5">提供互動式地理資訊系統（GIS）熱帶氣旋路徑追蹤與強度分析</p>
                         </div>
                     </div>
-                    <a href="tcgis.html" class="px-5 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-600 text-white transition-all text-xs font-semibold flex items-center gap-2 shadow-lg shadow-cyan-500/25 shrink-0" style="text-decoration: none;">
-                        <i class="fa-solid fa-map-location-dot"></i> 查看GIS路徑圖
-                    </a>
+                    <a href="tcgis.html" class="btn btn-primary shrink-0"><i class="fa-solid fa-map-location-dot"></i> 查看GIS路徑圖</a>
                 </div>
             </div>
-            <!-- 即時活躍系統與風速儀表盤專區（支援多氣旋切換） -->
-            <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors" id="activeSystemGaugeCard">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 pb-4 border-b border-slate-100 dark:border-slate-800 gap-3">
-                    <span class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-gauge-high text-cyan-500"></i> 即時活躍系統與風速儀表盤
-                    </span>
+
+            <!-- 即時活躍系統與風速儀表盤專區 -->
+            <div class="panel" id="activeSystemGaugeCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">01</span> / 即時活躍系統與風速儀表盤</span>
                     <!-- 多氣旋切換按鈕列 -->
                     <div id="gaugeStormTabs" class="flex flex-wrap items-center gap-1.5">
                         <!-- 動態生成 -->
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                <div class="panel-body grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
                     <!-- 左側：活躍氣旋詳細資訊與表格 -->
                     <div id="gaugeStormInfo" class="space-y-4">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span id="gaugeStormBadge" class="px-3 py-1 rounded-xl text-xs font-bold text-white shadow-sm bg-cyan-500">載入中</span>
-                            <span id="gaugeStormTimePill" class="px-3 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300 flex items-center gap-1.5 shadow-sm">
-                                <span class="relative flex h-2 w-2">
-                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                  <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                                </span>
+                            <span id="gaugeStormBadge" class="tag text-white" style="background-color:#0284c7;">載入中</span>
+                            <span id="gaugeStormTimePill" class="badge b-rose">
+                                <span class="dot pulse-dot" style="background:rgb(var(--c-rose-rgb));"></span>
                                 <span id="gaugeStormTimePillText">-</span>
                             </span>
                         </div>
                         <div>
-                            <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">載入中...</h2>
+                            <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-extrabold tracking-tight" style="color:var(--text);">載入中...</h2>
                         </div>
 
                         <!-- 實況詳細數據表格 -->
-                        <table class="w-full text-left border-collapse text-xs">
+                        <table class="kv-table num">
                             <tbody>
-                                <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                    <td class="py-2 pr-2 text-slate-500">實況時間</td>
-                                    <td id="gaugeStormTime" class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">-</td>
-                                </tr>
-                                <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                    <td class="py-2 pr-2 text-slate-500">最大風速</td>
-                                    <td id="gaugeStormWind" class="py-2 pl-2 font-mono text-slate-800 dark:text-slate-300 font-semibold">-</td>
-                                </tr>
-                                <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                    <td class="py-2 pr-2 text-slate-500">中心位置</td>
-                                    <td id="gaugeStormPos" class="py-2 pl-2 font-mono text-slate-700 dark:text-slate-300">-</td>
-                                </tr>
-                                <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                    <td class="py-2 pr-2 text-slate-500">移動方向</td>
-                                    <td id="gaugeStormMove" class="py-2 pl-2 font-mono text-slate-800 dark:text-slate-300">-</td>
-                                </tr>
-                                <tr>
-                                    <td class="py-2 pr-2 text-slate-500">距離澳門</td>
-                                    <td id="gaugeStormDist" class="py-2 pl-2 font-mono text-slate-800 dark:text-slate-300 font-semibold">-</td>
-                                </tr>
+                                <tr><td>實況時間</td><td id="gaugeStormTime">-</td></tr>
+                                <tr><td>最大風速</td><td id="gaugeStormWind">-</td></tr>
+                                <tr><td>中心位置</td><td id="gaugeStormPos">-</td></tr>
+                                <tr><td>移動方向</td><td id="gaugeStormMove">-</td></tr>
+                                <tr><td>距離澳門</td><td id="gaugeStormDist">-</td></tr>
                             </tbody>
                         </table>
 
                         <!-- 熱帶氣旋報文 -->
                         <div>
-                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                                <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
+                            <div class="micro mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-lines accent"></i> 熱帶氣旋報文
                             </div>
-                            <div class="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans shadow-inner" id="gaugeStormBulletin">
-                                請稍候...
-                            </div>
+                            <div class="info-box" id="gaugeStormBulletin">請稍候...</div>
                         </div>
                     </div>
 
                     <!-- 右側：風速儀表盤圖表 -->
-                    <div class="flex flex-col items-center justify-center bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 relative overflow-hidden shadow-sm">
+                    <div class="flex flex-col items-center justify-center panel p-6 relative overflow-hidden" style="background:var(--bg-2);">
                         <div class="gauge" id="windGaugeContainer" data-speed="0"></div>
                     </div>
                 </div>
             </div>
 
             <!-- 熱帶氣旋警報預測表格專區 -->
-            <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors" id="tcForecastTableCard">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/80 gap-2">
-                    <span id="tableMainTitle" class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-triangle-exclamation text-cyan-500"></i> 熱帶氣旋警報預測
-                    </span>
-                    <span id="tableUpdateTime" class="text-xs text-cyan-600 dark:text-cyan-400 font-medium">-</span>
+            <div class="panel" id="tcForecastTableCard">
+                <div class="panel-head">
+                    <span id="tableMainTitle" class="panel-title"><span class="panel-num">02</span> / 熱帶氣旋警報預測</span>
+                    <span id="tableUpdateTime" class="num text-[11px] accent font-bold">-</span>
                 </div>
-                <div id="tableContent" class="overflow-x-auto">
+                <div id="tableContent" class="panel-body overflow-x-auto">
                     <!-- 動態生成表格內容 -->
                 </div>
             </div>
 
-            <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors" id="tcNewsCard">
-                <div class="warning-header flex justify-between items-center mb-4 pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        熱帶氣旋警報
-                    </span>
+            <!-- 熱帶氣旋警報 -->
+            <div class="panel" id="tcNewsCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">03</span> / 熱帶氣旋警報</span>
                 </div>
-                <div id="tcNewsContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
-            </div>
-            
-            <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors" id="tcCard">
-                <div class="warning-header flex justify-between items-center mb-4">
-                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 0-9 9c0 2.5 1 4.8 2.6 6.4"/><path d="M12 21a9 9 0 0 0 9-9c0-2.5-1-4.8-2.6-6.4"/></svg>
-                        熱帶氣旋資訊
-                    </span>
+                <div class="panel-body">
+                    <div id="tcNewsContent" class="text-sm space-y-2" style="color:var(--text);">載入中...</div>
                 </div>
-                <div id="tcContent" class="text-sm text-slate-600 dark:text-slate-300 space-y-2">載入中...</div>
             </div>
 
-            <!-- 熱帶氣旋路徑圖與即時數據專區（左右並排） -->
-            <div class="warning-card bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors" id="tcTrackCard">
-                <div class="warning-header flex flex-col md:flex-row justify-between items-start md:items-center mb-5 pb-4 border-b border-slate-100 dark:border-slate-800/80 gap-3">
-                    <span class="warning-title-text text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-cyan-500"><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 0-9 9c0 2.5 1 4.8 2.6 6.4"/><path d="M12 21a9 9 0 0 0 9-9c0-2.5-1-4.8-2.6-6.4"/></svg>
-                        熱帶氣旋路徑圖
-                    </span>
+            <!-- 熱帶氣旋資訊 -->
+            <div class="panel" id="tcCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">04</span> / 熱帶氣旋資訊</span>
+                </div>
+                <div class="panel-body">
+                    <div id="tcContent" class="text-sm space-y-2" style="color:var(--text);">載入中...</div>
+                </div>
+            </div>
+
+            <!-- 熱帶氣旋路徑圖與即時數據專區 -->
+            <div class="panel" id="tcTrackCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">05</span> / 熱帶氣旋路徑圖</span>
                     <!-- 動態切換按鈕列 -->
                     <div class="flex flex-wrap items-center gap-1.5" id="trackImageButtons">
-                        <button onclick="switchTrackImage('output/TC/all.png', this)" class="px-3.5 py-1.5 text-xs bg-cyan-500 text-white rounded-xl shadow-md transition-colors font-semibold">全部熱帶氣旋</button>
+                        <button onclick="switchTrackImage('output/TC/all.png', this)" class="chip chip-active">全部熱帶氣旋</button>
                     </div>
                 </div>
-                
-                <!-- 圖片與表格並排容器 -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    <!-- 路徑圖顯示容器 (佔 2 欄) -->
-                    <div id="tcMapContainer" class="lg:col-span-2 w-full flex justify-center bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 p-2 shadow-inner">
-                        <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain rounded-xl shadow-md">
+
+                <div class="panel-body">
+                    <!-- 圖片與表格並排容器 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        <!-- 路徑圖顯示容器 (佔 2 欄) -->
+                        <div id="tcMapContainer" class="lg:col-span-2 w-full flex justify-center map-frame overflow-hidden p-2">
+                            <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain">
+                        </div>
+
+                        <!-- 即時數據表格面板 (佔 1 欄) -->
+                        <div id="tcDetailPanel" class="lg:col-span-1 panel p-4 space-y-4" style="background:var(--bg-2);">
+                            <div class="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                                <h3 class="panel-title text-xs"><i class="fa-solid fa-circle-info accent"></i> 活躍氣旋即時數據</h3>
+                                <span id="tcDetailBadge" class="badge b-sky">即時讀取</span>
+                            </div>
+                            <div id="tcDetailContent" class="text-xs space-y-4" style="color:var(--text);">
+                                <p class="dim text-center py-6">正在讀取熱帶氣旋數據...</p>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- 即時數據表格面板 (佔 1 欄) -->
-                    <div id="tcDetailPanel" class="lg:col-span-1 bg-slate-50/80 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm space-y-4">
-                        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                            <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                <i class="fa-solid fa-circle-info text-cyan-500"></i> 活躍氣旋即時數據
-                            </h3>
-                            <span id="tcDetailBadge" class="text-[10px] px-2.5 py-1 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300 font-semibold">即時讀取</span>
-                        </div>
-                        <div id="tcDetailContent" class="text-xs text-slate-600 dark:text-slate-300 space-y-4">
-                            <p class="text-slate-400 text-center py-6">正在讀取熱帶氣旋數據...</p>
-                        </div>
+                    <!-- 風速分級圖例 -->
+                    <div class="flex flex-wrap items-center justify-center gap-3.5 pt-5 mt-6 border-t border-[var(--line)]">
+                        <span class="legend-item"><span class="legend-dot" style="background:#64748b;"></span>溫帶氣旋</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#94a3b8;"></span>低壓區</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#38bdf8;"></span>熱帶低氣壓</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#34d399;"></span>熱帶風暴</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span>強烈熱帶風暴</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#fb923c;"></span>颱風</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#f87171;"></span>強颱風</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#c084fc;"></span>超強颱風</span>
                     </div>
-                </div>
-        
-                <!-- 風速分級圖例 -->
-                <div class="flex flex-wrap items-center justify-center gap-3.5 text-xs text-slate-600 dark:text-slate-400 pt-5 mt-6 border-t border-slate-100 dark:border-slate-800/80">
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#64748b]"></span>溫帶氣旋</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#94a3b8]"></span>低壓區</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#38bdf8]"></span>熱帶低氣壓</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#34d399]"></span>熱帶風暴</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#fbbf24]"></span>強烈熱帶風暴</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#fb923c]"></span>颱風</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#f87171]"></span>強颱風</span>
-                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-[#c084fc]"></span>超強颱風</span>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 頁尾免責聲明與版權 -->
-    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800/80 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-20">
-        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-[var(--line)] text-center text-[11px] mut space-y-1.5 pb-20">
+        <p><strong class="font-bold" style="color:var(--text);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
     <!-- 底部固定導航欄 -->
-    <nav class="bottom-fixed-bar fixed bottom-3 left-4 right-4 z-50 max-w-lg mx-auto bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl rounded-3xl px-3 py-2 transition-all duration-300">
+    <nav class="bottom-fixed-bar fixed bottom-3 left-4 right-4 z-50 max-w-lg mx-auto px-3 py-2">
         <div class="flex justify-around items-center">
-            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
-                <i class="fa-solid fa-cloud text-lg"></i>
-                <span class="text-[11px]">天氣實況</span>
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-cloud"></i>
+                <span>天氣實況</span>
             </a>
-            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-cyan-600 dark:text-cyan-400 font-bold transition-all hover:scale-105" style="text-decoration: none;">
-                <i class="fa-solid fa-hurricane text-lg"></i>
-                <span class="text-[11px]">熱帶氣旋</span>
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn active">
+                <i class="fa-solid fa-hurricane"></i>
+                <span>熱帶氣旋</span>
             </a>
-            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
-                <i class="fa-solid fa-chart-line text-lg"></i>
-                <span class="text-[11px]">天氣預報</span>
+            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>天氣預報</span>
             </a>
-            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
-                <i class="fa-solid fa-wind text-lg"></i>
-                <span class="text-[11px]">空氣質素</span>
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-wind"></i>
+                <span>空氣質素</span>
             </a>
         </div>
     </nav>
@@ -409,19 +450,19 @@
 
             if (cardEl) cardEl.style.display = 'block';
             if (titleEl && data.mainTitle) {
-                titleEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-cyan-500"></i> ${data.mainTitle}`;
+                titleEl.innerHTML = `<span class="panel-num">02</span> / ${data.mainTitle}`;
             }
             if (timeEl && data.updateTimeText) {
                 timeEl.textContent = data.updateTimeText;
             }
 
             let html = `
-                <table class="w-full text-left border-collapse text-xs">
+                <table class="data-table">
                     <thead>
-                        <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                            <th class="py-2.5 px-3 font-semibold">警報信號</th>
-                            <th class="py-2.5 px-3 font-semibold">預測生效時間</th>
-                            <th class="py-2.5 px-3 font-semibold">發佈機率</th>
+                        <tr>
+                            <th>警報信號</th>
+                            <th>預測生效時間</th>
+                            <th>發佈機率</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -430,14 +471,14 @@
             validRows.forEach(row => {
                 const prob = row.probability.trim();
                 const period = row.period ? row.period.trim() : '-';
-                
-                let probBadge = `<span class="px-2 py-0.5 rounded-md font-semibold bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-300">${prob}</span>`;
+
+                let probBadge = `<span class="badge b-sky">${prob}</span>`;
 
                 html += `
-                    <tr class="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td class="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200">${row.signal}</td>
-                        <td class="py-2.5 px-3 text-slate-600 dark:text-slate-300">${period !== '' ? period : '-'}</td>
-                        <td class="py-2.5 px-3">${probBadge}</td>
+                    <tr>
+                        <td class="font-bold">${row.signal}</td>
+                        <td class="num mut">${period !== '' ? period : '-'}</td>
+                        <td>${probBadge}</td>
                     </tr>
                 `;
             });
@@ -454,7 +495,7 @@
 
         // 儀表盤幾何與分級設定
         const SITE = {
-            scaleMax: 250, 
+            scaleMax: 250,
             bands: [
                 ['gray', 0, 40, '#94a3b8'],          // 0-40: 質感銀灰
                 ['blue', 41, 62, '#38bdf8'],         // 41-62: 清新天藍
@@ -530,14 +571,14 @@
             el.setAttribute('role', 'img');
             el.setAttribute('aria-label', `${speed} km/h`);
             el.dataset.speed = speed;
-            
+
             animateGauge(el);
         }
 
         function animateGauge(el) {
             const speed = parseFloat(el.dataset.speed);
             if (isNaN(speed)) return;
-            
+
             const targetFrac = Math.min(speed, SITE.scaleMax) / SITE.scaleMax;
             const prog = el.querySelector('.g-prog');
             const needle = el.querySelector('.g-needle');
@@ -556,7 +597,7 @@
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
                 const easeProgress = 1 - Math.pow(1 - progress, 4);
-                
+
                 const currentFrac = targetFrac * easeProgress;
                 const currentVal = speed * easeProgress;
 
@@ -630,9 +671,9 @@
                 badgeEl.style.backgroundColor = stormData.intensityObj.color || '#0284c7';
                 badgeEl.style.color = '#ffffff';
             }
-            
+
             if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
-            
+
             if (timePillTextEl) {
                 timePillTextEl.textContent = stormData.time || '-';
             }
@@ -642,7 +683,7 @@
             if (posEl) posEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
             if (moveEl) moveEl.textContent = stormData.movement || '-';
             if (distEl) distEl.textContent = stormData.distToMacau || '-';
-            
+
             if (bulletinEl) {
                 bulletinEl.textContent = generateTyphoonBulletin(stormData);
             }
@@ -666,11 +707,9 @@
                 updateWindGauge(stormData);
             }
             const buttons = document.querySelectorAll('#gaugeStormTabs button');
-            buttons.forEach(btn => {
-                btn.className = "px-3.5 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors font-medium";
-            });
+            buttons.forEach(btn => btn.classList.remove('chip-active'));
             if (btnElement) {
-                btnElement.className = "px-3.5 py-1.5 text-xs bg-cyan-500 text-white rounded-xl shadow-md transition-colors font-semibold";
+                btnElement.classList.add('chip-active');
             }
         }
 
@@ -698,7 +737,7 @@
             const engDir = distParts[0];
             const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
             const dirChinese = distanceDirections[engDir] || engDir;
-            
+
             let windClause = "";
             if (!stormData.isEx && stormData.wind && stormData.wind !== '-') {
                 const windKmh = stormData.wind.replace(' km/h', '');
@@ -837,7 +876,7 @@
 
             const name = currentMeta.name;
             const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
-            
+
             let categoryDesc = intensityObj.name;
             if (intensityNameMap[currentMeta.rawCategory]) {
                 categoryDesc = intensityNameMap[currentMeta.rawCategory];
@@ -893,58 +932,41 @@
         function switchTrackImage(imagePath, btnElement) {
             const imgEl = document.getElementById('tcTrackImageViewer');
             const mapContainer = document.getElementById('tcMapContainer');
-            
+
             if (mapContainer && !document.getElementById('tcTrackImageViewer')) {
-                mapContainer.innerHTML = `<img id="tcTrackImageViewer" src="${imagePath}" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain rounded-xl shadow-md">`;
+                mapContainer.innerHTML = `<img id="tcTrackImageViewer" src="${imagePath}" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain">`;
             } else if (imgEl) {
                 imgEl.src = imagePath + '?' + new Date().getTime();
             }
 
             const buttons = document.querySelectorAll('#trackImageButtons button');
-            buttons.forEach(btn => {
-                btn.className = "px-3.5 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors font-medium";
-            });
+            buttons.forEach(btn => btn.classList.remove('chip-active'));
             if (btnElement) {
-                btnElement.className = "px-3.5 py-1.5 text-xs bg-cyan-500 text-white rounded-xl shadow-md transition-colors font-semibold";
+                btnElement.classList.add('chip-active');
             }
         }
 
         function generateStormCardHtml(stormData) {
             return `
-                <div class="border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm shadow-sm mb-3 last:mb-0">
-                    <div class="font-bold text-slate-800 dark:text-slate-100 text-sm mb-2.5 flex justify-between items-center">
-                        <span class="text-base">${stormData.name}</span>
-                        <span class="text-[11px] px-2.5 py-1 rounded-full font-semibold" style="background-color: ${stormData.intensityObj.color}20; color: ${stormData.intensityObj.color}">${stormData.category}</span>
+                <div class="storm-mini" style="--sc:${stormData.intensityObj.color};">
+                    <div class="flex justify-between items-center mb-2.5">
+                        <span class="text-sm font-bold" style="color:var(--text);">${stormData.name}</span>
+                        <span class="tag" style="background-color:${stormData.intensityObj.color}1a; border:1px solid ${stormData.intensityObj.color}55; color:${stormData.intensityObj.color};">${stormData.category}</span>
                     </div>
-                    <table class="w-full text-left border-collapse text-xs">
+                    <table class="kv-table num">
                         <tbody>
-                            <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                <td class="py-1.5 pr-2 text-slate-500">實況時間</td>
-                                <td class="py-1.5 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.time || '-'}</td>
-                            </tr>
-                            <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                <td class="py-1.5 pr-2 text-slate-500">最大風速</td>
-                                <td class="py-1.5 pl-2 font-mono text-slate-800 dark:text-slate-300 font-semibold">${stormData.wind}</td>
-                            </tr>
-                            <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                <td class="py-1.5 pr-2 text-slate-500">中心位置</td>
-                                <td class="py-1.5 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td>
-                            </tr>
-                            <tr class="border-b border-slate-100 dark:border-slate-800/80">
-                                <td class="py-1.5 pr-2 text-slate-500">移動方向</td>
-                                <td class="py-1.5 pl-2 font-mono text-slate-700 dark:text-slate-300">${stormData.movement}</td>
-                            </tr>
-                            <tr>
-                                <td class="py-1.5 pr-2 text-slate-500">距離澳門</td>
-                                <td class="py-1.5 pl-2 font-mono text-slate-800 dark:text-slate-300 font-semibold">${stormData.distToMacau}</td>
-                            </tr>
+                            <tr><td>實況時間</td><td>${stormData.time || '-'}</td></tr>
+                            <tr><td>最大風速</td><td>${stormData.wind}</td></tr>
+                            <tr><td>中心位置</td><td>${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td></tr>
+                            <tr><td>移動方向</td><td>${stormData.movement}</td></tr>
+                            <tr><td>距離澳門</td><td>${stormData.distToMacau}</td></tr>
                         </tbody>
                     </table>
-                    <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-                        <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1">
-                            <i class="fa-solid fa-file-lines text-cyan-500"></i> 熱帶氣旋報文
+                    <div class="mt-3 pt-3 border-t border-[var(--line)]">
+                        <div class="micro mb-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-lines accent"></i> 熱帶氣旋報文
                         </div>
-                        <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 text-xs leading-relaxed font-sans shadow-inner">
+                        <div class="info-box" style="padding:10px;">
                             ${generateTyphoonBulletin(stormData)}
                         </div>
                     </div>
@@ -960,7 +982,7 @@
             const trackCard = document.getElementById('tcTrackCard');
             if (!container) return;
 
-            container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this)" class="px-3.5 py-1.5 text-xs bg-cyan-500 text-white rounded-xl shadow-md transition-colors font-semibold">全部熱帶氣旋</button>`;
+            container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this)" class="chip chip-active">全部熱帶氣旋</button>`;
             if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
 
             const files = ['A', 'B', 'C', 'D', 'E', 'F'];
@@ -980,19 +1002,19 @@
 
                     const stormData = parseCSVToTyphoon(text, f);
                     if (!stormData) continue;
-                    
+
                     activeCount++;
                     allActiveStorms[f] = stormData;
 
                     const btn = document.createElement('button');
-                    btn.className = "px-3.5 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors font-medium";
+                    btn.className = "chip";
                     btn.textContent = stormData.name;
                     btn.onclick = function() { switchTrackImage(imgPath, this); };
                     container.appendChild(btn);
 
                     if (gaugeTabsContainer) {
                         const gaugeBtn = document.createElement('button');
-                        gaugeBtn.className = activeCount === 1 ? "px-3.5 py-1.5 text-xs bg-cyan-500 text-white rounded-xl shadow-md transition-colors font-semibold" : "px-3.5 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl shadow-sm transition-colors font-medium";
+                        gaugeBtn.className = activeCount === 1 ? "chip chip-active" : "chip";
                         gaugeBtn.textContent = stormData.name;
                         gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
                         gaugeTabsContainer.appendChild(gaugeBtn);
@@ -1033,7 +1055,7 @@
             const allImg = new Image();
             allImg.onerror = function() {
                 if (mapContainer) {
-                    mapContainer.innerHTML = '<div class="text-slate-400 py-12 text-center text-sm">現時沒有熱帶氣旋路徑圖</div>';
+                    mapContainer.innerHTML = '<div class="dim py-12 text-center text-sm">現時沒有熱帶氣旋路徑圖</div>';
                 }
             };
             allImg.src = 'output/TC/all.png';
@@ -1054,7 +1076,7 @@
             const weekday = weekdays[now.getDay()];
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
-            
+
             document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
 
             const lunarEl = document.getElementById('lunar-date');
