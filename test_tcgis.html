@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.3</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.1.4</title>
 
     <!-- Google Fonts : monospace terminal aesthetic -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -309,7 +309,7 @@
                 <span class="dot pulse-dot" style="position:absolute; top:-3px; right:-3px; width:5px; height:5px; border-radius:50%; background:var(--accent);"></span>
             </span>
             <div class="min-w-0 leading-tight">
-                <h1 class="brand-title truncate">MSSO 熱帶氣旋 GIS<span class="brand-sub">v4.1.3</span></h1>
+                <h1 class="brand-title truncate">MSSO 熱帶氣旋 GIS<span class="brand-sub">v4.1.4</span></h1>
                 <p class="micro dim hidden lg:block">實時及歷史熱帶氣旋 GIS 監控系統</p>
             </div>
         </div>
@@ -424,7 +424,7 @@
 
             <div class="side-foot flex items-center justify-between px-4 py-2.5">
                 <span class="micro dim">MSSO GIS 向量引擎</span>
-                <span class="micro accent">v4.1.3</span>
+                <span class="micro accent">v4.1.4</span>
             </div>
         </aside>
 
@@ -708,24 +708,9 @@
             return "-";
         }
 
-        function generateCircleCoords(centerLon, centerLat, radiusKm, numPoints = 64) {
-            const coords = [];
-            const R = 6371;
-            for (let i = 0; i <= numPoints; i++) {
-                const angle = (i / numPoints) * 2 * Math.PI;
-                const dLat = (radiusKm / R) * (180 / Math.PI);
-                const dLon = (radiusKm / R) * (180 / Math.PI) / Math.cos(centerLat * Math.PI / 180);
-                const lon = centerLon + dLon * Math.cos(angle);
-                const lat = centerLat + dLat * Math.sin(angle);
-                coords.push([lon, lat]);
-            }
-            return coords;
-        }
-
         function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
             if (!coords || coords.length < 2) return coords;
 
-            // 過濾連續重複座標，避免平滑化時產生除以零或斷裂問題
             let uniqueCoords = [coords[0]];
             for (let i = 1; i < coords.length; i++) {
                 const prev = uniqueCoords[uniqueCoords.length - 1];
@@ -767,6 +752,7 @@
             return smooth;
         }
 
+        // ERROR_HOURS 與 ERROR_RADII_KM (誤差半徑嚴格跟隨預報時效小時數)
         const ERROR_HOURS = [0, 3, 6, 12, 18, 24, 36, 48, 60, 72, 96, 120];
         const ERROR_RADII_KM = [15, 26, 36, 58, 79, 100, 135, 170, 212.5, 255, 345, 465];
 
@@ -912,7 +898,7 @@
         let myChart = null;
         let mapLoaded = false;
         let activeIntensityFilter = 'all';
-        let currentView = 'map'; // 'map', 'stats', 'tables'
+        let currentView = 'map';
 
         function getHourFromCategory(cat) {
             const catLower = String(cat).toLowerCase();
@@ -973,6 +959,7 @@
             let pastNodes = [];
             let forecastNodes = [];
 
+            // 嚴格偵測及篩選 CSV 檔案內實際存在的預報點類別（例如 0h, 24h, 48h 等或自定義時效點）
             let tempForecastRows = rows.filter(r => {
                 const cat = r.category.toLowerCase();
                 return cat === 'current' || cat === '0h' || cat === '0' || cat.includes('h') || !isNaN(parseInt(cat));
@@ -982,7 +969,7 @@
                 tempForecastRows = rows;
             }
 
-            // 確保預報點按照預報時效 (0h, 24h, 48h...) 嚴格依時序排序，以防連線錯亂
+            // 依預報時效 (0h, 24h, 48h...) 嚴格依時序排序，以防連線錯亂
             tempForecastRows.sort((a, b) => getHourFromCategory(a.category) - getHourFromCategory(b.category));
 
             let fPointsForCalc = [];
@@ -1095,7 +1082,6 @@
                 forecastNodes.push(nodeInfo);
             });
 
-            // 嚴格依時序排序預報節點
             forecastNodes.sort((a, b) => a.hour - b.hour);
 
             pastRows.forEach(pt => {
@@ -1309,38 +1295,6 @@
             return loaded;
         }
 
-        function getStormBounds(stKey) {
-            const keys = Object.keys(typhoons);
-            if (stKey === 'all' || keys.length === 0) {
-                return { center: [130, 15], zoom: 4.2 };
-            }
-            const st = typhoons[stKey] || typhoons[keys[0]];
-            if (!st) return { center: [130, 15], zoom: 4.2 };
-
-            let allCoords = [];
-            if (st.pastCoordsOnly) allCoords = allCoords.concat(st.pastCoordsOnly);
-            if (st.forecast) allCoords = allCoords.concat(st.forecast);
-            if (allCoords.length === 0) return { center: [130, 15], zoom: 5.5 };
-
-            let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-            allCoords.forEach(c => {
-                if (!c || isNaN(c[0]) || isNaN(c[1])) return;
-                if (c[0] < minLon) minLon = c[0];
-                if (c[0] > maxLon) maxLon = c[0];
-                if (c[1] < minLat) minLat = c[1];
-                if (c[1] > maxLat) maxLat = c[1];
-            });
-            if (minLon === Infinity || maxLon === -Infinity) return { center: [130, 15], zoom: 4.2 };
-
-            const center = [(minLon + maxLon) / 2, (minLat + maxLat) / 2];
-            const lonSpan = maxLon - minLon;
-            const latSpan = maxLat - minLat;
-            const maxSpan = Math.max(lonSpan, latSpan, 1.0);
-
-            let zoom = Math.min(10.0, Math.max(6.0, 360 / (maxSpan * 3.8)));
-            return { center, zoom };
-        }
-
         const tcCountryMap = {
             "China": "中國", "Taiwan": "台灣", "Japan": "日本", "Philippines": "菲律賓",
             "Vietnam": "越南", "South Korea": "韓國", "North Korea": "朝鮮", "Russia": "俄羅斯",
@@ -1359,7 +1313,7 @@
 
             myChart = echarts.init(chartDom);
 
-            myChart.showLoading(loadingOpts('載入 v4.1.3 GIS 向量圖資與氣旋檔案...'));
+            myChart.showLoading(loadingOpts('載入 v4.1.4 GIS 向量圖資與氣旋檔案...'));
 
             try {
                 const [worldResp, csvTyphoons] = await Promise.all([
@@ -1565,7 +1519,6 @@
             if (statsContainer) statsContainer.style.display = (view === 'stats') ? 'flex' : 'none';
             if (tablesContainer) tablesContainer.style.display = (view === 'tables') ? 'flex' : 'none';
 
-            // 更新頂部 Nav Tab 高亮狀態
             const tabs = ['map', 'stats', 'tables'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`nav-btn-${t}`);
@@ -1578,7 +1531,6 @@
                 }
             });
 
-            // 同步底部行動導航高亮狀態
             document.querySelectorAll('.mnav-btn').forEach(btn => {
                 if (btn.getAttribute('data-nav') === view) {
                     btn.classList.add('active');
@@ -2045,9 +1997,6 @@
             const coneStroke = isDark ? 'rgba(63, 217, 164, 0.40)' : 'rgba(11, 154, 107, 0.40)';
             const eyeColor = isDark ? '#ff6b6b' : '#dc2626';
 
-            const macauBg = isDark ? 'rgba(14, 20, 24, 0.9)' : 'rgba(244, 242, 234, 0.95)';
-            const macauTextColor = isDark ? '#e6e9e9' : '#1a1e20';
-
             const tooltipBg = isDark ? 'rgba(14, 20, 24, 0.95)' : 'rgba(244, 242, 234, 0.98)';
             const tooltipBorder = isDark ? '#2b373e' : '#bfbcab';
             const tooltipText = isDark ? '#e6e9e9' : '#1a1e20';
@@ -2312,64 +2261,50 @@
                         show: true,
                         formatter: '{b}',
                         position: 'right',
-                        color: macauTextColor,
-                        fontSize: 11,
+                        color: isDark ? '#e6e9e9' : '#1a1e20',
+                        fontSize: 10,
                         fontWeight: 'bold',
-                        fontFamily: monoFont,
-                        backgroundColor: macauBg,
-                        padding: [4, 7],
-                        borderRadius: 0
-                    }
+                        fontFamily: monoFont
+                    },
+                    silent: true
+                });
+
+                seriesList.push({
+                    type: 'effectScatter',
+                    coordinateSystem: 'geo',
+                    z: 7,
+                    data: [{ value: [113.5685, 22.1595, 1] }],
+                    symbolSize: 14,
+                    rippleEffect: { brushType: 'stroke', scale: 3.5, period: 2.5 },
+                    itemStyle: { color: isDark ? '#3fd9a4' : '#0b9a6b' },
+                    silent: true
                 });
             }
 
-            const bounds = getStormBounds(currentStormKey);
-
-            let centerToUse = bounds.center;
-            let zoomToUse = bounds.zoom;
-
-            if (!isStormSwitch && myChart) {
-                const prevOption = myChart.getOption();
-                if (prevOption && prevOption.geo && prevOption.geo[0]) {
-                    if (prevOption.geo[0].center) centerToUse = prevOption.geo[0].center;
-                    if (prevOption.geo[0].zoom) zoomToUse = prevOption.geo[0].zoom;
-                }
-            }
-
-            let graphicItems = [];
-            if (keys.length === 0 || filteredKeys.length === 0) {
-                graphicItems = [{
-                    type: 'text',
-                    z: 100,
-                    zlevel: 10,
-                    left: 'center',
-                    top: 'center',
-                    style: {
-                        text: keys.length === 0 ? (currentSelectedYear === 'current' ? '當前西北太平洋沒有熱帶氣旋活躍' : `${currentSelectedYear} 年無歷史資料記錄`) : '沒有符合條件的氣旋檔案',
-                        fill: isDark ? '#93a0a6' : '#5c6663',
-                        fontSize: 14,
-                        fontWeight: 'bold',
-                        fontFamily: monoFont
-                    }
-                }];
+            let bounds = getStormBounds(currentStormKey);
+            if (isStormSwitch) {
+                bounds = getStormBounds(currentStormKey);
             }
 
             const option = {
                 backgroundColor: mapBgColor,
-                graphic: graphicItems,
-                animationDuration: 800,
-                animationEasing: 'cubicOut',
                 geo: {
                     map: 'world50m',
                     roam: true,
-                    center: centerToUse,
-                    zoom: zoomToUse,
-                    aspectScale: 1.0,
-                    label: { show: false },
-                    itemStyle: { areaColor: areaColor, borderColor: borderColor, borderWidth: 0.7 },
-                    emphasis: isMobile ? { disabled: true } : {
-                        focus: 'self',
-                        itemStyle: { areaColor: emphAreaColor, borderColor: emphBorderColor, borderWidth: 1.2 },
+                    zoom: bounds.zoom,
+                    center: bounds.center,
+                    scaleLimit: { min: 2.0, max: 35.0 },
+                    itemStyle: {
+                        areaColor: areaColor,
+                        borderColor: borderColor,
+                        borderWidth: 0.6
+                    },
+                    emphasis: {
+                        itemStyle: {
+                            areaColor: emphAreaColor,
+                            borderColor: emphBorderColor,
+                            borderWidth: 1.2
+                        },
                         label: { show: false }
                     },
                     select: { disabled: true }
@@ -2382,37 +2317,23 @@
                     padding: [10, 14],
                     textStyle: { color: tooltipText, fontSize: 12, fontFamily: monoFont },
                     formatter: function(params) {
-                        if (params.componentType === 'geo') {
-                            if (isMobile) {
-                                return '';
-                            }
-                            const countryName = params.name || '';
-                            if (!countryName) return '';
-                            return `<div style="font-weight:bold; color:${isDark ? '#3fd9a4' : '#0b9a6b'}; font-size:13px;"><i class="fa-solid fa-earth-asia"></i> ${countryName}</div>`;
-                        }
+                        if (!params || !params.data) return '';
                         const d = params.data;
-                        if (!d) return params.name || '';
+                        if (d.stormName && d.intensityObj) {
+                            let windStr = d.windVal !== undefined && !isNaN(d.windVal) && !d.isEx ? `${d.windVal} km/h` : (d.wind || '-');
+                            let timeStr = d.nodeInfo && d.nodeInfo.time ? d.nodeInfo.time : '';
+                            let categoryStr = `${d.intensityObj.code} · ${d.intensityObj.name}`;
+                            let distMacau = d.nodeInfo && d.nodeInfo.distToMacau ? d.nodeInfo.distToMacau : getDistanceAndDirectionToMacau(d.value[0], d.value[1]);
+                            let movement = d.nodeInfo && d.nodeInfo.movementDir ? d.nodeInfo.movementDir : '-';
 
-                        if (d.name === '澳門') {
-                            return `<div style="font-weight:bold; color:${isDark ? '#3fd9a4' : '#0b9a6b'};"><i class="fa-solid fa-location-dot mr-1"></i> 澳門特別行政區</div>`;
-                        }
-
-                        if (d.stormName && d.nodeInfo) {
-                            const n = d.nodeInfo;
-                            const windStr = n.isEx ? '-' : n.wind;
-                            const isFc = n.category && String(n.category).toLowerCase().includes('h');
-                            const catBadge = `<span style="color:${d.intensityObj.color}; font-weight:bold;">[${d.intensityObj.code}] ${d.intensityObj.name}</span>`;
-                            return `<div style="font-weight:bold; margin-bottom:6px; color:${d.intensityObj.color}; font-size:13px;">
-                                        <i class="fa-solid fa-hurricane"></i> ${d.stormName} (${isFc ? n.category + ' 預報' : '實時/過去'})
-                                    </div>
-                                    <div style="display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:12px;">
-                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">時間:</span><span style="font-weight:600;">${n.time || '-'}</span>
-                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">強度:</span><span>${catBadge}</span>
-                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">風速:</span><span style="font-weight:600;">${windStr}</span>
-                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">位置:</span><span>${n.coordStr}</span>
-                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">移向:</span><span>${n.movementDir || '-'}</span>
-                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">距澳:</span><span>${n.distToMacau || '-'}</span>
-                                    </div>`;
+                            return `
+                                <div style="font-weight:bold; margin-bottom:4px; color:${d.intensityObj.color};">${d.stormName} ${timeStr ? '(' + timeStr + ')' : ''}</div>
+                                <div>強度: <b>${categoryStr}</b></div>
+                                <div>風速: <b>${windStr}</b></div>
+                                <div>中心: <b>${d.value[1].toFixed(1)}°N, ${d.value[0].toFixed(1)}°E</b></div>
+                                <div>距離澳門: <b>${distMacau}</b></div>
+                                <div>移動: <b>${movement}</b></div>
+                            `;
                         }
                         return params.name || '';
                     }
@@ -2423,7 +2344,7 @@
             myChart.setOption(option, true);
         }
 
-        window.addEventListener('load', () => {
+        window.addEventListener('DOMContentLoaded', () => {
             initVectorMap();
         });
     </script>
