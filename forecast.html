@@ -4,134 +4,258 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>氣象圖表分析與輸出專區 - 澳門民間氣象台 MSSO</title>
-    <!-- Tailwind CSS -->
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (layout/spacing only) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
         }
-    </script> 
+    </script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- 引入自動農曆計算套件 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+
     <style>
-        ::-webkit-scrollbar {
-            height: 6px;
-            width: 6px;
+        /* ============ Design tokens ============ */
+        :root, html:not(.dark) {
+            --bg-page:#edebe2; --bg:#f4f2ea; --bg-2:#eae8dc;
+            --line:#d6d3c4; --line-strong:#bfbcab;
+            --text:#1a1e20; --muted:#5c6663; --faint:#8b948f;
+            --accent:#0b9a6b; --cream:#181d20; --cream-text:#f1eee2;
+            --c-red-rgb:190,40,45; --c-orange-rgb:200,90,20; --c-amber-rgb:190,140,10;
+            --c-yellow-rgb:150,140,20; --c-green-rgb:11,154,107; --c-sky-rgb:20,120,180;
+            --c-blue-rgb:30,90,190; --c-indigo-rgb:80,70,200; --c-purple-rgb:140,70,210;
+            --c-rose-rgb:210,40,90; --c-cyan-rgb:10,140,160; --c-slate-rgb:90,100,105;
         }
-        ::-webkit-scrollbar-track {
-            background: rgba(100, 116, 139, 0.1);
-            border-radius: 4px;
+        html.dark {
+            --bg-page:#0b1013; --bg:#0e1418; --bg-2:#121a1f;
+            --line:#1f282e; --line-strong:#2b373e;
+            --text:#e6e9e9; --muted:#93a0a6; --faint:#5f6b72;
+            --accent:#3fd9a4; --cream:#e7e2d2; --cream-text:#12181b;
+            --c-red-rgb:255,107,107; --c-orange-rgb:255,150,90; --c-amber-rgb:255,200,87;
+            --c-yellow-rgb:230,225,130; --c-green-rgb:63,217,164; --c-sky-rgb:96,185,235;
+            --c-blue-rgb:96,155,235; --c-indigo-rgb:130,140,250; --c-purple-rgb:180,150,255;
+            --c-rose-rgb:255,110,150; --c-cyan-rgb:105,225,240; --c-slate-rgb:150,165,170;
         }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.4);
-            border-radius: 4px;
+
+        body {
+            font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+            -webkit-font-smoothing:antialiased;
+            background:var(--bg-page); color:var(--text);
+        }
+
+        /* ============ Scrollbar ============ */
+        ::-webkit-scrollbar { width:8px; height:8px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--line-strong); }
+        ::-webkit-scrollbar-thumb:hover { background:var(--faint); }
+
+        /* ============ Text helpers ============ */
+        .micro { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+        .dim { color:var(--faint); }
+        .mut { color:var(--muted); }
+        .accent { color:var(--accent); }
+        .num { font-variant-numeric:tabular-nums; }
+
+        /* ============ Panels ============ */
+        .panel { background:var(--bg); border:1px solid var(--line); }
+        .panel-head {
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:14px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap;
+        }
+        .panel-title { font-size:13px; font-weight:700; letter-spacing:.03em; display:flex; align-items:center; gap:9px; }
+        .panel-num { color:var(--accent); font-weight:800; }
+        .panel-body { padding:16px; }
+
+        /* ============ Brand ============ */
+        .brand-mark {
+            width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--accent);
+            position:relative; flex-shrink:0; font-size:20px;
+        }
+        .dot { width:6px; height:6px; border-radius:50%; background:var(--accent); display:inline-block; }
+        .pulse-dot { position:relative; }
+        .pulse-dot::after {
+            content:''; position:absolute; inset:0; border-radius:50%;
+            background:var(--accent); animation:pulseRing 2s infinite ease-in-out;
+        }
+        @keyframes pulseRing { 0%{transform:scale(1);opacity:.7;} 100%{transform:scale(2.6);opacity:0;} }
+
+        /* ============ Buttons ============ */
+        .icon-btn {
+            width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted);
+            cursor:pointer; transition:.15s; font-size:14px;
+        }
+        .icon-btn:hover { color:var(--text); border-color:var(--accent); }
+        .icon-btn:active { transform:translateY(1px); }
+        .ic-moon { display:inline; } .ic-sun { display:none; }
+        html.dark .ic-moon { display:none; } html.dark .ic-sun { display:inline; }
+
+        .btn {
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--text);
+            font-size:11px; font-weight:700; padding:8px 14px; cursor:pointer; transition:.15s;
+            display:inline-flex; align-items:center; justify-content:center; gap:6px; text-decoration:none;
+        }
+        .btn:hover { border-color:var(--accent); color:var(--accent); }
+        .btn:active { transform:translateY(1px); }
+        .btn-primary { background:var(--cream); color:var(--cream-text); border-color:var(--cream); }
+        .btn-primary:hover { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+
+        /* ============ Chips (level / hour buttons) ============ */
+        .chip {
+            padding:8px 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted); transition:.15s;
+        }
+        .chip:hover { color:var(--text); border-color:var(--faint); }
+        .chip-active { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+        .chip-active:hover { color:var(--cream-text); border-color:var(--accent); }
+
+        /* ============ Badges ============ */
+        .badge {
+            display:inline-flex; align-items:center; gap:4px; padding:2px 7px; font-size:10px; font-weight:700;
+            color:rgb(var(--bc-rgb,150,165,170)); background:rgba(var(--bc-rgb,150,165,170),.13);
+            border:1px solid rgba(var(--bc-rgb,150,165,170),.3);
+        }
+        .b-sky{--bc-rgb:var(--c-sky-rgb);} .b-green{--bc-rgb:var(--c-green-rgb);}
+
+        /* ============ Chart viewport ============ */
+        .chart-frame {
+            border:1px solid var(--line-strong); background:var(--bg-2);
+        }
+
+        /* ============ Loader ============ */
+        .loader-ring {
+            width:46px; height:46px; border:3px solid var(--line-strong);
+            border-top-color:var(--accent); animation:loaderSpin .9s linear infinite; margin:0 auto 12px;
+        }
+        @keyframes loaderSpin { to { transform:rotate(360deg); } }
+
+        /* ============ Bottom nav ============ */
+        .bottom-fixed-bar { background:var(--bg); border-top:1px solid var(--line); }
+        .bottom-bar-btn {
+            position:relative; display:flex; flex-direction:column; align-items:center; gap:4px;
+            padding:6px 16px; color:var(--muted); font-size:11px; font-weight:700;
+            text-decoration:none; transition:color .15s; font-family:inherit;
+        }
+        .bottom-bar-btn i { font-size:16px; }
+        .bottom-bar-btn:hover { color:var(--text); }
+        .bottom-bar-btn.active { color:var(--accent); }
+        .bottom-bar-btn.active::after {
+            content:''; position:absolute; top:0; left:20%; right:20%; height:2px; background:var(--accent);
         }
     </style>
-        <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
 </head>
-<body class="bg-sky-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-24 transition-colors duration-200">
+<body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-24">
 
     <!-- 容器 -->
     <div class="w-full max-w-7xl space-y-6 flex-grow">
-        
+
         <!-- 標頭 -->
-        <header class="flex justify-between items-center bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-bold tracking-tight dark:text-white flex items-center gap-2">
-                    <i class="fa-solid fa-chart-line text-cyan-500 dark:text-cyan-400"></i> 氣象圖表分析與輸出中心
-                </h1>
-                <div class="mt-2 space-y-0.5">
-                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-300">載入中...</div>
-                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
+        <header class="panel flex justify-between items-center p-5 md:p-6">
+            <div class="flex items-center gap-4">
+                <div class="brand-mark">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span class="pulse-dot dot absolute -top-1 -right-1" style="width:6px;height:6px;"></span>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-2xl font-extrabold tracking-tight flex items-center gap-2">
+                        氣象圖表分析與輸出中心
+                        <span class="badge b-sky">MSSO</span>
+                    </h1>
+                    <div class="mt-1.5 space-y-0.5">
+                        <div id="current-datetime" class="num text-xs md:text-sm font-bold accent">載入中...</div>
+                        <div id="lunar-date" class="text-[11px] mut">農曆計算中...</div>
+                    </div>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
                 <!-- 主題切換按鈕 -->
-                <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shadow-sm" title="切換主題">
-                    <i class="fa-solid fa-moon dark:hidden"></i>
-                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400"></i>
+                <button id="theme-toggle" class="icon-btn" title="切換主題">
+                    <i class="fa-solid fa-moon ic-moon"></i>
+                    <i class="fa-solid fa-sun ic-sun accent"></i>
                 </button>
             </div>
         </header>
 
         <!-- 載入狀態 -->
-        <div id="loading" class="text-center py-20 text-slate-500 dark:text-slate-400">
-            <i class="fa-solid fa-spinner fa-spin text-4xl text-cyan-500 dark:text-cyan-400 mb-3"></i>
-            <p>正在載入氣象圖表與圖層數據...</p>
+        <div id="loading" class="text-center py-20 mut">
+            <div class="loader-ring"></div>
+            <p class="micro">正在載入氣象圖表與圖層數據...</p>
         </div>
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
 
             <!-- 🎯 高低空數值預報圖表輸出專區 -->
-            <section class="bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl shadow-lg dark:shadow-xl transition-colors">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                    <div>
-                        <h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                            <i class="fa-solid fa-layer-group text-cyan-500 dark:text-cyan-400"></i> 高低空數值天氣預報圖
-                        </h2>
-                        <p class="text-xs text-slate-400 mt-0.5">數據每6小時自動更新</p>
-                    </div>
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><span class="panel-num">01</span> / 高低空數值天氣預報圖</h2>
+                    <span class="micro">數據每6小時自動更新</span>
                 </div>
 
-                <!-- 控制面板：高度層與時效選擇 -->
-                <div class="space-y-4 mb-6">
-                    <!-- 高度層選擇 -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">1. 選擇大氣高度層 (Pressure Levels)</label>
-                        <div class="flex flex-wrap gap-2" id="level-selector">
-                            <button onclick="switchLevel('surface')" data-level="surface" class="level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-white bg-cyan-500 shadow-sm">地面</button>
-                            <button onclick="switchLevel('925hPa')" data-level="925hPa" class="level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">925hPa</button>
-                            <button onclick="switchLevel('850hPa')" data-level="850hPa" class="level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">850hPa</button>
-                            <button onclick="switchLevel('700hPa')" data-level="700hPa" class="level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">700hPa</button>
-                            <button onclick="switchLevel('500hPa')" data-level="500hPa" class="level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">500hPa</button>
-                            <button onclick="switchLevel('200hPa')" data-level="200hPa" class="level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">200hPa</button>
+                <div class="panel-body space-y-5">
+                    <!-- 控制面板：高度層與時效選擇 -->
+                    <div class="space-y-4">
+                        <!-- 高度層選擇 -->
+                        <div>
+                            <label class="micro block mb-2">1. 選擇大氣高度層 (Pressure Levels)</label>
+                            <div class="flex flex-wrap gap-2" id="level-selector">
+                                <button onclick="switchLevel('surface')" data-level="surface" class="level-btn chip chip-active">地面</button>
+                                <button onclick="switchLevel('925hPa')" data-level="925hPa" class="level-btn chip">925hPa</button>
+                                <button onclick="switchLevel('850hPa')" data-level="850hPa" class="level-btn chip">850hPa</button>
+                                <button onclick="switchLevel('700hPa')" data-level="700hPa" class="level-btn chip">700hPa</button>
+                                <button onclick="switchLevel('500hPa')" data-level="500hPa" class="level-btn chip">500hPa</button>
+                                <button onclick="switchLevel('200hPa')" data-level="200hPa" class="level-btn chip">200hPa</button>
+                            </div>
+                        </div>
+
+                        <!-- 預報時效選擇 -->
+                        <div>
+                            <label class="micro block mb-2">2. 選擇預報時效 (Forecast Hours)</label>
+                            <div class="flex flex-wrap gap-2" id="hour-selector">
+                                <button onclick="switchHour('0h')" data-hour="0h" class="hour-btn chip chip-active">0h (實況)</button>
+                                <button onclick="switchHour('12h')" data-hour="12h" class="hour-btn chip">12h</button>
+                                <button onclick="switchHour('24h')" data-hour="24h" class="hour-btn chip">24h</button>
+                                <button onclick="switchHour('36h')" data-hour="36h" class="hour-btn chip">36h</button>
+                                <button onclick="switchHour('48h')" data-hour="48h" class="hour-btn chip">48h</button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 預報時效選擇 -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">2. 選擇預報時效 (Forecast Hours)</label>
-                        <div class="flex flex-wrap gap-2" id="hour-selector">
-                            <button onclick="switchHour('0h')" data-hour="0h" class="hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-white bg-cyan-500 shadow-sm">0h (實況)</button>
-                            <button onclick="switchHour('12h')" data-hour="12h" class="hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">12h</button>
-                            <button onclick="switchHour('24h')" data-hour="24h" class="hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">24h</button>
-                            <button onclick="switchHour('36h')" data-hour="36h" class="hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">36h</button>
-                            <button onclick="switchHour('48h')" data-hour="48h" class="hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700">48h</button>
+                    <!-- 圖表顯示主視窗 -->
+                    <div class="panel p-4 md:p-5 space-y-4" style="background:var(--bg-2);">
+                        <div class="flex justify-between items-center flex-wrap gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="dot pulse-dot"></span>
+                                <span id="active-chart-title" class="text-sm font-bold" style="color:var(--text);">地面天氣圖 (0h)</span>
+                            </div>
+                            <span class="badge b-green">狀態：已同步更新</span>
                         </div>
-                    </div>
-                </div>
 
-                <!-- 圖表顯示主視窗 -->
-                <div class="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-6 space-y-4">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full bg-cyan-500 animate-pulse"></span>
-                            <span id="active-chart-title" class="text-sm font-bold text-slate-800 dark:text-slate-200">地面天氣圖 (0h)</span>
+                        <!-- 貼合圖表比例的預覽容器 (aspect-[4/3]) -->
+                        <div class="chart-frame w-full aspect-[4/3] max-h-[75vh] flex items-center justify-center relative overflow-hidden mx-auto" id="chart-viewport">
+                            <!-- 真實圖片標籤 -->
+                            <img id="active-chart-img" src="output/weather_chart/chart_surface_0h.png" alt="氣象預報圖" class="w-full h-full object-contain p-2 transition-opacity duration-200" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-size=\'14\' font-family=\'sans-serif\'>找不到圖片檔案或路徑錯誤...</text></svg>';">
                         </div>
-                        <span class="text-xs text-slate-400">狀態：已同步更新</span>
-                    </div>
 
-                    <!-- 貼合圖表比例的預覽容器 (aspect-[4/3]) -->
-                    <div class="w-full aspect-[4/3] max-h-[75vh] bg-slate-200 dark:bg-slate-900 rounded-xl flex items-center justify-center relative overflow-hidden border border-slate-300 dark:border-slate-800 shadow-inner mx-auto" id="chart-viewport">
-                        <!-- 真實圖片標籤 -->
-                        <img id="active-chart-img" src="output/weather_chart/chart_surface_0h.png" alt="氣象預報圖" class="w-full h-full object-contain p-2 transition-opacity duration-200" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-size=\'14\' font-family=\'sans-serif\'>找不到圖片檔案或路徑錯誤...</text></svg>';">
-                    </div>
-
-                    <!-- 底部操作列 -->
-                    <div class="flex justify-between items-center pt-2">
-                        <div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                            <i class="fa-solid fa-circle-info text-cyan-500"></i> 溫馨提示：天氣圖由AI自動製作，數據僅供參考。
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="refreshChart()" class="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors text-xs font-medium flex items-center gap-1.5">
-                                <i class="fa-solid fa-rotate"></i> 重新載入
-                            </button>
-                            <a id="download-btn" href="output/weather_chart/chart_surface_0h.png" download="chart_surface_0h.png" class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white transition-colors text-xs font-medium flex items-center gap-1.5 shadow-sm" style="text-decoration: none;">
-                                <i class="fa-solid fa-download"></i> 下載圖表
-                            </a>
+                        <!-- 底部操作列 -->
+                        <div class="flex justify-between items-center pt-1 flex-wrap gap-3">
+                            <div class="text-[11px] mut flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-info accent"></i> 溫馨提示：天氣圖由AI自動製作，數據僅供參考。
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="refreshChart()" class="btn"><i class="fa-solid fa-rotate"></i> 重新載入</button>
+                                <a id="download-btn" href="output/weather_chart/chart_surface_0h.png" download="chart_surface_0h.png" class="btn btn-primary"><i class="fa-solid fa-download"></i> 下載圖表</a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -142,29 +266,29 @@
     </div>
 
     <!-- 頁尾免責聲明與版權 -->
-    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-2">
-        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-[var(--line)] text-center text-[11px] mut space-y-1.5 pb-2">
+        <p><strong class="font-bold" style="color:var(--text);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
     <!-- 底部固定導航欄 -->
-    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-lg px-4 py-2 transition-colors">
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 px-4 py-2">
         <div class="max-w-xl mx-auto flex justify-around items-center">
-            <a href="index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
-                <i class="fa-solid fa-cloud text-lg"></i>
-                <span class="text-[11px]">天氣實況</span>
+            <a href="index.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-cloud"></i>
+                <span>天氣實況</span>
             </a>
-            <a href="tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
-                <i class="fa-solid fa-hurricane text-lg"></i>
-                <span class="text-[11px]">熱帶氣旋</span>
+            <a href="tc.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-hurricane"></i>
+                <span>熱帶氣旋</span>
             </a>
-            <a href="forecast.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-cyan-600 dark:text-cyan-400 font-semibold transition-colors" style="text-decoration: none;">
-                <i class="fa-solid fa-chart-line text-lg"></i>
-                <span class="text-[11px]">天氣預報</span>
+            <a href="forecast.html" class="bottom-bar-btn active">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>天氣預報</span>
             </a>
-            <a href="AQImap.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1 px-4 rounded-xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors" style="text-decoration: none;">
-                <i class="fa-solid fa-wind text-lg"></i>
-                <span class="text-[11px]">空氣質素</span>
+            <a href="AQImap.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-wind"></i>
+                <span>空氣質素</span>
             </a>
         </div>
     </nav>
@@ -174,7 +298,7 @@
         const LAT = 22.1595;
         const LON = 113.5685;
         let globalWeatherData = null;
-        
+
         let currentLevel = 'surface';
         let currentHour = '0h';
 
@@ -222,7 +346,7 @@
             const weekday = weekdays[now.getDay()];
             const hours = String(now.getHours()).padStart(2, '0');
             const minutes = String(now.getMinutes()).padStart(2, '0');
-            
+
             document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
 
             const lunarEl = document.getElementById('lunar-date');
@@ -248,7 +372,7 @@
                 document.getElementById('dashboard-content').classList.remove('hidden');
             } catch (error) {
                 console.error("無法載入數據：", error);
-                document.getElementById('loading').innerHTML = `<p class="text-red-500">無法載入氣象數據，請檢查網絡連線。</p>`;
+                document.getElementById('loading').innerHTML = `<p style="color:rgb(var(--c-red-rgb));">無法載入氣象數據，請檢查網絡連線。</p>`;
             }
         }
 
@@ -257,9 +381,9 @@
             currentLevel = level;
             document.querySelectorAll('.level-btn').forEach(btn => {
                 if (btn.getAttribute('data-level') === level) {
-                    btn.className = "level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-white bg-cyan-500 shadow-sm";
+                    btn.classList.add('chip-active');
                 } else {
-                    btn.className = "level-btn px-3.5 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700";
+                    btn.classList.remove('chip-active');
                 }
             });
             updateChartDisplay();
@@ -270,9 +394,9 @@
             currentHour = hour;
             document.querySelectorAll('.hour-btn').forEach(btn => {
                 if (btn.getAttribute('data-hour') === hour) {
-                    btn.className = "hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-white bg-cyan-500 shadow-sm";
+                    btn.classList.add('chip-active');
                 } else {
-                    btn.className = "hour-btn px-4 py-2 rounded-xl text-xs font-semibold transition-all text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700";
+                    btn.classList.remove('chip-active');
                 }
             });
             updateChartDisplay();
@@ -282,13 +406,13 @@
         function updateChartDisplay() {
             // 真實圖片檔案路徑 (例如 output/weather_chart/chart_surface_0h.png)
             const filePath = `output/weather_chart/chart_${currentLevel}_${currentHour}.png`;
-            
+
             // 介面友善標題文字
             const levelText = levelNames[currentLevel] || currentLevel;
             const displayTitle = `${levelText}天氣圖 (${currentHour})`;
 
             document.getElementById('active-chart-title').textContent = displayTitle;
-            
+
             const imgElement = document.getElementById('active-chart-img');
             imgElement.src = filePath;
 
