@@ -1198,7 +1198,7 @@
             if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
-        /* 強化快取驗證與防閃爍機制：只在快取有效（未超期）時直接套用，否則從網路重新取得正確資料 */
+        /* 強化快取驗證與防閃爍機制：若快取在有效期內則直接載入，移除不必要的立即背景二次請求與重新渲染 */
         async function fetchWeatherData(isBackground = false) {
             try {
                 if (!isBackground) {
@@ -1221,13 +1221,12 @@
                         document.getElementById('dashboard-content').classList.remove('hidden');
                         observeRevealElements();
 
-                        // 背景非同步更新以維持資料最新
-                        backgroundFetchWeather();
+                        // 已移除此處的 backgroundFetchWeather()，避免網頁載入或重新整理時重複播放轉場動畫與畫面閃爍
                         return;
                     }
                 }
 
-                // 快取過期或首次載入：直接進行網路請求，確保一開網頁就拿到正確即時數據，不會顯示過期或錯誤資料
+                // 快取過期或首次載入：進行網路請求
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
 
                 const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
@@ -1266,7 +1265,7 @@
             } catch (error) {
                 console.error("無法載入天氣數據：", error);
                 
-                // 網路失敗時若有舊快取則降級顯示，保障基本可用性
+                // 網路失敗時若有舊快取則降級顯示
                 const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
                 const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
                 if (cachedWeather && cachedDistricts && !globalWeatherData) {
@@ -1818,7 +1817,7 @@
         // 自動背景輪詢更新：每 3 分鐘自動重新獲取最新 Open-Meteo 與 CSV 數據，無需手動重整
         setInterval(() => {
             fetchWeatherData(true);
-        }, 1 * 60 * 1000);
+        }, 3 * 60 * 1000);
     </script>
 </body>
 </html>
