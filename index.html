@@ -356,7 +356,7 @@
                     <div id="lunar-date" class="micro dim">農曆計算中...</div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="micro dim">v2.1.1</span>
+                    <span class="micro dim">v2.1.2</span>
                     <button class="icon-btn hidden sm:inline-flex theme-toggle" title="切換主題">
                         <i class="fa-solid fa-moon ic-moon"></i>
                         <i class="fa-solid fa-sun ic-sun"></i>
@@ -1198,15 +1198,18 @@
             if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
-        /* 導入 Stale-While-Revalidate機轉以大幅降低加載等待時間 */
+        /* 強化快取驗證與防閃爍機制：只在快取有效（未超期）時直接套用，否則從網路重新取得正確資料 */
         async function fetchWeatherData(isBackground = false) {
             try {
                 if (!isBackground) {
                     const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
                     const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
                     const cachedNowcast = localStorage.getItem(CACHE_KEY_NOWCAST);
+                    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+                    const nowTime = Date.now();
 
-                    if (cachedWeather && cachedDistricts) {
+                    // 嚴格檢查快取是否存在且在有效期內 (TTL)
+                    if (cachedWeather && cachedDistricts && cachedTime && (nowTime - parseInt(cachedTime) < CACHE_TTL)) {
                         globalWeatherData = JSON.parse(cachedWeather);
                         globalDistrictData = JSON.parse(cachedDistricts);
                         globalNowcastData = cachedNowcast ? JSON.parse(cachedNowcast) : null;
@@ -1217,9 +1220,14 @@
                         document.getElementById('loading').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('hidden');
                         observeRevealElements();
+
+                        // 背景非同步更新以維持資料最新
+                        backgroundFetchWeather();
+                        return;
                     }
                 }
 
+                // 快取過期或首次載入：直接進行網路請求，確保一開網頁就拿到正確即時數據，不會顯示過期或錯誤資料
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
 
                 const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
@@ -1257,6 +1265,21 @@
 
             } catch (error) {
                 console.error("無法載入天氣數據：", error);
+                
+                // 網路失敗時若有舊快取則降級顯示，保障基本可用性
+                const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
+                const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
+                if (cachedWeather && cachedDistricts && !globalWeatherData) {
+                    globalWeatherData = JSON.parse(cachedWeather);
+                    globalDistrictData = JSON.parse(cachedDistricts);
+                    renderDashboard();
+                    renderReports();
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('dashboard-content').classList.remove('hidden');
+                    observeRevealElements();
+                    return;
+                }
+
                 if (!globalWeatherData) {
                     document.getElementById('loading').innerHTML = `
                         <div class="space-y-4">
@@ -1267,6 +1290,40 @@
                             </button>
                         </div>`;
                 }
+            }
+        }
+
+        async function backgroundFetchWeather() {
+            try {
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
+
+                const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
+                    fetch(weatherUrl),
+                    fetch(`nowcast.csv?t=` + Date.now(), { cache: 'no-store' }).catch(() => null),
+                    ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&timezone=Asia/Macau`))
+                ]);
+
+                const newWeatherData = await weatherRes.json();
+                let newNowcastData = null;
+                if (nowcastRes && nowcastRes.ok) {
+                    const nowcastText = await nowcastRes.text();
+                    newNowcastData = parseNowcastText(nowcastText);
+                }
+                const newDistrictData = await Promise.all(districtRes.map(res => res.json()));
+
+                globalWeatherData = newWeatherData;
+                globalNowcastData = newNowcastData;
+                globalDistrictData = newDistrictData;
+
+                localStorage.setItem(CACHE_KEY_WEATHER, JSON.stringify(globalWeatherData));
+                localStorage.setItem(CACHE_KEY_DISTRICTS, JSON.stringify(globalDistrictData));
+                localStorage.setItem(CACHE_KEY_NOWCAST, JSON.stringify(globalNowcastData));
+                localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+
+                renderDashboard();
+                renderReports();
+            } catch (e) {
+                console.error("背景更新失敗：", e);
             }
         }
 
