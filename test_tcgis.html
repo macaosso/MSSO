@@ -725,7 +725,18 @@
         function smoothLineCatmullRom(coords, samplesPerSegment = 20) {
             if (!coords || coords.length < 2) return coords;
 
-            let pts = [coords[0], ...coords, coords[coords.length - 1]];
+            // 過濾連續重複座標，避免平滑化時產生除以零或斷裂問題
+            let uniqueCoords = [coords[0]];
+            for (let i = 1; i < coords.length; i++) {
+                const prev = uniqueCoords[uniqueCoords.length - 1];
+                const curr = coords[i];
+                if (prev[0] !== curr[0] || prev[1] !== curr[1]) {
+                    uniqueCoords.push(curr);
+                }
+            }
+            if (uniqueCoords.length < 2) return uniqueCoords;
+
+            let pts = [uniqueCoords[0], ...uniqueCoords, uniqueCoords[uniqueCoords.length - 1]];
             let smooth = [];
 
             for (let i = 1; i < pts.length - 2; i++) {
@@ -752,7 +763,7 @@
                     smooth.push([x, y]);
                 }
             }
-            smooth.push(coords[coords.length - 1]);
+            smooth.push(uniqueCoords[uniqueCoords.length - 1]);
             return smooth;
         }
 
@@ -761,7 +772,7 @@
 
         function getRadiusForHour(hour) {
             if (hour <= ERROR_HOURS[0]) return ERROR_RADII_KM[0];
-            if (hour >= ERROR_HOURS[ERROR_HOURS.length - 1]) return ERROR_RADII_KM[ERROR_HOURS.length - 1];
+            if (hour >= ERROR_HOURS[ERROR_HOURS.length - 1]) return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
 
             for (let i = 0; i < ERROR_HOURS.length - 1; i++) {
                 if (hour >= ERROR_HOURS[i] && hour <= ERROR_HOURS[i + 1]) {
@@ -971,6 +982,9 @@
                 tempForecastRows = rows;
             }
 
+            // 確保預報點按照預報時效 (0h, 24h, 48h...) 嚴格依時序排序，以防連線錯亂
+            tempForecastRows.sort((a, b) => getHourFromCategory(a.category) - getHourFromCategory(b.category));
+
             let fPointsForCalc = [];
             let fCoordsForCalc = [];
             tempForecastRows.forEach(fr => {
@@ -1075,10 +1089,14 @@
                     coord: [r.lon, r.lat],
                     movementDir: movementStr,
                     distToMacau: getDistanceAndDirectionToMacau(r.lon, r.lat),
-                    isPast: false
+                    isPast: false,
+                    hour: getHourFromCategory(r.category)
                 };
                 forecastNodes.push(nodeInfo);
             });
+
+            // 嚴格依時序排序預報節點
+            forecastNodes.sort((a, b) => a.hour - b.hour);
 
             pastRows.forEach(pt => {
                 past.push({ coord: [pt.lon, pt.lat], wind: pt.wind, isEx: pt.isEx });
@@ -2381,15 +2399,22 @@
 
                         if (d.stormName && d.nodeInfo) {
                             const n = d.nodeInfo;
-                            return `<div style="font-weight:bold; margin-bottom:4px; color:${d.intensityObj.color};">${d.stormName} - ${d.intensityObj.code} (${d.intensityObj.name})</div>
-                                    <div>時間: <b>${n.time || '-'}</b></div>
-                                    <div>位置: <b>${n.coordStr || '-'}</b></div>
-                                    <div>風速: <b>${n.wind || '-'}</b></div>
-                                    <div>移動: <b>${n.movementDir || '-'}</b></div>
-                                    <div>距離澳門: <b>${n.distToMacau || '-'}</b></div>`;
+                            const windStr = n.isEx ? '-' : n.wind;
+                            const isFc = n.category && String(n.category).toLowerCase().includes('h');
+                            const catBadge = `<span style="color:${d.intensityObj.color}; font-weight:bold;">[${d.intensityObj.code}] ${d.intensityObj.name}</span>`;
+                            return `<div style="font-weight:bold; margin-bottom:6px; color:${d.intensityObj.color}; font-size:13px;">
+                                        <i class="fa-solid fa-hurricane"></i> ${d.stormName} (${isFc ? n.category + ' 預報' : '實時/過去'})
+                                    </div>
+                                    <div style="display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:12px;">
+                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">時間:</span><span style="font-weight:600;">${n.time || '-'}</span>
+                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">強度:</span><span>${catBadge}</span>
+                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">風速:</span><span style="font-weight:600;">${windStr}</span>
+                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">位置:</span><span>${n.coordStr}</span>
+                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">移向:</span><span>${n.movementDir || '-'}</span>
+                                        <span style="color:${isDark ? '#93a0a6':'#5c6663'}">距澳:</span><span>${n.distToMacau || '-'}</span>
+                                    </div>`;
                         }
-
-                        return d.name || '';
+                        return params.name || '';
                     }
                 },
                 series: seriesList
@@ -2398,9 +2423,9 @@
             myChart.setOption(option, true);
         }
 
-        // 初始化向量地圖
-        initVectorMap();
+        window.addEventListener('load', () => {
+            initVectorMap();
+        });
     </script>
 </body>
 </html>
-```[cite: 2]
