@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.2.1</title>
+    <title>MSSO GIS 颱風監控與氣旋檔案系統 - v4.2.2</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -245,7 +245,7 @@
                 <div>
                     <h1 class="brand-title">
                         MSSO 熱帶氣旋 GIS
-                        <span class="badge b-sky">v4.2.1</span>
+                        <span class="badge b-sky">v4.2.2</span>
                     </h1>
                     <p class="brand-sub hidden lg:block">實時及歷史熱帶氣旋 GIS 監控系統</p>
                 </div>
@@ -317,8 +317,8 @@
                         class="form-control pl-9" style="padding-left:34px;">
                 </div>
 
-                <!-- 下拉選單：年份與系統 -->
-                <div class="grid grid-cols-2 gap-2">
+                <!-- 下拉選單：年份與系統 (年份選擇更短，活動颱風系統自動分配剩餘空間) -->
+                <div class="grid grid-cols-[92px_minmax(0,1fr)] gap-2">
                     <div class="space-y-1">
                         <label class="micro">年份選擇</label>
                         <select id="year-select" onchange="switchYear(this.value)" class="form-control">
@@ -357,7 +357,7 @@
 
             <div class="side-foot">
                 <span>MSSO GIS 向量引擎</span>
-                <span class="badge b-sky">v4.2.1</span>
+                <span class="badge b-sky">v4.2.2</span>
             </div>
         </aside>
 
@@ -1229,7 +1229,8 @@
             const latSpan = maxLat - minLat;
             const maxSpan = Math.max(lonSpan, latSpan, 1.0);
 
-            let zoom = Math.min(10.0, Math.max(6.0, 360 / (maxSpan * 3.8)));
+            // Zoom larger according to the track of the tropical cyclone
+            let zoom = Math.min(11.5, Math.max(6.8, 360 / (maxSpan * 1.8)));
             return { center, zoom };
         }
 
@@ -1251,7 +1252,7 @@
 
             myChart = echarts.init(chartDom);
 
-            myChart.showLoading(loadingOpts('載入 v4.2.1 GIS 向量圖資與氣旋檔案...'));
+            myChart.showLoading(loadingOpts('載入 v4.2.2 GIS 向量圖資與氣旋檔案...'));
 
             try {
                 const [worldResp, csvTyphoons] = await Promise.all([
@@ -1456,6 +1457,14 @@
             if (statsContainer) statsContainer.style.display = (view === 'stats') ? 'flex' : 'none';
             if (tablesContainer) tablesContainer.style.display = (view === 'tables') ? 'flex' : 'none';
 
+            // Phone users: after pressing 數據列表/風速圖表 button, automatically close the 檔案庫
+            if (window.innerWidth < 768 && (view === 'stats' || view === 'tables')) {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar && !sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            }
+
             // 更新頂部 Nav Tab 高亮狀態
             const tabs = ['map', 'stats', 'tables'];
             tabs.forEach(t => {
@@ -1586,12 +1595,20 @@
                 if (!chartDom) return;
 
                 const keys = Object.keys(typhoons);
-                if (keys.length === 0) {
-                    chartDom.innerHTML = '<div class="text-center mut py-20 text-sm">無可用的氣旋數據</div>';
+                // If user hasn't chosen a specific tropical cyclone data, tell user to choose one
+                if (keys.length === 0 || currentStormKey === 'all') {
+                    chartDom.innerHTML = `
+                        <div class="w-full h-full flex flex-col items-center justify-center py-24 text-center space-y-3">
+                            <i class="fa-solid fa-triangle-exclamation text-2xl accent"></i>
+                            <div class="text-sm font-bold" style="color:var(--text);">請先在左側檔案庫選擇一個特定的熱帶氣旋</div>
+                            <div class="text-xs mut">選擇後即可在此頁面檢視該氣旋的詳細風速變化歷史圖表</div>
+                        </div>`;
+                    let existingInstance = echarts.getInstanceByDom(chartDom);
+                    if (existingInstance) existingInstance.clear();
                     return;
                 }
-                const stormKey = (currentStormKey === 'all' || !typhoons[currentStormKey]) ? keys[0] : currentStormKey;
-                const storm = typhoons[stormKey];
+
+                const storm = typhoons[currentStormKey];
                 if (!storm) return;
 
                 let pastNodes = storm.pastNodes || [];
@@ -1620,13 +1637,11 @@
                     };
                 });
 
-                // Pad pastData with nulls for forecast-only times
                 for (let i = pastNodes.length; i < chartTimes.length; i++) {
                     pastData.push(null);
                 }
 
                 let forecastData = [];
-                // Pad forecastData with nulls for past-only times except the last past node
                 for (let i = 0; i < pastNodes.length - 1; i++) {
                     forecastData.push(null);
                 }
@@ -1660,7 +1675,6 @@
                 const axisColor = isDark ? '#93a0a6' : '#5c6663';
                 const titleColor = isDark ? '#e6e9e9' : '#1a1e20';
                 const splitColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
-                const accentHex = isDark ? '#3fd9a4' : '#0b9a6b';
                 let chartInstance = echarts.getInstanceByDom(chartDom) || echarts.init(chartDom);
                 chartInstance.setOption({
                     title: {
@@ -1757,13 +1771,18 @@
             if (!container) return;
 
             const keys = Object.keys(typhoons);
-            if (keys.length === 0) {
-                container.innerHTML = '<div class="text-center mut py-12 text-sm">無可用的氣旋數據列表</div>';
+            // If user hasn't chosen a specific tropical cyclone data, tell user to choose one
+            if (keys.length === 0 || currentStormKey === 'all') {
+                container.innerHTML = `
+                    <div class="panel p-16 text-center mut text-sm flex flex-col items-center justify-center gap-3">
+                        <i class="fa-solid fa-triangle-exclamation text-2xl accent"></i>
+                        <div class="font-bold" style="color:var(--text);">請先在左側檔案庫選擇一個特定的熱帶氣旋</div>
+                        <div class="text-xs mut">選擇後即可在此頁面檢視該氣旋的詳細氣旋數據列表</div>
+                    </div>`;
                 return;
             }
 
-            const stormKey = (currentStormKey === 'all' || !typhoons[currentStormKey]) ? keys[0] : currentStormKey;
-            const storm = typhoons[stormKey];
+            const storm = typhoons[currentStormKey];
             if (!storm) return;
 
             const buildRows = (nodes) => {
@@ -2107,7 +2126,7 @@
                             coordinateSystem: 'geo',
                             z: 3,
                             polyline: true,
-                            effect: {
+                            effect: isMobile ? { show: false } : {
                                 show: true,
                                 period: 4,
                                 trailLength: 0.2,
@@ -2155,8 +2174,8 @@
                             z: 6,
                             data: eyeData,
                             symbolSize: 20,
-                            rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                            itemStyle: { color: eyeColor, shadowBlur: 14, shadowColor: eyeColor }
+                            rippleEffect: isMobile ? { show: false } : { brushType: 'stroke', scale: 4, period: 2 },
+                            itemStyle: { color: eyeColor, shadowBlur: isMobile ? 0 : 14, shadowColor: eyeColor }
                         });
                     }
                 }
@@ -2231,7 +2250,7 @@
             const option = {
                 backgroundColor: mapBgColor,
                 graphic: graphicItems,
-                animationDuration: 800,
+                animationDuration: isMobile ? 0 : 800,
                 animationEasing: 'cubicOut',
                 geo: {
                     map: 'world50m',
@@ -2257,6 +2276,7 @@
                     textStyle: { color: tooltipText, fontSize: 12, fontFamily: '"JetBrains Mono", monospace' },
                     formatter: function(params) {
                         if (params.componentType === 'geo') {
+                            // Phone users: when clicking the map, don't pop up the location label (tcCountryMap)
                             if (isMobile) {
                                 return '';
                             }
@@ -2268,14 +2288,14 @@
                         if (!d) return params.name || '';
 
                         if (d.name === '澳門') {
-                            return `<div style="font-weight:bold; font-family:'JetBrains Mono', monospace;"><i class="fa-solid fa-location-dot" style="color:${isDark ? '#3fd9a4' : '#0b9a6b'};"></i> 澳門</div>
+                            return `<div style="font-weight:bold; font-family:'JetBrains Mono", monospace;"><i class="fa-solid fa-location-dot" style="color:${isDark ? '#3fd9a4' : '#0b9a6b'};"></i> 澳門</div>
                                     <div style="font-size:11px; font-family:'JetBrains Mono', monospace;">經緯度: 22.1595°N, 113.5685°E</div>`;
                         }
 
-                        return `<div style="font-weight:bold; font-family:'JetBrains Mono', monospace; color:${d.intensityObj.color};">${d.stormName || ''}</div>
-                                <div style="font-size:11px; font-family:'JetBrains Mono', monospace;">時間: ${d.nodeInfo ? d.nodeInfo.time : '-'}</div>
-                                <div style="font-size:11px; font-family:'JetBrains Mono', monospace;">風速: ${d.nodeInfo ? d.nodeInfo.wind : '-'} (${d.intensityObj.code})</div>
-                                <div style="font-size:11px; font-family:'JetBrains Mono', monospace;">位置: ${d.nodeInfo ? d.nodeInfo.coordStr : '-'}</div>`;
+                        return `<div style="font-weight:bold; font-family:'JetBrains Mono", monospace; color:${d.intensityObj.color};">${d.stormName || ''}</div>
+                                <div style="font-size:11px; font-family:'JetBrains Mono", monospace;">時間: ${d.nodeInfo ? d.nodeInfo.time : '-'}</div>
+                                <div style="font-size:11px; font-family:'JetBrains Mono", monospace;">風速: ${d.nodeInfo ? d.nodeInfo.wind : '-'} (${d.intensityObj.code})</div>
+                                <div style="font-size:11px; font-family:'JetBrains Mono", monospace;">位置: ${d.nodeInfo ? d.nodeInfo.coordStr : '-'}</div>`;
                     }
                 },
                 series: seriesList
