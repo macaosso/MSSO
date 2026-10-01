@@ -92,6 +92,7 @@
         .t-orange { color: rgb(var(--c-orange-rgb)); }
         .t-indigo { color: rgb(var(--c-indigo-rgb)); }
         .t-slate { color: rgb(var(--c-slate-rgb)); }
+        .t-sky { color: rgb(var(--c-sky-rgb)); }
 
         /* ===== 滚动条 ===== */
         ::-webkit-scrollbar { height: 8px; width: 8px; }
@@ -338,21 +339,29 @@
 
     <!-- 頂欄 -->
     <header class="topbar">
-        <div class="topbar-inner">
-            <div class="brand">
-                <span class="brand-mark"><i class="fa-solid fa-cloud-bolt"></i></span>
-                <div class="brand-title">澳門民間氣象台<span class="brand-sub">MSSO · MACAU WEATHER</span></div>
-            </div>
-            <div class="flex items-center gap-4">
-                <div class="text-right leading-tight hidden sm:block">
-                    <div id="current-datetime" class="num micro" style="color:var(--text);">載入中...</div>
-                    <div id="lunar-date" class="micro dim">農曆計算中...</div>
+        <div class="topbar-inner flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4 py-2.5">
+            <div class="flex items-center justify-between w-full sm:w-auto">
+                <div class="brand">
+                    <span class="brand-mark"><i class="fa-solid fa-cloud-bolt"></i></span>
+                    <div class="brand-title">澳門民間氣象台<span class="brand-sub">MSSO · MACAU WEATHER</span></div>
                 </div>
-                <span class="micro dim hidden md:inline">v2.0.4</span>
-                <button id="theme-toggle" class="icon-btn" title="切換主題">
+                <button class="icon-btn sm:hidden theme-toggle" title="切換主題">
                     <i class="fa-solid fa-moon ic-moon"></i>
                     <i class="fa-solid fa-sun ic-sun"></i>
                 </button>
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 border-[var(--line)] pt-2 sm:pt-0">
+                <div class="text-left sm:text-right leading-tight">
+                    <div id="current-datetime" class="num micro" style="color:var(--text);">載入中...</div>
+                    <div id="lunar-date" class="micro dim">農曆計算中...</div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="micro dim">v2.0.4</span>
+                    <button class="icon-btn hidden sm:inline-flex theme-toggle" title="切換主題">
+                        <i class="fa-solid fa-moon ic-moon"></i>
+                        <i class="fa-solid fa-sun ic-sun"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
@@ -940,15 +949,17 @@
             }
         }
 
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        themeToggleBtn.addEventListener('click', () => {
-            if (document.documentElement.classList.contains('dark')) {
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            } else {
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            }
+        /* 主題切換按鈕事件（支援所有 .theme-toggle 按鈕） */
+        document.querySelectorAll('.theme-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
         });
 
         function toTraditionalLunar(text) {
@@ -961,20 +972,21 @@
             return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
         }
 
+        /* 優化後的天氣圖示與色彩（兼顧淺色與深色背景，對比鮮明不突兀） */
         function getWeatherDetails(code, isNight = false) {
             const symbols = {
-                0: isNight ? { text: '天晴', icon: 'fas fa-moon text-indigo-400' } : { text: '天晴', icon: 'fas fa-sun text-yellow-500 dark:text-yellow-400' },
-                1: isNight ? { text: '大致天晴', icon: 'fas fa-moon text-indigo-300' } : { text: '大致天晴', icon: 'fas fa-sun text-yellow-400' },
-                2: isNight ? { text: '天色明朗', icon: 'fas fa-cloud-moon text-indigo-200' } : { text: '天色明朗', icon: 'fas fa-cloud-sun text-yellow-400' },
-                3: { text: '多雲', icon: 'fas fa-cloud text-slate-400' },
-                45: { text: '霧', icon: 'fas fa-smog text-slate-500' },
-                51: { text: '部分時間有陽光', icon: 'fas fa-cloud-sun text-yellow-500' },
-                53: { text: '短暫時間有陽光', icon: 'fas fa-cloud-sun text-yellow-500' },
-                61: { text: '微雨', icon: 'fas fa-cloud-sun text-yellow-400' },
-                80: { text: '驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-500' },
-                95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-blue-600' }
+                0: isNight ? { text: '天晴', icon: 'fas fa-moon text-indigo-500 dark:text-indigo-400' } : { text: '天晴', icon: 'fas fa-sun text-amber-600 dark:text-yellow-400' },
+                1: isNight ? { text: '大致天晴', icon: 'fas fa-moon text-indigo-500 dark:text-indigo-300' } : { text: '大致天晴', icon: 'fas fa-sun text-amber-500 dark:text-yellow-400' },
+                2: isNight ? { text: '天色明朗', icon: 'fas fa-cloud-moon text-indigo-500 dark:text-indigo-300' } : { text: '天色明朗', icon: 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400' },
+                3: { text: '多雲', icon: 'fas fa-cloud text-slate-600 dark:text-slate-300' },
+                45: { text: '霧', icon: 'fas fa-smog text-slate-600 dark:text-slate-400' },
+                51: { text: '部分時間有陽光', icon: 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400' },
+                53: { text: '短暫時間有陽光', icon: 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400' },
+                61: { text: '微雨', icon: 'fas fa-cloud-rain text-blue-600 dark:text-sky-400' },
+                80: { text: '驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-600 dark:text-blue-400' },
+                95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-indigo-600 dark:text-indigo-400' }
             };
-            return symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-300' };
+            return symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-600 dark:text-slate-300' };
         }
 
         function getAdvancedDailyWeatherIcon(dayIndex, data) {
@@ -1023,38 +1035,38 @@
             const accumulatedRainfall = data.daily.precipitation_sum ? (data.daily.precipitation_sum[dayIndex] || 0) : 0;
 
             if (maxHourlyRainfall >= 20 || accumulatedRainfall >= 50) {
-                return { icon: 'fas fa-cloud-showers-water text-blue-600', text: '暴雨' };
+                return { icon: 'fas fa-cloud-showers-water text-blue-700 dark:text-blue-400', text: '暴雨' };
             }
 
             if (thunderstormHours >= 2) {
-                return { icon: 'fas fa-cloud-bolt text-blue-400', text: '雷雨' };
+                return { icon: 'fas fa-cloud-bolt text-indigo-600 dark:text-indigo-400', text: '雷雨' };
             } else if (thunderstormHours === 1) {
-                return { icon: 'fas fa-cloud-sun-rain text-blue-400', text: '雷雨間晴' };
+                return { icon: 'fas fa-cloud-sun-rain text-blue-600 dark:text-sky-400', text: '雷雨間晴' };
             }
 
-            let icon = 'fas fa-cloud';
+            let icon = 'fas fa-cloud text-slate-600 dark:text-slate-300';
             let text = '多雲';
 
             switch (dailyCode) {
-                case 0: icon = 'fas fa-sun text-yellow-500 dark:text-yellow-400'; text = '天晴'; break;
-                case 1: icon = 'fas fa-sun text-yellow-400'; text = '大致天晴'; break;
-                case 2: icon = 'fas fa-cloud-sun text-yellow-400'; text = '短暫時間多雲'; break;
-                case 3: icon = 'fas fa-cloud text-slate-400'; text = '多雲'; break;
-                case 45: icon = 'fas fa-smog text-slate-500'; text = '霧'; break;
-                case 51: icon = 'fas fa-cloud-sun text-yellow-500'; text = '部份時間有陽光'; break;
-                case 53: icon = 'fas fa-cloud-sun text-yellow-500'; text = '短暫時間有陽光'; break;
-                case 61: icon = 'fas fa-cloud-rain text-blue-400'; text = '微雨'; break;
-                case 80: icon = 'fas fa-cloud-showers-heavy text-blue-500'; text = '驟雨'; break;
-                case 95: icon = 'fas fa-cloud-bolt text-blue-600'; text = '雷雨'; break;
-                default: icon = 'fas fa-cloud text-slate-400'; text = '多雲'; break;
+                case 0: icon = 'fas fa-sun text-amber-600 dark:text-yellow-400'; text = '天晴'; break;
+                case 1: icon = 'fas fa-sun text-amber-500 dark:text-yellow-400'; text = '大致天晴'; break;
+                case 2: icon = 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400'; text = '短暫時間多雲'; break;
+                case 3: icon = 'fas fa-cloud text-slate-600 dark:text-slate-300'; text = '多雲'; break;
+                case 45: icon = 'fas fa-smog text-slate-600 dark:text-slate-400'; text = '霧'; break;
+                case 51: icon = 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400'; text = '部份時間有陽光'; break;
+                case 53: icon = 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400'; text = '短暫時間有陽光'; break;
+                case 61: icon = 'fas fa-cloud-rain text-blue-600 dark:text-sky-400'; text = '微雨'; break;
+                case 80: icon = 'fas fa-cloud-showers-heavy text-blue-600 dark:text-blue-400'; text = '驟雨'; break;
+                case 95: icon = 'fas fa-cloud-bolt text-indigo-600 dark:text-indigo-400'; text = '雷雨'; break;
+                default: icon = 'fas fa-cloud text-slate-600 dark:text-slate-300'; text = '多雲'; break;
             }
 
             if (sunHours > 0 && cloudHours > 0 && rainHours > 0) {
                 if (rainHours < 8) {
-                    icon = 'fas fa-cloud-sun text-yellow-400';
+                    icon = 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400';
                     text = '部分多雲';
                 } else {
-                    icon = 'fas fa-cloud-sun-rain text-blue-400';
+                    icon = 'fas fa-cloud-sun-rain text-blue-600 dark:text-sky-400';
                     text = '陽光雲雨';
                 }
             }
@@ -1062,23 +1074,23 @@
             const hasSevereWeather = hasFog || hasHeavyRain || hasSnowOrFreezingRain || hasThunderstormOrShowers || (rainHours >= 8);
             if (drizzleHours >= 1 && drizzleHours <= 7 && !hasSevereWeather) {
                 if (sunHours > 0 && cloudHours > 0) {
-                    icon = 'fas fa-cloud-sun text-yellow-400';
+                    icon = 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400';
                     text = '部分多雲';
                 } else if (sunHours > 0 && cloudHours === 0) {
-                    icon = 'fas fa-sun text-yellow-500 dark:text-yellow-400';
+                    icon = 'fas fa-sun text-amber-600 dark:text-yellow-400';
                     text = '天晴';
                 } else {
-                    icon = 'fas fa-cloud text-slate-300';
+                    icon = 'fas fa-cloud text-slate-600 dark:text-slate-300';
                     text = '多雲';
                 }
             }
 
             const hasOverrideExclusion = hasThunderstormOrShowers || hasSnowOrFreezingRain;
             if (maxTemp >= 32.5 && !hasOverrideExclusion) {
-                icon = 'fas fa-temperature-arrow-up text-orange-500';
+                icon = 'fas fa-temperature-arrow-up text-orange-600 dark:text-orange-400';
                 text = `高溫 (${Math.round(maxTemp)}°C)`;
             } else if (minTemp <= 12.5 && !hasOverrideExclusion) {
-                icon = 'fas fa-temperature-arrow-down text-cyan-400';
+                icon = 'fas fa-temperature-arrow-down text-cyan-600 dark:text-cyan-400';
                 text = `低溫 (${Math.round(minTemp)}°C)`;
             }
 
