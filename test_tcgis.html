@@ -102,7 +102,7 @@
             outline-offset: 2px;
         }
 
-        /* ===== 滚动条 ===== */
+        /* ===== 滾動條 ===== */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--line-strong); }
@@ -597,6 +597,28 @@
 
         const MACAU_COORDS = [113.5685, 22.1595];
 
+        function generateCircleCoords(lon, lat, radiusKm, steps = 64) {
+            const coords = [];
+            const R = 6371.0;
+            const latRad = lat * Math.PI / 180;
+            const lonRad = lon * Math.PI / 180;
+            const angularDist = radiusKm / R;
+
+            for (let i = 0; i <= steps; i++) {
+                const angle = (i / steps) * 2 * Math.PI;
+                const latI = Math.asin(
+                    Math.sin(latRad) * Math.cos(angularDist) +
+                    Math.cos(latRad) * Math.sin(angular_dist || angularDist) * Math.cos(angle)
+                );
+                const lonI = lonRad + Math.atan2(
+                    Math.sin(angle) * Math.sin(angularDist) * Math.cos(latRad),
+                    Math.cos(angularDist) - Math.sin(latRad) * Math.sin(latI)
+                );
+                coords.push([lonI * 180 / Math.PI, latI * 180 / Math.PI]);
+            }
+            return coords;
+        }
+
         function getDistanceAndDirectionToMacau(tLon, tLat) {
             if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) {
                 return "未知距離";
@@ -752,7 +774,6 @@
             return smooth;
         }
 
-        // ERROR_HOURS 與 ERROR_RADII_KM (誤差半徑嚴格跟隨預報時效小時數)
         const ERROR_HOURS = [0, 3, 6, 12, 18, 24, 36, 48, 60, 72, 96, 120];
         const ERROR_RADII_KM = [15, 26, 36, 58, 79, 100, 135, 170, 212.5, 255, 345, 465];
 
@@ -959,7 +980,6 @@
             let pastNodes = [];
             let forecastNodes = [];
 
-            // 嚴格偵測及篩選 CSV 檔案內實際存在的預報點類別（例如 0h, 24h, 48h 等或自定義時效點）
             let tempForecastRows = rows.filter(r => {
                 const cat = r.category.toLowerCase();
                 return cat === 'current' || cat === '0h' || cat === '0' || cat.includes('h') || !isNaN(parseInt(cat));
@@ -969,7 +989,6 @@
                 tempForecastRows = rows;
             }
 
-            // 依預報時效 (0h, 24h, 48h...) 嚴格依時序排序，以防連線錯亂
             tempForecastRows.sort((a, b) => getHourFromCategory(a.category) - getHourFromCategory(b.category));
 
             let fPointsForCalc = [];
@@ -2143,74 +2162,38 @@
                         seriesList.push({
                             type: 'lines',
                             coordinateSystem: 'geo',
-                            z: 3,
+                            z: 4,
                             polyline: true,
-                            lineStyle: { color: trackColor, width: 1.5, opacity: 0.95 },
-                            data: [{ coords: validPastCoords }],
-                            silent: true
+                            lineStyle: { color: trackColor, width: 2.5, opacity: 0.85 },
+                            data: [{ coords: validPastCoords }]
                         });
                     }
                 }
 
-                const pastScatterData = st.past.map(pt => {
-                    const intensity = getIntensity(pt.wind, pt.isEx);
-                    return {
-                        name: `${st.name} 軌跡點`,
-                        value: pt.coord ? [...pt.coord, 1] : [MACAU_COORDS[0], MACAU_COORDS[1], 1],
-                        itemStyle: { color: intensity.color },
-                        symbolSize: 7,
-                        windVal: pt.wind,
-                        isEx: pt.isEx,
-                        stormName: st.name,
-                        intensityObj: intensity
-                    };
-                });
-
-                seriesList.push({
-                    type: 'scatter',
-                    coordinateSystem: 'geo',
-                    z: 4,
-                    data: pastScatterData,
-                    symbol: 'circle'
-                });
-
-                if (showForecast && smoothForecastCoords && smoothForecastCoords.length >= 2 && currentSelectedYear === 'current') {
-                    const validForecastCoords = smoothForecastCoords.filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
+                if (showForecast && st.forecast && st.forecast.length >= 2) {
+                    const validForecastCoords = st.forecast.filter(c => c && !isNaN(c[0]) && !isNaN(c[1]));
                     if (validForecastCoords.length >= 2) {
                         seriesList.push({
                             type: 'lines',
                             coordinateSystem: 'geo',
-                            z: 3,
+                            z: 4,
                             polyline: true,
-                            effect: {
-                                show: true,
-                                period: 4,
-                                trailLength: 0.2,
-                                color: trackColor,
-                                symbol: 'circle',
-                                symbolSize: 4
-                            },
-                            lineStyle: { color: trackColor, width: 1.8, type: 'dashed', opacity: 0.9 },
-                            data: [{ coords: validForecastCoords }],
-                            silent: true
+                            lineStyle: { color: trackColor, width: 2, type: 'dashed', opacity: 0.85 },
+                            data: [{ coords: validForecastCoords }]
                         });
                     }
                 }
 
                 if (showNodes && st.nodes) {
-                    const scatterData = st.nodes.map((node) => {
-                        const intensity = getIntensity(node.windVal, node.isEx);
-                        const isEye = (currentSelectedYear === 'current') && (node.time === st.time || (st.pastNodes && st.pastNodes.length > 0 && node.time === st.pastNodes[st.pastNodes.length - 1].time));
-
+                    const scatterData = st.nodes.map(n => {
+                        let isCurrent = (n.category === 'current' || n.category === '0h' || n.category === '0');
                         return {
-                            name: `${st.name} - ${node.time}`,
-                            value: node.coord ? [...node.coord, 1] : [MACAU_COORDS[0], MACAU_COORDS[1], 1],
-                            itemStyle: { color: intensity.color },
-                            symbolSize: isEye ? 16 : 9,
-                            isEye: isEye,
-                            nodeInfo: node,
-                            stormName: st.name,
-                            intensityObj: intensity
+                            name: st.name,
+                            value: [n.lon, n.lat, n.windVal || 0],
+                            itemStyle: { color: n.color },
+                            symbolSize: isCurrent ? 12 : 7,
+                            nodeInfo: n,
+                            isCurrent: isCurrent
                         };
                     });
 
@@ -2218,32 +2201,38 @@
                         type: 'scatter',
                         coordinateSystem: 'geo',
                         z: 5,
-                        data: scatterData.filter(d => !d.isEye),
-                        symbol: 'circle'
+                        data: scatterData,
+                        symbol: 'circle',
+                        emphasis: {
+                            scale: true,
+                            itemStyle: { borderColor: '#fff', borderWidth: 2 }
+                        }
                     });
 
-                    const eyeData = scatterData.filter(d => d.isEye);
-                    if (eyeData.length > 0) {
+                    const currentNodes = st.nodes.filter(n => n.category === 'current' || n.category === '0h' || n.category === '0');
+                    currentNodes.forEach(n => {
                         seriesList.push({
                             type: 'effectScatter',
                             coordinateSystem: 'geo',
                             z: 6,
-                            data: eyeData,
-                            symbolSize: 20,
-                            rippleEffect: { brushType: 'stroke', scale: 4, period: 2 },
-                            itemStyle: { color: eyeColor, shadowBlur: 14, shadowColor: eyeColor }
+                            data: [[n.lon, n.lat]],
+                            symbolSize: 16,
+                            rippleEffect: { brushType: 'stroke', scale: 3, period: 2 },
+                            itemStyle: { color: eyeColor, shadowBlur: 10, shadowColor: eyeColor },
+                            silent: true
                         });
-                    }
+                    });
                 }
             };
 
-            if (keys.length > 0) {
-                if (currentStormKey === 'all') {
-                    filteredKeys.forEach(k => renderTyphoonTracks(typhoons[k]));
-                } else {
-                    const targetKey = typhoons[currentStormKey] ? currentStormKey : keys[0];
-                    renderTyphoonTracks(typhoons[targetKey]);
-                }
+            if (currentStormKey === 'all') {
+                filteredKeys.forEach(k => {
+                    const st = typhoons[k];
+                    if (st) renderTyphoonTracks(st);
+                });
+            } else {
+                const st = typhoons[currentStormKey];
+                if (st) renderTyphoonTracks(st);
             }
 
             if (showMacau) {
@@ -2251,53 +2240,34 @@
                     type: 'scatter',
                     coordinateSystem: 'geo',
                     z: 7,
-                    data: [{
-                        name: '澳門',
-                        value: [113.5685, 22.1595, 1],
-                        itemStyle: { color: isDark ? '#e6e9e9' : '#1a1e20' },
-                        symbolSize: 7
-                    }],
+                    data: [{ name: '澳門', value: [MACAU_COORDS[0], MACAU_COORDS[1]] }],
+                    symbol: 'pin',
+                    symbolSize: 22,
+                    itemStyle: { color: '#ef4444' },
                     label: {
                         show: true,
-                        formatter: '{b}',
                         position: 'right',
+                        formatter: '澳門 MSSO',
                         color: isDark ? '#e6e9e9' : '#1a1e20',
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: 'bold',
                         fontFamily: monoFont
-                    },
-                    silent: true
-                });
-
-                seriesList.push({
-                    type: 'effectScatter',
-                    coordinateSystem: 'geo',
-                    z: 7,
-                    data: [{ value: [113.5685, 22.1595, 1] }],
-                    symbolSize: 14,
-                    rippleEffect: { brushType: 'stroke', scale: 3.5, period: 2.5 },
-                    itemStyle: { color: isDark ? '#3fd9a4' : '#0b9a6b' },
-                    silent: true
+                    }
                 });
             }
 
-            let bounds = getStormBounds(currentStormKey);
-            if (isStormSwitch) {
-                bounds = getStormBounds(currentStormKey);
-            }
-
-            const option = {
+            const mapOption = {
                 backgroundColor: mapBgColor,
                 geo: {
                     map: 'world50m',
                     roam: true,
-                    zoom: bounds.zoom,
-                    center: bounds.center,
-                    scaleLimit: { min: 2.0, max: 35.0 },
+                    zoom: 4.8,
+                    center: [122.0, 20.0],
+                    scaleLimit: { min: 1.5, max: 25 },
                     itemStyle: {
                         areaColor: areaColor,
                         borderColor: borderColor,
-                        borderWidth: 0.6
+                        borderWidth: 0.8
                     },
                     emphasis: {
                         itemStyle: {
@@ -2307,33 +2277,33 @@
                         },
                         label: { show: false }
                     },
-                    select: { disabled: true }
+                    blur: {
+                        itemStyle: { areaColor: areaColor, borderColor: borderColor }
+                    }
                 },
                 tooltip: {
                     trigger: 'item',
                     backgroundColor: tooltipBg,
                     borderColor: tooltipBorder,
                     borderRadius: 0,
-                    padding: [10, 14],
+                    padding: [12, 16],
                     textStyle: { color: tooltipText, fontSize: 12, fontFamily: monoFont },
                     formatter: function(params) {
-                        if (!params || !params.data) return '';
-                        const d = params.data;
-                        if (d.stormName && d.intensityObj) {
-                            let windStr = d.windVal !== undefined && !isNaN(d.windVal) && !d.isEx ? `${d.windVal} km/h` : (d.wind || '-');
-                            let timeStr = d.nodeInfo && d.nodeInfo.time ? d.nodeInfo.time : '';
-                            let categoryStr = `${d.intensityObj.code} · ${d.intensityObj.name}`;
-                            let distMacau = d.nodeInfo && d.nodeInfo.distToMacau ? d.nodeInfo.distToMacau : getDistanceAndDirectionToMacau(d.value[0], d.value[1]);
-                            let movement = d.nodeInfo && d.nodeInfo.movementDir ? d.nodeInfo.movementDir : '-';
-
+                        if (params.seriesType === 'scatter' && params.data && params.data.nodeInfo) {
+                            const n = params.data.nodeInfo;
                             return `
-                                <div style="font-weight:bold; margin-bottom:4px; color:${d.intensityObj.color};">${d.stormName} ${timeStr ? '(' + timeStr + ')' : ''}</div>
-                                <div>強度: <b>${categoryStr}</b></div>
-                                <div>風速: <b>${windStr}</b></div>
-                                <div>中心: <b>${d.value[1].toFixed(1)}°N, ${d.value[0].toFixed(1)}°E</b></div>
-                                <div>距離澳門: <b>${distMacau}</b></div>
-                                <div>移動: <b>${movement}</b></div>
+                                <div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${n.color};">${params.data.name} (${n.categoryCode} - ${n.categoryName})</div>
+                                <div style="display:grid; grid-template-columns: auto 1fr; gap:4px 12px; font-size:12px;">
+                                    <span style="color:${isDark ? '#93a0a6' : '#5c6663'};">時間</span><span style="font-weight:bold;">${n.time || '-'}</span>
+                                    <span style="color:${isDark ? '#93a0a6' : '#5c6663'};">位置</span><span style="font-weight:bold;">${n.coordStr}</span>
+                                    <span style="color:${isDark ? '#93a0a6' : '#5c6663'};">風速</span><span style="font-weight:bold;">${n.wind}</span>
+                                    <span style="color:${isDark ? '#93a0a6' : '#5c6663'};">移動</span><span style="font-weight:bold;">${n.movementDir || '-'}</span>
+                                    <span style="color:${isDark ? '#93a0a6' : '#5c6663'};">距澳門</span><span style="font-weight:bold;">${n.distToMacau || '-'}</span>
+                                </div>
                             `;
+                        }
+                        if (params.seriesType === 'scatter' && params.name === '澳門') {
+                            return `<div style="font-weight:bold;">澳門特別行政區氣象監控中心</div>`;
                         }
                         return params.name || '';
                     }
@@ -2341,7 +2311,7 @@
                 series: seriesList
             };
 
-            myChart.setOption(option, true);
+            myChart.setOption(mapOption, true);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
