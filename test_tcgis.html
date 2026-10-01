@@ -1668,7 +1668,7 @@
                                 <div class="stat-row"><span class="micro dim">更新時間</span><span class="num font-bold">${st.time}</span></div>
                                 <div class="stat-row"><span class="micro dim">當前風速</span><span class="num font-bold">${st.wind}</span></div>
                                 <div class="stat-row"><span class="micro dim">中心位置</span><span class="num font-bold">${st.coords}</span></div>
-                                <div class="stat-row stat-accent"><span class="micro accent">距離澳門</span><span class="num font-bold accent">${distMacau}</span></div>
+                                <div class="stat-row"><span class="micro dim">距離澳門</span><span class="num font-bold">${distMacau}</span></div>
                                 <div class="stat-row"><span class="micro dim">移動方向</span><span class="num font-bold">${st.movement}</span></div>
                             </div>
                             <div class="pt-3.5 grid grid-cols-2 gap-2.5">
@@ -1721,13 +1721,11 @@
                     };
                 });
 
-                // Pad pastData with nulls for forecast-only times
                 for (let i = pastNodes.length; i < chartTimes.length; i++) {
                     pastData.push(null);
                 }
 
                 let forecastData = [];
-                // Pad forecastData with nulls for past-only times except the last past node (for seamless connection)
                 for (let i = 0; i < pastNodes.length - 1; i++) {
                     forecastData.push(null);
                 }
@@ -2378,14 +2376,20 @@
                         if (!d) return params.name || '';
 
                         if (d.name === '澳門') {
-                            return `<div style="font-weight:bold;"><i class="fa-solid fa-location-dot" style="color:${isDark ? '#3fd9a4' : '#0b9a6b'};"></i> 澳門</div>
-                                    <div style="font-size:11px;">經緯度: 22.1595°N, 113.5685°E</div>`;
+                            return `<div style="font-weight:bold; color:${isDark ? '#3fd9a4' : '#0b9a6b'};"><i class="fa-solid fa-location-dot mr-1"></i> 澳門特別行政區</div>`;
                         }
 
-                        return `<div style="font-weight:bold; color:${d.intensityObj.color};">${d.stormName || ''}</div>
-                                <div style="font-size:11px;">時間: ${d.nodeInfo ? d.nodeInfo.time : '-'}</div>
-                                <div style="font-size:11px;">風速: ${d.nodeInfo ? d.nodeInfo.wind : '-'} (${d.intensityObj.code})</div>
-                                <div style="font-size:11px;">位置: ${d.nodeInfo ? d.nodeInfo.coordStr : '-'}</div>`;
+                        if (d.stormName && d.nodeInfo) {
+                            const n = d.nodeInfo;
+                            return `<div style="font-weight:bold; margin-bottom:4px; color:${d.intensityObj.color};">${d.stormName} - ${d.intensityObj.code} (${d.intensityObj.name})</div>
+                                    <div>時間: <b>${n.time || '-'}</b></div>
+                                    <div>位置: <b>${n.coordStr || '-'}</b></div>
+                                    <div>風速: <b>${n.wind || '-'}</b></div>
+                                    <div>移動: <b>${n.movementDir || '-'}</b></div>
+                                    <div>距離澳門: <b>${n.distToMacau || '-'}</b></div>`;
+                        }
+
+                        return d.name || '';
                     }
                 },
                 series: seriesList
@@ -2394,9 +2398,9 @@
             myChart.setOption(option, true);
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            initVectorMap();
-        });
+        // 初始化向量地圖
+        initVectorMap();
     </script>
 </body>
 </html>
+```[cite: 2]
