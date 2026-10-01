@@ -356,7 +356,7 @@
                     <div id="lunar-date" class="micro dim">農曆計算中...</div>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="micro dim">v2.1.0</span>
+                    <span class="micro dim">v2.1.1</span>
                     <button class="icon-btn hidden sm:inline-flex theme-toggle" title="切換主題">
                         <i class="fa-solid fa-moon ic-moon"></i>
                         <i class="fa-solid fa-sun ic-sun"></i>
@@ -607,7 +607,7 @@
         const CACHE_KEY_DISTRICTS = 'msso_district_data_v1';
         const CACHE_KEY_NOWCAST = 'msso_nowcast_data_v1';
         const CACHE_TIME_KEY = 'msso_cache_time_v1';
-        const CACHE_TTL = 5 * 60 * 1000; // 5分鐘快取有效期
+        const CACHE_TTL = 3 * 60 * 1000; // 3分鐘快取有效期
 
         const districtUrls = [
             { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
@@ -665,12 +665,22 @@
             return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
+        /* 強化 CSV 版本與格式檢查，防止載入舊版或損壞的 CSV 格式 */
         function parseNowcastText(text) {
             try {
                 const lines = text.trim().split('\n');
                 if (lines.length < 2) return null;
 
                 const headers = lines[0].split(',').map(h => h.trim());
+                
+                // 驗證必要的標頭，防止載入舊版不相容的 CSV 格式
+                const requiredHeaders = ['enabled', 'conditionText'];
+                const hasValidHeaders = requiredHeaders.every(h => headers.includes(h));
+                if (!hasValidHeaders) {
+                    console.warn("nowcast.csv 格式過期或版本不符，略過解析。");
+                    return null;
+                }
+
                 let enabledRows = [];
 
                 for (let i = 1; i < lines.length; i++) {
@@ -1188,15 +1198,15 @@
             if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
+        /* 導入 Stale-While-Revalidate機轉以大幅降低加載等待時間 */
         async function fetchWeatherData(isBackground = false) {
             try {
                 if (!isBackground) {
                     const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
                     const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
                     const cachedNowcast = localStorage.getItem(CACHE_KEY_NOWCAST);
-                    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
 
-                    if (cachedWeather && cachedDistricts && cachedTime && (Date.now() - parseInt(cachedTime) < CACHE_TTL)) {
+                    if (cachedWeather && cachedDistricts) {
                         globalWeatherData = JSON.parse(cachedWeather);
                         globalDistrictData = JSON.parse(cachedDistricts);
                         globalNowcastData = cachedNowcast ? JSON.parse(cachedNowcast) : null;
@@ -1207,9 +1217,6 @@
                         document.getElementById('loading').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('hidden');
                         observeRevealElements();
-
-                        fetchWeatherData(true);
-                        return;
                     }
                 }
 
@@ -1217,20 +1224,24 @@
 
                 const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
                     fetch(weatherUrl),
-                    fetch(`nowcast.csv?t=` + Date.now()).catch(() => null),
+                    fetch(`nowcast.csv?t=` + Date.now(), { cache: 'no-store' }).catch(() => null),
                     ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&timezone=Asia/Macau`))
                 ]);
 
-                globalWeatherData = await weatherRes.json();
+                const newWeatherData = await weatherRes.json();
+                let newNowcastData = null;
 
                 if (nowcastRes && nowcastRes.ok) {
                     const nowcastText = await nowcastRes.text();
-                    globalNowcastData = parseNowcastText(nowcastText);
-                } else {
-                    globalNowcastData = null;
+                    newNowcastData = parseNowcastText(nowcastText);
                 }
 
-                globalDistrictData = await Promise.all(districtRes.map(res => res.json()));
+                const newDistrictData = await Promise.all(districtRes.map(res => res.json()));
+
+                // 更新全域數據與快取
+                globalWeatherData = newWeatherData;
+                globalNowcastData = newNowcastData;
+                globalDistrictData = newDistrictData;
 
                 localStorage.setItem(CACHE_KEY_WEATHER, JSON.stringify(globalWeatherData));
                 localStorage.setItem(CACHE_KEY_DISTRICTS, JSON.stringify(globalDistrictData));
@@ -1743,7 +1754,14 @@
 
         updateDateTime();
         setInterval(updateDateTime, 1000);
+        
+        // 初次加載數據
         fetchWeatherData();
+
+        // 自動背景輪詢更新：每 3 分鐘自動重新獲取最新 Open-Meteo 與 CSV 數據，無需手動重整
+        setInterval(() => {
+            fetchWeatherData(true);
+        }, 1 * 60 * 1000);
     </script>
 </body>
 </html>
