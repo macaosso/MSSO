@@ -972,36 +972,36 @@
             return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
         }
 
-        /* 優化後的天氣圖示與色彩（兼顧淺色與深色背景，對比鮮明不突兀） */
+        /* 優化後的天氣圖示（使用 PNG 圖片） */
         function getWeatherDetails(code, isNight = false) {
             const symbols = {
-                0: isNight ? { text: '天晴', icon: 'fas fa-moon text-indigo-500 dark:text-indigo-400' } : { text: '天晴', icon: 'fas fa-sun text-amber-600 dark:text-yellow-400' },
-                1: isNight ? { text: '大致天晴', icon: 'fas fa-moon text-indigo-500 dark:text-indigo-300' } : { text: '大致天晴', icon: 'fas fa-sun text-amber-500 dark:text-yellow-400' },
-                2: isNight ? { text: '天色明朗', icon: 'fas fa-cloud-moon text-indigo-500 dark:text-indigo-300' } : { text: '天色明朗', icon: 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400' },
-                3: { text: '多雲', icon: 'fas fa-cloud text-slate-600 dark:text-slate-300' },
-                45: { text: '霧', icon: 'fas fa-smog text-slate-600 dark:text-slate-400' },
-                51: { text: '部分時間有陽光', icon: 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400' },
-                53: { text: '短暫時間有陽光', icon: 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400' },
-                61: { text: '微雨', icon: 'fas fa-cloud-rain text-blue-600 dark:text-sky-400' },
-                80: { text: '驟雨', icon: 'fas fa-cloud-showers-heavy text-blue-600 dark:text-blue-400' },
-                95: { text: '雷雨', icon: 'fas fa-cloud-bolt text-indigo-600 dark:text-indigo-400' }
+                0: isNight ? { text: '天晴', icon: 'icon/weather_icon/moon.png' } : { text: '天晴', icon: 'icon/weather_icon/sun.png' },
+                1: isNight ? { text: '大致天晴', icon: 'icon/weather_icon/moon.png' } : { text: '大致天晴', icon: 'icon/weather_icon/sun.png' },
+                2: isNight ? { text: '天色明朗', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '天色明朗', icon: 'icon/weather_icon/partly-sun-day.png' },
+                3: { text: '多雲', icon: 'icon/weather_icon/cloud.png' },
+                45: { text: '霧', icon: 'icon/weather_icon/fog.png' },
+                51: isNight ? { text: '短暫時間多雲', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '短暫時間多雲', icon: 'icon/weather_icon/partly-sun-day.png' },
+                53: isNight ? { text: '部份時間多雲', icon: 'icon/weather_icon/partly-cloud-night.png' } : { text: '部份時間多雲', icon: 'icon/weather_icon/partly-cloud-day.png' },
+                61: { text: '微雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                80: { text: '驟雨', icon: 'icon/weather_icon/cloud-rain.png' },
+                95: { text: '雷雨', icon: 'icon/weather_icon/thunder.png' }
             };
-            return symbols[code] || { text: '多雲', icon: 'fas fa-cloud text-slate-600 dark:text-slate-300' };
+            return symbols[code] || { text: '多雲', icon: 'icon/weather_icon/cloud.png' };
         }
-
+        
         function getAdvancedDailyWeatherIcon(dayIndex, data) {
             const dailyCode = data.daily.weather_code[dayIndex];
             const maxTemp = data.daily.temperature_2m_max[dayIndex];
             const minTemp = data.daily.temperature_2m_min[dayIndex];
             const dateStr = data.daily.time[dayIndex];
-
+        
             const hourlyIndices = [];
             data.hourly.time.forEach((t, idx) => {
                 if (t.startsWith(dateStr)) {
                     hourlyIndices.push(idx);
                 }
             });
-
+        
             let sunHours = 0;
             let cloudHours = 0;
             let rainHours = 0;
@@ -1012,18 +1012,18 @@
             let hasHeavyRain = false;
             let thunderstormHours = 0;
             let maxHourlyRainfall = 0;
-
+        
             hourlyIndices.forEach(idx => {
                 const hCode = data.hourly.weather_code[idx];
                 const hRain = data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0;
-
+        
                 if (hRain > maxHourlyRainfall) {
                     maxHourlyRainfall = hRain;
                 }
-
+        
                 if (hCode === 0 || hCode === 1) sunHours++;
                 if (hCode >= 2 && hCode <= 4) cloudHours++;
-                if ((hCode >= 51 && hCode <= 67) || (hCode >= 80 && hCode <= 82)) rainHours++;
+                if ((hCode >= 51 && hCode <= 67) || (hCode >= 80 && hCode <= 82) || (hCode >= 95 && hCode <= 99)) rainHours++;
                 if (hCode === 51 || hCode === 53) drizzleHours++;
                 if (hCode >= 80 && hCode <= 99) hasThunderstormOrShowers = true;
                 if (hCode >= 95 && hCode <= 99) thunderstormHours++;
@@ -1031,69 +1031,101 @@
                 if (hCode === 45 || hCode === 48) hasFog = true;
                 if (hCode === 63 || hCode === 65 || hCode === 82) hasHeavyRain = true;
             });
-
+        
             const accumulatedRainfall = data.daily.precipitation_sum ? (data.daily.precipitation_sum[dayIndex] || 0) : 0;
-
+        
             if (maxHourlyRainfall >= 20 || accumulatedRainfall >= 50) {
-                return { icon: 'fas fa-cloud-showers-water text-blue-700 dark:text-blue-400', text: '暴雨' };
+                return { icon: 'icon/weather_icon/rainstorm.png', text: '暴雨' };
             }
-
-            if (thunderstormHours >= 2) {
-                return { icon: 'fas fa-cloud-bolt text-indigo-600 dark:text-indigo-400', text: '雷雨' };
-            } else if (thunderstormHours === 1) {
-                return { icon: 'fas fa-cloud-sun-rain text-blue-600 dark:text-sky-400', text: '雷雨間晴' };
-            }
-
-            let icon = 'fas fa-cloud text-slate-600 dark:text-slate-300';
+        
+            if (thunderstormHours >= 1) {
+                return { icon: 'icon/weather_icon/thunder-rain.png', text: '雷雨' };
+            } 
+        
+            let icon = 'icon/weather_icon/cloud.png';
             let text = '多雲';
-
+        
             switch (dailyCode) {
-                case 0: icon = 'fas fa-sun text-amber-600 dark:text-yellow-400'; text = '天晴'; break;
-                case 1: icon = 'fas fa-sun text-amber-500 dark:text-yellow-400'; text = '大致天晴'; break;
-                case 2: icon = 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400'; text = '短暫時間多雲'; break;
-                case 3: icon = 'fas fa-cloud text-slate-600 dark:text-slate-300'; text = '多雲'; break;
-                case 45: icon = 'fas fa-smog text-slate-600 dark:text-slate-400'; text = '霧'; break;
-                case 51: icon = 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400'; text = '部份時間有陽光'; break;
-                case 53: icon = 'fas fa-cloud-sun text-amber-600 dark:text-yellow-400'; text = '短暫時間有陽光'; break;
-                case 61: icon = 'fas fa-cloud-rain text-blue-600 dark:text-sky-400'; text = '微雨'; break;
-                case 80: icon = 'fas fa-cloud-showers-heavy text-blue-600 dark:text-blue-400'; text = '驟雨'; break;
-                case 95: icon = 'fas fa-cloud-bolt text-indigo-600 dark:text-indigo-400'; text = '雷雨'; break;
-                default: icon = 'fas fa-cloud text-slate-600 dark:text-slate-300'; text = '多雲'; break;
+                case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
+                case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
+                case 2: icon = 'icon/weather_icon/partly-sun-day.png'; text = '短暫時間多雲'; break;
+                case 3: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
+                case 45: icon = 'icon/weather_icon/fog.png'; text = '霧'; break;
+                case 51: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
+                case 53: icon = 'icon/weather_icon/partly-cloud-day.png'; text = '短暫時間有陽光'; break;
+                case 61: icon = 'icon/weather_icon/cloud-drizzle.png'; text = '微雨'; break;
+                case 80: icon = 'icon/weather_icon/cloud-rain.png'; text = '驟雨'; break;
+                case 95: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
+                default: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
             }
-
-            if (sunHours > 0 && cloudHours > 0 && rainHours > 0) {
-                if (rainHours < 8) {
-                    icon = 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400';
-                    text = '部分多雲';
+        
+            if (sunHours >= cloudHours && thunderstormHours === 0 && rainHours === 0) {
+                if (drizzleHours <= 7) {
+                    if (cloudHours <= 5) {
+                        icon = 'icon/weather_icon/sun.png';
+                        text = '大致天晴';
+                    } else {
+                        icon = 'icon/weather_icon/partly-sun-day.png';
+                        text = '部份時間天晴';
+                    }
                 } else {
-                    icon = 'fas fa-cloud-sun-rain text-blue-600 dark:text-sky-400';
-                    text = '陽光雲雨';
+                    icon = 'icon/weather_icon/rainy-day.png';
+                    text = '驟雨'; 
+                }
+            } else if (sunHours < cloudHours && thunderstormHours === 0 && rainHours === 0) {
+                if (drizzleHours <= 7) {
+                    if (cloudHours <= 8) {
+                        icon = 'icon/weather_icon/partly-cloud-day.png';
+                        text = '部份時間多雲';
+                    } else if (cloudHours > 8 && cloudHours <= 16) {
+                        icon = 'icon/weather_icon/cloud.png';
+                        text = '多雲';
+                    } else {
+                        icon = 'icon/weather_icon/overcast.png';
+                        text = '密雲';    
+                    }
+                } else {
+                    icon = 'icon/weather_icon/rainy-day.png';
+                    text = '驟雨'; 
                 }
             }
-
-            const hasSevereWeather = hasFog || hasHeavyRain || hasSnowOrFreezingRain || hasThunderstormOrShowers || (rainHours >= 8);
+            
+            if (sunHours > 0 && cloudHours > 0 && rainHours > 0) {
+                if (rainHours < 8 && thunderstormHours === 0) {
+                    icon = 'icon/weather_icon/rainy-day.png';
+                    text = '驟雨';
+                } else if (rainHours >= 8 && thunderstormHours === 0) {
+                    icon = 'icon/weather_icon/rain.png';
+                    text = '驟雨';
+                } else {
+                    icon = 'icon/weather_icon/thunder-rain.png';
+                    text = '雷雨';
+                }
+            }
+        
+            const hasSevereWeather = hasFog || hasHeavyRain || hasSnowOrFreezingRain || hasThunderstormOrShowers;
             if (drizzleHours >= 1 && drizzleHours <= 7 && !hasSevereWeather) {
                 if (sunHours > 0 && cloudHours > 0) {
-                    icon = 'fas fa-cloud-sun text-amber-500 dark:text-yellow-400';
+                    icon = 'icon/weather_icon/partly-cloud-day.png';
                     text = '部分多雲';
                 } else if (sunHours > 0 && cloudHours === 0) {
-                    icon = 'fas fa-sun text-amber-600 dark:text-yellow-400';
+                    icon = 'icon/weather_icon/sun.png';
                     text = '天晴';
                 } else {
-                    icon = 'fas fa-cloud text-slate-600 dark:text-slate-300';
+                    icon = 'icon/weather_icon/cloud.png';
                     text = '多雲';
                 }
             }
-
+        
             const hasOverrideExclusion = hasThunderstormOrShowers || hasSnowOrFreezingRain;
             if (maxTemp >= 32.5 && !hasOverrideExclusion) {
-                icon = 'fas fa-temperature-arrow-up text-orange-600 dark:text-orange-400';
+                icon = 'icon/weather_icon/hot.png';
                 text = `高溫 (${Math.round(maxTemp)}°C)`;
             } else if (minTemp <= 12.5 && !hasOverrideExclusion) {
-                icon = 'fas fa-temperature-arrow-down text-cyan-600 dark:text-cyan-400';
+                icon = 'icon/weather_icon/cold.png';
                 text = `低溫 (${Math.round(minTemp)}°C)`;
             }
-
+        
             return { icon, text };
         }
 
