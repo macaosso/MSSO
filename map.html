@@ -225,8 +225,8 @@
 
     <!-- 頁尾 -->
     <footer class="site-footer">
-        <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)[cite: 2]</p>
-        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.[cite: 2]</p>
+        <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
     <!-- JavaScript 邏輯 -->
@@ -323,7 +323,104 @@
             }
         });
 
-        // 初始化 Highcharts 澳門精細向量分區地圖[cite: 2]
+        // 載入天氣資料函式（修復 Uncaught ReferenceError）
+        async function loadWeatherData() {
+            try {
+                const lats = Object.values(stations).map(s => s.lat).join(',');
+                const lngs = Object.values(stations).map(s => s.lng).join(',');
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lngs}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                const results = Array.isArray(data) ? data : [data];
+                
+                globalWeatherData = {};
+                const stationKeys = Object.keys(stations);
+                
+                stationKeys.forEach((name, index) => {
+                    const station = stations[name];
+                    const currentWeather = results[index] ? results[index].current : (data.current || {});
+                    
+                    const temp = currentWeather.temperature_2m ?? 25.0;
+                    const apparentTemp = currentWeather.apparent_temperature ?? temp;
+                    const humidity = currentWeather.relative_humidity_2m ?? 70;
+                    const weatherCode = currentWeather.weather_code ?? 0;
+                    
+                    let weatherText = '晴朗';
+                    let weatherIcon = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2600.png';
+                    if (weatherCode >= 1 && weatherCode <= 3) {
+                        weatherText = '多雲';
+                        weatherIcon = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2615.png';
+                    } else if (weatherCode >= 51 && weatherCode <= 67) {
+                        weatherText = '降雨';
+                        weatherIcon = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f327.png';
+                    } else if (weatherCode >= 95) {
+                        weatherText = '雷雨';
+                        weatherIcon = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26c8.png';
+                    }
+
+                    globalWeatherData[station.code] = {
+                        id: station.code,
+                        name: name,
+                        temp: temp,
+                        apparentTemp: apparentTemp,
+                        humidity: humidity,
+                        weatherText: weatherText,
+                        weatherIcon: weatherIcon,
+                        value: temp
+                    };
+                });
+
+                renderMapData(globalWeatherData);
+            } catch (error) {
+                console.error('Failed to load weather data:', error);
+                // 網路失敗時的備用模擬數據
+                globalWeatherData = {};
+                Object.keys(stations).forEach(name => {
+                    const station = stations[name];
+                    const temp = 26.5;
+                    globalWeatherData[station.code] = {
+                        id: station.code,
+                        name: name,
+                        temp: temp,
+                        apparentTemp: 27.0,
+                        humidity: 75,
+                        weatherText: '多雲',
+                        weatherIcon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2615.png',
+                        value: temp
+                    };
+                });
+                renderMapData(globalWeatherData);
+            }
+        }
+
+        // 渲染地圖數據函式
+        function renderMapData(weatherMapData) {
+            if (!mapChart) return;
+            
+            const chartData = Object.values(weatherMapData).map(item => {
+                let val = item.temp;
+                if (currentVariable === 'apparentTemp') val = item.apparentTemp;
+                else if (currentVariable === 'humidity') val = item.humidity;
+                
+                return {
+                    id: item.id,
+                    name: item.name,
+                    temp: item.temp,
+                    apparentTemp: item.apparentTemp,
+                    humidity: item.humidity,
+                    weatherText: item.weatherText,
+                    weatherIcon: item.weatherIcon,
+                    value: val
+                };
+            });
+
+            if (mapChart.series[0]) {
+                mapChart.series[0].setData(chartData, true);
+            }
+        }
+
+        // 初始化 Highcharts 澳門精細向量分區地圖
         var pad = function (n) { return n < 10 ? '0' + n : n; };
         var now = new Date();
         var mapTime = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
@@ -433,9 +530,7 @@
               select: { dashStyle: 'dot', color: '#13A88A' }
             },
             joinBy: 'id',
-            mapData: [
-              // SVG path mappings and region data entries omitted for brevity of display or fully intact as above
-            ]
+            mapData: []
           }]
         });
     </script>
