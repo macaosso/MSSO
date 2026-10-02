@@ -22,7 +22,7 @@
 <script src="https://cdn.jsdelivr.net/npm/highcharts@8.1.2/modules/data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/highcharts@8.1.2/modules/map.js"></script>
 <style>
-    /* ===== 設計令牌（終端／儀表板風格）[cite: 11] ===== */
+    /* ===== 設計令牌（終端／儀表板風格） ===== */
     html.dark {
         --bg-page: #0b1013;
         --bg:      #0e1418;
@@ -118,6 +118,34 @@
         z-index: 10;
         letter-spacing: .1em;
     }
+    #mapControls {
+        position: absolute;
+        top: 0;
+        left: 15px;
+        z-index: 10;
+        display: flex;
+        gap: 4px;
+    }
+    .var-btn {
+        background: var(--bg-2);
+        border: 1px solid var(--line);
+        color: var(--muted);
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: all 0.2s;
+    }
+    .var-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+    .var-btn.active {
+        background: var(--accent);
+        color: #0b1013;
+        border-color: var(--accent);
+        font-weight: bold;
+    }
     #macauMapChart { height: 100%; }
     .mapDataLabel {
         cursor: pointer;
@@ -154,7 +182,7 @@
 </head>
 <body class="min-h-screen antialiased flex flex-col justify-between">
 
-    <!-- 頂欄[cite: 11] -->
+    <!-- 頂欄 -->
     <header class="topbar">
         <div class="topbar-inner">
             <div class="brand">
@@ -175,13 +203,19 @@
     <main class="w-full max-w-5xl mx-auto px-4 py-8 flex-grow space-y-6">
         <section class="panel">
             <div class="panel-head">
-                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門分區即時氣溫與氣象向量地圖</h2>
+                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門分區即時氣象向量地圖</h2>
                 <span class="micro"><span style="width:6px;height:6px;background:var(--accent);display:inline-block;border-radius:50%;margin-right:6px;"></span>LIVE DATA (OPEN-METEO)</span>
             </div>
             <div class="panel-body">
-                <p class="micro dim mb-4">點擊或懸停於各分區圖塊可檢視即時氣溫、體感溫度、相對濕度與天氣狀況。</p>
+                <p class="micro dim mb-4">使用上方按鈕切換不同氣象變數，點擊分區可檢視完整數據。</p>
                 <!-- 澳門高精度向量地圖容器 -->
                 <div id="macauMap">
+                    <div id="mapControls">
+                        <button class="var-btn active" data-var="temp" onclick="switchVariable('temp')">氣溫</button>
+                        <button class="var-btn" data-var="apparentTemp" onclick="switchVariable('apparentTemp')">體感</button>
+                        <button class="var-btn" data-var="humidity" onclick="switchVariable('humidity')">濕度</button>
+                        <button class="var-btn" data-var="weatherText" onclick="switchVariable('weatherText')">天氣</button>
+                    </div>
                     <span id="mapTitle">氣温 (℃)</span>
                     <div id="macauMapChart"></div>
                 </div>
@@ -189,7 +223,7 @@
         </section>
     </main>
 
-    <!-- 頁尾[cite: 11] -->
+    <!-- 頁尾 -->
     <footer class="site-footer">
         <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
@@ -197,7 +231,7 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
-        // 1. 站點與坐標資料定義
+        // 1. 站點與坐標資料定義（包含港珠澳大橋邊檢大樓與路氹城）
         const stations = {
             "紀念孫中山市政公園": { "code": "DP", "lat": 22.215322, "lng": 113.543490 },
             "黑沙環": { "code": "EM", "lat": 22.207129, "lng": 113.559971 },
@@ -209,6 +243,8 @@
             "九澳": { "code": "KV", "lat": 22.134686, "lng": 113.580143 },
             "澳門大學": { "code": "UM", "lat": 22.131808, "lng": 113.546970 },
             "路環市區": { "code": "DC", "lat": 22.117091, "lng": 113.551041 },
+            "港珠澳大橋澳門邊檢大樓": { "code": "g896", "lat": 22.2026511, "lng": 113.577345 },
+            "路氹城": { "code": "path913", "lat": 22.1450437, "lng": 113.5625369 }
         };
 
         const stationOffsets = {
@@ -221,10 +257,38 @@
             'JA': {x: -5, y: -15},
             'KV': {x: 0, y: 4},
             'UM': {x: -1, y: -5},
-            'DC': {x: 0, y: 0}
+            'DC': {x: 0, y: 0},
+            'g896': {x: 10, y: -10},
+            'path913': {x: 0, y: 0}
         };
 
-        // 時間更新[cite: 11]
+        let currentVariable = 'temp'; // 當前選中的變數: temp, apparentTemp, humidity, weatherText
+        let globalWeatherData = null;
+
+        function switchVariable(variable) {
+            currentVariable = variable;
+            document.querySelectorAll('.var-btn').forEach(btn => {
+                if (btn.getAttribute('data-var') === variable) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            const titles = {
+                'temp': '氣温 (℃)',
+                'apparentTemp': '體感溫度 (℃)',
+                'humidity': '相對濕度 (%)',
+                'weatherText': '天氣狀況'
+            };
+            document.getElementById('mapTitle').textContent = titles[variable];
+
+            if (globalWeatherData) {
+                renderMapData(globalWeatherData);
+            }
+        }
+
+        // 時間更新
         function updateDateTime() {
             const now = new Date();
             const year = now.getFullYear();
@@ -239,7 +303,7 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
-        // 主題切換監聽[cite: 11]
+        // 主題切換監聽
         document.getElementById('theme-toggle').addEventListener('click', () => {
             if (document.documentElement.classList.contains('dark')) {
                 document.documentElement.classList.remove('dark');
@@ -248,7 +312,6 @@
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
             }
-            // 更新圖表圖例與背景色以符合新主題
             if (typeof mapChart !== 'undefined') {
                 const isDark = document.documentElement.classList.contains('dark');
                 mapChart.update({
@@ -276,27 +339,12 @@
             backgroundColor: 'transparent',
             events: {
               load: function () {
-                var chart = this;
-                var colorAxis = chart.colorAxis[0];
-                if (chart.series[1] && chart.series[1].data) {
-                  chart.series[1].data.forEach(function (point) {
-                    var color = point.value !== '---' ? colorAxis.toColor(point.value, point) : '#839192';
-                    point.update({ color: color }, false);
-                  });
-                  chart.redraw();
-                }
-                // 載入 Open-Meteo 即時氣象數據
                 loadWeatherData();
               }
             }
           },
           title: { text: '' },
-          credits: {
-            text: '',
-            href: '',
-            style: { cursor: 'default' },
-            position: { align: 'right' }
-          },
+          credits: { enabled: false },
           legend: {
             enabled: true,
             title: {
@@ -331,7 +379,7 @@
             useHTML: true,
             formatter: function () {
               const p = this.point;
-              if (!p || p.value === undefined || p.value === '---') {
+              if (!p || p.value === undefined || p.value === null) {
                 return "<div class='chart-tooltip font-mono'><strong>" + (p.name || this.key) + "</strong><br>資料載入中...</div>";
               }
               return `
@@ -358,19 +406,25 @@
             borderColor: isDarkMode ? '#1f282e' : '#d6d3c4',
             borderWidth: 1,
             color: isDarkMode ? '#121a1f' : '#eae8dc',
-            nullColor: '#4D5656',
+            nullColor: '#4D5656', // 未載入或無資料時顯示灰色，避免誤判為嚴寒
             dashStyle: 'Solid',
             shadow: { color: 'rgba(0,0,0,0.2)', offsetX: 0, offsetY: 0, width: 8 },
             dataLabels: {
               enabled: true,
               useHTML: true,
               formatter: function () {
-                if (!this.point.isNull) {
-                  if (this.point.value !== '---') {
-                    return "<span class='mapDataLabel'>" + Highcharts.numberFormat(this.point.value, 1) + "</span>";
+                if (!this.point.isNull && this.point.value !== null) {
+                  if (currentVariable === 'humidity') {
+                    return "<span class='mapDataLabel'>" + this.point.humidity + "%</span>";
+                  } else if (currentVariable === 'weatherText') {
+                    return "<span class='mapDataLabel'>" + this.point.weatherText + "</span>";
+                  } else if (currentVariable === 'apparentTemp') {
+                    return "<span class='mapDataLabel'>" + Highcharts.numberFormat(this.point.apparentTemp, 1) + "</span>";
+                  } else {
+                    return "<span class='mapDataLabel'>" + Highcharts.numberFormat(this.point.temp, 1) + "</span>";
                   }
-                  return "<span class='mapDataLabel'>---</span>";
                 }
+                return "<span class='mapDataLabel'>---</span>";
               }
             },
             allowPointSelect: true,
@@ -381,7 +435,7 @@
             joinBy: 'id',
             mapData: [
               {
-                "id": "id13",
+                "id": "g896",
                 "name": "g896",
                 "path": "M306,215C305,211,305,207,305,203C304,194,304,186,303,177C303,173,304,168,304,163L304,152C302,144,300,136,298,128C297,124,296,119,295,115C293,110,292,106,288,103C280,96,271,93,261,89C261,89,261,89,260,89C256,88,253,91,253,96C254,97,254,99,254,101C254,110,255,119,256,127C256,129,256,130,257,131C260,138,262,144,265,150C267,155,269,161,270,166C270,173,270,181,270,189C269,199,269,209,270,219C270,221,271,222,273,223C275,223,276,224,277,225C285,230,293,232,301,231C304,231,305,230,306,227C306,226,306,224,306,223C306,220,306,218,306,215zM370,149C370,144,370,140,370,136C370,134,369,133,367,133C367,133,366,133,366,133C349,133,332,133,315,133C314,133,314,133,313,133C312,133,311,134,311,135C311,136,311,137,311,139C311,145,311,152,311,159L310,173C311,178,313,180,318,180C327,180,336,180,345,180C357,180,357,180,367,173C369,172,370,170,370,167C370,161,370,155,370,149z"
               },
@@ -446,7 +500,7 @@
                 "path": "M411,600C413,597,413,597,409,594,409,593,408,593,408,593,404,590,403,591,401,594,400,594,400,595,399,596,399,597,398,597,397,596,395,595,393,594,392,592,390,591,389,591,388,592,387,594,386,594,384,594,382,594,384,592,383,591,382,591,382,590,382,589,382,586,382,584,381,582,380,582,379,583,379,584,379,589,377,592,373,593,370,594,369,593,369,591,368,590,368,590,367,590,366,590,366,589,367,588,367,587,367,585,367,584,367,580,368,576,365,572,364,571,365,571,366,570,367,569,368,568,369,567,352,571,339,586,339,605,339,626,357,644,379,644,401,644,418,626,418,605,418,602,418,599,417,597,416,598,416,599,415,600,413,603,413,603,411,600z"
               },
               {
-                "id": "id12",
+                "id": "path913",
                 "name": "path913",
                 "path": "M441,620C441,619,440,618,439,618,437,620,436,618,436,616,435,615,435,614,434,612,434,612,434,611,433,611,432,609,431,606,430,604,429,603,429,601,430,600,431,598,430,596,429,596,426,596,425,594,424,592,424,592,423,591,422,591,421,591,421,592,421,592,420,594,418,595,417,597,418,599,418,602,418,605,418,626,401,644,379,644,357,644,339,626,339,605,339,586,352,571,369,567,372,563,375,559,379,556,381,554,382,552,383,550,383,549,383,548,385,548,385,548,385,547,385,547,384,545,385,544,386,543,386,541,386,540,384,540,382,540,380,540,378,541,371,546,363,552,356,557,356,557,355,557,355,558,352,560,352,560,354,563,355,564,355,564,356,565,357,567,357,568,354,568,353,567,352,568,351,569,349,570,347,572,345,573L345,573C342,569,343,565,346,561,346,561,347,560,347,560,349,557,350,554,350,550,350,549,351,547,349,546,348,545,348,544,349,543,350,542,350,540,353,541,354,541,354,541,356,541,359,540,362,540,365,539,366,538,367,538,367,539,368,540,369,539,370,539,375,537,380,537,386,538,387,539,388,540,389,538,390,537,390,537,391,538,392,538,393,538,394,537,395,536,397,536,398,537,398,539,399,539,401,539,402,539,402,539,403,540,403,541,404,541,404,540,406,539,408,540,410,540,412,540,412,540,411,538,410,537,411,536,412,535,415,533,415,533,414,530,413,527,414,523,412,521,412,521,412,521,412,521,413,518,412,515,412,513,412,510,411,509,408,507,390,495,371,483,353,471,349,468,345,466,340,465L339,464C339,464,339,464,338,464,328,468,319,472,310,477,307,478,307,479,308,482,309,483,310,484,308,485,305,487,302,489,298,490,297,491,296,491,294,490,292,489,289,489,286,490,285,491,283,491,282,491,277,491,272,491,267,489,266,489,265,489,264,489,260,486,257,488,254,489,238,494,223,494,209,487,202,484,196,480,189,477,185,476,183,477,183,481,182,487,183,493,186,498,190,504,193,511,193,518,194,519,194,521,195,522,197,524,197,524,194,525,192,526,190,526,189,529,190,530,190,531,190,532,190,549,190,565,189,582L189,625C187,627,187,629,186,632,185,634,185,637,188,638L188,638C188,641,187,643,187,645,188,654,188,663,188,672,188,673,188,674,188,675,210,677,227,695,227,717,227,735,215,750,199,756,200,757,201,758,202,760,202,760,203,760,203,761,205,761,208,762,210,761,212,761,213,761,215,761,216,762,217,762,218,762,220,762,223,759,222,757,222,756,221,756,222,755,222,754,223,753,224,753,227,753,228,751,231,751,232,750,233,749,233,748,232,746,233,745,234,744,237,740,240,738,245,739,248,739,249,739,249,743,249,746,251,747,253,749,253,749,253,749,254,749,256,748,260,749,262,747,264,746,265,745,267,747,269,748,270,748,271,746,273,744,276,745,278,746,278,746,278,746,278,747,278,747,278,747,278,747,277,747,277,747,278,747,280,747,282,747,284,747,284,747,285,747,285,747,287,745,288,746,290,747,295,749,299,750,305,749,311,747,315,744,320,742,320,742,321,741,321,741,322,739,324,738,326,736,328,735,328,735,327,733,327,732,327,732,327,732,327,731,327,731,327,730,327,728,327,727,327,725,328,723,325,722,324,720,324,719,323,718,321,719,320,720,319,719,318,719,315,718,313,718,310,719,309,719,308,719,308,718,308,718,308,717,307,718,305,718,304,718,303,715,302,711,302,707,303,704,304,699,306,694,307,690,308,688,309,686,310,684,315,675,322,666,331,660,332,660,333,659,334,659,335,658,336,659,337,660,338,662,340,663,343,664,345,665,347,666,348,667,350,669,352,669,354,669,357,668,359,669,362,670,364,672,366,672,369,670,372,666,376,663,381,662,384,661,385,659,386,656,387,653,389,650,392,648,394,646,397,645,399,642,400,641,401,641,403,642,405,643,407,644,409,643,410,642,411,644,413,644,414,646,416,646,419,646,424,647,426,646,428,642,429,641,430,640,428,639,427,638,428,638,429,638,430,637,432,636,434,635,435,634,435,634,438,634,440,635,441,634,441,632,441,628,441,624,441,620zM282,598C279,601,279,604,279,608,279,611,277,613,276,617,276,617,275,617,275,617,273,617,271,618,269,619,268,620,266,620,265,620,263,620,262,619,262,617,261,615,262,614,261,612,261,612,261,611,262,611,262,609,262,606,262,604L262,599C262,598,261,596,263,595,266,595,268,595,271,595,272,595,273,595,274,595,277,596,280,594,282,597,282,597,282,598,282,598z"
               },
@@ -462,46 +516,19 @@
               }
             ],
             data: [
-              {id:'DP', dataLabels:{x:10, y:-10}, value:'---'},
-              {id:'EM', dataLabels:{x:3, y:-15}, value:'---'},
-              {id:'FM', dataLabels:{x:-1, y:-5}, value:'---'},
-              {id:'PE', dataLabels:{x:22, y:-3}, value:'---'},
-              {id:'MM', dataLabels:{x:1, y:-1}, value:'---'},
-              {id:'TG', dataLabels:{x:-35, y:-30}, value:'---'},
-              {id:'JA', dataLabels:{x:-5, y:-15}, value:'---'},
-              {id:'KV', dataLabels:{x:0, y:4}, value:'---'},
-              {id:'UM', dataLabels:{x:-1, y:-5}, value:'---'},
-              {id:'DC', dataLabels:{x:0, y:0}, value:'---'}
+              {id:'DP', dataLabels:{x:10, y:-10}, value:null},
+              {id:'EM', dataLabels:{x:3, y:-15}, value:null},
+              {id:'FM', dataLabels:{x:-1, y:-5}, value:null},
+              {id:'PE', dataLabels:{x:22, y:-3}, value:null},
+              {id:'MM', dataLabels:{x:1, y:-1}, value:null},
+              {id:'TG', dataLabels:{x:-35, y:-30}, value:null},
+              {id:'JA', dataLabels:{x:-5, y:-15}, value:null},
+              {id:'KV', dataLabels:{x:0, y:4}, value:null},
+              {id:'UM', dataLabels:{x:-1, y:-5}, value:null},
+              {id:'DC', dataLabels:{x:0, y:0}, value:null},
+              {id:'g896', dataLabels:{x:10, y:-10}, value:null},
+              {id:'path913', dataLabels:{x:0, y:0}, value:null}
             ]
-          }, {
-            type: 'mappoint',
-            animation: false,
-            stickyTracking: false,
-            joinBy: 'id',
-            cursor: 'pointer',
-            allowPointSelect: true,
-            marker: {
-              radius: 18,
-              states: {
-                hover: { radiusPlus: 4, lineWidthPlus: 4 },
-                select: { radiusPlus: 4, lineWidth: 4, fillColor: '#13A88A', lineColor: 'white' }
-              }
-            },
-            states: { inactive: { opacity: 1 } },
-            dataLabels: {
-              enabled: true,
-              y: 12,
-              useHTML: true,
-              formatter: function () {
-                if (!this.point.isNull) {
-                  if (this.point.value !== '---') {
-                    return "<span class='mappointDataLabel'>" + Highcharts.numberFormat(this.point.value, 1) + "</span>";
-                  }
-                  return "<span class='mappointDataLabel'>---</span>";
-                }
-              }
-            },
-            data: []
           }]
         });
 
@@ -515,60 +542,70 @@
                 
                 const response = await fetch(url);
                 const data = await response.json();
-                const results = Array.isArray(data) ? data : [data];
+                globalWeatherData = Array.isArray(data) ? data : [data];
                 
-                const chartData = keys.map((key, index) => {
-                    const st = stations[key];
-                    const cur = results[index]?.current || {};
-                    const temp = cur.temperature_2m ?? 25.0;
-                    const humidity = cur.relative_humidity_2m ?? 70;
-                    const apparentTemp = cur.apparent_temperature ?? temp;
-                    const weatherCode = cur.weather_code ?? 0;
-                    
-                    // 根據使用者提供的 switch 語句對應天氣圖標與描述
-                    let icon = '';
-                    let text = '';
-                    switch (weatherCode) {
-                        case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
-                        case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
-                        case 2: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
-                        case 3: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
-                        case 45: icon = 'icon/weather_icon/fog.png'; text = '霧'; break;
-                        case 51: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
-                        case 53: icon = 'icon/weather_icon/partly-cloud-day.png'; text = '短暫時間有陽光'; break;
-                        case 61: icon = 'icon/weather_icon/cloud-drizzle.png'; text = '微雨/毛毛雨'; break;
-                        case 80: icon = 'icon/weather_icon/cloud-rain.png'; text = '驟雨'; break;
-                        case 95: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
-                        default: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
-                    }
-                    
-                    return {
-                        id: st.code,
-                        name: key,
-                        value: temp,
-                        temp: temp,
-                        humidity: humidity,
-                        apparentTemp: apparentTemp,
-                        weatherText: text,
-                        weatherIcon: icon,
-                        dataLabels: {
-                            x: stationOffsets[st.code]?.x || 0,
-                            y: stationOffsets[st.code]?.y || 0
-                        }
-                    };
-                });
-                
-                if (mapChart && mapChart.series[0]) {
-                    mapChart.series[0].setData(chartData, true);
-                    var colorAxis = mapChart.colorAxis[0];
-                    mapChart.series[0].data.forEach(function (point) {
-                        var color = point.value !== '---' ? colorAxis.toColor(point.value, point) : '#839192';
-                        point.update({ color: color }, false);
-                    });
-                    mapChart.redraw();
-                }
+                renderMapData(globalWeatherData);
             } catch (err) {
                 console.error('無法取得 Open-Meteo 天氣數據:', err);
+            }
+        }
+
+        function renderMapData(results) {
+            const keys = Object.keys(stations);
+            const chartData = keys.map((key, index) => {
+                const st = stations[key];
+                const cur = results[index]?.current || {};
+                const temp = cur.temperature_2m ?? null;
+                const humidity = cur.relative_humidity_2m ?? null;
+                const apparentTemp = cur.apparent_temperature ?? temp;
+                const weatherCode = cur.weather_code ?? 0;
+                
+                let icon = '';
+                let text = '';
+                switch (weatherCode) {
+                    case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
+                    case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
+                    case 2: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
+                    case 3: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
+                    case 45: icon = 'icon/weather_icon/fog.png'; text = '霧'; break;
+                    case 51: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
+                    case 53: icon = 'icon/weather_icon/partly-cloud-day.png'; text = '短暫時間有陽光'; break;
+                    case 61: icon = 'icon/weather_icon/cloud-drizzle.png'; text = '微雨/毛毛雨'; break;
+                    case 80: icon = 'icon/weather_icon/cloud-rain.png'; text = '驟雨'; break;
+                    case 95: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
+                    default: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
+                }
+
+                let displayValue = null;
+                if (currentVariable === 'temp') displayValue = temp;
+                else if (currentVariable === 'apparentTemp') displayValue = apparentTemp;
+                else if (currentVariable === 'humidity') displayValue = humidity;
+                else if (currentVariable === 'weatherText') displayValue = temp; // 使用溫度來對應顏色級距，標籤顯示天氣
+                
+                return {
+                    id: st.code,
+                    name: key,
+                    value: displayValue,
+                    temp: temp,
+                    humidity: humidity,
+                    apparentTemp: apparentTemp,
+                    weatherText: text,
+                    weatherIcon: icon,
+                    dataLabels: {
+                        x: stationOffsets[st.code]?.x || 0,
+                        y: stationOffsets[st.code]?.y || 0
+                    }
+                };
+            });
+            
+            if (mapChart && mapChart.series[0]) {
+                mapChart.series[0].setData(chartData, true);
+                var colorAxis = mapChart.colorAxis[0];
+                mapChart.series[0].data.forEach(function (point) {
+                    var color = point.value !== null ? colorAxis.toColor(point.value, point) : null;
+                    point.update({ color: color }, false);
+                });
+                mapChart.redraw();
             }
         }
     </script>
