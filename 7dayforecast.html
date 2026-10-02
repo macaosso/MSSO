@@ -286,17 +286,17 @@
             document.documentElement.classList.add('dark');
         }
 
-        /* 優化後的天氣圖示（使用 PNG 圖片） */
+        /* 標準氣象名詞與圖示對應 (符合澳門氣象標準) */
         function getWeatherDetails(code, isNight = false) {
             const symbols = {
                 0: isNight ? { text: '天晴', icon: 'icon/weather_icon/moon.png' } : { text: '天晴', icon: 'icon/weather_icon/sun.png' },
                 1: isNight ? { text: '大致天晴', icon: 'icon/weather_icon/moon.png' } : { text: '大致天晴', icon: 'icon/weather_icon/sun.png' },
-                2: isNight ? { text: '天色明朗', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '天色明朗', icon: 'icon/weather_icon/partly-sun-day.png' },
+                2: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
                 3: { text: '多雲', icon: 'icon/weather_icon/cloud.png' },
                 45: { text: '霧', icon: 'icon/weather_icon/fog.png' },
-                51: isNight ? { text: '短暫時間多雲', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '短暫時間多雲', icon: 'icon/weather_icon/partly-sun-day.png' },
-                53: isNight ? { text: '部份時間多雲', icon: 'icon/weather_icon/partly-cloud-night.png' } : { text: '部份時間多雲', icon: 'icon/weather_icon/partly-cloud-day.png' },
-                61: { text: '微雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                51: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
+                53: isNight ? { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-night.png' } : { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-day.png' },
+                61: { text: '微雨/毛毛雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
                 80: { text: '驟雨', icon: 'icon/weather_icon/cloud-rain.png' },
                 95: { text: '雷雨', icon: 'icon/weather_icon/thunder-rain.png' }
             };
@@ -349,7 +349,7 @@
             const accumulatedRainfall = data.daily.precipitation_sum ? (data.daily.precipitation_sum[dayIndex] || 0) : 0;
         
             if (maxHourlyRainfall >= 10 || accumulatedRainfall >= 30) {
-                return { icon: 'icon/weather_icon/rainstorm.png', text: '暴雨' };
+                return { icon: 'icon/weather_icon/rainstorm.png', text: '雨勢有時頗大' };
             }
         
             if (thunderstormHours >= 2) {
@@ -362,12 +362,12 @@
             switch (dailyCode) {
                 case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
                 case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
-                case 2: icon = 'icon/weather_icon/partly-sun-day.png'; text = '短暫時間多雲'; break;
+                case 2: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
                 case 3: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
                 case 45: icon = 'icon/weather_icon/fog.png'; text = '霧'; break;
                 case 51: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
                 case 53: icon = 'icon/weather_icon/partly-cloud-day.png'; text = '短暫時間有陽光'; break;
-                case 61: icon = 'icon/weather_icon/cloud-drizzle.png'; text = '微雨'; break;
+                case 61: icon = 'icon/weather_icon/cloud-drizzle.png'; text = '微雨/毛毛雨'; break;
                 case 80: icon = 'icon/weather_icon/cloud-rain.png'; text = '驟雨'; break;
                 case 95: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
                 default: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
@@ -380,7 +380,7 @@
                         text = '大致天晴';
                     } else {
                         icon = 'icon/weather_icon/partly-sun-day.png';
-                        text = '部份時間天晴';
+                        text = '天晴，部份時間多雲';
                     }
                 } else {
                     icon = 'icon/weather_icon/rainy-day.png';
@@ -390,7 +390,7 @@
                 if (drizzleHours <= 7) {
                     if (cloudHours <= 8) {
                         icon = 'icon/weather_icon/partly-cloud-day.png';
-                        text = '部份時間多雲';
+                        text = '短暫時間有陽光';
                     } else if (cloudHours <= 16) {
                         icon = 'icon/weather_icon/cloud.png';
                         text = '多雲';
@@ -400,22 +400,22 @@
                     }
                 }
             } else if (sunHours === 0 && cloudHours >= 12 && thunderstormHours === 0 && rainHours === 0) {
-                icon = 'icon/weather_icon/cloud.png';
-                text = '多雲'; 
+                if (cloudHours >= 18) {
+                    icon = 'icon/weather_icon/overcast.png';
+                    text = '密雲';
+                } else {
+                    icon = 'icon/weather_icon/cloud.png';
+                    text = '多雲';
+                }
             }
 
-                
-        
             if (sunHours > 0 && cloudHours > 0 && rainHours > 0) {
                 if (rainHours < 8 && thunderstormHours === 0) {
                     icon = 'icon/weather_icon/rainy-day.png';
-                    text = '驟雨';
+                    text = '有幾陣驟雨';
                 } else if (rainHours >= 8 && thunderstormHours === 0) {
                     icon = 'icon/weather_icon/rain.png';
                     text = '驟雨';
-                } else if (rainHours >= 5 && thunderstormHours >= 2){
-                    icon = 'icon/weather_icon/thunder-rain.png';
-                    text = '雷雨';
                 } else {
                     icon = 'icon/weather_icon/thunder-rain.png';
                     text = '雷雨';
@@ -426,13 +426,13 @@
             if (drizzleHours >= 1 && drizzleHours <= 7 && !hasSevereWeather) {
                 if (sunHours > 0 && cloudHours > 0) {
                     icon = 'icon/weather_icon/partly-cloud-day.png';
-                    text = '部分多雲';
+                    text = '部份時間有陽光';
                 } else if (sunHours > 0 && cloudHours === 0) {
                     icon = 'icon/weather_icon/sun.png';
                     text = '天晴';
                 } else {
                     icon = 'icon/weather_icon/rainy-day.png';
-                    text = '間中有驟雨';
+                    text = '微雨/毛毛雨';
                 }
             }
         
@@ -452,7 +452,7 @@
             if ([0, 1].includes(code)) return { group: 'A', name: '天晴' };
             if ([2, 3, 51].includes(code)) return { group: 'B', name: '多雲' };
             if ([45, 48].includes(code)) return { group: 'C', name: '霧' };
-            if ([53, 55].includes(code)) return { group: 'D', name: '微雨' };
+            if ([53, 55].includes(code)) return { group: 'D', name: '微雨/毛毛雨' };
             if ([61, 63, 65].includes(code)) return { group: 'E', name: '雨' };
             if ([56, 57, 66, 67].includes(code)) return { group: 'F', name: '凍雨' };
             if ([71, 73, 75, 77, 85, 86].includes(code)) return { group: 'G', name: '雪' };
@@ -670,19 +670,25 @@
                         if (cloudH >= 2) {
                             skyDescs.push('天晴，部份時間多雲');
                         } else {
-                            skyDescs.push('天晴');
+                            skyDescs.push('大致天晴');
                         }
                     } else {
                         if (sunH >= 2) {
-                            skyDescs.push('多雲，部份時間天晴');
+                            skyDescs.push('部份時間有陽光');
                         } else {
-                            skyDescs.push('多雲');
+                            skyDescs.push('大致多雲');
                         }
                     }
                 } else if (sunH > 0) {
                     skyDescs.push('天晴');
                 } else if (cloudH > 0) {
-                    skyDescs.push('多雲');
+                    if (cloudH >= 18) {
+                        skyDescs.push('密雲');
+                    } else if (cloudH >= 12) {
+                        skyDescs.push('多雲');
+                    } else {
+                        skyDescs.push('大致多雲');
+                    }
                 } else {
                     skyDescs.push('多雲');
                 }
@@ -692,33 +698,34 @@
                     weatherDescs.push(skyDescs.join('，'));
                 }
 
-                if (groupCounts['C'] >= 16) weatherDescs.push('有霧或薄霧');
-                else if (groupCounts['C'] >= 2) weatherDescs.push('有時有霧');
+                if (groupCounts['C'] >= 16) weatherDescs.push('有霧');
+                else if (groupCounts['C'] >= 6) weatherDescs.push('薄霧');
+                else if (groupCounts['C'] >= 2) weatherDescs.push('有一兩陣薄霧');
 
                 let precipDesc = null;
                 for (let g of ['I', 'H', 'E', 'D', 'G']) {
                     let hours = groupCounts[g];
                     if (hours > 0) {
-                        if (hours >= 16) {
+                        if (hours >= 12) {
                             if (g === 'I') precipDesc = '有雷雨';
                             else if (g === 'H') precipDesc = '有驟雨';
                             else if (g === 'E') precipDesc = '有雨';
-                            else if (g === 'D') precipDesc = '有微雨';
+                            else if (g === 'D') precipDesc = '微雨/毛毛雨';
                             else if (g === 'G') precipDesc = '有雪';
                             break;
-                        } else if (hours >= 2) {
+                        } else if (hours >= 4) {
                             if (g === 'I') precipDesc = '間中有雷雨';
                             else if (g === 'H') precipDesc = '間中有驟雨';
                             else if (g === 'E') precipDesc = '間中有雨';
-                            else if (g === 'D') precipDesc = '間中有微雨';
+                            else if (g === 'D') precipDesc = '間中有微雨/毛毛雨';
                             else if (g === 'G') precipDesc = '間中有雪';
                             break;
                         } else {
-                            if (g === 'I') precipDesc = '間中有雷雨';
-                            else if (g === 'H') precipDesc = '間中有驟雨';
-                            else if (g === 'E') precipDesc = '間中有雨';
-                            else if (g === 'D') precipDesc = '間中有微雨';
-                            else if (g === 'G') precipDesc = '間中有雪';
+                            if (g === 'I') precipDesc = '有幾陣雷雨';
+                            else if (g === 'H') precipDesc = '有幾陣驟雨';
+                            else if (g === 'E') precipDesc = '有幾陣雨';
+                            else if (g === 'D') precipDesc = '有一兩陣微雨/毛毛雨';
+                            else if (g === 'G') precipDesc = '有幾陣雪';
                             break;
                         }
                     }
@@ -849,7 +856,7 @@
 
             const startIndex = 1;
             const groupKeys = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
-            const groupNames = { 'A': '天晴', 'B': '多雲', 'C': '霧', 'D': '微雨', 'E': '雨', 'F': '凍雨', 'G': '雪', 'H': '驟雨', 'I': '雷雨' };
+            const groupNames = { 'A': '天晴', 'B': '多雲', 'C': '霧', 'D': '微雨/毛毛雨', 'E': '雨', 'F': '凍雨', 'G': '雪', 'H': '驟雨', 'I': '雷雨' };
 
             const dailyStats = [];
             for (let i = 0; i < 7; i++) {
