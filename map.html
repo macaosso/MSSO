@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>澳門民間氣象台 MSSO - 澳門分區氣象地圖</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Highcharts & Highcharts Maps -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/map.js"></script>
+    <style>
+        /* ===== 設計令牌（終端／儀表板風格）===== */
+        html.dark {
+            --bg-page: #0b1013;
+            --bg:      #0e1418;
+            --bg-2:    #121a1f;
+            --line:    #1f282e;
+            --line-strong: #2b373e;
+            --text:    #e6e9e9;
+            --muted:   #93a0a6;
+            --faint:   #5f6b72;
+            --accent:  #3fd9a4;
+            --cream:   #e7e2d2;
+            --cream-text: #12181b;
+        }
+        html:not(.dark) {
+            --bg-page: #edebe2;
+            --bg:      #f4f2ea;
+            --bg-2:    #eae8dc;
+            --line:    #d6d3c4;
+            --line-strong: #bfbcab;
+            --text:    #1a1e20;
+            --muted:   #5c6663;
+            --faint:   #8b948f;
+            --accent:  #0b9a6b;
+            --cream:   #181d20;
+            --cream-text: #f1eee2;
+        }
+
+        body {
+            background: var(--bg-page);
+            color: var(--text);
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+            font-size: 13px;
+        }
+        .num { font-variant-numeric: tabular-nums; }
+        .micro { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+        
+        .topbar {
+            position: sticky; top: 0; z-index: 60;
+            background: var(--bg);
+            border-bottom: 1px solid var(--line);
+        }
+        .topbar-inner {
+            max-width: 72rem; margin: 0 auto; padding: 12px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand-mark {
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--line-strong); color: var(--accent); font-size: 12px;
+        }
+        .brand-title { font-size: 13px; font-weight: 700; letter-spacing: .14em; }
+        
+        .panel { background: var(--bg); border: 1px solid var(--line); }
+        .panel-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px; border-bottom: 1px solid var(--line);
+        }
+        .panel-title { font-size: 13px; font-weight: 700; letter-spacing: .12em; }
+        .panel-num { color: var(--accent); }
+        .panel-body { padding: 18px; }
+
+        .icon-btn {
+            width: 32px; height: 32px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
+            transition: border-color .15s ease, color .15s ease;
+        }
+        .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+        html.dark .ic-moon { display: none; }
+        html:not(.dark) .ic-sun { display: none; }
+
+        .site-footer {
+            max-width: 72rem; margin: 40px auto 0; padding: 20px 16px;
+            border-top: 1px solid var(--line); text-align: center;
+        }
+        .site-footer p { font-size: 10px; letter-spacing: .1em; color: var(--faint); line-height: 1.8; }
+    </style>
+    <script>
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+</head>
+<body class="min-h-screen antialiased flex flex-col justify-between">
+
+    <!-- 頂欄 -->
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <span class="brand-mark"><i class="fa-solid fa-map-location-dot"></i></span>
+                <div class="brand-title">澳門民間氣象台 MSSO <span style="color:var(--faint); font-weight:400; margin-left:6px;">MAPS SYSTEM</span></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="micro num" id="current-datetime">載入中...</div>
+                <button class="icon-btn" id="theme-toggle" title="切換主題">
+                    <i class="fa-solid fa-moon ic-moon"></i>
+                    <i class="fa-solid fa-sun ic-sun"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主體內容 -->
+    <main class="w-full max-w-5xl mx-auto px-4 py-8 flex-grow space-y-6">
+        <section class="panel">
+            <div class="panel-head">
+                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門分區即時氣溫地圖 (Highcharts Maps)</h2>
+                <span class="micro"><span style="width:6px;height:6px;background:var(--accent);display:inline-block;border-radius:50%;margin-right:6px;"></span>LIVE DATA</span>
+            </div>
+            <div class="panel-body">
+                <p class="micro dim mb-4">點擊或懸停於各分區圖塊可檢視詳細氣象數據與區域編號。</p>
+                <!-- Highcharts Map 容器 -->
+                <div id="macau-map-container" class="w-full h-[520px]"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="site-footer">
+        <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        // 時間更新
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('current-datetime').textContent = `${year}-${month}-${day} (${weekday}) ${hours}:${minutes}`;
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // 主題切換
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+            initMap(); // 重新渲染地圖以適配顏色主題
+        });
+
+        // 初始化 Highcharts Maps 澳門分區地圖
+        function initMap() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const bgColor = isDark ? '#0e1418' : '#f4f2ea';
+            const textColor = isDark ? '#e6e9e9' : '#1a1e20';
+            const borderColor = isDark ? '#1f282e' : '#d6d3c4';
+
+            // 定義澳門分區自定義 GeoJSON
+            const macauGeoJson = {
+                'type': 'FeatureCollection',
+                'features': [
+                    {
+                        'type': 'Feature',
+                        'id': 'peninsula-north',
+                        'properties': { 'name': '花地瑪堂區 (北區)', 'value': 68 },
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[[113.535, 22.220], [113.555, 22.220], [113.555, 22.200], [113.535, 22.200], [113.535, 22.220]]]
+                        }
+                    },
+                    {
+                        'type': 'Feature',
+                        'id': 'peninsula-central',
+                        'properties': { 'name': '花王堂區 / 望德堂區 (中區)', 'value': 68 },
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[[113.535, 22.200], [113.555, 22.200], [113.555, 22.185], [113.535, 22.185], [113.535, 22.200]]]
+                        }
+                    },
+                    {
+                        'type': 'Feature',
+                        'id': 'peninsula-south',
+                        'properties': { 'name': '大堂區 (南區/新馬路)', 'value': 65 },
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[[113.540, 22.185], [113.560, 22.185], [113.560, 22.170], [113.540, 22.170], [113.540, 22.185]]]
+                        }
+                    },
+                    {
+                        'type': 'Feature',
+                        'id': 'taipa',
+                        'properties': { 'name': '氹仔島 (Taipa)', 'value': 72 },
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[[113.545, 22.162], [113.580, 22.162], [113.580, 22.145], [113.545, 22.145], [113.545, 22.162]]]
+                        }
+                    },
+                    {
+                        'type': 'Feature',
+                        'id': 'cotai',
+                        'properties': { 'name': '路氹城 (Cotai Strip)', 'value': 73 },
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[[113.550, 22.145], [113.585, 22.145], [113.585, 22.130], [113.550, 22.130], [113.550, 22.145]]]
+                        }
+                    },
+                    {
+                        'type': 'Feature',
+                        'id': 'coloane',
+                        'properties': { 'name': '路環島 (Coloane)', 'value': 65 },
+                        'geometry': {
+                            'type': 'Polygon',
+                            'coordinates': [[[113.538, 22.130], [113.578, 22.130], [113.578, 22.100], [113.538, 22.100], [113.538, 22.130]]]
+                        }
+                    }
+                ]
+            };
+
+            Highcharts.mapChart('macau-map-container', {
+                chart: {
+                    map: macauGeoJson,
+                    backgroundColor: bgColor,
+                    style: { fontFamily: 'JetBrains Mono, monospace' }
+                },
+                title: { text: null },
+                credits: { enabled: false },
+                mapNavigation: {
+                    enabled: true,
+                    buttonOptions: {
+                        theme: {
+                            fill: isDark ? '#121a1f' : '#eae8dc',
+                            stroke: borderColor,
+                            r: 0,
+                            style: { color: textColor }
+                        }
+                    }
+                },
+                colorAxis: {
+                    min: 60,
+                    max: 80,
+                    stops: [
+                        [0, '#3fd9a4'],
+                        [0.5, '#60b9eb'],
+                        [1, '#ff6b6b']
+                    ]
+                },
+                series: [{
+                    name: '分區數據',
+                    borderColor: borderColor,
+                    borderWidth: 1.5,
+                    states: {
+                        hover: {
+                            brightness: 0.15,
+                            borderColor: '#3fd9a4'
+                        }
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        format: '{point.properties.name}<br><b>{point.value}</b>',
+                        style: {
+                            color: textColor,
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            textOutline: 'none'
+                        }
+                    },
+                    data: [
+                        ['peninsula-north', 68],
+                        ['peninsula-central', 67],
+                        ['peninsula-south', 65],
+                        ['taipa', 72],
+                        ['cotai', 73],
+                        ['coloane', 65]
+                    ]
+                }],
+                tooltip: {
+                    backgroundColor: isDark ? '#121a1f' : '#ffffff',
+                    borderColor: borderColor,
+                    style: { color: textColor },
+                    formatter: function () {
+                        return `<b>${this.point.properties.name}</b><br>觀測數值: <span style="color:var(--accent); font-weight:bold;">${this.point.value}</span>`;
+                    }
+                }
+            });
+        }
+
+        // 頁面載入後初始化地圖
+        window.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>
