@@ -200,11 +200,10 @@
         justify-content: space-between;
     }
 
-    /* 圖例條樣式 */
-    .legend-bar {
-        height: 8px;
-        border-radius: 4px;
-        width: 100%;
+    /* SVG 地圖頂層數值標籤樣式 */
+    .map-overlay-label {
+        pointer-events: none;
+        user-select: none;
     }
 </style>
 <script>
@@ -275,6 +274,7 @@
                         <!-- 動態生成 GeoJSON ViewBox (700 x 900) -->
                         <svg id="macauPreciseMap" viewBox="0 0 700 900">
                           <g id="map-features"></g>
+                          <g id="map-labels" class="map-overlay-label"></g>
                         </svg>
 
                         <!-- 地圖底層動態圖例條 -->
@@ -302,7 +302,7 @@
                                 </div>
                                 <div class="p-3 rounded border border-[var(--line)] bg-[var(--bg)] flex items-center justify-between">
                                     <span class="text-xs text-[var(--muted)] flex items-center"><i class="fa-solid fa-cloud-sun mr-2 text-amber-400 w-4"></i>天氣狀況</span>
-                                    <span id="metric-weather" class="text-xs font-bold text-[var(--text)] flex items-center gap-1">--</span>
+                                    <span id="metric-weather" class="text-xs font-bold text-[var(--text)] flex items-center gap-1.5">--</span>
                                 </div>
                             </div>
 
@@ -343,22 +343,46 @@
         // 當前選擇的氣象變數：'temp' | 'humidity' | 'weather'
         let currentVar = 'temp';
 
-        // 氣象資料儲存庫 (以區域 label 為 key)
+        // 氣象資料儲存庫與快取 Feature
         const weatherDataStore = {};
+        let cachedFeatures = [];
 
-        // 全局極值 (計算顏色漸層)
-        let minTemp = Infinity, maxTemp = -Infinity;
-        let minHumid = Infinity, maxHumid = -Infinity;
+        // 1. WMO 天氣代碼與圖標細節轉換器[cite: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        function getWeatherDetails(code, isNight = false) {
+            const symbols = {
+                0: isNight ? { text: '天晴', icon: 'icon/weather_icon/moon.png' } : { text: '天晴', icon: 'icon/weather_icon/sun.png' },
+                1: isNight ? { text: '大致天晴', icon: 'icon/weather_icon/moon.png' } : { text: '大致天晴', icon: 'icon/weather_icon/sun.png' },
+                2: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
+                3: { text: '多雲', icon: 'icon/weather_icon/cloud.png' },
+                45: { text: '霧', icon: 'icon/weather_icon/fog.png' },
+                51: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
+                53: isNight ? { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-night.png' } : { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-day.png' },
+                61: { text: '微雨/毛毛雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                80: { text: '驟雨', icon: 'icon/weather_icon/cloud-rain.png' },
+                95: { text: '雷雨', icon: 'icon/weather_icon/thunder-rain.png' }
+            };
+            return symbols[code] || { text: '多雲', icon: 'icon/weather_icon/cloud.png' };
+        }
 
-        // WMO 天氣代碼轉換器
-        function getWeatherInfo(code) {
-            if (code === 0) return { text: "晴朗 (Clear)", icon: "fa-sun text-amber-400", color: "#f59e0b" };
-            if (code >= 1 && code <= 3) return { text: "多雲/晴間多雲 (Cloudy)", icon: "fa-cloud-sun text-slate-300", color: "#64748b" };
-            if (code === 45 || code === 48) return { text: "有霧 (Fog)", icon: "fa-smog text-slate-400", color: "#94a3b8" };
-            if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { text: "陣雨/降雨 (Rain)", icon: "fa-cloud-showers-heavy text-blue-400", color: "#3b82f6" };
-            if (code >= 71 && code <= 77) return { text: "降雪 (Snow)", icon: "fa-snowflake text-sky-300", color: "#38bdf8" };
-            if (code >= 95) return { text: "雷暴 (Thunderstorm)", icon: "fa-bolt text-purple-400", color: "#8b5cf6" };
-            return { text: "良好 (Moderate)", icon: "fa-cloud text-teal-400", color: "#10b981" };
+        // 2. 氣溫等級與顏色映射器 (依照氣象圖例分類)[cite: 11]
+        function getTempCategory(temp) {
+            if (temp >= 36) return { text: '非常酷熱', color: '#ff0000' };
+            if (temp >= 33) return { text: '酷熱', color: '#ff3b00' };
+            if (temp >= 28) return { text: '炎熱', color: '#ff7d26' };
+            if (temp >= 23) return { text: '溫暖', color: '#fbb021' };
+            if (temp >= 18) return { text: '和暖', color: '#dbe300' };
+            if (temp >= 13) return { text: '清涼', color: '#3cb000' };
+            if (temp >= 8)  return { text: '寒冷', color: '#00bcff' };
+            if (temp >= 5)  return { text: '嚴寒', color: '#4080ff' };
+            return { text: '非常嚴寒', color: '#7265ff' };
+        }
+
+        // 3. 相對濕度等級與顏色映射器 (依照氣象圖例分類)[cite: 12]
+        function getHumidityCategory(humidity) {
+            if (humidity < 30) return { text: '極為乾燥', color: '#ff5252' };
+            if (humidity <= 50) return { text: '乾燥', color: '#f5e676' };
+            if (humidity < 85) return { text: '潮濕', color: '#80cbe5' };
+            return { text: '極為潮濕', color: '#4d72f5' };
         }
 
         // ==========================================
@@ -388,7 +412,7 @@
             const lats = validFeatures.map(f => f.centroid.lat.toFixed(4));
             const lons = validFeatures.map(f => f.centroid.lon.toFixed(4));
 
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=temperature_2m,relative_humidity_2m,weather_code`;
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=temperature_2m,relative_humidity_2m,weather_code,is_day`;
 
             try {
                 const response = await fetch(url);
@@ -397,9 +421,6 @@
                 
                 const results = Array.isArray(data) ? data : [data];
 
-                minTemp = Infinity; maxTemp = -Infinity;
-                minHumid = Infinity; maxHumid = -Infinity;
-
                 validFeatures.forEach((feat, index) => {
                     const label = feat.properties.label;
                     const cur = results[index] ? results[index].current : null;
@@ -407,12 +428,11 @@
                         const temp = cur.temperature_2m;
                         const humidity = cur.relative_humidity_2m;
                         const weatherCode = cur.weather_code;
-                        const wInfo = getWeatherInfo(weatherCode);
-
-                        if (temp < minTemp) minTemp = temp;
-                        if (temp > maxTemp) maxTemp = temp;
-                        if (humidity < minHumid) minHumid = humidity;
-                        if (humidity > maxHumid) maxHumid = humidity;
+                        const isNight = cur.is_day !== undefined ? (cur.is_day === 0) : (new Date().getHours() < 6 || new Date().getHours() >= 18);
+                        
+                        const wInfo = getWeatherDetails(weatherCode, isNight);
+                        const tempCat = getTempCategory(temp);
+                        const humidityCat = getHumidityCategory(humidity);
 
                         weatherDataStore[label] = {
                             temp: temp,
@@ -420,7 +440,8 @@
                             weatherCode: weatherCode,
                             weatherText: wInfo.text,
                             weatherIcon: wInfo.icon,
-                            weatherColor: wInfo.color,
+                            tempCat: tempCat,
+                            humidityCat: humidityCat,
                             lat: feat.centroid.lat,
                             lon: feat.centroid.lon
                         };
@@ -435,15 +456,14 @@
                 // 備用微氣象數據
                 validFeatures.forEach((feat, idx) => {
                     const label = feat.properties.label;
-                    const temp = +(23.2 + (idx % 6) * 0.5).toFixed(1);
-                    const humidity = Math.min(95, 70 + (idx % 8) * 3);
-                    const weatherCode = (idx % 4 === 0) ? 1 : 0;
-                    const wInfo = getWeatherInfo(weatherCode);
-
-                    if (temp < minTemp) minTemp = temp;
-                    if (temp > maxTemp) maxTemp = temp;
-                    if (humidity < minHumid) minHumid = humidity;
-                    if (humidity > maxHumid) maxHumid = humidity;
+                    const temp = +(24.2 + (idx % 6) * 1.5).toFixed(1);
+                    const humidity = Math.min(95, 45 + (idx % 8) * 6);
+                    const weatherCode = (idx % 4 === 0) ? 1 : (idx % 3 === 0 ? 80 : 0);
+                    const isNight = new Date().getHours() < 6 || new Date().getHours() >= 18;
+                    
+                    const wInfo = getWeatherDetails(weatherCode, isNight);
+                    const tempCat = getTempCategory(temp);
+                    const humidityCat = getHumidityCategory(humidity);
 
                     weatherDataStore[label] = {
                         temp: temp,
@@ -451,7 +471,8 @@
                         weatherCode: weatherCode,
                         weatherText: wInfo.text,
                         weatherIcon: wInfo.icon,
-                        weatherColor: wInfo.color,
+                        tempCat: tempCat,
+                        humidityCat: humidityCat,
                         lat: feat.centroid.lat,
                         lon: feat.centroid.lon
                     };
@@ -463,29 +484,91 @@
         }
 
         // ==========================================
-        // 計算各區域色彩 (根據數值)
+        // 計算各區域色彩 (根據數值等級)
         // ==========================================
         function calculateZoneColor(data) {
             if (!data) return '#1e293b';
 
             if (currentVar === 'temp') {
-                const range = (maxTemp - minTemp) || 1;
-                const ratio = Math.max(0, Math.min(1, (data.temp - minTemp) / range));
-                // 色相映射：藍 (220) -> 綠 (120) -> 黃 (50) -> 紅 (0)
-                const hue = 220 - ratio * 220;
-                return `hsl(${hue}, 85%, 42%)`;
+                return data.tempCat.color;
             } else if (currentVar === 'humidity') {
-                const range = (maxHumid - minHumid) || 1;
-                const ratio = Math.max(0, Math.min(1, (data.humidity - minHumid) / range));
-                // 色相映射：暖黃 (50) -> 深藍/濕潤 (210)
-                const hue = 50 + ratio * 160;
-                return `hsl(${hue}, 80%, 40%)`;
+                return data.humidityCat.color;
             } else if (currentVar === 'weather') {
-                return data.weatherColor;
+                return '#24323f'; // 天氣狀況模式下使用沉穩背景襯托圖標
             }
         }
 
-        // 更新地圖分區顏色及圖例
+        // 在 SVG 地圖上方直接繪製分區數值與天氣圖標[cite: 13]
+        function renderMapOverlayLabels() {
+            const labelGroup = document.getElementById('map-labels');
+            if (!labelGroup || !cachedFeatures) return;
+            labelGroup.innerHTML = '';
+
+            cachedFeatures.forEach(feat => {
+                const label = feat.properties.label;
+                if (bridgeZones.has(label)) return;
+
+                const data = weatherDataStore[label];
+                if (!data || !feat.projectedCentroid) return;
+
+                const { x, y } = feat.projectedCentroid;
+
+                if (currentVar === 'temp') {
+                    const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    textEl.setAttribute("x", x);
+                    textEl.setAttribute("y", y);
+                    textEl.setAttribute("text-anchor", "middle");
+                    textEl.setAttribute("dominant-baseline", "central");
+                    textEl.setAttribute("fill", "#ffffff");
+                    textEl.setAttribute("font-size", "14");
+                    textEl.setAttribute("font-weight", "800");
+                    textEl.setAttribute("stroke", "#000000");
+                    textEl.setAttribute("stroke-width", "3");
+                    textEl.setAttribute("paint-order", "stroke fill");
+                    textEl.textContent = `${data.temp.toFixed(1)}°C`;
+                    labelGroup.appendChild(textEl);
+                } else if (currentVar === 'humidity') {
+                    const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    textEl.setAttribute("x", x);
+                    textEl.setAttribute("y", y);
+                    textEl.setAttribute("text-anchor", "middle");
+                    textEl.setAttribute("dominant-baseline", "central");
+                    textEl.setAttribute("fill", "#ffffff");
+                    textEl.setAttribute("font-size", "14");
+                    textEl.setAttribute("font-weight", "800");
+                    textEl.setAttribute("stroke", "#000000");
+                    textEl.setAttribute("stroke-width", "3");
+                    textEl.setAttribute("paint-order", "stroke fill");
+                    textEl.textContent = `${data.humidity}%`;
+                    labelGroup.appendChild(textEl);
+                } else if (currentVar === 'weather') {
+                    // 放置 Weather Icon Image[cite: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+                    const imgEl = document.createElementNS("http://www.w3.org/2000/svg", "image");
+                    imgEl.setAttribute("x", x - 16);
+                    imgEl.setAttribute("y", y - 22);
+                    imgEl.setAttribute("width", "32");
+                    imgEl.setAttribute("height", "32");
+                    imgEl.setAttribute("href", data.weatherIcon);
+                    labelGroup.appendChild(imgEl);
+
+                    // 放置天氣名稱標籤
+                    const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    textEl.setAttribute("x", x);
+                    textEl.setAttribute("y", y + 16);
+                    textEl.setAttribute("text-anchor", "middle");
+                    textEl.setAttribute("fill", "#ffffff");
+                    textEl.setAttribute("font-size", "11");
+                    textEl.setAttribute("font-weight", "700");
+                    textEl.setAttribute("stroke", "#000000");
+                    textEl.setAttribute("stroke-width", "2.5");
+                    textEl.setAttribute("paint-order", "stroke fill");
+                    textEl.textContent = data.weatherText;
+                    labelGroup.appendChild(textEl);
+                }
+            });
+        }
+
+        // 更新地圖分區顏色、標籤及圖例
         function updateMapColors() {
             const polygons = document.querySelectorAll('.macau-polygon');
             polygons.forEach(poly => {
@@ -500,39 +583,66 @@
                 }
             });
 
+            renderMapOverlayLabels();
             renderLegend();
         }
 
-        // 渲染底條圖例
+        // 渲染底條圖例 (完全與圖片等級標準精準對齊)[cite: 11, 12]
         function renderLegend() {
             const legendContainer = document.getElementById('map-legend');
             if (currentVar === 'temp') {
-                const minVal = minTemp !== Infinity ? minTemp : '--';
-                const maxVal = maxTemp !== -Infinity ? maxTemp : '--';
+                const temps = [
+                    { name: '非常酷熱', range: '≧ 36 ºC', color: '#ff0000' },
+                    { name: '酷熱', range: '33 - 35 ºC', color: '#ff3b00' },
+                    { name: '炎熱', range: '28 - 32 ºC', color: '#ff7d26' },
+                    { name: '溫暖', range: '23 - 27 ºC', color: '#fbb021' },
+                    { name: '和暖', range: '18 - 22 ºC', color: '#dbe300' },
+                    { name: '清涼', range: '13 - 17 ºC', color: '#3cb000' },
+                    { name: '寒冷', range: '8 - 12 ºC', color: '#00bcff' },
+                    { name: '嚴寒', range: '5 - 7 ºC', color: '#4080ff' },
+                    { name: '非常嚴寒', range: '≦ 4 ºC', color: '#7265ff' }
+                ];
                 legendContainer.innerHTML = `
-                    <div class="flex items-center justify-between mb-1.5">
-                        <span class="micro text-blue-400"><i class="fa-solid fa-snowflake mr-1"></i>較低氣溫 (${minVal} °C)</span>
-                        <span class="micro text-rose-400">較高氣溫 (${maxVal} °C)<i class="fa-solid fa-fire mr-1"></i></span>
+                    <div class="flex flex-wrap items-center justify-between gap-1.5 text-xs">
+                        ${temps.map(t => `
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-3 h-3 rounded-full inline-block shadow-sm" style="background:${t.color}"></span>
+                                <span>${t.name} <span class="micro text-[var(--faint)]">(${t.range})</span></span>
+                            </span>
+                        `).join('')}
                     </div>
-                    <div class="legend-bar" style="background: linear-gradient(to right, hsl(220,85%,42%), hsl(120,85%,42%), hsl(50,85%,42%), hsl(0,85%,42%));"></div>
                 `;
             } else if (currentVar === 'humidity') {
-                const minVal = minHumid !== Infinity ? minHumid : '--';
-                const maxVal = maxHumid !== -Infinity ? maxHumid : '--';
+                const humids = [
+                    { name: '極為乾燥', range: '0 - 30 %', color: '#ff5252' },
+                    { name: '乾燥', range: '30 - 50 %', color: '#f5e676' },
+                    { name: '潮濕', range: '50 - 85 %', color: '#80cbe5' },
+                    { name: '極為潮濕', range: '85 - 100 %', color: '#4d72f5' }
+                ];
                 legendContainer.innerHTML = `
-                    <div class="flex items-center justify-between mb-1.5">
-                        <span class="micro text-amber-400"><i class="fa-solid fa-sun mr-1"></i>較為乾燥 (${minVal} %)</span>
-                        <span class="micro text-cyan-400">相對潮濕 (${maxVal} %)<i class="fa-solid fa-droplet mr-1"></i></span>
+                    <div class="flex flex-wrap items-center justify-around gap-2 text-xs py-0.5">
+                        ${humids.map(h => `
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-3.5 h-3.5 rounded-full inline-block shadow-sm" style="background:${h.color}"></span>
+                                <span class="font-medium">${h.name} <span class="micro text-[var(--faint)]">(${h.range})</span></span>
+                            </span>
+                        `).join('')}
                     </div>
-                    <div class="legend-bar" style="background: linear-gradient(to right, hsl(50,80%,40%), hsl(130,80%,40%), hsl(210,80%,40%));"></div>
                 `;
             } else if (currentVar === 'weather') {
+                const isNight = new Date().getHours() < 6 || new Date().getHours() >= 18;
+                const sampleCodes = [0, 2, 3, 45, 61, 80, 95];
                 legendContainer.innerHTML = `
-                    <div class="flex flex-wrap items-center justify-around gap-2 text-xs">
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#f59e0b"></span> 晴朗 (Clear)</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#64748b"></span> 多雲 (Cloudy)</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#3b82f6"></span> 降雨 (Rain)</span>
-                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#8b5cf6"></span> 雷暴 (Thunder)</span>
+                    <div class="flex flex-wrap items-center justify-around gap-3 text-xs">
+                        ${sampleCodes.map(code => {
+                            const details = getWeatherDetails(code, isNight);
+                            return `
+                                <span class="flex items-center gap-1.5">
+                                    <img src="${details.icon}" class="w-4 h-4 object-contain" alt="${details.text}">
+                                    <span>${details.text}</span>
+                                </span>
+                            `;
+                        }).join('')}
                     </div>
                 `;
             }
@@ -550,6 +660,7 @@
         // GeoJSON 投影與繪製
         // ==========================================
         function renderGeoJSONMap(geojsonData) {
+            cachedFeatures = geojsonData.features;
             let minLon = Infinity, maxLon = -Infinity;
             let minLat = Infinity, maxLat = -Infinity;
 
@@ -567,7 +678,6 @@
             
             geojsonData.features.forEach(f => {
                 getBounds(f.geometry.coordinates);
-                // 為每個 feature 計算中心點座標
                 f.centroid = calculateCentroid(f.geometry.coordinates);
             });
 
@@ -593,6 +703,12 @@
                 const y = height - (offsetY + (lat - minLat) * scale);
                 return [x, y];
             }
+
+            // 計算並儲存投影像素中心點
+            geojsonData.features.forEach(f => {
+                const [cx, cy] = project(f.centroid.lon, f.centroid.lat);
+                f.projectedCentroid = { x: cx, y: cy };
+            });
 
             function ringToSvgPath(ring) {
                 return ring.map((pt, i) => {
@@ -659,18 +775,18 @@
                         const data = weatherDataStore[name];
                         if (data) {
                             sidebarCoords.innerText = `中心點: N ${data.lat.toFixed(4)}°, E ${data.lon.toFixed(4)}°`;
-                            document.getElementById('metric-temp').innerText = `${data.temp} °C`;
-                            document.getElementById('metric-humidity').innerText = `${data.humidity} %`;
-                            document.getElementById('metric-weather').innerHTML = `<i class="fa-solid ${data.weatherIcon} mr-1"></i> ${data.weatherText}`;
+                            document.getElementById('metric-temp').innerHTML = `${data.temp} °C <span class="text-xs ml-1 font-normal" style="color:${data.tempCat.color}">(${data.tempCat.text})</span>`;
+                            document.getElementById('metric-humidity').innerHTML = `${data.humidity} % <span class="text-xs ml-1 font-normal" style="color:${data.humidityCat.color}">(${data.humidityCat.text})</span>`;
+                            document.getElementById('metric-weather').innerHTML = `<img src="${data.weatherIcon}" class="w-5 h-5 inline-block object-contain" alt="${data.weatherText}"> <span>${data.weatherText}</span>`;
 
                             sidebarMetrics.classList.remove('hidden');
                             sidebarBridgeNotice.classList.add('hidden');
                             sidebarPlaceholder.classList.add('hidden');
 
                             let tooltipVal = '';
-                            if (currentVar === 'temp') tooltipVal = `<span class="text-rose-400 font-bold">${data.temp} °C</span>`;
-                            else if (currentVar === 'humidity') tooltipVal = `<span class="text-cyan-400 font-bold">${data.humidity} %</span>`;
-                            else tooltipVal = `<span class="text-amber-400 font-bold">${data.weatherText}</span>`;
+                            if (currentVar === 'temp') tooltipVal = `<span class="font-bold" style="color:${data.tempCat.color}">${data.temp} °C (${data.tempCat.text})</span>`;
+                            else if (currentVar === 'humidity') tooltipVal = `<span class="font-bold" style="color:${data.humidityCat.color}">${data.humidity} % (${data.humidityCat.text})</span>`;
+                            else tooltipVal = `<span class="font-bold flex items-center gap-1 inline-flex"><img src="${data.weatherIcon}" class="w-4 h-4">${data.weatherText}</span>`;
 
                             tooltip.innerHTML = `<strong>${name}</strong>: ${tooltipVal}`;
                         } else {
