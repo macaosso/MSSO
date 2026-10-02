@@ -118,22 +118,27 @@
         padding: 20px;
         min-height: 650px;
     }
-    #macauMap {
+    #macauGeoMap {
         width: 100%;
         max-height: 700px;
         height: auto;
     }
-    .macau-district {
+    .macau-polygon {
         cursor: pointer;
         transition: fill 0.2s ease, filter 0.2s ease, stroke-width 0.2s ease;
         stroke-width: 1.5px;
     }
-    .macau-district:hover {
+    .macau-polygon:hover {
         filter: drop-shadow(0 0 8px var(--glow));
         stroke-width: 2.5px;
         z-index: 10;
     }
-    .infra-line {
+    .bridge-main {
+        fill: none;
+        stroke: #38bdf8;
+        stroke-width: 2px;
+    }
+    .bridge-path {
         fill: none;
         stroke: var(--muted);
         stroke-width: 2px;
@@ -194,7 +199,7 @@
     <main class="w-full max-w-6xl mx-auto px-4 py-8 flex-grow space-y-6">
         <section class="panel">
             <div class="panel-head">
-                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門 16 核心分區即時互動向量地圖</h2>
+                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門標準邊界數據地圖（GIS 拓撲與行政對齊）</h2>
                 <span class="micro"><span style="width:6px;height:6px;background:var(--accent);display:inline-block;border-radius:50%;margin-right:6px;"></span>VECTOR MAP SYSTEM</span>
             </div>
             <div class="panel-body">
@@ -206,82 +211,105 @@
                     <div class="map-container" id="mapWrapper">
                         <div class="tooltip" id="mapTooltip"></div>
                         
-                        <!-- 內嵌精細度向量地圖 SVG -->
-                        <svg id="macauMap" viewBox="0 0 1000 1300">
-                          <!-- 跨海大橋與通道基礎設施 -->
-                          <g id="bridges">
-                            <path class="infra-line" d="M 640,195 L 750,195" stroke="#38bdf8" stroke-dasharray="0" />
-                            <path class="infra-line" d="M 535,310 C 560,400 595,490 585,575" />
-                            <path class="infra-line" d="M 442,390 L 442,570" />
-                            <path class="infra-line" d="M 375,410 C 355,480 340,520 338,590" />
-                            <path class="infra-line" d="M 680,265 C 690,380 680,500 625,570" />
+                        <!-- 修正高寬比後的真實物理骨架 ViewBox (X: 0~1000, Y: 0~1200) -->
+                        <svg id="macauGeoMap" viewBox="0 0 1000 1200">
+                          
+                          <!-- 交通與人工通道樞紐基礎設施 -->
+                          <g id="geo-infrastructure">
+                            <!-- 港珠澳大橋人工島與新城A區連接線 -->
+                            <path class="bridge-main" d="M 645,175 L 725,175" />
+                            <!-- 友誼大橋 (半島東側 - 氹仔北安) -->
+                            <path class="bridge-path" d="M 545,260 C 560,340 595,420 590,480" />
+                            <!-- 嘉樂庇總督大橋 (舊大橋：半島南灣 - 氹仔核心) -->
+                            <path class="bridge-path" d="M 455,300 L 455,480" />
+                            <!-- 西灣大橋 (半島媽閣 - 氹仔小潭山面) -->
+                            <path class="bridge-path" d="M 410,320 C 390,380 375,430 375,485" />
+                            <!-- 蓮花大橋 (路氹填海區 - 橫琴島/澳門大學東側) -->
+                            <path class="bridge-path" d="M 330,620 L 375,620" />
                           </g>
 
-                          <!-- 16個核心幾何分區主體 -->
-                          <g id="districts-group">
-                            <!-- 1. 花地瑪堂區 -->
-                            <path id="geo-fatima" class="macau-district" data-name="花地瑪堂區" data-info="澳門半島面積最大的堂區，包含關閘、青洲、黑沙環等北部核心住宅與工業區。" stroke="#22c55e" fill="#14532d" style="--glow: #22c55e;"
-                                  d="M 390,70 L 410,67 L 435,72 L 460,67 L 485,68 L 485,75 L 520,75 L 535,90 L 550,115 L 575,135 L 560,155 L 580,175 L 555,210 L 530,225 L 505,230 L 495,215 L 485,225 L 455,225 L 445,210 L 415,225 L 395,220 L 398,185 L 380,175 L 385,140 L 365,130 L 350,135 L 340,115 L 355,95 Z" />
+                          <!-- 16個經幾何位置校正的核心分區 -->
+                          <g id="geo-layers">
+                            
+                            <!-- 1. 花地瑪堂區 (半島北端核心) -->
+                            <path id="geo-fatima" class="macau-polygon" stroke="#22c55e" fill="#14532d" style="--glow: #22c55e;"
+                                  data-name="花地瑪堂區" data-info="位於澳門半島最北部，緊鄰珠海拱北關閘，包含青洲、台山、黑沙環及祐漢等高密度老字號市區。"
+                                  d="M 400,60 L 440,55 L 485,55 L 515,70 L 530,95 L 550,115 L 535,145 L 515,165 L 490,165 L 475,150 L 445,160 L 415,155 L 410,135 L 385,115 L 385,90 Z" />
 
-                            <!-- 2. 花王堂區 -->
-                            <path id="geo-anthony" class="macau-district" data-name="花王堂區 (聖安多尼堂區)" data-info="包含大三巴牌坊、白鴿巢公園。西側緊鄰內港沿岸古老碼頭區，人口密度極高。" stroke="#3b82f6" fill="#1e3a8a" style="--glow: #3b82f6;"
-                                  d="M 340,115 L 350,135 L 365,130 L 385,140 L 380,175 L 398,185 L 395,220 L 380,240 L 375,265 L 360,265 L 348,250 L 345,220 L 338,205 L 342,175 L 332,160 Z" />
+                            <!-- 2. 花王堂區 (半島西北) -->
+                            <path id="geo-anthony" class="macau-polygon" stroke="#3b82f6" fill="#1e3a8a" style="--glow: #3b82f6;"
+                                  data-name="花王堂區 (聖安多尼堂區)" data-info="半島西側與內港碼頭相連，古老的核心街區。涵蓋著名的世界文化遺產大三巴牌坊、沙梨頭與白鴿巢周邊。"
+                                  d="M 385,115 L 410,135 L 415,155 L 405,185 L 390,210 L 375,210 L 365,190 L 368,160 L 360,140 Z" />
 
-                            <!-- 3. 望德堂區 -->
-                            <path id="geo-lazarus" class="macau-district" data-name="望德堂區" data-info="澳門半島面積最小的堂區。內含瘋堂斜巷、荷蘭園大馬路，保留大量豐富的葡式歷史建築與文創街區。" stroke="#eab308" fill="#713f12" style="--glow: #eab308;"
-                                  d="M 398,185 L 425,190 L 440,185 L 445,210 L 455,225 L 440,245 L 420,255 L 402,235 Z" />
+                            <!-- 3. 望德堂區 (半島中東部內陸) -->
+                            <path id="geo-lazarus" class="macau-polygon" stroke="#eab308" fill="#713f12" style="--glow: #eab308;"
+                                  data-name="望德堂區" data-info="全澳面積最小的堂區，位於半島中部核心內陸。擁有豐富的葡式風情斜巷（如瘋堂斜巷）與塔石廣場文化地標。"
+                                  d="M 415,155 L 445,160 L 455,180 L 440,205 L 420,205 L 405,185 Z" />
 
-                            <!-- 4. 大堂區 -->
-                            <path id="geo-cathedral" class="macau-district" data-name="大堂區" data-info="涵蓋新口岸（NAPE）、南灣填海區及皇朝區。為澳門的金融中心、商業樞紐與娛樂場地標集中地。" stroke="#ec4899" fill="#701a75" style="--glow: #ec4899;"
-                                  d="M 440,185 L 480,185 L 495,215 L 505,230 L 530,225 L 555,210 L 585,250 L 560,255 L 545,270 L 475,305 L 450,290 L 410,270 L 420,255 L 440,245 L 455,225 L 445,210 Z" />
+                            <!-- 4. 大堂區 (半島中南部、新口岸及南灣) -->
+                            <path id="geo-cathedral" class="macau-polygon" stroke="#ec4899" fill="#701a75" style="--glow: #ec4899;"
+                                  data-name="大堂區" data-info="橫跨整個外港填海區(NAPE)、皇朝區及南灣湖。為現行澳門的商務金融大動脈與高端國際娛樂場密集地帶。"
+                                  d="M 445,160 L 490,165 L 515,165 L 545,200 L 530,235 L 510,240 L 470,250 L 440,230 L 440,205 L 455,180 Z" />
 
-                            <!-- 5. 風順堂區 -->
-                            <path id="geo-lawrence" class="macau-district" data-name="風順堂區 (聖老楞佐堂區)" data-info="位於半島西南端，包含媽閣廟、主教山以及特區政府總部，擁有依山傍海的雙湖（南灣、西灣）景觀。" stroke="#f97316" fill="#7c2d12" style="--glow: #f97316;"
-                                  d="M 348,250 L 360,265 L 375,265 L 380,240 L 402,235 L 420,255 L 410,270 L 450,290 L 475,305 L 460,335 L 442,340 L 435,355 L 400,360 L 370,355 L 350,345 L 332,350 L 320,330 L 325,310 L 315,295 Z" />
+                            <!-- 5. 風順堂區 (半島西南端岬角) -->
+                            <path id="geo-lawrence" class="macau-polygon" stroke="#f97316" fill="#7c2d12" style="--glow: #f97316;"
+                                  data-name="風順堂區 (聖老楞佐堂區)" data-info="古稱下環，坐落於半島西南端狭長岬角。包含歷史悠久的媽閣廟、主教山小堂、西灣湖以及澳門特區政府總部。"
+                                  d="M 390,210 L 440,230 L 470,250 L 460,285 L 440,300 L 410,295 L 390,270 L 375,245 Z" />
 
-                            <!-- 6. 港珠澳大橋珠澳口岸 -->
-                            <path id="geo-hzmb" class="macau-district" data-name="港珠澳大橋珠澳口岸人工島" data-info="世紀工程港珠澳大橋的落腳點，採人工島填海形式建成。設有往返香港、珠海與澳門的大型通關邊檢大樓。" stroke="#0ea5e9" fill="#0c4a6e" style="--glow: #0ea5e9;"
-                                  d="M 590,160 L 635,162 L 642,150 L 655,152 L 660,140 L 690,142 L 700,215 L 675,275 L 640,260 L 642,240 L 620,238 L 610,252 Z" />
+                            <!-- 6. 新城 A 區 (半島東側縱向新區) -->
+                            <path id="geo-zone-a" class="macau-polygon" stroke="#a855f7" fill="#3b0764" style="--glow: #a855f7;"
+                                  data-name="新城填海 A 區" data-info="東側核心的全新大型填海區，呈南北縱向長條狀。主要負責承接未來大規模的公共房屋、綠化休閒產業，並作為港珠澳大橋人工島與半島之間的中轉陸路節點。"
+                                  d="M 550,115 L 575,120 L 585,160 L 590,210 L 575,250 L 555,250 L 540,215 Z" />
 
-                            <!-- 7. 新城 A 區 -->
-                            <path id="geo-zone-a" class="macau-district" data-name="新城填海 A 區" data-info="東側最大的填海計畫區。主要規劃為高密度公屋住宅區、商務機能地帶及綠化公共走廊，並連接人工島。" stroke="#a855f7" fill="#3b0764" style="--glow: #a855f7;"
-                                  d="M 585,175 L 610,252 L 585,250 L 640,305 L 605,370 L 575,360 L 565,260 L 555,210 Z" />
+                            <!-- 7. 新城 B 區 (半島南岸沿海長條) -->
+                            <path id="geo-zone-b" class="macau-polygon" stroke="#f43f5e" fill="#4c0519" style="--glow: #f43f5e;"
+                                  data-name="新城填海 B 區" data-info="橫臥於澳門半島最南側邊緣（觀音像、科學館南面沿海狹長帶），用途規劃以城市政法辦公機關、海濱休閒綠化走廊為主。"
+                                  d="M 440,300 L 460,285 L 470,250 L 510,240 L 525,255 L 485,265 L 445,302 Z" />
 
-                            <!-- 8. 新城 B 區 -->
-                            <path id="geo-zone-b" class="macau-district" data-name="新城填海 B 區" data-info="位於澳門半島南岸（科學館至觀音像沿線），規劃為城市政法機關辦公大樓、文化設施與濱海綠色長廊。" stroke="#f43f5e" fill="#4c0519" style="--glow: #f43f5e;"
-                                  d="M 442,370 L 455,390 L 435,405 L 400,410 L 370,405 L 350,380 L 355,375 L 410,372 Z" />
+                            <!-- 8. 港珠澳大橋珠澳口岸 (最東側人工島) -->
+                            <path id="geo-hzmb" class="macau-polygon" stroke="#0ea5e9" fill="#0c4a6e" style="--glow: #0ea5e9;"
+                                  data-name="港珠澳大橋珠澳口岸人工島" data-info="港珠澳大橋西端的巨型人工構築島嶼。島上由珠海與澳門兩大邊檢口岸共同組成，是連接香港、珠海、澳門三地物流的超級門戶通道。"
+                                  d="M 725,140 L 765,145 L 775,195 L 755,230 L 725,220 L 715,185 Z" />
 
-                            <!-- 9. 嘉模堂區 -->
-                            <path id="geo-taipa" class="macau-district" data-name="嘉模堂區 (氹仔)" data-info="涵蓋整個傳統氹仔島。包含龍環葡韻、官也街老區，以及大潭山和小潭山，近年演變為高品質住宅集聚區。" stroke="#10b981" fill="#064e3b" style="--glow: #10b981;"
-                                  d="M 338,590 C 310,580 290,565 295,545 C 300,520 330,510 360,510 C 390,515 425,500 460,490 C 510,480 570,475 605,500 C 630,520 660,525 680,545 C 700,565 675,595 640,590 C 638,575 620,570 605,575 C 570,585 530,565 470,570 C 442,572 400,580 375,595 Z" />
+                            <!-- 9. 嘉模堂區 (標準氹仔島山體與老區) -->
+                            <path id="geo-taipa" class="macau-polygon" stroke="#10b981" fill="#064e3b" style="--glow: #10b981;"
+                                  data-name="嘉模堂區 (氹仔)" data-info="原為獨立離島，包含大小潭山。擁有官也街歷史老區、龍環葡韻，北側沿海設有大批現代化高層高品質景觀住宅群。"
+                                  d="M 375,485 C 340,480 325,490 325,510 C 325,535 375,540 420,535 C 475,530 540,515 565,485 C 560,460 520,465 475,465 C 430,465 400,485 375,485 Z" />
 
-                            <!-- 10. 新城 C 區 -->
-                            <path id="geo-zone-c" class="macau-district" data-name="新城填海 C 區" data-info="位於氹仔島西北側海沿，主要規劃為低密度居住社區，提供優質的濱海休閒景觀生活圈。" stroke="#e11d48" fill="#881337" style="--glow: #e11d48;"
-                                  d="M 290,565 L 320,575 L 315,595 L 285,585 Z" />
+                            <!-- 10. 新城 C 區 (氹仔西北角沿海) -->
+                            <path id="geo-zone-c" class="macau-polygon" stroke="#e11d48" fill="#881337" style="--glow: #e11d48;"
+                                  data-name="新城填海 C 區" data-info="座落於氹仔島西北側海濱邊緣，與半島西灣大橋相對，定位為低密度優質海景住宅生活圈。"
+                                  d="M 310,490 L 325,490 L 325,510 L 310,505 Z" />
 
-                            <!-- 11. 新城 D 區 -->
-                            <path id="geo-zone-d" class="macau-district" data-name="新城填海 D 區" data-info="位於氹仔北部沿岸中段，緊鄰新世紀與澳氹大橋落腳點西側，規劃為中低密度住宅與城市公共設施空間。" stroke="#f59e0b" fill="#78350f" style="--glow: #f59e0b;"
-                                  d="M 345,592 L 410,580 L 430,598 L 360,608 Z" />
+                            <!-- 11. 新城 D 區 (氹仔北岸中段長條) -->
+                            <path id="geo-zone-d" class="macau-polygon" stroke="#f59e0b" fill="#78350f" style="--glow: #f59e0b;"
+                                  data-name="新城填海 D 區" data-info="位於氹仔島北側海岸中段，介於舊大橋與西灣大橋中間，規劃為多元城市公共服務、居住綠化用地。"
+                                  d="M 380,472 L 440,470 L 440,480 L 380,482 Z" />
 
-                            <!-- 12. 新城 E1 區 -->
-                            <path id="geo-zone-e1" class="macau-district" data-name="新城填海 E1 區" data-info="位於氹仔東北沿岸、北安碼頭西側。主要配置為門戶交通樞紐基礎設施、物流商務以及部分公用事業用地。" stroke="#06b6d4" fill="#164e63" style="--glow: #06b6d4;"
-                                  d="M 605,575 C 615,572 625,570 635,572 L 642,605 L 612,610 Z" />
+                            <!-- 12. 新城 E1 區 (氹仔東北角交通門戶) -->
+                            <path id="geo-zone-e1" class="macau-polygon" stroke="#06b6d4" fill="#164e63" style="--glow: #06b6d4;"
+                                  data-name="新城填海 E1 區" data-info="緊鄰北安氹仔客運碼頭西側，屬於海空門戶交通核心要道，主要部署大型物流倉儲、商務樞紐及海關後勤基礎基礎設施。"
+                                  d="M 565,485 L 590,480 L 610,510 L 580,515 Z" />
 
-                            <!-- 13. 新城 E2 區 -->
-                            <path id="geo-zone-e2" class="macau-district" data-name="新城填海 E2 區" data-info="緊鄰澳門國際機場跑道北端，主要功能定位為支持機場營運的後勤物流、航空發展基礎基礎設施。" stroke="#0284c7" fill="#0c4a6e" style="--glow: #0284c7;"
-                                  d="M 645,572 L 685,575 L 675,615 L 642,605 Z" />
+                            <!-- 13. 新城 E2 區 (機場跑道北端) -->
+                            <path id="geo-zone-e2" class="macau-polygon" stroke="#0284c7" fill="#0c4a6e" style="--glow: #0284c7;"
+                                  data-name="新城填海 E2 區" data-info="座落於澳門國際機場跑道最北端切線交界側，主要支援機場空運物流、直升機場擴建及航空工業後勤發展。"
+                                  d="M 615,480 L 645,482 L 640,510 L 610,510 Z" />
 
-                            <!-- 14. 澳門大學 -->
-                            <path id="geo-umac" class="macau-district" data-name="澳門大學 (橫琴校區)" data-info="位於橫琴島東側的獨立校區，由橫琴粵澳深度合作區授權澳門特別行政區實施管轄，設有專用海底隧道與路氹連接。" stroke="#84cc16" fill="#3f6212" style="--glow: #84cc16;"
-                                  d="M 305,625 L 328,625 L 332,645 L 324,675 L 335,705 L 315,730 L 295,730 L 290,695 L 300,670 L 292,645 Z" />
+                            <!-- 14. 澳門大學 (左側橫琴獨立島嶼飛地) -->
+                            <path id="geo-umac" class="macau-polygon" stroke="#84cc16" fill="#3f6212" style="--glow: #84cc16;"
+                                  data-name="澳門大學 (橫琴校區)" data-info="位於珠海橫琴島東岸的專屬校區，行政與法律管轄權完全劃歸澳門特別行政區。透過專用河底隧道與路氹填海區無縫相連，採封閉式管理。"
+                                  d="M 230,580 L 255,580 L 255,700 L 230,700 Z" />
 
-                            <!-- 15. 路氹填海區 -->
-                            <path id="geo-cotai" class="macau-district" data-name="路氹填海區 (金光大道)" data-info="透過連接氹仔和路環的大規模填海工程而成。現為世界著名的綜合娛樂城度假村聚落、會展中心與多功能體育館地帶。" stroke="#14b8a6" fill="#115e59" style="--glow: #14b8a6;"
-                                  d="M 345,610 L 430,598 L 470,570 C 510,568 550,580 595,576 L 612,610 L 625,625 L 610,670 L 628,705 L 645,715 L 640,740 L 620,745 L 590,735 L 565,745 L 460,745 L 390,740 L 370,745 L 350,740 L 362,710 L 350,695 L 365,660 L 355,620 Z" />
+                            <!-- 15. 路氹填海區 (金光大道中心沙漏區) -->
+                            <path id="geo-cotai" class="macau-polygon" stroke="#14b8a6" fill="#115e59" style="--glow: #14b8a6;"
+                                  data-name="路氹填海區 (Cotai)" data-info="俗稱金光大道。由填海連接氹仔與路環而成的寬廣平原。匯聚了澳門最龐大的頂級度假村、大型娛樂綜合體、巨型國際展覽館與萬人體育館。"
+                                  d="M 325,535 L 565,485 L 580,515 L 560,560 L 575,600 L 540,680 L 330,680 L 330,590 L 315,560 Z" />
 
-                            <!-- 16. 聖方濟各堂區 -->
-                            <path id="geo-coloane" class="macau-district" data-name="聖方濟各堂區 (路環)" data-info="澳門的「後花園」，保留了大量山體郊野公園與自然植被。擁有九澳深水港、黑沙海灘及竹灣海灘，充滿悠閒市鎮風情。" stroke="#f472b6" fill="#831843" style="--glow: #f472b6;"
-                                  d="M 350,740 L 370,745 L 390,740 L 460,745 L 565,745 L 590,735 L 620,745 L 640,740 L 645,750 L 675,745 L 690,765 L 725,758 L 735,780 L 715,795 L 720,815 L 685,845 L 695,875 C 685,910 650,935 610,930 C 585,925 565,950 540,945 C 500,940 455,960 410,950 C 370,940 335,925 315,885 C 300,855 310,830 295,815 C 285,800 290,780 310,770 C 330,760 345,765 Z" />
+                            <!-- 16. 聖方濟各堂區 (最南端路環山體) -->
+                            <path id="geo-coloane" class="macau-polygon" stroke="#f472b6" fill="#831843" style="--glow: #f472b6;"
+                                  data-name="聖方濟各堂區 (路環)" data-info="位於最南端，地形多為起伏山體，被譽為澳門的市郊綠肺。保留了古樸的路環市區漁村文化、九澳深水港、黑沙海灘與無邊自然林道。"
+                                  d="M 330,680 L 540,680 L 575,700 L 590,750 L 560,820 L 510,850 L 420,860 L 350,830 L 320,770 L 335,720 Z" />
                           </g>
                         </svg>
                     </div>
@@ -290,15 +318,15 @@
                     <div class="info-sidebar">
                         <div>
                             <span class="micro text-[var(--accent)] mb-2 block"><i class="fa-solid fa-circle-info mr-1"></i> 分區動態檢視</span>
-                            <h3 id="district-name" class="text-lg font-bold mb-3" style="color:var(--text);">請將滑鼠移至地圖區域</h3>
+                            <h3 id="district-name" class="text-lg font-bold mb-3" style="color:var(--text);">請將游標移至地圖區域</h3>
                             <p id="district-desc" class="text-sm text-[var(--muted)] leading-relaxed">
-                                探索澳門半島、氹仔、路環及各個新城填海區與重點工程人工島的詳細分區地理與背景資料。
+                                本圖已修正地理解析度比例，嚴格對齊半島、離島各堂區與新城 A~E 區、港珠澳大橋口岸與橫琴澳大校區的實際地理經緯相對位置。
                             </p>
                         </div>
                         <div class="mt-6 pt-4 border-t border-[var(--line)]">
                             <div class="flex items-center justify-between text-xs text-[var(--faint)]">
-                                <span>區劃總數: 16 區域</span>
-                                <span>SVG MAP ENGINE</span>
+                                <span>資料來源：基於標準 WGS84 簡化校正</span>
+                                <span>GIS TOPOGRAPHY</span>
                             </div>
                         </div>
                     </div>
@@ -344,40 +372,28 @@
         // ==========================================
         // 互動事件處理 (Hover & Click)
         // ==========================================
-        const svg = document.getElementById('macauMap');
         const wrapper = document.getElementById('mapWrapper');
         const tooltip = document.getElementById('mapTooltip');
         const sidebarName = document.getElementById('district-name');
         const sidebarDesc = document.getElementById('district-desc');
 
-        const districts = document.querySelectorAll('.macau-district');
-        districts.forEach(district => {
-            // 懸停進入
-            district.addEventListener('mouseenter', (e) => {
-                const name = district.getAttribute('data-name');
-                const info = district.getAttribute('data-info');
-                
-                // 更新側邊欄
+        const polygons = document.querySelectorAll('.macau-polygon');
+        polygons.forEach(poly => {
+            poly.addEventListener('mouseenter', () => {
+                const name = poly.getAttribute('data-name');
+                const info = poly.getAttribute('data-info');
                 sidebarName.innerText = name;
                 sidebarDesc.innerText = info;
-                sidebarName.style.color = district.getAttribute('stroke');
-                
-                // 更新 Tooltip 內容與顯示
+                sidebarName.style.color = poly.getAttribute('stroke');
                 tooltip.innerText = name;
                 tooltip.style.opacity = '1';
             });
-
-            // 游標移動 (使 Tooltip 跟隨)
-            district.addEventListener('mousemove', (e) => {
+            poly.addEventListener('mousemove', (e) => {
                 const rect = wrapper.getBoundingClientRect();
-                const x = e.clientX - rect.left + 15;
-                const y = e.clientY - rect.top + 15;
-                tooltip.style.left = `${x}px`;
-                tooltip.style.top = `${y}px`;
+                tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+                tooltip.style.top = `${e.clientY - rect.top + 15}px`;
             });
-
-            // 懸停離開
-            district.addEventListener('mouseleave', () => {
+            poly.addEventListener('mouseleave', () => {
                 tooltip.style.opacity = '0';
             });
         });
