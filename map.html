@@ -156,12 +156,6 @@
         border: 1px solid var(--line-strong);
         padding: 2px 6px;
     }
-    .mappointDataLabel {
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: bold;
-        color: var(--text);
-    }
     .chart-tooltip {
         background: var(--bg-2);
         border: 1px solid var(--line-strong);
@@ -169,7 +163,6 @@
         padding: 8px 12px;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
     }
-    .highcharts-name-g896, .highcharts-name-path913 { cursor: default; }
 </style>
 <script>
     const savedTheme = localStorage.getItem('theme');
@@ -231,7 +224,7 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
-        // 1. 站點與坐標資料定義（包含港珠澳大橋邊檢大樓與路氹城）
+        // 1. 站點與坐標資料定義
         const stations = {
             "紀念孫中山市政公園": { "code": "DP", "lat": 22.215322, "lng": 113.543490 },
             "黑沙環": { "code": "EM", "lat": 22.207129, "lng": 113.559971 },
@@ -247,23 +240,100 @@
             "路氹城": { "code": "path913", "lat": 22.1450437, "lng": 113.5625369 }
         };
 
-        const stationOffsets = {
-            'DP': {x: 10, y: -10},
-            'EM': {x: 3, y: -15},
-            'FM': {x: -1, y: -5},
-            'PE': {x: 22, y: -3},
-            'MM': {x: 1, y: -1},
-            'TG': {x: -35, y: -30},
-            'JA': {x: -5, y: -15},
-            'KV': {x: 0, y: 4},
-            'UM': {x: -1, y: -5},
-            'DC': {x: 0, y: 0},
-            'g896': {x: 10, y: -10},
-            'path913': {x: 0, y: 0}
-        };
-
         let currentVariable = 'temp'; // 當前選中的變數: temp, apparentTemp, humidity, weatherText
         let globalWeatherData = null;
+        let mapChart = null;
+
+        // 載入即時氣象資料 (Open-Meteo API)
+        async function loadWeatherData() {
+            try {
+                const promises = Object.entries(stations).map(async ([name, info]) => {
+                    const url = `https://api.open-meteo.com/v1/forecast?latitude=${info.lat}&longitude=${info.lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    return {
+                        name,
+                        code: info.code,
+                        temp: data.current?.temperature_2m ?? 25.0,
+                        apparentTemp: data.current?.apparent_temperature ?? 26.0,
+                        humidity: data.current?.relative_humidity_2m ?? 70,
+                        weatherCode: data.current?.weather_code ?? 0
+                    };
+                });
+
+                const results = await Promise.all(promises);
+                globalWeatherData = results;
+                renderMapData(results);
+            } catch (err) {
+                console.error('Failed to load weather data, using fallback data:', err);
+                // 網路失敗時的備用模擬數據
+                const fallback = Object.entries(stations).map(([name, info]) => ({
+                    name,
+                    code: info.code,
+                    temp: 24.5,
+                    apparentTemp: 26.0,
+                    humidity: 75,
+                    weatherCode: 1
+                }));
+                globalWeatherData = fallback;
+                renderMapData(fallback);
+            }
+        }
+
+        // 渲染地圖數據
+        function renderMapData(weatherList) {
+            if (!mapChart) return;
+
+            const getWeatherInfo = (code) => {
+                if (code === 0) return { text: '晴朗', icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2600.png' };
+                if ([1, 2, 3].includes(code)) return { text: '多雲', icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26c5.png' };
+                if ([45, 48].includes(code)) return { text: '霧', icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f32b.png' };
+                if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return { text: '降雨', icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f327.png' };
+                return { text: '陰天', icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2601.png' };
+            };
+
+            const dataMap = {};
+            weatherList.forEach(item => {
+                const info = getWeatherInfo(item.weatherCode);
+                let val = item.temp;
+                if (currentVariable === 'apparentTemp') val = item.apparentTemp;
+                else if (currentVariable === 'humidity') val = item.humidity;
+
+                dataMap[item.code] = {
+                    id: item.code,
+                    name: item.name,
+                    value: val,
+                    temp: item.temp,
+                    apparentTemp: item.apparentTemp,
+                    humidity: item.humidity,
+                    weatherText: info.text,
+                    weatherIcon: info.icon
+                };
+            });
+
+            const series = mapChart.series[0];
+            if (series && series.points) {
+                series.points.forEach(point => {
+                    const match = dataMap[point.id];
+                    if (match) {
+                        let val = match.temp;
+                        if (currentVariable === 'apparentTemp') val = match.apparentTemp;
+                        else if (currentVariable === 'humidity') val = match.humidity;
+                        else if (currentVariable === 'weatherText') val = match.temp; // 數值對應色軸
+
+                        point.update({
+                            value: val,
+                            temp: match.temp,
+                            apparentTemp: match.apparentTemp,
+                            humidity: match.humidity,
+                            weatherText: match.weatherText,
+                            weatherIcon: match.weatherIcon
+                        }, false);
+                    }
+                });
+                mapChart.redraw();
+            }
+        }
 
         function switchVariable(variable) {
             currentVariable = variable;
@@ -331,7 +401,7 @@
 
         const isDarkMode = document.documentElement.classList.contains('dark');
 
-        var mapChart = Highcharts.mapChart('macauMapChart', {
+        mapChart = Highcharts.mapChart('macauMapChart', {
           chart: {
             marginLeft: 10,
             marginRight: 70,
@@ -393,7 +463,7 @@
                     <div>體感: <span class="font-bold num">${Highcharts.numberFormat(p.apparentTemp, 1)}°C</span></div>
                     <div>濕度: <span class="font-bold num">${p.humidity}%</span></div>
                     <div class="flex items-center gap-1.5 col-span-2 mt-1">
-                      <img src="${p.weatherIcon || 'icon/weather_icon/cloud.png'}" class="w-4 h-4 inline-block" alt="icon" />
+                      <img src="${p.weatherIcon || 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26c5.png'}" class="w-4 h-4 inline-block" alt="icon" />
                       <span class="micro">${p.weatherText || ''}</span>
                     </div>
                   </div>
@@ -434,6 +504,11 @@
             },
             joinBy: 'id',
             mapData: [
+              {
+                "id": "DP",
+                "name": "紀念孫中山市政公園",
+                "path": "M207,67C207,67,205,60,200,55C195,50,185,50,180,55C175,60,175,70,180,75C185,80,195,80,200,75C205,70,207,67,207,67z"
+              },
               {
                 "id": "g896",
                 "name": "g896",
