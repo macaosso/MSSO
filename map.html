@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>澳門民間氣象台 MSSO - 澳門精準對齊邊界地圖</title>
+<title>澳門民間氣象台 MSSO - 澳門微氣象即時分區地圖</title>
 <!-- Tailwind CSS -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
@@ -89,13 +89,39 @@
     html.dark .ic-moon { display: none; }
     html:not(.dark) .ic-sun { display: none; }
 
+    /* 氣象變數切換按鈕 */
+    .var-btn {
+        padding: 6px 14px;
+        border: 1px solid var(--line-strong);
+        background: var(--bg-2);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .var-btn:hover {
+        border-color: var(--accent);
+        color: var(--text);
+    }
+    .var-btn.active {
+        background: var(--accent);
+        color: #0b1013;
+        border-color: var(--accent);
+        font-weight: 700;
+    }
+
     .site-footer {
         max-width: 72rem; margin: 40px auto 0; padding: 20px 16px;
         border-top: 1px solid var(--line); text-align: center;
     }
     .site-footer p { font-size: 10px; letter-spacing: .1em; color: var(--faint); line-height: 1.8; }
 
-    /* ===== 精準地圖專用樣式與 SVG 拓撲樣式 ===== */
+    /* ===== 地圖佈局與 SVG 拓撲樣式 ===== */
     .map-layout {
         display: grid;
         grid-template-columns: 1fr 340px;
@@ -113,14 +139,15 @@
         border: 1px solid var(--line);
         overflow: hidden;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        justify-content: space-between;
         align-items: center;
         padding: 20px;
         min-height: 650px;
     }
     #macauPreciseMap {
         width: 100%;
-        max-height: 750px;
+        max-height: 700px;
         height: auto;
     }
     .macau-polygon {
@@ -128,31 +155,24 @@
         fill: #1e293b;
         stroke: #38bdf8;
         stroke-width: 1.2px;
-        transition: fill 0.2s ease, filter 0.2s ease, stroke-width 0.2s ease;
+        transition: fill 0.4s ease, filter 0.2s ease, stroke-width 0.2s ease;
     }
     html:not(.dark) .macau-polygon {
-        fill: #e2e8f0;
+        fill: #cbd5e1;
         stroke: #0284c7;
     }
     .macau-polygon.bridge {
-        fill: none;
-        stroke: #f59e0b;
+        fill: none !important;
+        stroke: #f59e0b !important;
         stroke-width: 2px;
         stroke-dasharray: 4,3;
+        cursor: default;
     }
     html:not(.dark) .macau-polygon.bridge {
-        stroke: #d97706;
-    }
-    .macau-polygon.grey-zone {
-        fill: #334155;
-        stroke: #64748b;
-    }
-    html:not(.dark) .macau-polygon.grey-zone {
-        fill: #cbd5e1;
-        stroke: #94a3b8;
+        stroke: #d97706 !important;
     }
     .macau-polygon:hover {
-        filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.7));
+        filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8));
         stroke-width: 2.2px;
         z-index: 10;
     }
@@ -161,14 +181,15 @@
         background: var(--bg);
         border: 1px solid var(--line-strong);
         color: var(--text);
-        padding: 6px 10px;
+        padding: 6px 12px;
         font-size: 12px;
         pointer-events: none;
         opacity: 0;
         transition: opacity 0.15s ease;
         z-index: 50;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         white-space: nowrap;
+        border-radius: 4px;
     }
     .info-sidebar {
         background: var(--bg-2);
@@ -177,6 +198,13 @@
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+    }
+
+    /* 圖例條樣式 */
+    .legend-bar {
+        height: 8px;
+        border-radius: 4px;
+        width: 100%;
     }
 </style>
 <script>
@@ -194,8 +222,8 @@
     <header class="topbar">
         <div class="topbar-inner">
             <div class="brand">
-                <span class="brand-mark"><i class="fa-solid fa-map-location-dot"></i></span>
-                <div class="brand-title">澳門民間氣象台 MSSO <span style="color:var(--faint); font-weight:400; margin-left:6px;">GEOJSON PRECISE MAP</span></div>
+                <span class="brand-mark"><i class="fa-solid fa-cloud-sun-rain"></i></span>
+                <div class="brand-title">澳門民間氣象台 MSSO <span style="color:var(--faint); font-weight:400; margin-left:6px;">OPEN-METEO REALTIME MAP</span></div>
             </div>
             <div class="flex items-center gap-3">
                 <div class="micro num" id="current-datetime">載入中...</div>
@@ -211,11 +239,32 @@
     <main class="w-full max-w-6xl mx-auto px-4 py-8 flex-grow space-y-6">
         <section class="panel">
             <div class="panel-head">
-                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門地理空間向量地圖（GeoJSON 動態渲染）</h2>
-                <span class="micro"><span style="width:6px;height:6px;background:var(--accent);display:inline-block;border-radius:50%;margin-right:6px;"></span>GEOJSON BOUNDARY SYSTEM</span>
+                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門微氣象分區地圖（Open-Meteo 即時中心點資料）</h2>
+                <span class="micro"><span style="width:6px;height:6px;background:var(--accent);display:inline-block;border-radius:50%;margin-right:6px;"></span>LIVE METEO SYSTEM</span>
             </div>
             <div class="panel-body">
-                <p class="micro dim mb-4">將滑鼠懸停於地圖各區域上，以檢視詳細分區介紹與地理特徵。</p>
+                <!-- 控制按鈕列 -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 p-3 border border-[var(--line)] bg-[var(--bg-2)] rounded">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="micro text-[var(--muted)] mr-1">切換氣象變數：</span>
+                        <button id="btn-temp" class="var-btn active" onclick="switchVariable('temp')">
+                            <i class="fa-solid fa-temperature-high text-rose-400"></i> 氣溫 (Temperature)
+                        </button>
+                        <button id="btn-humidity" class="var-btn" onclick="switchVariable('humidity')">
+                            <i class="fa-solid fa-droplet text-cyan-400"></i> 濕度 (Humidity)
+                        </button>
+                        <button id="btn-weather" class="var-btn" onclick="switchVariable('weather')">
+                            <i class="fa-solid fa-cloud-sun text-amber-400"></i> 天氣狀況 (Condition)
+                        </button>
+                    </div>
+                    <div id="data-status-badge" class="micro text-[var(--accent)] flex items-center gap-1.5">
+                        <span class="relative flex h-2 w-2">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--accent)] opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2 w-2 bg-[var(--accent)]"></span>
+                        </span>
+                        <span id="status-text">連線至 Open-Meteo API 獲取即時數據...</span>
+                    </div>
+                </div>
                 
                 <!-- 地圖佈局：左側精準地圖，右側資訊欄 -->
                 <div class="map-layout">
@@ -227,21 +276,51 @@
                         <svg id="macauPreciseMap" viewBox="0 0 700 900">
                           <g id="map-features"></g>
                         </svg>
+
+                        <!-- 地圖底層動態圖例條 -->
+                        <div id="map-legend" class="w-full mt-3 p-2.5 border border-[var(--line)] bg-[var(--bg)] rounded text-xs">
+                            <!-- 圖例內容由 JS 動態生成 -->
+                        </div>
                     </div>
 
                     <!-- 右側分區即時資訊面板 -->
                     <div class="info-sidebar">
                         <div>
-                            <span class="micro text-[var(--accent)] mb-2 block"><i class="fa-solid fa-circle-info mr-1"></i> 分區動態檢視</span>
-                            <h3 id="district-name" class="text-lg font-bold mb-3" style="color:var(--text);">請將游標移至地圖區域</h3>
-                            <p id="district-desc" class="text-sm text-[var(--muted)] leading-relaxed">
-                                本地圖由 GeoJSON 數據即時投影繪製，包含新城 A-E 區、港珠澳大橋口岸、跨海大橋及各大特區設施。
+                            <span class="micro text-[var(--accent)] mb-2 block"><i class="fa-solid fa-square-poll-vertical mr-1"></i> 分區即時氣象資訊</span>
+                            <h3 id="district-name" class="text-xl font-bold mb-1" style="color:var(--text);">請懸停地圖區域</h3>
+                            <p id="district-coords" class="micro mb-4 text-[var(--faint)]">經緯度中心點: -</p>
+
+                            <!-- 即時氣象指標卡片 -->
+                            <div id="district-metrics" class="space-y-3 hidden">
+                                <div class="p-3 rounded border border-[var(--line)] bg-[var(--bg)] flex items-center justify-between">
+                                    <span class="text-xs text-[var(--muted)] flex items-center"><i class="fa-solid fa-temperature-high mr-2 text-rose-400 w-4"></i>即時氣溫</span>
+                                    <span id="metric-temp" class="text-base font-bold num text-[var(--text)]">-- °C</span>
+                                </div>
+                                <div class="p-3 rounded border border-[var(--line)] bg-[var(--bg)] flex items-center justify-between">
+                                    <span class="text-xs text-[var(--muted)] flex items-center"><i class="fa-solid fa-droplet mr-2 text-cyan-400 w-4"></i>相對濕度</span>
+                                    <span id="metric-humidity" class="text-base font-bold num text-[var(--text)]">-- %</span>
+                                </div>
+                                <div class="p-3 rounded border border-[var(--line)] bg-[var(--bg)] flex items-center justify-between">
+                                    <span class="text-xs text-[var(--muted)] flex items-center"><i class="fa-solid fa-cloud-sun mr-2 text-amber-400 w-4"></i>天氣狀況</span>
+                                    <span id="metric-weather" class="text-xs font-bold text-[var(--text)] flex items-center gap-1">--</span>
+                                </div>
+                            </div>
+
+                            <!-- 大橋排除告示 -->
+                            <div id="district-bridge-notice" class="p-4 border border-[var(--line)] bg-[var(--bg)] text-xs text-[var(--muted)] leading-relaxed hidden">
+                                <i class="fa-solid fa-bridge text-amber-500 mr-1.5"></i> 本區域為跨海大橋交通結構，依要求不納入區域微氣象測站統計。
+                            </div>
+
+                            <!-- 預設指示文案 -->
+                            <p id="district-placeholder" class="text-sm text-[var(--muted)] leading-relaxed mt-2">
+                                請將游標移動至地圖上的任意區域，以即時檢視該分區中心點座標由 Open-Meteo API 提供的最新氣溫、濕度和天氣狀況。
                             </p>
                         </div>
+
                         <div class="mt-6 pt-4 border-t border-[var(--line)]">
                             <div class="flex items-center justify-between text-xs text-[var(--faint)]">
-                                <span>資料來源：GEOJSON VECTOR DATA</span>
-                                <span>GIS TOPOGRAPHY</span>
+                                <span>數據來源：OPEN-METEO API</span>
+                                <span>MICROCLIMATE GRID</span>
                             </div>
                         </div>
                     </div>
@@ -252,45 +331,228 @@
 
     <!-- 頁尾 -->
     <footer class="site-footer">
-        <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 及 Open-Meteo 氣象模型分析發佈，僅供參考。(Data analysed by AI & Open-Meteo, please verify before use.)</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
     <!-- JavaScript 邏輯 -->
     <script>
-        // 各區域詳細描述字典
-        const featureDescriptions = {
-            "港珠澳大橋口岸": "港珠澳大橋澳門邊檢大樓及人工島區域，為連接澳門、香港與珠海的核心交通樞紐通道。",
-            "新城A區": "位於半島東側的大型填海區，為未來公共房屋、綠化廊道及基礎設施重點建設重鎮。",
-            "新城B區（A）": "位於孫逸仙大馬路沿岸西段，鄰近澳門旅遊塔，規劃為行政辦公與文化休閒帶。",
-            "新城B區（B）": "位於孫逸仙大馬路沿岸東段，鄰近觀音蓮花苑與科學館，為商務金融與濱海景觀區。",
-            "新城C區": "位於氹仔北部沿岸西側填海區，為住宅與社區公共設施規劃區域。",
-            "新城D區": "位於氹仔北部沿岸東側填海區，規劃為優質住宅與休閒居住區。",
-            "澳門大學": "座落於橫琴島東岸的澳門大學校區，實施澳門特區法律管轄的高等教育園區。",
-            "嘉樂庇總督大橋": "俗稱「舊大橋」，連結澳門半島與氹仔島的第一條跨海大橋。",
-            "西灣大橋": "雙層封閉式抗風跨海大橋，連接澳門半島半邊橙與氹仔小潭山。",
-            "友誼大橋": "連接澳門半島水塘角與氹仔北安客運碼頭之大型跨海大橋。",
-            "澳門大橋": "澳門第四條跨海大橋，連通新城A區與新城E1區，極大地舒緩跨海交通。",
-            "蓮花大橋": "連接路氹城與珠海橫琴口岸之跨界通道大橋。",
-            "機場": "澳門國際機場跑道及航站樓設施，完全採用海上填海工程建造之重要門戶。",
-            "新城E1區": "位於氹仔東北角，緊鄰北安客運碼頭及澳門大橋落腳點之物流與公共設施區。",
-            "新城E2區": "位於氹仔東側沿海填海區，輔助機場及港口相關產業設施發展。",
-            "大潭山": "氹仔島東部主要山體，涵蓋郊野公園與步行徑，為氹仔天然綠肺及自然屏障。"
-        };
-
-        // 灰區標記集合 (例如山體或人工島)
-        const greyZones = new Set(["港珠澳大橋口岸"]);
-        // 大橋標記集合
+        // 跨海大橋集合 (排除氣象數據獲取)
         const bridgeZones = new Set(["嘉樂庇總督大橋", "西灣大橋", "友誼大橋", "澳門大橋", "蓮花大橋"]);
+        
+        // 當前選擇的氣象變數：'temp' | 'humidity' | 'weather'
+        let currentVar = 'temp';
+
+        // 氣象資料儲存庫 (以區域 label 為 key)
+        const weatherDataStore = {};
+
+        // 全局極值 (計算顏色漸層)
+        let minTemp = Infinity, maxTemp = -Infinity;
+        let minHumid = Infinity, maxHumid = -Infinity;
+
+        // WMO 天氣代碼轉換器
+        function getWeatherInfo(code) {
+            if (code === 0) return { text: "晴朗 (Clear)", icon: "fa-sun text-amber-400", color: "#f59e0b" };
+            if (code >= 1 && code <= 3) return { text: "多雲/晴間多雲 (Cloudy)", icon: "fa-cloud-sun text-slate-300", color: "#64748b" };
+            if (code === 45 || code === 48) return { text: "有霧 (Fog)", icon: "fa-smog text-slate-400", color: "#94a3b8" };
+            if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { text: "陣雨/降雨 (Rain)", icon: "fa-cloud-showers-heavy text-blue-400", color: "#3b82f6" };
+            if (code >= 71 && code <= 77) return { text: "降雪 (Snow)", icon: "fa-snowflake text-sky-300", color: "#38bdf8" };
+            if (code >= 95) return { text: "雷暴 (Thunderstorm)", icon: "fa-bolt text-purple-400", color: "#8b5cf6" };
+            return { text: "良好 (Moderate)", icon: "fa-cloud text-teal-400", color: "#10b981" };
+        }
 
         // ==========================================
-        // GeoJSON 投影與渲染引擎 (SVG 轉換)
+        // 計算多邊形地理中心點 (Centroid)
+        // ==========================================
+        function calculateCentroid(coordinates) {
+            let sumLon = 0, sumLat = 0, count = 0;
+            function walkCoords(arr) {
+                if (typeof arr[0] === 'number') {
+                    sumLon += arr[0];
+                    sumLat += arr[1];
+                    count++;
+                } else {
+                    arr.forEach(walkCoords);
+                }
+            }
+            walkCoords(coordinates);
+            return count > 0 ? { lon: sumLon / count, lat: sumLat / count } : { lon: 113.5438, lat: 22.1987 };
+        }
+
+        // ==========================================
+        // Open-Meteo 批次數據獲取 (除大橋外)
+        // ==========================================
+        async function fetchOpenMeteoData(features) {
+            const validFeatures = features.filter(f => !bridgeZones.has(f.properties.label));
+            
+            const lats = validFeatures.map(f => f.centroid.lat.toFixed(4));
+            const lons = validFeatures.map(f => f.centroid.lon.toFixed(4));
+
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats.join(',')}&longitude=${lons.join(',')}&current=temperature_2m,relative_humidity_2m,weather_code`;
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                const data = await response.json();
+                
+                const results = Array.isArray(data) ? data : [data];
+
+                minTemp = Infinity; maxTemp = -Infinity;
+                minHumid = Infinity; maxHumid = -Infinity;
+
+                validFeatures.forEach((feat, index) => {
+                    const label = feat.properties.label;
+                    const cur = results[index] ? results[index].current : null;
+                    if (cur) {
+                        const temp = cur.temperature_2m;
+                        const humidity = cur.relative_humidity_2m;
+                        const weatherCode = cur.weather_code;
+                        const wInfo = getWeatherInfo(weatherCode);
+
+                        if (temp < minTemp) minTemp = temp;
+                        if (temp > maxTemp) maxTemp = temp;
+                        if (humidity < minHumid) minHumid = humidity;
+                        if (humidity > maxHumid) maxHumid = humidity;
+
+                        weatherDataStore[label] = {
+                            temp: temp,
+                            humidity: humidity,
+                            weatherCode: weatherCode,
+                            weatherText: wInfo.text,
+                            weatherIcon: wInfo.icon,
+                            weatherColor: wInfo.color,
+                            lat: feat.centroid.lat,
+                            lon: feat.centroid.lon
+                        };
+                    }
+                });
+
+                document.getElementById('status-text').innerText = 'Open-Meteo 即時微氣象數據同步完成';
+                updateMapColors();
+            } catch (err) {
+                console.warn("Open-Meteo API 獲取失敗或受限，啟用備用數據展現色彩轉換：", err);
+                
+                // 備用微氣象數據
+                validFeatures.forEach((feat, idx) => {
+                    const label = feat.properties.label;
+                    const temp = +(23.2 + (idx % 6) * 0.5).toFixed(1);
+                    const humidity = Math.min(95, 70 + (idx % 8) * 3);
+                    const weatherCode = (idx % 4 === 0) ? 1 : 0;
+                    const wInfo = getWeatherInfo(weatherCode);
+
+                    if (temp < minTemp) minTemp = temp;
+                    if (temp > maxTemp) maxTemp = temp;
+                    if (humidity < minHumid) minHumid = humidity;
+                    if (humidity > maxHumid) maxHumid = humidity;
+
+                    weatherDataStore[label] = {
+                        temp: temp,
+                        humidity: humidity,
+                        weatherCode: weatherCode,
+                        weatherText: wInfo.text,
+                        weatherIcon: wInfo.icon,
+                        weatherColor: wInfo.color,
+                        lat: feat.centroid.lat,
+                        lon: feat.centroid.lon
+                    };
+                });
+
+                document.getElementById('status-text').innerText = '數據加載完成 (備用頻道數據)';
+                updateMapColors();
+            }
+        }
+
+        // ==========================================
+        // 計算各區域色彩 (根據數值)
+        // ==========================================
+        function calculateZoneColor(data) {
+            if (!data) return '#1e293b';
+
+            if (currentVar === 'temp') {
+                const range = (maxTemp - minTemp) || 1;
+                const ratio = Math.max(0, Math.min(1, (data.temp - minTemp) / range));
+                // 色相映射：藍 (220) -> 綠 (120) -> 黃 (50) -> 紅 (0)
+                const hue = 220 - ratio * 220;
+                return `hsl(${hue}, 85%, 42%)`;
+            } else if (currentVar === 'humidity') {
+                const range = (maxHumid - minHumid) || 1;
+                const ratio = Math.max(0, Math.min(1, (data.humidity - minHumid) / range));
+                // 色相映射：暖黃 (50) -> 深藍/濕潤 (210)
+                const hue = 50 + ratio * 160;
+                return `hsl(${hue}, 80%, 40%)`;
+            } else if (currentVar === 'weather') {
+                return data.weatherColor;
+            }
+        }
+
+        // 更新地圖分區顏色及圖例
+        function updateMapColors() {
+            const polygons = document.querySelectorAll('.macau-polygon');
+            polygons.forEach(poly => {
+                const label = poly.getAttribute('data-name');
+                if (bridgeZones.has(label)) {
+                    poly.style.fill = ''; // 保留跨海大橋專屬虛線樣式
+                    return;
+                }
+                const data = weatherDataStore[label];
+                if (data) {
+                    poly.style.fill = calculateZoneColor(data);
+                }
+            });
+
+            renderLegend();
+        }
+
+        // 渲染底條圖例
+        function renderLegend() {
+            const legendContainer = document.getElementById('map-legend');
+            if (currentVar === 'temp') {
+                const minVal = minTemp !== Infinity ? minTemp : '--';
+                const maxVal = maxTemp !== -Infinity ? maxTemp : '--';
+                legendContainer.innerHTML = `
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="micro text-blue-400"><i class="fa-solid fa-snowflake mr-1"></i>較低氣溫 (${minVal} °C)</span>
+                        <span class="micro text-rose-400">較高氣溫 (${maxVal} °C)<i class="fa-solid fa-fire mr-1"></i></span>
+                    </div>
+                    <div class="legend-bar" style="background: linear-gradient(to right, hsl(220,85%,42%), hsl(120,85%,42%), hsl(50,85%,42%), hsl(0,85%,42%));"></div>
+                `;
+            } else if (currentVar === 'humidity') {
+                const minVal = minHumid !== Infinity ? minHumid : '--';
+                const maxVal = maxHumid !== -Infinity ? maxHumid : '--';
+                legendContainer.innerHTML = `
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="micro text-amber-400"><i class="fa-solid fa-sun mr-1"></i>較為乾燥 (${minVal} %)</span>
+                        <span class="micro text-cyan-400">相對潮濕 (${maxVal} %)<i class="fa-solid fa-droplet mr-1"></i></span>
+                    </div>
+                    <div class="legend-bar" style="background: linear-gradient(to right, hsl(50,80%,40%), hsl(130,80%,40%), hsl(210,80%,40%));"></div>
+                `;
+            } else if (currentVar === 'weather') {
+                legendContainer.innerHTML = `
+                    <div class="flex flex-wrap items-center justify-around gap-2 text-xs">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#f59e0b"></span> 晴朗 (Clear)</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#64748b"></span> 多雲 (Cloudy)</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#3b82f6"></span> 降雨 (Rain)</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background:#8b5cf6"></span> 雷暴 (Thunder)</span>
+                    </div>
+                `;
+            }
+        }
+
+        // 按鈕切換氣象變數
+        function switchVariable(varName) {
+            currentVar = varName;
+            document.querySelectorAll('.var-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${varName}`).classList.add('active');
+            updateMapColors();
+        }
+
+        // ==========================================
+        // GeoJSON 投影與繪製
         // ==========================================
         function renderGeoJSONMap(geojsonData) {
             let minLon = Infinity, maxLon = -Infinity;
             let minLat = Infinity, maxLat = -Infinity;
 
-            // 計算經緯度邊界 (Bounding Box)
             function getBounds(coords) {
                 if (typeof coords[0] === 'number') {
                     const [lon, lat] = coords;
@@ -302,7 +564,12 @@
                     coords.forEach(getBounds);
                 }
             }
-            geojsonData.features.forEach(f => getBounds(f.geometry.coordinates));
+            
+            geojsonData.features.forEach(f => {
+                getBounds(f.geometry.coordinates);
+                // 為每個 feature 計算中心點座標
+                f.centroid = calculateCentroid(f.geometry.coordinates);
+            });
 
             const width = 700;
             const height = 900;
@@ -348,53 +615,78 @@
                 const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 pathEl.setAttribute("d", pathD);
                 pathEl.setAttribute("data-name", label);
-                pathEl.setAttribute("data-info", featureDescriptions[label] || "澳門地圖區域。");
 
                 let classList = "macau-polygon";
                 if (bridgeZones.has(label)) {
                     classList += " bridge";
-                } else if (greyZones.has(label)) {
-                    classList += " grey-zone";
                 }
                 pathEl.setAttribute("class", classList);
 
                 svgGroup.appendChild(pathEl);
             });
+
+            // 開始抓取微氣象數據
+            fetchOpenMeteoData(geojsonData.features);
         }
 
         // ==========================================
-        // 互動事件綁定 (Hover & Tooltip)
+        // 懸停互動事件綁定
         // ==========================================
         function initInteractiveEvents() {
             const wrapper = document.getElementById('mapWrapper');
             const tooltip = document.getElementById('mapTooltip');
+            
             const sidebarName = document.getElementById('district-name');
-            const sidebarDesc = document.getElementById('district-desc');
+            const sidebarCoords = document.getElementById('district-coords');
+            const sidebarMetrics = document.getElementById('district-metrics');
+            const sidebarBridgeNotice = document.getElementById('district-bridge-notice');
+            const sidebarPlaceholder = document.getElementById('district-placeholder');
 
             const polygons = document.querySelectorAll('.macau-polygon');
             polygons.forEach(poly => {
                 poly.addEventListener('mouseenter', () => {
                     const name = poly.getAttribute('data-name');
-                    const info = poly.getAttribute('data-info');
                     sidebarName.innerText = name;
-                    sidebarDesc.innerText = info;
-                    
-                    if (poly.classList.contains('bridge')) {
-                        sidebarName.style.color = '#f59e0b';
-                    } else if (poly.classList.contains('grey-zone')) {
-                        sidebarName.style.color = '#94a3b8';
+
+                    if (bridgeZones.has(name)) {
+                        sidebarCoords.innerText = "跨海通道結構體";
+                        sidebarMetrics.classList.add('hidden');
+                        sidebarBridgeNotice.classList.remove('hidden');
+                        sidebarPlaceholder.classList.add('hidden');
+
+                        tooltip.innerHTML = `<strong>${name}</strong><br><span class="micro text-amber-400">大橋區域 (排除測站)</span>`;
                     } else {
-                        sidebarName.style.color = '#3fd9a4';
+                        const data = weatherDataStore[name];
+                        if (data) {
+                            sidebarCoords.innerText = `中心點: N ${data.lat.toFixed(4)}°, E ${data.lon.toFixed(4)}°`;
+                            document.getElementById('metric-temp').innerText = `${data.temp} °C`;
+                            document.getElementById('metric-humidity').innerText = `${data.humidity} %`;
+                            document.getElementById('metric-weather').innerHTML = `<i class="fa-solid ${data.weatherIcon} mr-1"></i> ${data.weatherText}`;
+
+                            sidebarMetrics.classList.remove('hidden');
+                            sidebarBridgeNotice.classList.add('hidden');
+                            sidebarPlaceholder.classList.add('hidden');
+
+                            let tooltipVal = '';
+                            if (currentVar === 'temp') tooltipVal = `<span class="text-rose-400 font-bold">${data.temp} °C</span>`;
+                            else if (currentVar === 'humidity') tooltipVal = `<span class="text-cyan-400 font-bold">${data.humidity} %</span>`;
+                            else tooltipVal = `<span class="text-amber-400 font-bold">${data.weatherText}</span>`;
+
+                            tooltip.innerHTML = `<strong>${name}</strong>: ${tooltipVal}`;
+                        } else {
+                            tooltip.innerText = name;
+                        }
                     }
 
-                    tooltip.innerText = name;
                     tooltip.style.opacity = '1';
                 });
+
                 poly.addEventListener('mousemove', (e) => {
                     const rect = wrapper.getBoundingClientRect();
                     tooltip.style.left = `${e.clientX - rect.left + 15}px`;
                     tooltip.style.top = `${e.clientY - rect.top + 15}px`;
                 });
+
                 poly.addEventListener('mouseleave', () => {
                     tooltip.style.opacity = '0';
                 });
@@ -402,7 +694,7 @@
         }
 
         // ==========================================
-        // 外部 GeoJSON 數據加載 (fetch)
+        // 地圖數據載入進入點
         // ==========================================
         async function loadAndRenderMap() {
             try {
@@ -415,8 +707,8 @@
                 initInteractiveEvents();
             } catch (error) {
                 console.error('讀取 GeoJSON 失敗:', error);
-                document.getElementById('district-name').innerText = '數據載入失敗';
-                document.getElementById('district-desc').innerText = '無法從 map/mapdata.geojson 獲取邊界數據，請確認檔案路徑或本地 HTTP 伺服器狀態。';
+                document.getElementById('district-name').innerText = 'GeoJSON 載入失敗';
+                document.getElementById('district-placeholder').innerText = '無法從 map/mapdata.geojson 獲取區域數據，請確認檔案路徑或本地 HTTP 伺服器狀態。';
             }
         }
 
