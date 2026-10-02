@@ -1,117 +1,158 @@
 <!DOCTYPE html>
 <html lang="zh-Hant" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>澳門民間氣象台 MSSO - 澳門分區氣象地圖</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
-    </script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <!-- Highcharts & Highcharts Maps -->
-    <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script src="https://code.highcharts.com/modules/map.js"></script>
-    <style>
-        /* ===== 設計令牌（終端／儀表板風格）===== */
-        html.dark {
-            --bg-page: #0b1013;
-            --bg:      #0e1418;
-            --bg-2:    #121a1f;
-            --line:    #1f282e;
-            --line-strong: #2b373e;
-            --text:    #e6e9e9;
-            --muted:   #93a0a6;
-            --faint:   #5f6b72;
-            --accent:  #3fd9a4;
-            --cream:   #e7e2d2;
-            --cream-text: #12181b;
-        }
-        html:not(.dark) {
-            --bg-page: #edebe2;
-            --bg:      #f4f2ea;
-            --bg-2:    #eae8dc;
-            --line:    #d6d3c4;
-            --line-strong: #bfbcab;
-            --text:    #1a1e20;
-            --muted:   #5c6663;
-            --faint:   #8b948f;
-            --accent:  #0b9a6b;
-            --cream:   #181d20;
-            --cream-text: #f1eee2;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>澳門民間氣象台 MSSO - 澳門分區氣象地圖</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+    }
+</script>
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<!-- Highcharts & Highcharts Maps -->
+<script src="https://cdn.jsdelivr.net/npm/highcharts@8.1.2/highcharts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highcharts@8.1.2/modules/data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highcharts@8.1.2/modules/map.js"></script>
+<style>
+    /* ===== 設計令牌（終端／儀表板風格）===== */
+    html.dark {
+        --bg-page: #0b1013;
+        --bg:      #0e1418;
+        --bg-2:    #121a1f;
+        --line:    #1f282e;
+        --line-strong: #2b373e;
+        --text:    #e6e9e9;
+        --muted:   #93a0a6;
+        --faint:   #5f6b72;
+        --accent:  #3fd9a4;
+    }
+    html:not(.dark) {
+        --bg-page: #edebe2;
+        --bg:      #f4f2ea;
+        --bg-2:    #eae8dc;
+        --line:    #d6d3c4;
+        --line-strong: #bfbcab;
+        --text:    #1a1e20;
+        --muted:   #5c6663;
+        --faint:   #8b948f;
+        --accent:  #0b9a6b;
+    }
 
-        body {
-            background: var(--bg-page);
-            color: var(--text);
-            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
-            font-size: 13px;
-        }
-        .num { font-variant-numeric: tabular-nums; }
-        .micro { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-        
-        .topbar {
-            position: sticky; top: 0; z-index: 60;
-            background: var(--bg);
-            border-bottom: 1px solid var(--line);
-        }
-        .topbar-inner {
-            max-width: 72rem; margin: 0 auto; padding: 12px 16px;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .brand { display: flex; align-items: center; gap: 10px; }
-        .brand-mark {
-            width: 28px; height: 28px;
-            display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--line-strong); color: var(--accent); font-size: 12px;
-        }
-        .brand-title { font-size: 13px; font-weight: 700; letter-spacing: .14em; }
-        
-        .panel { background: var(--bg); border: 1px solid var(--line); }
-        .panel-head {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 18px; border-bottom: 1px solid var(--line);
-        }
-        .panel-title { font-size: 13px; font-weight: 700; letter-spacing: .12em; }
-        .panel-num { color: var(--accent); }
-        .panel-body { padding: 18px; }
+    body {
+        background: var(--bg-page);
+        color: var(--text);
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+        font-size: 13px;
+        margin: 0;
+        padding: 0;
+    }
+    .num { font-variant-numeric: tabular-nums; }
+    .micro { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    
+    .topbar {
+        position: sticky; top: 0; z-index: 60;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+    }
+    .topbar-inner {
+        max-width: 72rem; margin: 0 auto; padding: 12px 16px;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark {
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid var(--line-strong); color: var(--accent); font-size: 12px;
+    }
+    .brand-title { font-size: 13px; font-weight: 700; letter-spacing: .14em; }
+    
+    .panel { background: var(--bg); border: 1px solid var(--line); }
+    .panel-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 18px; border-bottom: 1px solid var(--line);
+    }
+    .panel-title { font-size: 13px; font-weight: 700; letter-spacing: .12em; }
+    .panel-num { color: var(--accent); }
+    .panel-body { padding: 18px; }
 
-        .icon-btn {
-            width: 32px; height: 32px;
-            display: inline-flex; align-items: center; justify-content: center;
-            border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
-            transition: border-color .15s ease, color .15s ease;
-        }
-        .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
-        html.dark .ic-moon { display: none; }
-        html:not(.dark) .ic-sun { display: none; }
+    .icon-btn {
+        width: 32px; height: 32px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer;
+        transition: border-color .15s ease, color .15s ease;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    html.dark .ic-moon { display: none; }
+    html:not(.dark) .ic-sun { display: none; }
 
-        .site-footer {
-            max-width: 72rem; margin: 40px auto 0; padding: 20px 16px;
-            border-top: 1px solid var(--line); text-align: center;
-        }
-        .site-footer p { font-size: 10px; letter-spacing: .1em; color: var(--faint); line-height: 1.8; }
-    </style>
-    <script>
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.documentElement.classList.remove('dark');
-        } else {
-            document.documentElement.classList.add('dark');
-        }
-    </script>
+    .site-footer {
+        max-width: 72rem; margin: 40px auto 0; padding: 20px 16px;
+        border-top: 1px solid var(--line); text-align: center;
+    }
+    .site-footer p { font-size: 10px; letter-spacing: .1em; color: var(--faint); line-height: 1.8; }
+
+    /* 原有地圖樣式微調適配 */
+    #macauMap {
+        position: relative;
+        width: 100%;
+        height: 620px;
+    }
+    #mapTitle {
+        position: absolute;
+        top: 0;
+        right: 15px;
+        color: white;
+        background: rgba(0, 0, 0, .6);
+        padding: 8px;
+        font-size: 18px;
+        font-weight: bold;
+        z-index: 10;
+    }
+    #macauMapChart { height: 100%; }
+    .mapDataLabel {
+        cursor: pointer;
+        font-size: 15px;
+        text-shadow: 1px 1px 0 black;
+        font-weight: bold;
+        color: white;
+        background: rgba(0, 0, 0, .6);
+        padding: 3px;
+    }
+    .mappointDataLabel {
+        cursor: pointer;
+        font-size: 14px;
+        text-shadow: 1px 1px 0 black;
+        font-weight: bold;
+        color: white;
+    }
+    .chart-tooltip {
+        border: 3px solid #2471A3;
+        padding: 5px;
+        background: white;
+        color: #333;
+    }
+    .highcharts-name-g896, .highcharts-name-path913 { cursor: default; }
+</style>
+<script>
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+    } else {
+        document.documentElement.classList.add('dark');
+    }
+</script>
 </head>
 <body class="min-h-screen antialiased flex flex-col justify-between">
 
-    <!-- 頂欄 -->
+    <!-- 頂欄[cite: 11] -->
     <header class="topbar">
         <div class="topbar-inner">
             <div class="brand">
@@ -132,18 +173,21 @@
     <main class="w-full max-w-5xl mx-auto px-4 py-8 flex-grow space-y-6">
         <section class="panel">
             <div class="panel-head">
-                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門分區即時氣溫地圖 (Highcharts Maps)</h2>
+                <h2 class="panel-title"><span class="panel-num">01</span> / 澳門分區即時氣溫向量地圖</h2>
                 <span class="micro"><span style="width:6px;height:6px;background:var(--accent);display:inline-block;border-radius:50%;margin-right:6px;"></span>LIVE DATA</span>
             </div>
             <div class="panel-body">
                 <p class="micro dim mb-4">點擊或懸停於各分區圖塊可檢視詳細氣象數據與區域編號。</p>
-                <!-- Highcharts Map 容器 -->
-                <div id="macau-map-container" class="w-full h-[580px]"></div>
+                <!-- 澳門高精度向量地圖容器 -->
+                <div id="macauMap">
+                    <span id="mapTitle">氣温(℃)</span>
+                    <div id="macauMapChart"></div>
+                </div>
             </div>
         </section>
     </main>
 
-    <!-- 頁尾 -->
+    <!-- 頁尾[cite: 11] -->
     <footer class="site-footer">
         <p><strong style="color:var(--muted);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
@@ -151,7 +195,7 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
-        // 時間更新
+        // 時間更新[cite: 11]
         function updateDateTime() {
             const now = new Date();
             const year = now.getFullYear();
@@ -166,7 +210,7 @@
         updateDateTime();
         setInterval(updateDateTime, 1000);
 
-        // 主題切換
+        // 主題切換監聽[cite: 11]
         document.getElementById('theme-toggle').addEventListener('click', () => {
             if (document.documentElement.classList.contains('dark')) {
                 document.documentElement.classList.remove('dark');
@@ -175,171 +219,225 @@
                 document.documentElement.classList.add('dark');
                 localStorage.setItem('theme', 'dark');
             }
-            initMap(); // 重新渲染地圖以適配顏色主題
         });
 
-        // 初始化 Highcharts Maps 澳門真實輪廓分區地圖
-        function initMap() {
-            const isDark = document.documentElement.classList.contains('dark');
-            const bgColor = isDark ? '#0e1418' : '#f4f2ea';
-            const textColor = isDark ? '#e6e9e9' : '#1a1e20';
-            const borderColor = isDark ? '#1f282e' : '#d6d3c4';
+        // 初始化 Highcharts 澳門精細向量分區地圖
+        var pad = function (n) { return n < 10 ? '0' + n : n; };
+        var now = new Date();
+        var mapTime = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) +
+          ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
 
-            // 參照澳門特區真實地理輪廓與區域劃分的精細 GeoJSON
-            const macauGeoJson = {
-                'type': 'FeatureCollection',
-                'features': [
-                    {
-                        'type': 'Feature',
-                        'id': 'peninsula-north',
-                        'properties': { 'name': '花地瑪堂區 (北區)', 'value': 29.8 },
-                        'geometry': {
-                            'type': 'Polygon',
-                            'coordinates': [[
-                                [113.542, 22.218], [113.548, 22.222], [113.555, 22.219], 
-                                [113.560, 22.212], [113.557, 22.204], [113.550, 22.201], 
-                                [113.540, 22.203], [113.535, 22.210], [113.542, 22.218]
-                            ]]
-                        }
-                    },
-                    {
-                        'type': 'Feature',
-                        'id': 'peninsula-central',
-                        'properties': { 'name': '花王堂區 / 望德堂區 (中區)', 'value': 29.1 },
-                        'geometry': {
-                            'type': 'Polygon',
-                            'coordinates': [[
-                                [113.540, 22.203], [113.550, 22.201], [113.553, 22.193], 
-                                [113.547, 22.186], [113.536, 22.188], [113.535, 22.196], 
-                                [113.540, 22.203]
-                            ]]
-                        }
-                    },
-                    {
-                        'type': 'Feature',
-                        'id': 'peninsula-south',
-                        'properties': { 'name': '大堂區 (南區/新馬路)', 'value': 29.3 },
-                        'geometry': {
-                            'type': 'Polygon',
-                            'coordinates': [[
-                                [113.536, 22.188], [113.547, 22.186], [113.556, 22.179], 
-                                [113.552, 22.171], [113.541, 22.173], [113.533, 22.180], 
-                                [113.536, 22.188]
-                            ]]
-                        }
-                    },
-                    {
-                        'type': 'Feature',
-                        'id': 'taipa',
-                        'properties': { 'name': '氹仔島 (Taipa)', 'value': 29.6 },
-                        'geometry': {
-                            'type': 'Polygon',
-                            'coordinates': [[
-                                [113.544, 22.163], [113.555, 22.166], [113.572, 22.161], 
-                                [113.581, 22.152], [113.573, 22.143], [113.552, 22.145], 
-                                [113.541, 22.154], [113.544, 22.163]
-                            ]]
-                        }
-                    },
-                    {
-                        'type': 'Feature',
-                        'id': 'cotai',
-                        'properties': { 'name': '路氹城 (Cotai Strip)', 'value': 28.3 },
-                        'geometry': {
-                            'type': 'Polygon',
-                            'coordinates': [[
-                                [113.552, 22.145], [113.573, 22.143], [113.582, 22.137], 
-                                [113.578, 22.127], [113.554, 22.128], [113.547, 22.137], 
-                                [113.552, 22.145]
-                            ]]
-                        }
-                    },
-                    {
-                        'type': 'Feature',
-                        'id': 'coloane',
-                        'properties': { 'name': '路環島 (Coloane)', 'value': 28.6 },
-                        'geometry': {
-                            'type': 'Polygon',
-                            'coordinates': [[
-                                [113.547, 22.129], [113.558, 22.131], [113.573, 22.121], 
-                                [113.580, 22.108], [113.571, 22.096], [113.550, 22.094], 
-                                [113.537, 22.103], [113.535, 22.116], [113.547, 22.129]
-                            ]]
-                        }
-                    }
-                ]
-            };
-
-            Highcharts.mapChart('macau-map-container', {
-                chart: {
-                    map: macauGeoJson,
-                    backgroundColor: bgColor,
-                    style: { fontFamily: 'JetBrains Mono, monospace' }
-                },
-                title: { text: null },
-                credits: { enabled: false },
-                mapNavigation: {
-                    enabled: true,
-                    buttonOptions: {
-                        theme: {
-                            fill: isDark ? '#121a1f' : '#eae8dc',
-                            stroke: borderColor,
-                            r: 0,
-                            style: { color: textColor }
-                        }
-                    }
-                },
-                colorAxis: {
-                    min: 27,
-                    max: 31,
-                    stops: [
-                        [0, '#3fd9a4'],
-                        [0.5, '#60b9eb'],
-                        [1, '#ff6b6b']
-                    ]
-                },
-                series: [{
-                    name: '即時氣溫',
-                    borderColor: borderColor,
-                    borderWidth: 1.5,
-                    states: {
-                        hover: {
-                            brightness: 0.15,
-                            borderColor: '#3fd9a4'
-                        }
-                    },
-                    dataLabels: {
-                        enabled: true,
-                        format: '{point.properties.name}<br><b>{point.value}°C</b>',
-                        style: {
-                            color: textColor,
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            textOutline: 'none'
-                        }
-                    },
-                    data: [
-                        ['peninsula-north', 29.8],
-                        ['peninsula-central', 29.1],
-                        ['peninsula-south', 29.3],
-                        ['taipa', 29.6],
-                        ['cotai', 28.3],
-                        ['coloane', 28.6]
-                    ]
-                }],
-                tooltip: {
-                    backgroundColor: isDark ? '#121a1f' : '#ffffff',
-                    borderColor: borderColor,
-                    style: { color: textColor },
-                    formatter: function () {
-                        return `<b>${this.point.properties.name}</b><br>即時氣溫: <span style="color:var(--accent); font-weight:bold;">${this.point.value}°C</span>`;
-                    }
+        var mapChart = Highcharts.mapChart('macauMapChart', {
+          chart: {
+            marginLeft: 10,
+            marginRight: 70,
+            marginTop: 20,
+            backgroundColor: 'transparent',
+            events: {
+              load: function () {
+                var chart = this;
+                var colorAxis = chart.colorAxis[0];
+                chart.series[1].data.forEach(function (point) {
+                  var color = point.value !== '---' ? colorAxis.toColor(point.value, point) : '#839192';
+                  point.update({ color: color }, false);
+                });
+                chart.redraw();
+              }
+            }
+          },
+          title: { text: '' },
+          credits: {
+            text: '',
+            href: '',
+            style: { cursor: 'default' },
+            position: { align: 'right' }
+          },
+          legend: {
+            enabled: true,
+            title: {
+              text: mapTime,
+              style: { fontSize: '10px', fontWeight: 'normal' }
+            },
+            shadow: { color: 'rgba(0,0,0,0.2)', offsetX: 0, offsetY: 0, width: 8 },
+            align: 'right',
+            layout: 'vertical',
+            backgroundColor: 'rgba(255,255,255,0.7)',
+            symbolRadius: 0,
+            symbolHeight: 14,
+            itemStyle: { fontWeight: 'normal', fontSize: '14px' }
+          },
+          colorAxis: [{
+            dataClasses: [
+              { from: -10, to: 7, name: '嚴寒', color: '#154360' },
+              { from: 7.1, to: 12.4, name: '寒冷', color: '#A9CCE3' },
+              { from: 12.5, to: 17.4, name: '清涼', color: '#17A589' },
+              { from: 17.5, to: 22.4, name: '和暖', color: '#F4D03F' },
+              { from: 22.5, to: 27.4, name: '温暖', color: '#D68910' },
+              { from: 27.5, to: 32.4, name: '炎熱', color: '#E74C3C' },
+              { from: 32.5, name: '酷熱', color: '#922B21' }
+            ]
+          }],
+          tooltip: {
+            borderWidth: 0,
+            borderRadius: 0,
+            shadow: false,
+            backgroundColor: 'transparent',
+            useHTML: true,
+            formatter: function () {
+              return "<span style='font-weight:bold; z-index: 9999;' class='chart-tooltip'>" + this.key + "</span>";
+            }
+          },
+          series: [{
+            type: 'map',
+            borderColor: 'white',
+            borderWidth: 1,
+            color: '#839192',
+            nullColor: '#4D5656',
+            dashStyle: 'Solid',
+            shadow: { color: 'rgba(0,0,0,0.2)', offsetX: 0, offsetY: 0, width: 8 },
+            dataLabels: {
+              enabled: true,
+              useHTML: true,
+              formatter: function () {
+                if (!this.point.isNull) {
+                  if (this.point.value !== '---') {
+                    return "<span class='mapDataLabel'>" + Highcharts.numberFormat(this.point.value, 1) + "</span>";
+                  }
+                  return "<span class='mapDataLabel'>---</span>";
                 }
-            });
-        }
-
-        // 頁面載入後初始化地圖
-        window.addEventListener('DOMContentLoaded', initMap);
+              }
+            },
+            allowPointSelect: true,
+            states: {
+              hover: { brightness: 0.2 },
+              select: { dashStyle: 'dot', color: '#13A88A' }
+            },
+            joinBy: 'id',
+            mapData: [
+              {
+                "id": "id13",
+                "name": "g896",
+                "path": "M306,215C305,211,305,207,305,203C304,194,304,186,303,177C303,173,304,168,304,163L304,152C302,144,300,136,298,128C297,124,296,119,295,115C293,110,292,106,288,103C280,96,271,93,261,89C261,89,261,89,260,89C256,88,253,91,253,96C254,97,254,99,254,101C254,110,255,119,256,127C256,129,256,130,257,131C260,138,262,144,265,150C267,155,269,161,270,166C270,173,270,181,270,189C269,199,269,209,270,219C270,221,271,222,273,223C275,223,276,224,277,225C285,230,293,232,301,231C304,231,305,230,306,227C306,226,306,224,306,223C306,220,306,218,306,215zM370,149C370,144,370,140,370,136C370,134,369,133,367,133C367,133,366,133,366,133C349,133,332,133,315,133C314,133,314,133,313,133C312,133,311,134,311,135C311,136,311,137,311,139C311,145,311,152,311,159L310,173C311,178,313,180,318,180C327,180,336,180,345,180C357,180,357,180,367,173C369,172,370,170,370,167C370,161,370,155,370,149z"
+              },
+              {
+                "id": "id0",
+                "name": "友誼大橋北峰",
+                "path": "M251,164C251,164,259,166,259,177L261,281L263,281L261,172C261,172,263,159,255,161C254,162,251,164,251,164z"
+              },
+              {
+                "id": "id1",
+                "name": "友誼大橋南峰",
+                "path": "M259,392C259,392,261,390,261,378L261,311L261,281L263,281L263,378C263,378,263,381,266,383L262,392L259,392z"
+              },
+              {
+                "id": "id2",
+                "name": "西灣大橋",
+                "path": "M76,304C76,304,75,302,76,298C76,298,71,298,68,297C68,297,66,298,73,305C75,307,111,386,111,386L113,385L76,304zM69,298L70,298L73,304C73,304,69,300,69,298zM75,303C75,303,73,301,73,298C73,298,75,299,75,299L75,303z"
+              },
+              {
+                "id": "id3",
+                "name": "嘉樂庇總督大橋",
+                "path": "M142,249L140,249,169,391,171,391"
+              },
+              {
+                "id": "UM",
+                "name": "澳門大學",
+                "path": "M160,645C159,654,158,670,157,686C157,687,158,689,157,690C155,690,153,690,151,689C150,689,150,689,149,688C142,683,134,677,126,672C123,670,121,668,121,664C120,644,119,623,118,603C118,600,118,596,118,593C118,590,119,589,121,589C134,588,146,587,159,587C163,586,162,586,162,590C162,606,161,622,160,645z"
+              },
+              {
+                "id": "TG",
+                "name": "大潭山",
+                "path": "M353,380C353,380,353,379,353,378C353,378,353,377,353,377C351,375,349,374,347,375C345,375,345,378,345,378L342,391L340,395C337,394,334,393,332,393C330,392,330,392,330,390C330,389,331,388,331,387C331,387,331,386,330,386C330,386,329,386,329,387C329,388,329,389,328,390C328,391,327,392,326,391C324,391,324,390,324,388C325,386,326,384,326,382C325,380,326,379,326,378C327,377,328,375,329,374C332,370,335,365,338,360C339,357,339,356,336,354C335,355,333,357,332,359C329,363,329,363,324,362C318,361,318,361,317,366C316,370,316,374,314,378C312,377,312,376,310,375C308,375,305,373,304,371C301,368,297,366,294,364C286,362,278,359,271,356C270,356,269,355,268,356C268,361,267,366,267,371C267,375,269,377,272,378C274,378,277,379,279,379C280,380,280,380,280,382C279,385,278,389,277,392C277,394,276,394,274,394C272,393,269,393,266,391C266,391,265,391,265,391L261,393C256,395,254,398,255,403C255,406,253,409,250,411C249,412,247,413,246,414C245,415,245,416,245,417C245,418,246,420,247,421C249,422,250,423,252,425C255,428,255,431,253,435C252,435,251,436,251,437C248,440,245,442,242,444C241,445,240,446,240,448C239,449,239,450,239,451C237,460,239,463,249,463C253,464,255,465,257,468C260,475,262,483,268,489C270,491,272,492,275,492C280,492,285,492,289,490C291,490,292,490,293,491C295,492,297,493,299,491C302,490,305,488,307,487C311,485,311,485,309,481C308,479,308,479,310,478C314,475,319,473,324,471C329,469,334,467,338,464L343,460C344,459,343,458,344,458C345,458,345,458,345,458C370,475,395,492,420,509C421,509,421,509,422,510C422,510,423,510,422,511C421,514,423,516,423,518C423,519,424,520,425,520C427,520,428,521,428,523C429,525,430,527,430,530C438,551,445,572,452,594C454,600,457,601,464,599C467,598,470,597,473,596C475,595,477,592,477,589C477,588,476,587,476,586C462,544,447,502,433,460C426,438,418,417,411,395C410,393,410,392,409,391C407,389,405,388,402,389C398,391,394,391,393,396C393,398,393,399,394,401C395,404,395,404,392,405C381,409,371,412,360,416C359,416,359,416,358,417C358,417,357,417,357,416C356,416,356,415,357,414C357,414,358,414,358,413C360,412,363,411,365,411C372,409,379,406,385,403C386,403,387,402,386,400C384,397,383,394,382,390C382,388,381,387,379,387C378,388,377,388,375,388C374,389,373,389,373,388C372,384,370,382,370,379C369,378,369,378,369,378C367,383,366,387,365,391C365,392,365,394,364,394C360,397,360,401,362,404C362,404,362,405,362,405C363,406,363,406,362,406C359,407,357,408,355,409C355,405,355,402,356,399C356,397,356,397,354,398C353,398,352,397,351,397C348,397,348,396,349,394C352,386,353,382,353,380zM428,502C427,504,426,506,425,507C424,508,424,508,423,507C422,507,422,506,421,506C397,490,373,474,348,458C348,457,347,456,346,456C346,455,346,455,346,454C347,454,347,454,348,454C348,455,349,456,350,457C350,457,351,458,352,458C353,457,353,457,353,456C353,455,352,454,351,454C351,454,351,454,350,454C348,453,348,452,349,450C353,443,353,436,356,428C356,427,357,425,357,423C357,420,359,419,362,418C368,416,373,414,379,412C381,412,382,411,383,411C388,412,393,413,397,414C399,414,399,416,399,417C403,427,406,437,409,447C415,464,421,481,427,499C427,500,428,501,428,502z"
+              },
+              {
+                "id": "JA",
+                "name": "氹仔",
+                "path": "M247,415C248,414,249,413,250,412C254,410,256,407,255,402C255,399,256,397,258,396C259,395,260,394,261,394C262,393,263,393,263,392C262,392,262,391,262,391C262,391,261,391,261,391C260,391,259,391,258,391C253,391,248,391,244,390C238,389,232,386,225,385C224,385,223,384,223,384C221,382,220,383,219,384C215,389,209,389,203,387C196,385,189,385,182,389C178,391,175,392,172,391C172,391,170,391,169,392C167,394,165,394,163,395C160,395,157,396,155,396C151,397,148,398,144,397C140,397,136,398,132,400C127,403,123,402,121,396C120,393,119,390,117,388C117,386,116,385,114,385L113,385C112,385,111,386,111,386C109,388,110,389,110,391C112,397,113,403,114,409C114,416,115,423,118,429C120,434,121,440,123,445C124,448,124,450,126,453L126,453C126,458,129,461,133,465C138,469,144,474,150,479C152,480,153,480,155,482C159,488,165,494,169,501C170,501,170,502,171,503C172,503,173,503,173,503C174,502,174,501,174,500C173,500,173,499,172,498C170,496,168,493,166,490C165,489,164,488,165,487C165,486,166,486,168,486C170,486,173,486,176,486C179,486,179,486,179,489C179,494,179,498,179,503C179,506,179,507,175,506C175,506,175,506,174,506C179,514,184,521,189,529C190,527,192,526,194,526C195,526,196,526,197,526C197,525,198,525,198,524C198,523,198,522,197,522C195,521,195,520,194,519C194,511,192,504,188,498C184,493,183,488,184,482C184,477,185,477,189,478C197,482,205,486,213,490C225,494,237,495,250,491C253,490,256,489,259,488C260,488,261,487,262,488C264,491,264,491,268,489C268,487,268,485,266,484C264,484,264,483,263,481C262,477,260,473,258,468C257,465,254,463,251,463C249,463,247,463,246,462C241,462,239,460,240,455C240,452,240,450,240,447L240,447C244,444,248,441,251,438C253,436,255,433,255,430C256,428,255,427,254,426C252,424,250,422,248,420C247,419,246,418,245,417C245,415,247,415,247,415zM259,485C258,486,257,486,256,486C251,489,246,490,241,491C240,491,238,491,236,491C236,490,237,489,236,487C235,485,236,484,237,482C240,479,240,477,238,473C238,473,237,472,237,472C237,471,237,471,237,471C237,470,241,467,241,468C242,468,244,468,244,470C244,470,244,471,244,471C247,471,248,474,250,474C252,474,253,475,254,477C254,479,255,480,257,480C258,480,259,480,259,481C258,483,260,484,259,485z"
+              },
+              {
+                "id": "PE",
+                "name": "新口岸",
+                "path": "M143,272C141,273,138,273,136,274C128,276,118,269,113,264C113,263,113,262,113,261C109,257,109,252,106,248C106,247,106,246,106,246C106,240,106,235,111,232C114,229,113,229,116,232C117,232,118,233,119,233C122,234,125,236,127,237C129,238,130,238,129,240C129,243,130,245,131,247C132,250,135,251,137,249C139,248,139,249,140,249C141,249,142,249,143,248C144,245,143,242,146,240C150,249,153,257,157,266C158,267,157,268,155,269C153,270,151,271,148,271C148,271,148,271,147,271C146,272,145,272,144,272L143,272zM68,296L68,296M238,186L240,181C241,179,243,177,244,174C244,174,243,173,243,174C242,175,241,176,240,177C240,178,239,178,238,177C237,177,236,177,236,176C237,175,238,175,238,175C240,174,242,173,243,171L255,163C255,162,254,161,254,160C253,160,252,161,251,160L247,162C246,162,244,163,242,163C242,163,241,163,240,163C236,164,233,166,229,167C225,168,222,169,220,173C220,174,219,175,217,174C215,173,212,172,212,169C212,168,212,167,211,167C210,168,211,170,210,171C209,171,207,170,206,170C202,171,199,173,196,177C195,178,193,180,191,181C188,182,187,184,186,187C185,192,184,192,179,191C176,190,173,188,170,189C170,190,169,190,169,190C170,194,168,195,166,196C163,197,162,198,161,200C160,203,158,206,156,208C152,211,149,215,147,219C146,221,144,221,150,226C150,226,152,229,151,230C149,231,146,232,143,233C142,234,141,234,142,236C142,236,142,237,142,237C142,240,140,242,138,242C136,242,134,240,134,237C134,236,134,236,135,236C135,233,134,231,132,229C129,228,127,226,126,223C124,220,120,219,119,215C119,215,118,215,118,215C116,217,114,218,113,220C108,226,104,232,102,239C102,243,101,247,101,251C101,253,100,254,98,255C98,258,97,261,95,264C95,265,95,266,96,267C97,267,98,268,98,269C98,270,99,271,99,272C100,274,100,277,100,279C100,280,99,280,99,280C98,281,97,282,95,283L94,287C94,288,93,290,91,290C91,291,90,291,90,292C89,293,88,293,87,293C86,293,85,293,85,293C84,293,84,293,84,293C84,293,83,293,82,293C82,293,82,293,81,293C81,293,81,293,81,293C80,292,80,292,79,292C77,290,75,289,73,290C73,290,70,289,65,287C62,285,59,284,58,280C58,280,57,279,57,279C55,279,53,279,51,279C55,286,59,292,65,296C71,299,78,298,85,298C88,298,90,298,93,298C96,298,100,297,103,297C108,297,114,297,120,296C124,295,127,294,132,293C135,291,139,290,143,290C144,289,145,289,145,288C144,285,143,282,142,279C142,278,142,277,141,277C141,277,140,277,141,276C142,275,143,275,144,275C145,275,145,275,146,274L148,274C149,274,150,273,151,273C152,273,152,273,153,274C153,274,153,275,152,275C151,276,151,277,151,278C152,280,152,283,153,285C154,288,154,288,157,287C161,286,165,285,169,284C173,282,177,280,180,276C182,273,183,270,183,270C185,265,186,259,187,253L187,252C188,252,189,251,189,251L190,255C190,256,190,256,191,257C192,257,193,256,193,255C193,255,193,254,193,254C192,253,192,253,191,252C191,251,191,251,191,251L197,249C201,248,206,246,210,244C211,244,212,243,212,244C213,247,216,250,216,254C215,255,216,256,217,257C219,258,220,258,221,257C223,256,224,256,225,255C227,254,228,253,227,251C227,249,228,247,230,246C231,246,231,246,230,244C229,241,226,239,227,235C227,235,229,234,227,234C226,234,225,233,225,232C225,231,226,231,227,231C227,230,228,231,228,231C229,231,229,230,230,230C231,227,231,226,228,225L223,212C223,211,223,209,221,209C220,209,220,208,220,207C223,205,221,204,220,202C218,199,218,195,221,192C222,190,222,189,220,188C219,187,217,187,217,185C217,184,219,183,219,182C219,181,219,181,220,181C221,178,221,178,223,179C227,182,231,183,234,186C236,187,238,186,238,186z"
+              },
+              {
+                "id": "FM",
+                "name": "中區",
+                "path": "M206,165C205,164,205,162,205,161C206,159,206,157,205,155C205,152,203,149,200,148C199,148,197,148,195,148L195,148C193,147,191,145,189,143C186,141,184,138,180,136C180,136,180,135,180,135C177,132,174,129,171,127L169,125C164,120,159,116,153,111C153,111,153,111,153,111C153,111,153,111,152,110C151,109,150,107,148,107C147,107,145,108,143,108C142,108,141,109,141,109C141,113,141,113,137,114C133,115,129,116,125,118C123,118,121,118,120,119C119,121,121,123,121,124C121,125,121,126,120,126L117,128L110,129C110,129,107,131,106,130C105,129,105,128,103,129C102,129,100,130,100,131C100,133,99,135,99,137C100,137,100,137,101,137C101,137,101,137,101,138C100,138,100,138,100,139C98,140,97,145,98,147C99,149,99,152,97,154C96,156,95,158,96,160C97,162,96,164,95,166C94,167,93,169,93,171C93,172,95,174,91,174C91,174,91,175,91,176C90,178,90,180,89,182C89,183,89,183,90,184C92,183,93,181,96,182C95,184,96,185,97,186C104,194,111,201,118,208C121,211,119,213,118,215C119,216,119,218,120,218C124,222,127,226,131,230C133,231,134,234,134,236C133,240,135,242,138,242C141,242,143,240,143,237C143,235,144,234,146,233C148,232,150,232,151,229C151,227,149,225,148,223C148,222,147,221,148,220C150,216,151,213,154,210C157,208,160,205,161,202C163,200,165,198,167,196C170,195,171,193,170,189C174,190,177,191,181,192C181,192,182,193,182,193C185,193,186,192,187,190C187,189,187,188,187,187C187,184,189,182,192,181C194,181,196,180,196,177C197,176,197,176,198,175C201,174,204,172,206,170C206,168,207,167,206,165z"
+              },
+              {
+                "id": "MM",
+                "name": "南區",
+                "path": "M119,209C119,207,118,207,117,206C113,202,109,196,104,192C101,189,98,186,95,182C93,181,91,182,90,184C90,184,92,184,91,185C90,186,89,187,89,188C89,190,89,191,88,192C88,193,86,194,88,196C88,196,89,196,89,197C89,197,88,197,88,197C85,197,85,199,85,200C85,203,84,204,82,205C82,206,81,206,81,206C78,211,74,215,71,220C70,220,70,221,70,222C72,223,70,225,69,225C67,225,67,227,65,228C62,231,59,233,57,237C57,238,55,239,57,240C57,241,58,242,57,242C56,242,57,243,57,244C58,247,58,247,56,249C49,254,46,261,48,269C48,273,49,276,51,279C53,280,55,280,57,280C57,280,57,280,57,279C57,280,58,280,58,280C59,282,60,282,62,283C71,289,79,284,78,274C78,271,79,269,82,268C85,267,87,266,87,263C87,258,90,257,94,256C95,256,97,255,98,255C102,255,102,252,102,250C102,238,107,227,115,219C117,218,118,217,118,215C119,214,121,213,122,212C121,210,120,209,119,209z"
+              },
+              {
+                "id": "DC",
+                "name": "路環市區",
+                "path": "M188,675C188,676,188,677,189,678C190,681,190,683,187,685C186,685,186,686,185,686C184,687,183,689,181,688C180,689,178,690,177,692C179,694,176,696,177,699C175,700,177,701,177,702C178,703,179,703,179,703C181,703,181,704,181,706C180,707,180,708,181,709C182,709,183,708,184,708C184,708,184,708,184,708C184,716,182,723,179,729C179,730,178,731,177,731C175,732,174,734,173,736C176,737,177,740,177,743C177,743,178,744,178,744C178,746,180,747,181,748C182,750,183,749,184,749C186,748,185,750,186,751C187,751,189,749,190,751C190,751,190,752,190,752C192,753,193,755,196,755C197,755,198,756,199,756C215,750,227,735,227,717C227,695,210,677,188,675z"
+              },
+              {
+                "id": "KV",
+                "name": "九澳",
+                "path": "M411,600C413,597,413,597,409,594,409,593,408,593,408,593,404,590,403,591,401,594,400,594,400,595,399,596,399,597,398,597,397,596,395,595,393,594,392,592,390,591,389,591,388,592,387,594,386,594,384,594,382,594,384,592,383,591,382,591,382,590,382,589,382,586,382,584,381,582,380,582,379,583,379,584,379,589,377,592,373,593,370,594,369,593,369,591,368,590,368,590,367,590,366,590,366,589,367,588,367,587,367,585,367,584,367,580,368,576,365,572,364,571,365,571,366,570,367,569,368,568,369,567,352,571,339,586,339,605,339,626,357,644,379,644,401,644,418,626,418,605,418,602,418,599,417,597,416,598,416,599,415,600,413,603,413,603,411,600z"
+              },
+              {
+                "id": "id12",
+                "name": "path913",
+                "path": "M441,620C441,619,440,618,439,618,437,620,436,618,436,616,435,615,435,614,434,612,434,612,434,611,433,611,432,609,431,606,430,604,429,603,429,601,430,600,431,598,430,596,429,596,426,596,425,594,424,592,424,592,423,591,422,591,421,591,421,592,421,592,420,594,418,595,417,597,418,599,418,602,418,605,418,626,401,644,379,644,357,644,339,626,339,605,339,586,352,571,369,567,372,563,375,559,379,556,381,554,382,552,383,550,383,549,383,548,385,548,385,548,385,547,385,547,384,545,385,544,386,543,386,541,386,540,384,540,382,540,380,540,378,541,371,546,363,552,356,557,356,557,355,557,355,558,352,560,352,560,354,563,355,564,355,564,356,565,357,567,357,568,354,568,353,567,352,568,351,569,349,570,347,572,345,573L345,573C342,569,343,565,346,561,346,561,347,560,347,560,349,557,350,554,350,550,350,549,351,547,349,546,348,545,348,544,349,543,350,542,350,540,353,541,354,541,354,541,356,541,359,540,362,540,365,539,366,538,367,538,367,539,368,540,369,539,370,539,375,537,380,537,386,538,387,539,388,540,389,538,390,537,390,537,391,538,392,538,393,538,394,537,395,536,397,536,398,537,398,539,399,539,401,539,402,539,402,539,403,540,403,541,404,541,404,540,406,539,408,540,410,540,412,540,412,540,411,538,410,537,411,536,412,535,415,533,415,533,414,530,413,527,414,523,412,521,412,521,412,521,412,521,413,518,412,515,412,513,412,510,411,509,408,507,390,495,371,483,353,471,349,468,345,466,340,465L339,464C339,464,339,464,338,464,328,468,319,472,310,477,307,478,307,479,308,482,309,483,310,484,308,485,305,487,302,489,298,490,297,491,296,491,294,490,292,489,289,489,286,490,285,491,283,491,282,491,277,491,272,491,267,489,266,489,265,489,264,489,260,486,257,488,254,489,238,494,223,494,209,487,202,484,196,480,189,477,185,476,183,477,183,481,182,487,183,493,186,498,190,504,193,511,193,518,194,519,194,521,195,522,197,524,197,524,194,525,192,526,190,526,189,529,190,530,190,531,190,532,190,549,190,565,189,582L189,625C187,627,187,629,186,632,185,634,185,637,188,638L188,638C188,641,187,643,187,645,188,654,188,663,188,672,188,673,188,674,188,675,210,677,227,695,227,717,227,735,215,750,199,756,200,757,201,758,202,760,202,760,203,760,203,761,205,761,208,762,210,761,212,761,213,761,215,761,216,762,217,762,218,762,220,762,223,759,222,757,222,756,221,756,222,755,222,754,223,753,224,753,227,753,228,751,231,751,232,750,233,749,233,748,232,746,233,745,234,744,237,740,240,738,245,739,248,739,249,739,249,743,249,746,251,747,253,749,253,749,253,749,254,749,256,748,260,749,262,747,264,746,265,745,267,747,269,748,270,748,271,746,273,744,276,745,278,746,278,746,278,746,278,747,278,747,278,747,278,747,277,747,277,747,278,747,280,747,282,747,284,747,284,747,285,747,285,747,287,745,288,746,290,747,295,749,299,750,305,749,311,747,315,744,320,742,320,742,321,741,321,741,322,739,324,738,326,736,328,735,328,735,327,733,327,732,327,732,327,732,327,731,327,731,327,730,327,728,327,727,327,725,328,723,325,722,324,720,324,719,323,718,321,719,320,720,319,719,318,719,315,718,313,718,310,719,309,719,308,719,308,718,308,718,308,717,307,718,305,718,304,718,303,715,302,711,302,707,303,704,304,699,306,694,307,690,308,688,309,686,310,684,315,675,322,666,331,660,332,660,333,659,334,659,335,658,336,659,337,660,338,662,340,663,343,664,345,665,347,666,348,667,350,669,352,669,354,669,357,668,359,669,362,670,364,672,366,672,369,670,372,666,376,663,381,662,384,661,385,659,386,656,387,653,389,650,392,648,394,646,397,645,399,642,400,641,401,641,403,642,405,643,407,644,409,643,410,642,411,644,413,644,414,646,416,646,419,646,424,647,426,646,428,642,429,641,430,640,428,639,427,638,428,638,429,638,430,637,432,636,434,635,435,634,435,634,438,634,440,635,441,634,441,632,441,628,441,624,441,620zM282,598C279,601,279,604,279,608,279,611,277,613,276,617,276,617,275,617,275,617,273,617,271,618,269,619,268,620,266,620,265,620,263,620,262,619,262,617,261,615,262,614,261,612,261,612,261,611,262,611,262,609,262,606,262,604L262,599C262,598,261,596,263,595,266,595,268,595,271,595,272,595,273,595,274,595,277,596,280,594,282,597,282,597,282,598,282,598z"
+              },
+              {
+                "id": "EM",
+                "name": "黑沙環",
+                "path": "M254,157C251,149,249,140,246,132,247,132,247,132,247,132L249,130C249,130,249,129,249,129,247,123,247,116,247,110,247,107,247,105,247,102,248,94,245,88,240,82,238,79,236,77,232,76,224,72,216,70,207,67L207,67L168,126C169,126,169,126,170,127,170,127,171,128,171,128,174,131,178,134,180,137,184,140,187,142,190,145,192,147,194,148,196,149,203,150,205,153,205,160,205,163,206,167,206,170,209,172,211,172,211,170,211,170,211,169,211,169,211,168,211,168,211,167,210,162,208,156,207,151,206,147,208,144,212,143,215,142,218,141,221,140,222,139,224,138,225,140,226,141,228,140,229,139,230,138,231,138,231,137,233,133,236,133,240,131,242,131,244,131,244,134,247,142,249,150,251,158,252,159,251,159,251,160,251,160,251,160,251,160,251,160,251,161,252,161,253,162,254,160,255,159,254,158,254,157z"
+              },
+              {
+                "id": "DP",
+                "name": "北區",
+                "path": "M207,67,185,57C179,52,178,52,173,50,173,50,167,50,162,49,158,47,151,47,150,47,148,47,140,45,135,55,130,65,127,70,127,70,127,70,126,75,119,72,111,70,92,66,80,73,74,76,75,79,75,79L83,105C83,105,83,111,89,108,96,105,115,100,115,100L116,99,115,90C115,90,120,87,122,89C124,90,127,107,127,107L99,116C99,116,96,117,97,120,99,124,106,122,106,122L113,120C113,120,114,120,116,123,118,126,117,127,120,126C123,126,121,122,121,122C121,122,120,119,123,118C126,117,139,114,139,114C139,114,142,112,143,109,144,106,150,109,150,109L168,126Z"
+              }
+            ],
+            data: [
+              {id:'DP', dataLabels:{x:10, y:-10}, value:29.8},
+              {id:'EM', dataLabels:{x:3, y:-15}, value:30.1},
+              {id:'FM', dataLabels:{x:-1, y:-5}, value:29.1},
+              {id:'PE', dataLabels:{x:22, y:-3}, value:29.3},
+              {id:'MM', dataLabels:{x:1, y:-1}, value:29.8},
+              {id:'TG', dataLabels:{x:-35, y:-30}, value:28.3},
+              {id:'JA', dataLabels:{x:-5, y:-15}, value:29.6},
+              {id:'KV', dataLabels:{x:0, y:4}, value:28.6},
+              {id:'UM', dataLabels:{x:-1, y:-5}, value:29.2},
+              {id:'DC', dataLabels:{x:0, y:0}, value:29.7}
+            ]
+          }, {
+            type: 'mappoint',
+            animation: false,
+            stickyTracking: false,
+            joinBy: 'id',
+            cursor: 'pointer',
+            allowPointSelect: true,
+            marker: {
+              radius: 18,
+              states: {
+                hover: { radiusPlus: 4, lineWidthPlus: 4 },
+                select: { radiusPlus: 4, lineWidth: 4, fillColor: '#13A88A', lineColor: 'white' }
+              }
+            },
+            states: { inactive: { opacity: 1 } },
+            dataLabels: {
+              enabled: true,
+              y: 12,
+              useHTML: true,
+              formatter: function () {
+                if (!this.point.isNull) {
+                  if (this.point.value !== '---') {
+                    return "<span class='mappointDataLabel'>" + Highcharts.numberFormat(this.point.value, 1) + "</span>";
+                  }
+                  return "<span class='mappointDataLabel'>---</span>";
+                }
+              }
+            },
+            data: []
+          }]
+        });
     </script>
 </body>
 </html>
