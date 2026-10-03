@@ -387,19 +387,19 @@
         </div>
     </header>
 
-    <!-- 容器 -->
-    <main class="w-full max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-6 flex-grow animate-fade-in">
+    <!-- 容器（減少與頂欄之間的距離） -->
+    <main class="w-full max-w-6xl mx-auto px-4 md:px-6 pt-2.5 pb-6 md:pt-3.5 md:pb-6 space-y-4 md:space-y-6 flex-grow animate-fade-in">
 
         <!-- 載入狀態 -->
-        <div id="loading" class="text-center py-24 space-y-5">
+        <div id="loading" class="text-center py-20 space-y-5">
             <div class="loader-ring"></div>
             <p class="micro">正在取得最新天氣數據...</p>
         </div>
 
         <!-- 主要內容 -->
-        <div id="dashboard-content" class="space-y-6 hidden">
+        <div id="dashboard-content" class="space-y-4 md:space-y-6 hidden">
 
-            <div id="alerts-container" class="space-y-3"></div>
+            <div id="alerts-container" class="space-y-2.5"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -1117,6 +1117,12 @@
                 }
 
                 localStorage.setItem('fontSize', nextSize);
+
+                // 重新渲染天氣圖表，確保視覺尺寸相應縮放
+                if (globalWeatherData) {
+                    renderDailySection();
+                    renderHourlySection();
+                }
             });
         });
 
@@ -1364,7 +1370,7 @@
                     const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
                     const nowTime = Date.now();
 
-                    // 若快取有效（低於3分鐘），立即使用快取呈現畫面，隨後在背景獲取最新數據
+                    // 若快取有效（低於3分鐘），獨立呈現畫面，隨後在背景獲取最新數據
                     if (cachedWeather && cachedDistricts && cachedTime && (nowTime - parseInt(cachedTime) < CACHE_TTL)) {
                         globalWeatherData = JSON.parse(cachedWeather);
                         globalDistrictData = JSON.parse(cachedDistricts);
@@ -1651,44 +1657,58 @@
                 });
             }
 
-            /* 2. 渲染系統自動計算的提示 (高溫、低溫、自動降雨預警、大風) */
-            /* 高溫提示分級：28(amber), 32(orange), 35(red), 37(purple) */
+            /* 2. 渲染系統自動計算的提示 (高溫、低溫、自動降雨預警、大風) - 遞增嚴重要程度 */
+            /* 高溫提示分級：28°C(炎熱提示), 32°C(酷熱提示), 35°C(非常酷熱警告), 37°C(極為酷熱特別警告) */
             if (isHot) {
                 let hotBadgeColor = 'b-amber';
+                let hotTitle = '高溫提示：';
+                let hotContent = '天氣炎熱，請適時補充水分，戶外活動注意防曬。';
+
                 if (effectiveMaxTemp >= 37) {
                     hotBadgeColor = 'b-purple';
+                    hotTitle = '極為酷熱特別警告：';
+                    hotContent = '氣溫達極端高溫！請嚴防熱衰竭與中暑，避免所有高強度戶外活動，關懷長者及弱勢社群。';
                 } else if (effectiveMaxTemp >= 35) {
                     hotBadgeColor = 'b-red';
+                    hotTitle = '非常酷熱天氣警告：';
+                    hotContent = '天氣非常酷熱，中暑風險極高！請儘量留在室內通風處，避免劇烈戶外運動。';
                 } else if (effectiveMaxTemp >= 32) {
                     hotBadgeColor = 'b-orange';
-                } else {
-                    hotBadgeColor = 'b-amber';
+                    hotTitle = '酷熱天氣提示：';
+                    hotContent = '天氣酷熱，請提防中暑，避免長時間在陽光下曝曬並多補充水分。';
                 }
 
                 alertsContainer.innerHTML += `
                     <div class="${alertClass} ${hotBadgeColor}">
                         <span class="alert-icon"><i class="fa-solid fa-fire"></i></span>
-                        <div><span class="alert-title">高溫提示：</span>請提防中暑及補充水分。</div>
+                        <div><span class="alert-title">${hotTitle}</span>${hotContent}</div>
                     </div>`;
             }
 
-            /* 低溫提示分級：14(green), 12(blue), 10(dark blue), 8(dark purple) */
+            /* 低溫提示分級：14°C(清涼提示), 12°C(寒冷提示), 10°C(非常寒冷警告), 8°C(極為寒冷特別警告) */
             if (isCold) {
                 let coldBadgeColor = 'b-green';
+                let coldTitle = '清涼天氣提示：';
+                let coldContent = '天氣清涼，早晚溫差較大，請適時添衣。';
+
                 if (effectiveMinTemp <= 8) {
                     coldBadgeColor = 'b-purple';
+                    coldTitle = '極為寒冷特別警告：';
+                    coldContent = '氣溫達極端嚴寒！請採取全面防寒措施，提防低體溫症，使用暖氣設備請注意用電及通風安全。';
                 } else if (effectiveMinTemp <= 10) {
                     coldBadgeColor = 'b-indigo';
+                    coldTitle = '非常寒冷天氣警告：';
+                    coldContent = '天氣非常寒冷，請加強禦寒措施，關懷長者及慢性病患者，並注意室內通風保暖。';
                 } else if (effectiveMinTemp <= 12) {
                     coldBadgeColor = 'b-blue';
-                } else {
-                    coldBadgeColor = 'b-green';
+                    coldTitle = '寒冷天氣提示：';
+                    coldContent = '天氣寒冷，請注意保暖，禦寒衣物請隨身備妥。';
                 }
 
                 alertsContainer.innerHTML += `
                     <div class="${alertClass} ${coldBadgeColor}">
                         <span class="alert-icon"><i class="fa-solid fa-snowflake"></i></span>
-                        <div><span class="alert-title">低溫提示：</span>請適時添衣及注意保暖。</div>
+                        <div><span class="alert-title">${coldTitle}</span>${coldContent}</div>
                     </div>`;
             }
 
@@ -1775,7 +1795,7 @@
                                         <span>過去 24 小時溫度趨勢</span>
                                         <span class="num accent">${pastTemps[pastTemps.length - 1]}°C (現時)</span>
                                     </div>
-                                    <svg viewBox="0 0 280 ${svgH}" class="w-full h-[70px] overflow-visible">
+                                    <svg viewBox="0 0 280 ${svgH}" class="w-full overflow-visible" style="height: 4.5rem;">
                                         <polyline fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${points}" />
                                         ${pastTemps.map((t, i) => {
                                             const x = (i / (pastTemps.length - 1)) * 260 + 10;
@@ -1895,7 +1915,7 @@
                         </div>
                         ${iconsRow}
                         <div class="relative py-1">
-                            <svg viewBox="0 0 1100 ${svgH}" class="w-full h-[90px] overflow-visible">
+                            <svg viewBox="0 0 1100 ${svgH}" class="w-full overflow-visible" style="height: 6rem;">
                                 <polyline fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${tempPoints}" />
                                 ${temps.map((t, i) => `<circle cx="${i * 45 + 25}" cy="${svgH - ((t - tMin) / tRange) * (svgH - 25) - 10}" r="3" fill="var(--accent)" />`).join('')}
 
@@ -1936,8 +1956,6 @@
 
             let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 days-head">';
             let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
-            let maxTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
-            let minTempHtml = '<div class="grid grid-cols-7 gap-2 text-center">';
             let popRowHtml = '<div class="grid grid-cols-7 gap-2 text-center pt-3 pop-row">';
 
             let maxPoints = [];
@@ -1972,9 +1990,6 @@
                         ${renderIcon(dayIcon.icon, 'w-8 h-8 object-contain', 'text-2xl')}
                     </div>`;
 
-                maxTempHtml += `<div class="num text-sm font-extrabold" style="color: rgb(var(--c-red-rgb));">${maxTemps[i]}°</div>`;
-                minTempHtml += `<div class="num text-sm font-bold" style="color: rgb(var(--c-blue-rgb));">${minTemps[i]}°</div>`;
-
                 const impactResult = getRainfallImpactLevel(popVal, precipSumVal);
                 const levelStyle = getLevelStyle(impactResult.label);
 
@@ -1989,8 +2004,6 @@
 
             daysHtml += '</div>';
             iconsHtml += '</div>';
-            maxTempHtml += '</div>';
-            minTempHtml += '</div>';
             popRowHtml += '</div>';
 
             const polylineMax = maxPoints.join(' ');
@@ -2000,19 +2013,19 @@
                 ${daysHtml}
                 ${iconsHtml}
                 <div class="relative py-2 my-1">
-                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[80px] overflow-visible">
-                        <!-- Max Temp Line & Labels -->
+                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full overflow-visible" style="height: 5.5rem;">
+                        <!-- Max Temp Line & Labels (style 用 rem，隨著字體切換按鈕等比例縮放) -->
                         <polyline fill="none" stroke="rgb(var(--c-red-rgb))" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${polylineMax}" />
                         ${maxTemps.map((t, idx) => `
                             <circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3.5" fill="rgb(var(--c-red-rgb))" />
-                            <text x="${idx * 100 + 50}" y="${getY(t) - 12}" text-anchor="middle" fill="rgb(var(--c-red-rgb))" font-size="14" font-weight="800" class="num">${t}°</text>
+                            <text x="${idx * 100 + 50}" y="${getY(t) - 10}" text-anchor="middle" fill="rgb(var(--c-red-rgb))" class="num" style="font-size: 0.875rem; font-weight: 800;">${t}°</text>
                         `).join('')}
             
-                        <!-- Min Temp Line & Labels -->
+                        <!-- Min Temp Line & Labels (style 用 rem，隨著字體切換按鈕等比例縮放) -->
                         <polyline fill="none" stroke="rgb(var(--c-blue-rgb))" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${polylineMin}" />
                         ${minTemps.map((t, idx) => `
                             <circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3" fill="rgb(var(--c-blue-rgb))" />
-                            <text x="${idx * 100 + 50}" y="${getY(t) + 20}" text-anchor="middle" fill="rgb(var(--c-blue-rgb))" font-size="14" font-weight="700" class="num">${t}°</text>
+                            <text x="${idx * 100 + 50}" y="${getY(t) + 20}" text-anchor="middle" fill="rgb(var(--c-blue-rgb))" class="num" style="font-size: 0.875rem; font-weight: 700;">${t}°</text>
                         `).join('')}
                     </svg>
                 </div>
