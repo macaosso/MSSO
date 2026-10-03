@@ -600,6 +600,7 @@
         let currentHourlyMode = 'card';
         let activeDistrictIndex = null;
         let currentReportFilter = 'all';
+        let isInitialRenderDone = false; // 標記首次渲染是否完成，用於防止重新整理與輪詢時的動畫重複觸發
         const expandedYears = new Set();
         const districtHourlyCache = {}; // 快取各分區歷史溫度數據
 
@@ -618,19 +619,20 @@
         const SEG_ACTIVE = "seg-btn seg-active";
         const SEG_IDLE = "seg-btn";
 
-        /* ===== 圖示與天氣文字雙向自動對應表 ===== */
+        /* ===== 圖示與天氣文字雙向自動對應表（包含5組晝夜雙版本對應） ===== */
         const ICON_CONDITION_MAP = {
             'icon/weather_icon/sun.png': '天晴',
             'icon/weather_icon/moon.png': '天晴',
             'icon/weather_icon/partly-sun-day.png': '天色明朗',
             'icon/weather_icon/partly-sun-night.png': '天色明朗',
+            'icon/weather_icon/partly-cloud-day.png': '部份時間多雲',
+            'icon/weather_icon/partly-cloud-night.png': '部份時間多雲',
             'icon/weather_icon/cloud.png': '多雲',
             'icon/weather_icon/overcast.png': '密雲',
             'icon/weather_icon/fog.png': '霧',
-            'icon/weather_icon/partly-cloud-day.png': '部份時間多雲',
-            'icon/weather_icon/partly-cloud-night.png': '部份時間多雲',
             'icon/weather_icon/cloud-drizzle.png': '微雨',
             'icon/weather_icon/cloud-rain.png': '驟雨',
+            'icon/weather_icon/rainy-day.png': '驟雨',
             'icon/weather_icon/thunder.png': '雷暴',
             'icon/weather_icon/thunder-rain.png': '雷雨',
             'icon/weather_icon/rainstorm.png': '暴雨'
@@ -640,13 +642,14 @@
             '天晴': { day: 'icon/weather_icon/sun.png', night: 'icon/weather_icon/moon.png' },
             '大致天晴': { day: 'icon/weather_icon/sun.png', night: 'icon/weather_icon/moon.png' },
             '天色明朗': { day: 'icon/weather_icon/partly-sun-day.png', night: 'icon/weather_icon/partly-sun-night.png' },
-            '多雲': 'icon/weather_icon/cloud.png',
-            '密雲': 'icon/weather_icon/overcast.png',
-            '霧': 'icon/weather_icon/fog.png',
             '短暫時間多雲': { day: 'icon/weather_icon/partly-sun-day.png', night: 'icon/weather_icon/partly-sun-night.png' },
             '部份時間多雲': { day: 'icon/weather_icon/partly-cloud-day.png', night: 'icon/weather_icon/partly-cloud-night.png' },
             '部分多雲': { day: 'icon/weather_icon/partly-cloud-day.png', night: 'icon/weather_icon/partly-cloud-night.png' },
             '短暫時間有陽光': { day: 'icon/weather_icon/partly-cloud-day.png', night: 'icon/weather_icon/partly-cloud-night.png' },
+            '部份時間有陽光': { day: 'icon/weather_icon/partly-sun-day.png', night: 'icon/weather_icon/partly-sun-night.png' },
+            '多雲': 'icon/weather_icon/cloud.png',
+            '密雲': 'icon/weather_icon/overcast.png',
+            '霧': 'icon/weather_icon/fog.png',
             '微雨': 'icon/weather_icon/cloud-drizzle.png',
             '驟雨': 'icon/weather_icon/cloud-rain.png',
             '間中有驟雨': 'icon/weather_icon/rainy-day.png',
@@ -741,40 +744,63 @@
             return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
-        /* 解析新版 nowcast.csv (格式: enabled,class,content) */
+        /* 解析 nowcast.csv (相容 enabled,class,content 與無表頭短格式) */
         function parseNowcastText(text) {
             try {
                 const lines = text.trim().split(/\r?\n/);
-                if (lines.length < 2) return null;
+                if (lines.length === 0) return null;
 
-                const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-                
-                // 驗證必要欄位：enabled, class, content
-                if (!headers.includes('enabled') || !headers.includes('class') || !headers.includes('content')) {
-                    console.warn("nowcast.csv 格式不符 (expected enabled,class,content)，略過解析。");
-                    return null;
+                let startIndex = 0;
+                let enabledIdx = 0, classIdx = 1, contentIdx = 2;
+                let hasHeaders = false;
+
+                const firstLineCols = lines[0].split(',').map(h => h.trim().toLowerCase());
+                if (firstLineCols.includes('enabled')) {
+                    hasHeaders = true;
+                    enabledIdx = firstLineCols.indexOf('enabled');
+                    classIdx = firstLineCols.indexOf('class');
+                    contentIdx = firstLineCols.indexOf('content');
+                    if (contentIdx === -1) {
+                        contentIdx = firstLineCols.findIndex(c => c === 'icon' || c === 'description' || c === 'text');
+                    }
+                    startIndex = 1;
                 }
-
-                const enabledIdx = headers.indexOf('enabled');
-                const classIdx = headers.indexOf('class');
-                const contentIdx = headers.indexOf('content');
 
                 const tips = [];
                 let customIcon = null;
 
-                for (let i = 1; i < lines.length; i++) {
+                for (let i = startIndex; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (!line) continue;
 
                     const values = line.split(',').map(v => v.trim());
-                    const enabled = values[enabledIdx] ? values[enabledIdx].toLowerCase() === 'true' : false;
-                    const cls = values[classIdx] ? values[classIdx].toUpperCase() : '';
-                    const content = values.slice(contentIdx).join(',').trim();
+                    if (values.length < 2) continue;
 
+                    const enabled = values[enabledIdx] ? values[enabledIdx].toLowerCase() === 'true' : false;
                     if (!enabled) continue;
 
-                    if (cls === 'I') {
-                        customIcon = content;
+                    let cls = (classIdx !== -1 && values[classIdx]) ? values[classIdx].toUpperCase() : '';
+                    let content = (contentIdx !== -1 && values[contentIdx]) ? values.slice(contentIdx).join(',').trim() : '';
+
+                    if (!hasHeaders) {
+                        if (values.length >= 3) {
+                            if (values[1].toUpperCase() === 'I') {
+                                cls = 'I';
+                                content = values[2];
+                            } else {
+                                cls = 'I';
+                                content = values[1];
+                            }
+                        } else if (values.length === 2) {
+                            cls = 'I';
+                            content = values[1];
+                        }
+                    }
+
+                    if (cls === 'I' || (!['E', 'S', 'W', 'R'].includes(cls) && content)) {
+                        if (!customIcon) {
+                            customIcon = content || values[1];
+                        }
                     } else if (['E', 'S', 'W', 'R'].includes(cls)) {
                         tips.push({
                             class: cls,
@@ -919,7 +945,8 @@
 
                 let reportsHtml = '';
                 if (isExpanded) {
-                    reportsHtml += `<div class="animate-fade-in">`;
+                    const animClass = isInitialRenderDone ? '' : 'animate-fade-in';
+                    reportsHtml += `<div class="${animClass}">`;
                     groupedByYear[year].forEach(report => {
                         reportsHtml += `
                             <div class="report-row flex flex-col gap-2.5">
@@ -1276,7 +1303,7 @@
             if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
-        /* 抓取天氣數據 */
+        /* 抓取天氣數據（支援背景靜默自動輪詢與快取優先機制） */
         async function fetchWeatherData(isBackground = false) {
             try {
                 if (!isBackground) {
@@ -1286,6 +1313,7 @@
                     const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
                     const nowTime = Date.now();
 
+                    // 若快取有效（低於3分鐘），立即使用快取呈現畫面，隨後在背景獲取最新數據
                     if (cachedWeather && cachedDistricts && cachedTime && (nowTime - parseInt(cachedTime) < CACHE_TTL)) {
                         globalWeatherData = JSON.parse(cachedWeather);
                         globalDistrictData = JSON.parse(cachedDistricts);
@@ -1297,6 +1325,9 @@
                         document.getElementById('loading').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('hidden');
                         observeRevealElements();
+
+                        // 背景執行一次實時抓取以更新數據
+                        fetchWeatherData(true);
                         return;
                     }
                 }
@@ -1417,16 +1448,25 @@
                 if (globalNowcastData.customIcon) {
                     const inputVal = globalNowcastData.customIcon.trim();
                     if (!inputVal.includes('/') && !inputVal.includes('.')) {
+                        // 傳入文字描述（如: 天晴 / 天色明朗）
                         weatherInfo.text = inputVal;
                         const autoIcon = getIconFromCondition(inputVal, isNight);
                         if (autoIcon) {
                             weatherInfo.icon = autoIcon;
                         }
                     } else {
-                        weatherInfo.icon = inputVal;
-                        const autoText = getConditionFromIcon(inputVal);
-                        if (autoText) {
-                            weatherInfo.text = autoText;
+                        // 傳入圖片路徑（如: icon/weather_icon/sun.png） -> 先解析對應文字，再根據當前 isNight 決定正確圖示
+                        const derivedText = getConditionFromIcon(inputVal);
+                        if (derivedText) {
+                            weatherInfo.text = derivedText;
+                            const dynamicIcon = getIconFromCondition(derivedText, isNight);
+                            if (dynamicIcon) {
+                                weatherInfo.icon = dynamicIcon;
+                            } else {
+                                weatherInfo.icon = inputVal;
+                            }
+                        } else {
+                            weatherInfo.icon = inputVal;
                         }
                     }
                 }
@@ -1455,7 +1495,7 @@
             document.getElementById('current-temp').innerText = `${Math.round(curr.temperature_2m)}°C`;
             const tempBadgeEl = document.getElementById('current-temp-badge');
             tempBadgeEl.textContent = tempCat.label;
-            tempBadgeEl.className = `badge badge-lg value-pop ${tempCat.class}`;
+            tempBadgeEl.className = `badge badge-lg ${isInitialRenderDone ? '' : 'value-pop'} ${tempCat.class}`;
 
             document.getElementById('current-condition').innerText = weatherInfo.text;
             document.getElementById('current-high-low').innerHTML = `
@@ -1468,14 +1508,14 @@
             document.getElementById('current-humidity').innerText = `${humidityVal}%`;
             const humidityBadgeEl = document.getElementById('current-humidity-badge');
             humidityBadgeEl.textContent = humidityCat.label;
-            humidityBadgeEl.className = `badge value-pop ${humidityCat.class}`;
+            humidityBadgeEl.className = `badge ${isInitialRenderDone ? '' : 'value-pop'} ${humidityCat.class}`;
 
             const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : curr.temperature_2m;
             const apparentCat = getTempCategory(apparentTemp);
             document.getElementById('current-apparent-temp').innerText = `${Math.round(apparentTemp)}°C`;
             const apparentBadgeEl = document.getElementById('current-apparent-badge');
             apparentBadgeEl.textContent = apparentCat.label;
-            apparentBadgeEl.className = `badge value-pop ${apparentCat.class}`;
+            apparentBadgeEl.className = `badge ${isInitialRenderDone ? '' : 'value-pop'} ${apparentCat.class}`;
 
             const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
             const next2Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 2);
@@ -1489,7 +1529,7 @@
             document.getElementById('current-pop').innerText = `${popVal}% / ${precipSum2h.toFixed(1)}mm`;
             const popBadgeEl = document.getElementById('current-pop-badge');
             popBadgeEl.textContent = impact2h.label;
-            popBadgeEl.className = `badge value-pop ${impact2h.class}`;
+            popBadgeEl.className = `badge ${isInitialRenderDone ? '' : 'value-pop'} ${impact2h.class}`;
 
             const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 8);
             const currentWindSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
@@ -1502,6 +1542,8 @@
 
             const alertsContainer = document.getElementById('alerts-container');
             alertsContainer.innerHTML = '';
+
+            const alertClass = isInitialRenderDone ? 'alert' : 'alert alert-item';
 
             /* 1. 渲染來自 nowcast.csv 的手動獨立提示 (E, S, W, R) */
             if (globalNowcastData && globalNowcastData.enabled && globalNowcastData.tips && globalNowcastData.tips.length > 0) {
@@ -1534,7 +1576,7 @@
                     }
 
                     alertsContainer.innerHTML += `
-                        <div class="alert alert-item ${badgeColor}">
+                        <div class="${alertClass} ${badgeColor}">
                             <span class="alert-icon"><i class="fa-solid ${iconName}"></i></span>
                             <div><span class="alert-title">${titleText}：</span>${tip.content}</div>
                         </div>`;
@@ -1544,14 +1586,14 @@
             /* 2. 渲染系統自動計算的提示 (高溫、低溫、自動降雨預警、大風) */
             if (isHot) {
                 alertsContainer.innerHTML += `
-                    <div class="alert alert-item b-orange">
+                    <div class="${alertClass} b-orange">
                         <span class="alert-icon"><i class="fa-solid fa-fire"></i></span>
                         <div><span class="alert-title">高溫提示：</span>請提防中暑及補充水分。</div>
                     </div>`;
             }
             if (isCold) {
                 alertsContainer.innerHTML += `
-                    <div class="alert alert-item b-sky">
+                    <div class="${alertClass} b-sky">
                         <span class="alert-icon"><i class="fa-solid fa-snowflake"></i></span>
                         <div><span class="alert-title">低溫提示：</span>請適時添衣及注意保暖。</div>
                     </div>`;
@@ -1571,14 +1613,14 @@
                 }
 
                 alertsContainer.innerHTML += `
-                    <div class="alert alert-item ${alertColor}">
+                    <div class="${alertClass} ${alertColor}">
                         <span class="alert-icon"><i class="fa-solid ${alertIcon}"></i></span>
                         <div><span class="alert-title">降雨影響提示（影響等級：${impact2h.label}）：</span>未來2小時內預計有降雨影響（降雨機率 ${popVal}%，預估雨量 ${precipSum2h.toFixed(1)}mm），外出時請做好防雨準備。</div>
                     </div>`;
             }
             if (isWindy) {
                 alertsContainer.innerHTML += `
-                    <div class="alert alert-item b-amber">
+                    <div class="${alertClass} b-amber">
                         <span class="alert-icon"><i class="fa-solid fa-wind"></i></span>
                         <div><span class="alert-title">大風提示：</span>進行高空工作或戶外活動人士要注意大風所帶來的威脅。</div>
                     </div>`;
@@ -1587,6 +1629,10 @@
             renderDistricts();
             renderHourlySection();
             renderDailySection();
+
+            if (!isInitialRenderDone) {
+                isInitialRenderDone = true;
+            }
         }
 
         function renderDistricts() {
@@ -1628,8 +1674,9 @@
                                 return `${x},${y}`;
                             }).join(' ');
 
+                            const chartAnim = isInitialRenderDone ? 'chart-block' : 'chart-block animate-fade-in';
                             chartHtml = `
-                                <div class="chart-block animate-fade-in">
+                                <div class="${chartAnim}">
                                     <div class="micro mb-2 flex justify-between items-center">
                                         <span>過去 24 小時溫度趨勢</span>
                                         <span class="num accent">${pastTemps[pastTemps.length - 1]}°C (現時)</span>
@@ -1693,7 +1740,7 @@
 
             if (currentHourlyMode === 'card') {
                 const scrollBox = document.createElement('div');
-                scrollBox.className = "flex gap-3 overflow-x-auto pb-2 pt-1 animate-fade-in";
+                scrollBox.className = isInitialRenderDone ? "flex gap-3 overflow-x-auto pb-2 pt-1" : "flex gap-3 overflow-x-auto pb-2 pt-1 animate-fade-in";
 
                 for (let i = 0; i < times.length; i++) {
                     const hourDate = new Date(times[i]);
@@ -1705,7 +1752,9 @@
 
                     const card = document.createElement('div');
                     card.className = "tile hour-card flex flex-col items-center justify-between p-3.5 min-w-[86px] flex-shrink-0 text-center";
-                    card.style.animation = `fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.03}s both`;
+                    if (!isInitialRenderDone) {
+                        card.style.animation = `fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.03}s both`;
+                    }
                     card.innerHTML = `
                         <span class="num micro">${hourLabel}</span>
                         <div class="my-2.5">${renderIcon(hourIcon.icon, 'w-7 h-7 object-contain', 'text-xl')}</div>
@@ -1717,7 +1766,7 @@
                 container.appendChild(scrollBox);
             } else {
                 const chartWrapper = document.createElement('div');
-                chartWrapper.className = "tile p-4 space-y-4 overflow-x-auto animate-fade-in";
+                chartWrapper.className = isInitialRenderDone ? "tile p-4 space-y-4 overflow-x-auto" : "tile p-4 space-y-4 overflow-x-auto animate-fade-in";
 
                 const tMax = Math.max(...temps) + 1;
                 const tMin = Math.min(...temps) - 1;
@@ -1789,7 +1838,7 @@
             }
 
             const tableWrapper = document.createElement('div');
-            tableWrapper.className = "min-w-[620px] animate-fade-in";
+            tableWrapper.className = isInitialRenderDone ? "min-w-[620px]" : "min-w-[620px] animate-fade-in";
 
             let daysHtml = '<div class="grid grid-cols-7 gap-2 text-center pb-3 days-head">';
             let iconsHtml = '<div class="grid grid-cols-7 gap-2 text-center py-3">';
@@ -1869,8 +1918,13 @@
             dailyContainer.appendChild(tableWrapper);
         }
 
-        // 頁面初始化
+        // 頁面首次載入
         fetchWeatherData();
+
+        // 設定 30 秒自動頻繁輪詢背景抓取，實現實時更新且不觸發進場動畫
+        setInterval(() => {
+            fetchWeatherData(true);
+        }, 30000);
     </script>
 </body>
 </html>
