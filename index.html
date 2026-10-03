@@ -20,6 +20,10 @@
     <!-- 引入自動農曆計算套件 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     <style>
+        /* ===== 字體縮放階梯 ===== */
+        html.font-md { font-size: 112.5%; }
+        html.font-lg { font-size: 125%; }
+
         /* ===== 設計令牌（終端／儀表板風格）===== */
         html.dark {
             --bg-page: #0b1013;
@@ -78,7 +82,7 @@
             background: var(--bg-page);
             color: var(--text);
             font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
-            font-size: 13px;
+            font-size: 0.8125rem;
         }
         ::selection { background: rgba(var(--c-green-rgb), .28); }
         .num { font-variant-numeric: tabular-nums; }
@@ -312,7 +316,7 @@
             width: 18px; height: 2px; background: var(--accent);
         }
     </style>
-    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <!-- 頁面載入前先執行主題與字體大小判斷，避免畫面閃爍 -->
     <script>
         const currentHour = new Date().getHours();
         const savedTheme = localStorage.getItem('theme');
@@ -330,6 +334,11 @@
                 document.documentElement.classList.add('dark');
             }
         }
+
+        const savedFontSize = localStorage.getItem('fontSize');
+        if (savedFontSize && savedFontSize !== 'normal') {
+            document.documentElement.classList.add('font-' + savedFontSize);
+        }
     </script>
 </head>
 <body id="page-body" class="min-h-screen antialiased flex flex-col relative">
@@ -345,18 +354,28 @@
                     <span class="brand-mark"><i class="fa-solid fa-cloud-bolt"></i></span>
                     <div class="brand-title">澳門民間氣象台<span class="brand-sub">MSSO</span></div>
                 </div>
-                <button class="icon-btn sm:hidden theme-toggle" title="切換主題">
-                    <i class="fa-solid fa-moon ic-moon"></i>
-                    <i class="fa-solid fa-sun ic-sun"></i>
-                </button>
+                <!-- 行動端按鈕組 -->
+                <div class="flex items-center gap-2 sm:hidden">
+                    <button class="icon-btn font-size-toggle" title="切換字體大小">
+                        <i class="fa-solid fa-font"></i>
+                    </button>
+                    <button class="icon-btn theme-toggle" title="切換主題">
+                        <i class="fa-solid fa-moon ic-moon"></i>
+                        <i class="fa-solid fa-sun ic-sun"></i>
+                    </button>
+                </div>
             </div>
             <div class="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 border-[var(--line)] pt-2 sm:pt-0">
                 <div class="text-left sm:text-right leading-tight">
                     <div id="current-datetime" class="num micro" style="color:var(--text);">載入中...</div>
                     <div id="lunar-date" class="micro dim">農曆計算中...</div>
                 </div>
+                <!-- 桌面端按鈕組 -->
                 <div class="flex items-center gap-2">
                     <span class="micro dim">v2.1.2</span>
+                    <button class="icon-btn hidden sm:inline-flex font-size-toggle" title="切換字體大小">
+                        <i class="fa-solid fa-font"></i>
+                    </button>
                     <button class="icon-btn hidden sm:inline-flex theme-toggle" title="切換主題">
                         <i class="fa-solid fa-moon ic-moon"></i>
                         <i class="fa-solid fa-sun ic-sun"></i>
@@ -1060,6 +1079,31 @@
                     document.documentElement.classList.add('dark');
                     localStorage.setItem('theme', 'dark');
                 }
+            });
+        });
+
+        /* 字體大小切換按鈕事件（支援所有 .font-size-toggle 按鈕） */
+        const fontSizes = ['normal', 'md', 'lg'];
+        document.querySelectorAll('.font-size-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                let currentSize = localStorage.getItem('fontSize') || 'normal';
+                let currentIndex = fontSizes.indexOf(currentSize);
+                if (currentIndex === -1) currentIndex = 0;
+
+                let nextIndex = (currentIndex + 1) % fontSizes.length;
+                let nextSize = fontSizes[nextIndex];
+
+                fontSizes.forEach(size => {
+                    if (size !== 'normal') {
+                        document.documentElement.classList.remove('font-' + size);
+                    }
+                });
+
+                if (nextSize !== 'normal') {
+                    document.documentElement.classList.add('font-' + nextSize);
+                }
+
+                localStorage.setItem('fontSize', nextSize);
             });
         });
 
