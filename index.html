@@ -1823,10 +1823,11 @@
             const chartMax = Math.max(...allVals) + 1;
             const chartMin = Math.min(...allVals) - 1;
             const range = chartMax - chartMin || 1;
-            const svgHeight = 60;
+            const svgHeight = 80;
 
             function getY(val) {
-                return svgHeight - ((val - chartMin) / range) * (svgHeight - 20) - 10;
+                // Leaves 20px margin at top and bottom for text labels
+                return svgHeight - ((val - chartMin) / range) * (svgHeight - 40) - 20;
             }
 
             const tableWrapper = document.createElement('div');
@@ -1897,17 +1898,23 @@
             tableWrapper.innerHTML = `
                 ${daysHtml}
                 ${iconsHtml}
-                ${maxTempHtml}
                 <div class="relative py-2 my-1">
-                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[60px] overflow-visible">
+                    <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[80px] overflow-visible">
+                        <!-- Max Temp Line & Labels -->
                         <polyline fill="none" stroke="rgb(var(--c-red-rgb))" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${polylineMax}" />
-                        ${maxTemps.map((t, idx) => `<circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3.5" fill="rgb(var(--c-red-rgb))" />`).join('')}
-
+                        ${maxTemps.map((t, idx) => `
+                            <circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3.5" fill="rgb(var(--c-red-rgb))" />
+                            <text x="${idx * 100 + 50}" y="${getY(t) - 8}" text-anchor="middle" fill="rgb(var(--c-red-rgb))" font-size="12" font-weight="800" class="num">${t}°</text>
+                        `).join('')}
+            
+                        <!-- Min Temp Line & Labels -->
                         <polyline fill="none" stroke="rgb(var(--c-blue-rgb))" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${polylineMin}" />
-                        ${minTemps.map((t, idx) => `<circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3" fill="rgb(var(--c-blue-rgb))" />`).join('')}
+                        ${minTemps.map((t, idx) => `
+                            <circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3" fill="rgb(var(--c-blue-rgb))" />
+                            <text x="${idx * 100 + 50}" y="${getY(t) + 16}" text-anchor="middle" fill="rgb(var(--c-blue-rgb))" font-size="12" font-weight="700" class="num">${t}°</text>
+                        `).join('')}
                     </svg>
                 </div>
-                ${minTempHtml}
                 ${popRowHtml}
             `;
 
