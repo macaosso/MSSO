@@ -275,7 +275,7 @@
         .report-card:hover { border-color: var(--line-strong); }
         .year-section + .year-section { margin-top: 10px; }
         .year-head {
-            width: 100%; display: flex; justify-content: space-between; align-items: center;
+            width: 100%; display: flex; justify-between; align-items: center;
             padding: 10px 14px; background: var(--bg-2); border: none; cursor: pointer;
             font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text);
             transition: background .15s ease, color .15s ease;
@@ -1038,13 +1038,13 @@
         function getLevelStyle(level) {
             switch (level) {
                 case '低':
-                    return 'badge b-slate';
+                    return 'badge b-blue';
                 case '中':
-                    return 'badge b-yellow';
+                    return 'badge b-amber';
                 case '高':
-                    return 'badge b-orange';
-                case '極高':
                     return 'badge b-red';
+                case '極高':
+                    return 'badge b-purple';
                 default:
                     return 'badge b-slate';
             }
@@ -1089,20 +1089,20 @@
             };
             return symbols[code] || { text: '多雲', icon: 'icon/weather_icon/cloud.png' };
         }
-        
+
         function getAdvancedDailyWeatherIcon(dayIndex, data) {
             const dailyCode = data.daily.weather_code[dayIndex];
             const maxTemp = data.daily.temperature_2m_max[dayIndex];
             const minTemp = data.daily.temperature_2m_min[dayIndex];
             const dateStr = data.daily.time[dayIndex];
-        
+
             const hourlyIndices = [];
             data.hourly.time.forEach((t, idx) => {
                 if (t.startsWith(dateStr)) {
                     hourlyIndices.push(idx);
                 }
             });
-        
+
             let sunHours = 0;
             let cloudHours = 0;
             let rainHours = 0;
@@ -1113,15 +1113,15 @@
             let hasHeavyRain = false;
             let thunderstormHours = 0;
             let maxHourlyRainfall = 0;
-        
+
             hourlyIndices.forEach(idx => {
                 const hCode = data.hourly.weather_code[idx];
                 const hRain = data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0;
-        
+
                 if (hRain > maxHourlyRainfall) {
                     maxHourlyRainfall = hRain;
                 }
-        
+
                 if (hCode === 0 || hCode === 1) sunHours++;
                 if (hCode >= 2 && hCode <= 4) cloudHours++;
                 if ((hCode >= 51 && hCode <= 67) || (hCode >= 80 && hCode <= 82) || (hCode >= 95 && hCode <= 99)) rainHours++;
@@ -1132,20 +1132,20 @@
                 if (hCode === 45 || hCode === 48) hasFog = true;
                 if (hCode === 63 || hCode === 65 || hCode === 82) hasHeavyRain = true;
             });
-        
+
             const accumulatedRainfall = data.daily.precipitation_sum ? (data.daily.precipitation_sum[dayIndex] || 0) : 0;
-        
+
             if (maxHourlyRainfall >= 10 || accumulatedRainfall >= 30) {
                 return { icon: 'icon/weather_icon/rainstorm.png', text: '暴雨' };
             }
-        
+
             if (thunderstormHours >= 2) {
                 return { icon: 'icon/weather_icon/thunder-rain.png', text: '雷雨' };
             } 
-        
+
             let icon = 'icon/weather_icon/cloud.png';
             let text = '多雲';
-        
+
             switch (dailyCode) {
                 case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
                 case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
@@ -1159,7 +1159,7 @@
                 case 95: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
                 default: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
             }
-        
+
             if (sunHours >= cloudHours && thunderstormHours === 0 && rainHours === 0) {
                 if (drizzleHours <= 7) {
                     if (cloudHours <= 5) {
@@ -1190,7 +1190,7 @@
                     text = '驟雨'; 
                 }
             }
-            
+
             if (sunHours > 0 && cloudHours > 0 && rainHours > 0) {
                 if (rainHours < 8 && thunderstormHours === 0) {
                     icon = 'icon/weather_icon/rainy-day.png';
@@ -1206,7 +1206,7 @@
                     text = '雷雨';
                 }
             }
-        
+
             const hasSevereWeather = hasFog || hasHeavyRain || hasSnowOrFreezingRain || hasThunderstormOrShowers;
             if (drizzleHours >= 1 && drizzleHours <= 7 && !hasSevereWeather) {
                 if (sunHours > 0 && cloudHours > 0) {
@@ -1220,7 +1220,7 @@
                     text = '間中有驟雨';
                 }
             }
-        
+
             const hasOverrideExclusion = hasThunderstormOrShowers || hasSnowOrFreezingRain;
             if (maxTemp >= 32.5 && !hasOverrideExclusion) {
                 icon = 'icon/weather_icon/hot.png';
@@ -1229,7 +1229,7 @@
                 icon = 'icon/weather_icon/cold.png';
                 text = `低溫 (${Math.round(minTemp)}°C)`;
             }
-        
+
             return { icon, text };
         }
 
@@ -1448,14 +1448,12 @@
                 if (globalNowcastData.customIcon) {
                     const inputVal = globalNowcastData.customIcon.trim();
                     if (!inputVal.includes('/') && !inputVal.includes('.')) {
-                        // 傳入文字描述（如: 天晴 / 天色明朗）
                         weatherInfo.text = inputVal;
                         const autoIcon = getIconFromCondition(inputVal, isNight);
                         if (autoIcon) {
                             weatherInfo.icon = autoIcon;
                         }
                     } else {
-                        // 傳入圖片路徑（如: icon/weather_icon/sun.png） -> 先解析對應文字，再根據當前 isNight 決定正確圖示
                         const derivedText = getConditionFromIcon(inputVal);
                         if (derivedText) {
                             weatherInfo.text = derivedText;
@@ -1879,14 +1877,19 @@
                         <span class="micro mt-1 font-bold">${dayIcon.text}</span>
                     </div>`;
 
-                maxTempHtml += `<div class="num text-sm font-extrabold t-accent">${maxTemps[i]}°</div>`;
-                minTempHtml += `<div class="num text-sm font-bold dim">${minTemps[i]}°</div>`;
+                maxTempHtml += `<div class="num text-sm font-extrabold" style="color: rgb(var(--c-red-rgb));">${maxTemps[i]}°</div>`;
+                minTempHtml += `<div class="num text-sm font-bold" style="color: rgb(var(--c-blue-rgb));">${minTemps[i]}°</div>`;
+
+                const impactResult = getRainfallImpactLevel(popVal, precipSumVal);
+                const levelStyle = getLevelStyle(impactResult.label);
 
                 popRowHtml += `
-                    <div class="flex flex-col items-center gap-1">
-                        <span class="badge b-blue"><i class="fa-solid fa-droplet text-[9px]"></i> ${popVal}%</span>
-                        <span class="micro ${rainColorClass}">${precipSumVal.toFixed(1)}mm</span>
-                    </div>`;
+                    <div class="flex flex-col items-center justify-center gap-1">
+                        <span class="${levelStyle}">${impactResult.label}</span>
+                        <span class="num text-xs font-bold">${popVal}%</span>
+                        <span class="num ${rainColorClass} text-[11px]">${precipSumVal.toFixed(1)}mm</span>
+                    </div>
+                `;
             }
 
             daysHtml += '</div>';
@@ -1904,11 +1907,11 @@
                 ${maxTempHtml}
                 <div class="relative py-2 my-1">
                     <svg viewBox="0 0 700 ${svgHeight}" class="w-full h-[60px] overflow-visible">
-                        <polyline fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${polylineMax}" />
-                        ${maxTemps.map((t, idx) => `<circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3.5" fill="var(--accent)" />`).join('')}
+                        <polyline fill="none" stroke="rgb(var(--c-red-rgb))" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="${polylineMax}" />
+                        ${maxTemps.map((t, idx) => `<circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3.5" fill="rgb(var(--c-red-rgb))" />`).join('')}
 
-                        <polyline fill="none" stroke="var(--faint)" stroke-width="1.5" stroke-dasharray="3" stroke-linecap="round" points="${polylineMin}" />
-                        ${minTemps.map((t, idx) => `<circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3" fill="var(--faint)" />`).join('')}
+                        <polyline fill="none" stroke="rgb(var(--c-blue-rgb))" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" points="${polylineMin}" />
+                        ${minTemps.map((t, idx) => `<circle cx="${idx * 100 + 50}" cy="${getY(t)}" r="3" fill="rgb(var(--c-blue-rgb))" />`).join('')}
                     </svg>
                 </div>
                 ${minTempHtml}
