@@ -618,7 +618,7 @@
         const SEG_ACTIVE = "seg-btn seg-active";
         const SEG_IDLE = "seg-btn";
 
-        /* ===== 圖示與天氣文字自動對應表 ===== */
+        /* ===== 圖示與天氣文字雙向自動對應表 ===== */
         const ICON_CONDITION_MAP = {
             'icon/weather_icon/sun.png': '天晴',
             'icon/weather_icon/moon.png': '天晴',
@@ -636,6 +636,25 @@
             'icon/weather_icon/rainstorm.png': '暴雨'
         };
 
+        const CONDITION_ICON_MAP = {
+            '天晴': { day: 'icon/weather_icon/sun.png', night: 'icon/weather_icon/moon.png' },
+            '大致天晴': { day: 'icon/weather_icon/sun.png', night: 'icon/weather_icon/moon.png' },
+            '天色明朗': { day: 'icon/weather_icon/partly-sun-day.png', night: 'icon/weather_icon/partly-sun-night.png' },
+            '多雲': 'icon/weather_icon/cloud.png',
+            '密雲': 'icon/weather_icon/overcast.png',
+            '霧': 'icon/weather_icon/fog.png',
+            '短暫時間多雲': { day: 'icon/weather_icon/partly-sun-day.png', night: 'icon/weather_icon/partly-sun-night.png' },
+            '部份時間多雲': { day: 'icon/weather_icon/partly-cloud-day.png', night: 'icon/weather_icon/partly-cloud-night.png' },
+            '部分多雲': { day: 'icon/weather_icon/partly-cloud-day.png', night: 'icon/weather_icon/partly-cloud-night.png' },
+            '短暫時間有陽光': { day: 'icon/weather_icon/partly-cloud-day.png', night: 'icon/weather_icon/partly-cloud-night.png' },
+            '微雨': 'icon/weather_icon/cloud-drizzle.png',
+            '驟雨': 'icon/weather_icon/cloud-rain.png',
+            '間中有驟雨': 'icon/weather_icon/rainy-day.png',
+            '雷暴': 'icon/weather_icon/thunder.png',
+            '雷雨': 'icon/weather_icon/thunder-rain.png',
+            '暴雨': 'icon/weather_icon/rainstorm.png'
+        };
+
         function getConditionFromIcon(iconPath) {
             if (!iconPath) return null;
             const cleanPath = iconPath.trim();
@@ -645,6 +664,31 @@
             for (const key in ICON_CONDITION_MAP) {
                 if (cleanPath.endsWith(key) || key.endsWith(cleanPath)) {
                     return ICON_CONDITION_MAP[key];
+                }
+            }
+            return null;
+        }
+
+        function getIconFromCondition(conditionText, isNight = false) {
+            if (!conditionText) return null;
+            const cleanText = conditionText.trim();
+            if (cleanText.includes('/') || cleanText.includes('.')) {
+                return cleanText;
+            }
+            const val = CONDITION_ICON_MAP[cleanText];
+            if (val) {
+                if (typeof val === 'object' && val !== null) {
+                    return isNight ? val.night : val.day;
+                }
+                return val;
+            }
+            for (const key in CONDITION_ICON_MAP) {
+                if (cleanText.includes(key) || key.includes(cleanText)) {
+                    const target = CONDITION_ICON_MAP[key];
+                    if (typeof target === 'object' && target !== null) {
+                        return isNight ? target.night : target.day;
+                    }
+                    return target;
                 }
             }
             return null;
@@ -1371,10 +1415,19 @@
 
             if (globalNowcastData && globalNowcastData.enabled) {
                 if (globalNowcastData.customIcon) {
-                    weatherInfo.icon = globalNowcastData.customIcon;
-                    const autoText = getConditionFromIcon(globalNowcastData.customIcon);
-                    if (autoText) {
-                        weatherInfo.text = autoText;
+                    const inputVal = globalNowcastData.customIcon.trim();
+                    if (!inputVal.includes('/') && !inputVal.includes('.')) {
+                        weatherInfo.text = inputVal;
+                        const autoIcon = getIconFromCondition(inputVal, isNight);
+                        if (autoIcon) {
+                            weatherInfo.icon = autoIcon;
+                        }
+                    } else {
+                        weatherInfo.icon = inputVal;
+                        const autoText = getConditionFromIcon(inputVal);
+                        if (autoText) {
+                            weatherInfo.text = autoText;
+                        }
                     }
                 }
             }
