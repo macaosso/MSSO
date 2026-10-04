@@ -154,7 +154,6 @@
             width: 18px; height: 2px; background: var(--accent);
         }
     </style>
-    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
 </head>
 <body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-24">
 
@@ -263,6 +262,50 @@
                 </div>
             </section>
 
+            <!-- 🎯 雷達回波圖動態播放專區 -->
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><span class="panel-num">02</span> / 雷達回波動態播放</h2>
+                    <span class="micro">實時降雨雷達動畫</span>
+                </div>
+
+                <div class="panel-body space-y-5">
+                    <div class="panel p-4 md:p-5 space-y-4" style="background:var(--bg-2);">
+                        <div class="flex justify-between items-center flex-wrap gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="dot pulse-dot"></span>
+                                <span id="active-radar-title" class="text-sm font-bold" style="color:var(--text);">雷達回波圖 (第 1 / 4 幀)</span>
+                            </div>
+                            <span id="radar-play-status" class="badge b-sky">狀態：已暫停</span>
+                        </div>
+
+                        <!-- 雷達圖顯示視窗 -->
+                        <div class="chart-frame w-full aspect-[4/3] max-h-[75vh] flex items-center justify-center relative overflow-hidden mx-auto" id="radar-viewport">
+                            <img id="active-radar-img" src="output/radar/Rain1.png" alt="雷達回波圖" class="w-full h-full object-contain p-2 transition-opacity duration-200" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'><rect width=\'100%\' height=\'100%\' fill=\'%231e293b\'/><text x=\'50%\' y=\'50%\' dominant-baseline=\'middle\' text-anchor=\'middle\' fill=\'%2394a3b8\' font-size=\'14\' font-family=\'sans-serif\'>找不到雷達圖片檔案...</text></svg>';">
+                        </div>
+
+                        <!-- 播放器控制列 -->
+                        <div class="flex flex-col sm:flex-row justify-between items-center pt-1 gap-3">
+                            <!-- 幀快捷選擇 -->
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <button onclick="setRadarFrame(0)" class="radar-dot-btn chip chip-active">Rain 1</button>
+                                <button onclick="setRadarFrame(1)" class="radar-dot-btn chip">Rain 2</button>
+                                <button onclick="setRadarFrame(2)" class="radar-dot-btn chip">Rain 3</button>
+                                <button onclick="setRadarFrame(3)" class="radar-dot-btn chip">Rain 4</button>
+                            </div>
+
+                            <!-- 播放按鈕組 -->
+                            <div class="flex gap-2 flex-wrap">
+                                <button onclick="prevRadarFrame()" class="btn" title="上一張"><i class="fa-solid fa-backward"></i> 上一張</button>
+                                <button id="radar-play-btn" onclick="toggleRadarPlay()" class="btn btn-primary"><i class="fa-solid fa-play"></i> 播放</button>
+                                <button onclick="stopRadar()" class="btn"><i class="fa-solid fa-stop"></i> 停止</button>
+                                <button onclick="nextRadarFrame()" class="btn" title="下一張">下一張 <i class="fa-solid fa-forward"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </div>
 
     </div>
@@ -313,6 +356,17 @@
             '500hPa': '500hPa',
             '200hPa': '200hPa'
         };
+
+        // 雷達動畫資料與變數
+        const radarImages = [
+            'output/radar/Rain1.png',
+            'output/radar/Rain2.png',
+            'output/radar/Rain3.png',
+            'output/radar/Rain4.png'
+        ];
+        let currentRadarIndex = 0;
+        let radarTimer = null;
+        let isRadarPlaying = false;
 
         // 主題切換邏輯
         const themeToggleBtn = document.getElementById('theme-toggle');
@@ -406,10 +460,7 @@
 
         // 更新圖片顯示畫面與下載連結
         function updateChartDisplay() {
-            // 真實圖片檔案路徑 (例如 output/weather_chart/chart_surface_0h.png)
             const filePath = `output/weather_chart/chart_${currentLevel}_${currentHour}.png`;
-
-            // 介面友善標題文字
             const levelText = levelNames[currentLevel] || currentLevel;
             const displayTitle = `${levelText}天氣圖 (${currentHour})`;
 
@@ -431,6 +482,91 @@
 
         function refreshChart() {
             updateChartDisplay();
+        }
+
+        /* ==================== 雷達動畫控制邏輯 ==================== */
+        function updateRadarDisplay() {
+            const imgEl = document.getElementById('active-radar-img');
+            if (imgEl) {
+                imgEl.src = radarImages[currentRadarIndex];
+            }
+
+            const titleEl = document.getElementById('active-radar-title');
+            if (titleEl) {
+                titleEl.textContent = `雷達回波圖 (第 ${currentRadarIndex + 1} / ${radarImages.length} 幀)`;
+            }
+
+            const dots = document.querySelectorAll('.radar-dot-btn');
+            dots.forEach((btn, idx) => {
+                if (idx === currentRadarIndex) {
+                    btn.classList.add('chip-active');
+                } else {
+                    btn.classList.remove('chip-active');
+                }
+            });
+        }
+
+        function setRadarFrame(idx) {
+            currentRadarIndex = idx;
+            updateRadarDisplay();
+        }
+
+        function nextRadarFrame() {
+            currentRadarIndex = (currentRadarIndex + 1) % radarImages.length;
+            updateRadarDisplay();
+        }
+
+        function prevRadarFrame() {
+            currentRadarIndex = (currentRadarIndex - 1 + radarImages.length) % radarImages.length;
+            updateRadarDisplay();
+        }
+
+        function toggleRadarPlay() {
+            if (isRadarPlaying) {
+                pauseRadar();
+            } else {
+                playRadar();
+            }
+        }
+
+        function playRadar() {
+            if (isRadarPlaying) return;
+            isRadarPlaying = true;
+            const playBtn = document.getElementById('radar-play-btn');
+            if (playBtn) {
+                playBtn.innerHTML = '<i class="fa-solid fa-pause"></i> 暫停';
+            }
+            const statusBadge = document.getElementById('radar-play-status');
+            if (statusBadge) {
+                statusBadge.textContent = '狀態：播放中';
+                statusBadge.className = 'badge b-green';
+            }
+            radarTimer = setInterval(() => {
+                nextRadarFrame();
+            }, 800); // 每 800ms 切換一幀
+        }
+
+        function pauseRadar() {
+            isRadarPlaying = false;
+            if (radarTimer) {
+                clearInterval(radarTimer);
+                radarTimer = null;
+            }
+            const playBtn = document.getElementById('radar-play-btn');
+            if (playBtn) {
+                playBtn.innerHTML = '<i class="fa-solid fa-play"></i> 播放';
+            }
+            const statusBadge = document.getElementById('radar-play-status');
+            if (statusBadge) {
+                statusBadge.textContent = '狀態：已暫停';
+                statusBadge.className = 'badge b-sky';
+            }
+        }
+
+        function stopRadar() {
+            pauseRadar();
+            currentRadarIndex = 0;
+            updateRadarDisplay();
         }
 
         updateDateTime();
