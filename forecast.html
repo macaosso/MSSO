@@ -126,6 +126,18 @@
         }
         .b-sky{--bc-rgb:var(--c-sky-rgb);} .b-green{--bc-rgb:var(--c-green-rgb);}
 
+        /* ============ 雨量警告樣式 (Rainfall Alert Styles) ============ */
+        .rf-badge {
+            display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+            font-size: 11px; font-weight: 800; border-radius: 2px; text-transform: uppercase;
+        }
+        .rf-normal { color: var(--muted); background: var(--bg-2); border: 1px solid var(--line-strong); }
+        .rf-amber { color: #d97706; background: rgba(217, 119, 6, 0.15); border: 1px solid rgba(217, 119, 6, 0.4); }
+        .rf-red { color: #ef4444; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); }
+        .rf-black { color: #ffffff; background: #111827; border: 1px solid #374151; box-shadow: 0 0 8px rgba(0,0,0,0.5); }
+        html:not(.dark) .rf-black { color: #ffffff; background: #000000; border: 1px solid #111111; }
+        .rf-purple { color: #a855f7; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.5); }
+
         /* ============ Chart viewport ============ */
         .chart-frame {
             border:1px solid var(--line-strong); background:var(--bg-2);
@@ -170,7 +182,7 @@
                 <div>
                     <h1 class="text-lg md:text-2xl font-extrabold tracking-tight flex items-center gap-2">
                         氣象圖表分析與輸出中心
-                        <span class="badge b-sky">v2.0.0</span>
+                        <span class="badge b-sky">v2.1.0</span>
                     </h1>
                     <div class="mt-1.5 space-y-0.5">
                         <div id="current-datetime" class="num text-xs md:text-sm font-bold accent">載入中...</div>
@@ -190,7 +202,7 @@
         <!-- 載入狀態 -->
         <div id="loading" class="text-center py-20 mut">
             <div class="loader-ring"></div>
-            <p class="micro">正在載入氣象圖表與圖層數據...</p>
+            <p class="micro">正在載入氣象圖表與雨量數據...</p>
         </div>
 
         <!-- 主要內容 -->
@@ -306,6 +318,49 @@
                 </div>
             </section>
 
+            <!-- 🎯 03 / 澳門各區預測雨量檢測專區 (HKO 網格雨量) -->
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title"><span class="panel-num">03</span> / 澳門各區預測雨量檢測 (HKO 網格雨量)</h2>
+                    <span class="micro" id="rainfall-update-time">來源：香港天文台 Gridded Rainfall</span>
+                </div>
+
+                <div class="panel-body space-y-4">
+                    <!-- 雨量警告閥值圖例 -->
+                    <div class="flex flex-wrap gap-2 items-center text-[11px] pb-1 border-b border-[var(--line)]">
+                        <span class="micro mr-1">雨量警戒級別：</span>
+                        <span class="rf-badge rf-amber">≥ 20mm 黃色</span>
+                        <span class="rf-badge rf-red">≥ 50mm 紅色</span>
+                        <span class="rf-badge rf-black">≥ 80mm 黑色</span>
+                        <span class="rf-badge rf-purple">≥ 100mm 紫色</span>
+                    </div>
+
+                    <!-- 站點雨量數據表格 -->
+                    <div class="overflow-x-auto border border-[var(--line-strong)] bg-[var(--bg-2)]">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-[var(--line-strong)] bg-[var(--bg)] text-[11px] micro">
+                                    <th class="p-3">站點名稱 (代號)</th>
+                                    <th class="p-3">經緯度 (Lat, Lon)</th>
+                                    <th class="p-3 text-right">網格檢測雨量 (mm)</th>
+                                    <th class="p-3 text-center">預警狀態</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rainfall-table-body" class="divide-y divide-[var(--line)] num font-medium">
+                                <tr>
+                                    <td colspan="4" class="p-4 text-center mut">正在讀取香港天文台網格雨量 CSV 數據...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="flex justify-between items-center text-[11px] mut flex-wrap gap-2 pt-1">
+                        <div><i class="fa-solid fa-cloud-rain accent"></i> 自動比對距離各站點最近之 HKO 雷達網格雨量點。</div>
+                        <button onclick="fetchRainfallNowcast()" class="btn"><i class="fa-solid fa-rotate"></i> 刷新雨量數據</button>
+                    </div>
+                </div>
+            </section>
+
         </div>
 
     </div>
@@ -346,6 +401,20 @@
 
         let currentLevel = 'surface';
         let currentHour = '0h';
+
+        // 澳門 10 個檢測站點資訊
+        const macauStations = [
+            { code: 'DP', name: '紀念孫中山市政公園', lat: 22.215322, lon: 113.543490 },
+            { code: 'EM', name: '黑沙環',           lat: 22.207129, lon: 113.559971 },
+            { code: 'FM', name: '大炮台',           lat: 22.197066, lon: 113.542261 },
+            { code: 'PE', name: '外港',             lat: 22.196556, lon: 113.558333 },
+            { code: 'MM', name: '媽閣',             lat: 22.185863, lon: 113.530675 },
+            { code: 'TG', name: '大潭山',           lat: 22.159102, lon: 113.568947 },
+            { code: 'JA', name: '東亞運大馬路',     lat: 22.155396, lon: 113.542412 },
+            { code: 'KV', name: '九澳',             lat: 22.134686, lon: 113.580143 },
+            { code: 'UM', name: '澳門大學',         lat: 22.131808, lon: 113.546970 },
+            { code: 'DC', name: '路環市區',         lat: 22.117091, lon: 113.551041 }
+        ];
 
         // 高度層代碼對應中文名稱
         const levelNames = {
@@ -417,6 +486,137 @@
             }
         }
 
+        /* ==================== 雨量 CSV 數據擷取與比對 ==================== */
+        async function fetchRainfallNowcast() {
+            const tbody = document.getElementById('rainfall-table-body');
+            const updateTimeEl = document.getElementById('rainfall-update-time');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center mut"><i class="fa-solid fa-spinner fa-spin mr-2"></i>正在更新 HKO 網格雨量數據...</td></tr>`;
+            }
+
+            const csvUrl = 'https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv';
+
+            try {
+                const response = await fetch(csvUrl);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const csvText = await response.text();
+
+                const gridPoints = parseRainfallCSV(csvText);
+
+                if (gridPoints.length === 0) {
+                    throw new Error("無法解析雨量 CSV 網格數據");
+                }
+
+                // 渲染表格
+                renderRainfallTable(gridPoints);
+
+                const now = new Date();
+                if (updateTimeEl) {
+                    updateTimeEl.textContent = `更新時間：${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} (來源: HKO API)`;
+                }
+            } catch (err) {
+                console.error("無法載入 HKO 雨量 CSV：", err);
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500 font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> 無法載入香港天文台雨量 CSV 數據 (${err.message})</td></tr>`;
+                }
+            }
+        }
+
+        // CSV 解析工具函式
+        function parseRainfallCSV(text) {
+            const lines = text.trim().split(/\r?\n/);
+            if (lines.length < 2) return [];
+
+            const grid = [];
+            let latIdx = 0, lonIdx = 1, valIdx = 2;
+
+            // 判斷標題欄位
+            const header = lines[0].split(',').map(s => s.trim().toLowerCase());
+            header.forEach((col, idx) => {
+                if (col.includes('lat') || col.includes('緯度')) latIdx = idx;
+                if (col.includes('lon') || col.includes('lng') || col.includes('經度')) lonIdx = idx;
+                if (col.includes('rain') || col.includes('雨量') || col.includes('val') || col.includes('mm')) valIdx = idx;
+            });
+
+            const startLine = isNaN(parseFloat(lines[0].split(',')[0])) ? 1 : 0;
+
+            for (let i = startLine; i < lines.length; i++) {
+                const cols = lines[i].split(',').map(c => c.trim());
+                if (cols.length > Math.max(latIdx, lonIdx, valIdx)) {
+                    const lat = parseFloat(cols[latIdx]);
+                    const lon = parseFloat(cols[lonIdx]);
+                    const val = parseFloat(cols[valIdx]);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        grid.push({ lat, lon, rainfall: isNaN(val) ? 0 : val });
+                    }
+                }
+            }
+            return grid;
+        }
+
+        // 比對離站點最近的網格雨量
+        function getNearestRainfall(stLat, stLon, gridPoints) {
+            let minDistance = Infinity;
+            let nearestRainfall = 0;
+
+            for (let p of gridPoints) {
+                const dLat = p.lat - stLat;
+                const dLon = p.lon - stLon;
+                const distSq = dLat * dLat + dLon * dLon; // 歐幾里得距離平方
+                if (distSq < minDistance) {
+                    minDistance = distSq;
+                    nearestRainfall = p.rainfall;
+                }
+            }
+            return Math.round(nearestRainfall * 10) / 10;
+        }
+
+        // 雨量級別標籤生成
+        function getRainfallBadge(mm) {
+            if (mm >= 100) {
+                return `<span class="rf-badge rf-purple"><i class="fa-solid fa-triangle-exclamation"></i> 紫色警報</span>`;
+            } else if (mm >= 80) {
+                return `<span class="rf-badge rf-black"><i class="fa-solid fa-triangle-exclamation"></i> 黑色警報</span>`;
+            } else if (mm >= 50) {
+                return `<span class="rf-badge rf-red"><i class="fa-solid fa-circle-exclamation"></i> 紅色警報</span>`;
+            } else if (mm >= 20) {
+                return `<span class="rf-badge rf-amber"><i class="fa-solid fa-circle-info"></i> 黃色警報</span>`;
+            } else {
+                return `<span class="rf-badge rf-normal"><i class="fa-solid fa-droplet dim"></i> 正常</span>`;
+            }
+        }
+
+        // 繪製雨量檢測表格
+        function renderRainfallTable(gridPoints) {
+            const tbody = document.getElementById('rainfall-table-body');
+            if (!tbody) return;
+
+            let html = '';
+            macauStations.forEach(st => {
+                const rainVal = getNearestRainfall(st.lat, st.lon, gridPoints);
+                const badge = getRainfallBadge(rainVal);
+
+                html += `
+                    <tr class="hover:bg-[var(--bg)] transition-colors">
+                        <td class="p-3 font-bold" style="color:var(--text);">
+                            ${st.name} <span class="text-[11px] mut font-normal">(${st.code})</span>
+                        </td>
+                        <td class="p-3 dim text-[11px]">
+                            ${st.lat.toFixed(6)}, ${st.lon.toFixed(6)}
+                        </td>
+                        <td class="p-3 text-right font-extrabold text-sm ${rainVal >= 20 ? 'accent' : ''}">
+                            ${rainVal.toFixed(1)} <span class="text-[10px] font-normal mut">mm</span>
+                        </td>
+                        <td class="p-3 text-center">
+                            ${badge}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
         async function fetchWeatherData() {
             try {
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover&timezone=Asia/Macau`;
@@ -426,6 +626,9 @@
                 updateDateTime();
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('dashboard-content').classList.remove('hidden');
+
+                // 同步載入雨量數據
+                fetchRainfallNowcast();
             } catch (error) {
                 console.error("無法載入數據：", error);
                 document.getElementById('loading').innerHTML = `<p style="color:rgb(var(--c-red-rgb));">無法載入氣象數據，請檢查網絡連線。</p>`;
