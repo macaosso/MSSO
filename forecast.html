@@ -348,7 +348,7 @@
                             </thead>
                             <tbody id="rainfall-table-body" class="divide-y divide-[var(--line)] num font-medium">
                                 <tr>
-                                    <td colspan="4" class="p-4 text-center mut">正在讀取香港天文台網格雨量 CSV 數據...</td>
+                                    <td colspan="4" class="p-4 text-center mut">正在讀取網格雨量 CSV 數據...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -494,11 +494,10 @@
                 tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center mut"><i class="fa-solid fa-spinner fa-spin mr-2"></i>正在更新 HKO 網格雨量數據...</td></tr>`;
             }
 
-            const csvUrl = 'https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv';
-
             try {
-                const response = await fetch(csvUrl);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                // 讀取 GitHub Actions 自動下載的本地 data.csv (加上時間戳記防止快取)
+                const response = await fetch(`./data.csv?t=${Date.now()}`);
+                if (!response.ok) throw new Error(`HTTP 錯誤 ${response.status}: 無法讀取 data.csv`);
                 const csvText = await response.text();
 
                 const gridPoints = parseRainfallCSV(csvText);
@@ -512,12 +511,12 @@
 
                 const now = new Date();
                 if (updateTimeEl) {
-                    updateTimeEl.textContent = `更新時間：${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} (來源: HKO API)`;
+                    updateTimeEl.textContent = `更新時間：${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} (來源: GitHub Actions / HKO API)`;
                 }
             } catch (err) {
-                console.error("無法載入 HKO 雨量 CSV：", err);
+                console.error("無法載入雨量 CSV：", err);
                 if (tbody) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500 font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> 無法載入香港天文台雨量 CSV 數據 (${err.message})</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500 font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> 無法載入雨量 CSV 數據 (${err.message})</td></tr>`;
                 }
             }
         }
@@ -528,15 +527,20 @@
             if (lines.length < 2) return [];
 
             const grid = [];
-            let latIdx = 0, lonIdx = 1, valIdx = 2;
+            let latIdx = -1, lonIdx = -1, valIdx = -1;
 
             // 判斷標題欄位
             const header = lines[0].split(',').map(s => s.trim().toLowerCase());
             header.forEach((col, idx) => {
                 if (col.includes('lat') || col.includes('緯度')) latIdx = idx;
                 if (col.includes('lon') || col.includes('lng') || col.includes('經度')) lonIdx = idx;
-                if (col.includes('rain') || col.includes('雨量') || col.includes('val') || col.includes('mm')) valIdx = idx;
+                if (col.includes('rain') || col.includes('雨量') || col.includes('val') || col.includes('mm') || col.includes('nowcast')) valIdx = idx;
             });
+
+            // 標題備用機制
+            if (latIdx === -1) latIdx = 0;
+            if (lonIdx === -1) lonIdx = 1;
+            if (valIdx === -1) valIdx = header.length - 1;
 
             const startLine = isNaN(parseFloat(lines[0].split(',')[0])) ? 1 : 0;
 
@@ -554,21 +558,28 @@
             return grid;
         }
 
-        // 比對離站點最近的網格雨量
+        // 比對離站點最近的網格雨量及距離
         function getNearestRainfall(stLat, stLon, gridPoints) {
-            let minDistance = Infinity;
+            let minDistanceSq = Infinity;
             let nearestRainfall = 0;
 
-            for (let p of gridPoints) {
+            for (let i = 0; i < gridPoints.length; i++) {
+                const p = gridPoints[i];
                 const dLat = p.lat - stLat;
                 const dLon = p.lon - stLon;
                 const distSq = dLat * dLat + dLon * dLon; // 歐幾里得距離平方
-                if (distSq < minDistance) {
-                    minDistance = distSq;
+                if (distSq < minDistanceSq) {
+                    minDistanceSq = distSq;
                     nearestRainfall = p.rainfall;
                 }
             }
-            return Math.round(nearestRainfall * 10) / 10;
+
+            const nearestDistKm = Math.sqrt(minDistanceSq) * 111; // 粗略估算 1° 緯度 ≈ 111 公里
+
+            return {
+                rainfall: Math.max(0, Math.round(nearestRainfall * 10) / 10),
+                distanceKm: Math.round(nearestDistKm * 10) / 10
+            };
         }
 
         // 雨量級別標籤生成
@@ -591,21 +602,28 @@
             const tbody = document.getElementById('rainfall-table-body');
             if (!tbody) return;
 
+            if (!gridPoints || gridPoints.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center mut">無有效的網格雨量數據可供比對。</td></tr>`;
+                return;
+            }
+
             let html = '';
             macauStations.forEach(st => {
-                const rainVal = getNearestRainfall(st.lat, st.lon, gridPoints);
-                const badge = getRainfallBadge(rainVal);
+                const { rainfall, distanceKm } = getNearestRainfall(st.lat, st.lon, gridPoints);
+                const badge = getRainfallBadge(rainfall);
+                const isRaining = rainfall > 0;
 
                 html += `
-                    <tr class="hover:bg-[var(--bg)] transition-colors">
+                    <tr class="hover:bg-[var(--bg)] transition-colors ${rainfall >= 20 ? 'bg-amber-500/10' : ''}">
                         <td class="p-3 font-bold" style="color:var(--text);">
                             ${st.name} <span class="text-[11px] mut font-normal">(${st.code})</span>
                         </td>
                         <td class="p-3 dim text-[11px]">
-                            ${st.lat.toFixed(6)}, ${st.lon.toFixed(6)}
+                            ${st.lat.toFixed(4)}, ${st.lon.toFixed(4)}
+                            <span class="text-[10px] mut block">網格距離: ~${distanceKm}km</span>
                         </td>
-                        <td class="p-3 text-right font-extrabold text-sm ${rainVal >= 20 ? 'accent' : ''}">
-                            ${rainVal.toFixed(1)} <span class="text-[10px] font-normal mut">mm</span>
+                        <td class="p-3 text-right font-extrabold text-sm ${rainfall >= 20 ? 'accent' : isRaining ? 'text-sky-400' : ''}">
+                            ${rainfall.toFixed(1)} <span class="text-[10px] font-normal mut">mm</span>
                         </td>
                         <td class="p-3 text-center">
                             ${badge}
