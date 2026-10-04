@@ -126,17 +126,27 @@
         }
         .b-sky{--bc-rgb:var(--c-sky-rgb);} .b-green{--bc-rgb:var(--c-green-rgb);}
 
-        /* ============ 雨量警告樣式 (Rainfall Alert Styles) ============ */
+        /* ============ 雨量警告圖例樣式 (Legend Badges) ============ */
         .rf-badge {
             display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
             font-size: 11px; font-weight: 800; border-radius: 2px; text-transform: uppercase;
         }
-        .rf-normal { color: var(--muted); background: var(--bg-2); border: 1px solid var(--line-strong); }
         .rf-amber { color: #d97706; background: rgba(217, 119, 6, 0.15); border: 1px solid rgba(217, 119, 6, 0.4); }
         .rf-red { color: #ef4444; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); }
         .rf-black { color: #ffffff; background: #111827; border: 1px solid #374151; box-shadow: 0 0 8px rgba(0,0,0,0.5); }
         html:not(.dark) .rf-black { color: #ffffff; background: #000000; border: 1px solid #111111; }
         .rf-purple { color: #a855f7; background: rgba(168, 85, 247, 0.18); border: 1px solid rgba(168, 85, 247, 0.5); }
+
+        /* ============ 雨量方格高亮色彩 (Cell Highlight Colors) ============ */
+        .cell-rf-20 { background-color: rgba(217, 119, 6, 0.25) !important; color: #f59e0b !important; font-weight: 800; }
+        .cell-rf-50 { background-color: rgba(239, 68, 68, 0.25) !important; color: #f87171 !important; font-weight: 800; }
+        .cell-rf-80 { background-color: rgba(17, 24, 39, 0.9) !important; color: #ef4444 !important; font-weight: 800; border: 1px solid rgba(239, 68, 68, 0.5); }
+        .cell-rf-100 { background-color: rgba(168, 85, 247, 0.35) !important; color: #c084fc !important; font-weight: 800; }
+
+        html:not(.dark) .cell-rf-20 { background-color: #fef08a !important; color: #713f12 !important; }
+        html:not(.dark) .cell-rf-50 { background-color: #fecaca !important; color: #991b1b !important; }
+        html:not(.dark) .cell-rf-80 { background-color: #18181b !important; color: #f87171 !important; }
+        html:not(.dark) .cell-rf-100 { background-color: #e9d5ff !important; color: #581c87 !important; }
 
         /* ============ Chart viewport ============ */
         .chart-frame {
@@ -318,44 +328,45 @@
                 </div>
             </section>
 
-            <!-- 🎯 03 / 澳門各區預測雨量檢測專區 (HKO 網格雨量) -->
+            <!-- 🎯 03 / 雨量預報數據表格專區 -->
             <section class="panel">
                 <div class="panel-head">
-                    <h2 class="panel-title"><span class="panel-num">03</span> / 澳門各區預測雨量檢測 (HKO 網格雨量)</h2>
-                    <span class="micro" id="rainfall-update-time">來源：香港天文台 Gridded Rainfall</span>
+                    <h2 class="panel-title"><span class="panel-num">03</span> / 雨量預報數據表</h2>
+                    <span class="micro" id="rainfall-update-time">來源：data.csv</span>
                 </div>
 
                 <div class="panel-body space-y-4">
-                    <!-- 雨量警告閥值圖例 -->
+                    <!-- 雨量等級圖例 (更新為 20mm, 50mm, 80mm, 100mm) -->
                     <div class="flex flex-wrap gap-2 items-center text-[11px] pb-1 border-b border-[var(--line)]">
-                        <span class="micro mr-1">雨量警戒級別：</span>
-                        <span class="rf-badge rf-amber">≥ 20mm 黃色</span>
-                        <span class="rf-badge rf-red">≥ 50mm 紅色</span>
-                        <span class="rf-badge rf-black">≥ 80mm 黑色</span>
-                        <span class="rf-badge rf-purple">≥ 100mm 紫色</span>
+                        <span class="micro mr-1">雨量圖例：</span>
+                        <span class="rf-badge rf-amber">20mm</span>
+                        <span class="rf-badge rf-red">50mm</span>
+                        <span class="rf-badge rf-black">80mm</span>
+                        <span class="rf-badge rf-purple">100mm</span>
                     </div>
 
-                    <!-- 站點雨量數據表格 -->
+                    <!-- 站點雨量數據表格 (動態顯示 stationname, xx:xx, xx:xx, xx:xx, xx:xx) -->
                     <div class="overflow-x-auto border border-[var(--line-strong)] bg-[var(--bg-2)]">
-                        <table class="w-full text-left border-collapse text-xs">
+                        <table class="w-full text-center border-collapse text-xs">
                             <thead>
-                                <tr class="border-b border-[var(--line-strong)] bg-[var(--bg)] text-[11px] micro">
-                                    <th class="p-3">站點名稱 (代號)</th>
-                                    <th class="p-3">經緯度 (Lat, Lon)</th>
-                                    <th class="p-3 text-right">網格檢測雨量 (mm)</th>
-                                    <th class="p-3 text-center">預警狀態</th>
+                                <tr id="rainfall-table-header" class="border-b border-[var(--line-strong)] bg-[var(--bg)] text-[11px] micro">
+                                    <th class="p-3 text-left">stationname</th>
+                                    <th class="p-3">xx:xx</th>
+                                    <th class="p-3">xx:xx</th>
+                                    <th class="p-3">xx:xx</th>
+                                    <th class="p-3">xx:xx</th>
                                 </tr>
                             </thead>
                             <tbody id="rainfall-table-body" class="divide-y divide-[var(--line)] num font-medium">
                                 <tr>
-                                    <td colspan="4" class="p-4 text-center mut">正在讀取網格雨量 CSV 數據...</td>
+                                    <td colspan="5" class="p-4 text-center mut">正在讀取雨量數據...</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
                     <div class="flex justify-between items-center text-[11px] mut flex-wrap gap-2 pt-1">
-                        <div><i class="fa-solid fa-cloud-rain accent"></i> 自動比對距離各站點最近之 HKO 雷達網格雨量點。</div>
+                        <div><i class="fa-solid fa-cloud-rain accent"></i> 數值達 20mm、50mm、80mm、100mm 時儲存格自動變色高亮。</div>
                         <button onclick="fetchRainfallNowcast()" class="btn"><i class="fa-solid fa-rotate"></i> 刷新雨量數據</button>
                     </div>
                 </div>
@@ -402,19 +413,18 @@
         let currentLevel = 'surface';
         let currentHour = '0h';
 
-        // 澳門 10 個檢測站點資訊
-        const macauStations = [
-            { code: 'DP', name: '紀念孫中山市政公園', lat: 22.215322, lon: 113.543490 },
-            { code: 'EM', name: '黑沙環',           lat: 22.207129, lon: 113.559971 },
-            { code: 'FM', name: '大炮台',           lat: 22.197066, lon: 113.542261 },
-            { code: 'PE', name: '外港',             lat: 22.196556, lon: 113.558333 },
-            { code: 'MM', name: '媽閣',             lat: 22.185863, lon: 113.530675 },
-            { code: 'TG', name: '大潭山',           lat: 22.159102, lon: 113.568947 },
-            { code: 'JA', name: '東亞運大馬路',     lat: 22.155396, lon: 113.542412 },
-            { code: 'KV', name: '九澳',             lat: 22.134686, lon: 113.580143 },
-            { code: 'UM', name: '澳門大學',         lat: 22.131808, lon: 113.546970 },
-            { code: 'DC', name: '路環市區',         lat: 22.117091, lon: 113.551041 }
-        ];
+        // 預設 CSV 數據 (當 data.csv 404 或未創建時自動啟用)
+        const defaultCSVData = `stationname, 14:00, 14:30, 15:00, 15:30
+紀念孫中山市政公園, 5.5, 6.7, 14.5, 20.0
+黑沙環, 12.0, 25.0, 52.0, 85.0
+大炮台, 0.0, 18.0, 48.5, 102.0
+外港, 22.0, 55.0, 81.0, 95.0
+媽閣, 3.0, 15.0, 30.0, 60.0
+大潭山, 45.0, 85.0, 110.0, 125.0
+東亞運大馬路, 8.0, 12.0, 22.0, 45.0
+九澳, 15.0, 32.0, 65.0, 88.0
+澳門大學, 2.0, 5.0, 18.0, 25.0
+路環市區, 10.0, 22.0, 50.0, 80.0`;
 
         // 高度層代碼對應中文名稱
         const levelNames = {
@@ -486,153 +496,116 @@
             }
         }
 
-        /* ==================== 雨量 CSV 數據擷取與比對 ==================== */
+        /* ==================== 根據雨量數值判斷儲存格顏色 ==================== */
+        function getCellClass(value) {
+            if (value === null || value === undefined || isNaN(value)) return '';
+            const val = parseFloat(value);
+            if (val >= 100) return 'cell-rf-100';
+            if (val >= 80)  return 'cell-rf-80';
+            if (val >= 50)  return 'cell-rf-50';
+            if (val >= 20)  return 'cell-rf-20';
+            return '';
+        }
+
+        /* ==================== 雨量 CSV 數據讀取與表格渲染 ==================== */
         async function fetchRainfallNowcast() {
             const tbody = document.getElementById('rainfall-table-body');
             const updateTimeEl = document.getElementById('rainfall-update-time');
             if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center mut"><i class="fa-solid fa-spinner fa-spin mr-2"></i>正在更新 HKO 網格雨量數據...</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center mut"><i class="fa-solid fa-spinner fa-spin mr-2"></i>正在更新雨量數據...</td></tr>`;
             }
+
+            let csvText = '';
+            let isFallback = false;
 
             try {
-                // 讀取 GitHub Actions 自動下載的本地 data.csv (加上時間戳記防止快取)
+                // 嘗試讀取 data.csv，加上時間戳記防止快取
                 const response = await fetch(`./data.csv?t=${Date.now()}`);
-                if (!response.ok) throw new Error(`HTTP 錯誤 ${response.status}: 無法讀取 data.csv`);
-                const csvText = await response.text();
-
-                const gridPoints = parseRainfallCSV(csvText);
-
-                if (gridPoints.length === 0) {
-                    throw new Error("無法解析雨量 CSV 網格數據");
-                }
-
-                // 渲染表格
-                renderRainfallTable(gridPoints);
-
-                const now = new Date();
-                if (updateTimeEl) {
-                    updateTimeEl.textContent = `更新時間：${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} (來源: GitHub Actions / HKO API)`;
+                if (!response.ok) {
+                    console.warn(`無法讀取 data.csv (HTTP status ${response.status})，已自動套用預設示範數據。`);
+                    csvText = defaultCSVData;
+                    isFallback = true;
+                } else {
+                    csvText = await response.text();
                 }
             } catch (err) {
-                console.error("無法載入雨量 CSV：", err);
-                if (tbody) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500 font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i> 無法載入雨量 CSV 數據 (${err.message})</td></tr>`;
-                }
+                console.warn("無法存取 data.csv，已自動套用預設示範數據：", err);
+                csvText = defaultCSVData;
+                isFallback = true;
+            }
+
+            // 渲染雨量表格
+            renderRainfallTable(csvText);
+
+            const now = new Date();
+            if (updateTimeEl) {
+                const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                updateTimeEl.textContent = isFallback 
+                    ? `更新時間：${timeStr} (預設數據 - 尚未找到 data.csv)` 
+                    : `更新時間：${timeStr} (來源: data.csv)`;
             }
         }
 
-        // CSV 解析工具函式
-        function parseRainfallCSV(text) {
-            const lines = text.trim().split(/\r?\n/);
-            if (lines.length < 2) return [];
-
-            const grid = [];
-            let latIdx = -1, lonIdx = -1, valIdx = -1;
-
-            // 判斷標題欄位
-            const header = lines[0].split(',').map(s => s.trim().toLowerCase());
-            header.forEach((col, idx) => {
-                if (col.includes('lat') || col.includes('緯度')) latIdx = idx;
-                if (col.includes('lon') || col.includes('lng') || col.includes('經度')) lonIdx = idx;
-                if (col.includes('rain') || col.includes('雨量') || col.includes('val') || col.includes('mm') || col.includes('nowcast')) valIdx = idx;
-            });
-
-            // 標題備用機制
-            if (latIdx === -1) latIdx = 0;
-            if (lonIdx === -1) lonIdx = 1;
-            if (valIdx === -1) valIdx = header.length - 1;
-
-            const startLine = isNaN(parseFloat(lines[0].split(',')[0])) ? 1 : 0;
-
-            for (let i = startLine; i < lines.length; i++) {
-                const cols = lines[i].split(',').map(c => c.trim());
-                if (cols.length > Math.max(latIdx, lonIdx, valIdx)) {
-                    const lat = parseFloat(cols[latIdx]);
-                    const lon = parseFloat(cols[lonIdx]);
-                    const val = parseFloat(cols[valIdx]);
-                    if (!isNaN(lat) && !isNaN(lon)) {
-                        grid.push({ lat, lon, rainfall: isNaN(val) ? 0 : val });
-                    }
-                }
-            }
-            return grid;
-        }
-
-        // 比對離站點最近的網格雨量及距離
-        function getNearestRainfall(stLat, stLon, gridPoints) {
-            let minDistanceSq = Infinity;
-            let nearestRainfall = 0;
-
-            for (let i = 0; i < gridPoints.length; i++) {
-                const p = gridPoints[i];
-                const dLat = p.lat - stLat;
-                const dLon = p.lon - stLon;
-                const distSq = dLat * dLat + dLon * dLon; // 歐幾里得距離平方
-                if (distSq < minDistanceSq) {
-                    minDistanceSq = distSq;
-                    nearestRainfall = p.rainfall;
-                }
-            }
-
-            const nearestDistKm = Math.sqrt(minDistanceSq) * 111; // 粗略估算 1° 緯度 ≈ 111 公里
-
-            return {
-                rainfall: Math.max(0, Math.round(nearestRainfall * 10) / 10),
-                distanceKm: Math.round(nearestDistKm * 10) / 10
-            };
-        }
-
-        // 雨量級別標籤生成
-        function getRainfallBadge(mm) {
-            if (mm >= 100) {
-                return `<span class="rf-badge rf-purple"><i class="fa-solid fa-triangle-exclamation"></i> 紫色警報</span>`;
-            } else if (mm >= 80) {
-                return `<span class="rf-badge rf-black"><i class="fa-solid fa-triangle-exclamation"></i> 黑色警報</span>`;
-            } else if (mm >= 50) {
-                return `<span class="rf-badge rf-red"><i class="fa-solid fa-circle-exclamation"></i> 紅色警報</span>`;
-            } else if (mm >= 20) {
-                return `<span class="rf-badge rf-amber"><i class="fa-solid fa-circle-info"></i> 黃色警報</span>`;
-            } else {
-                return `<span class="rf-badge rf-normal"><i class="fa-solid fa-droplet dim"></i> 正常</span>`;
-            }
-        }
-
-        // 繪製雨量檢測表格
-        function renderRainfallTable(gridPoints) {
+        // 解析多欄位 CSV 並生成表格
+        function renderRainfallTable(csvText) {
+            const thead = document.getElementById('rainfall-table-header');
             const tbody = document.getElementById('rainfall-table-body');
-            if (!tbody) return;
+            if (!thead || !tbody) return;
 
-            if (!gridPoints || gridPoints.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center mut">無有效的網格雨量數據可供比對。</td></tr>`;
+            const lines = csvText.trim().split(/\r?\n/);
+            if (lines.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center mut">無雨量數據</td></tr>`;
                 return;
             }
 
-            let html = '';
-            macauStations.forEach(st => {
-                const { rainfall, distanceKm } = getNearestRainfall(st.lat, st.lon, gridPoints);
-                const badge = getRainfallBadge(rainfall);
-                const isRaining = rainfall > 0;
-
-                html += `
-                    <tr class="hover:bg-[var(--bg)] transition-colors ${rainfall >= 20 ? 'bg-amber-500/10' : ''}">
-                        <td class="p-3 font-bold" style="color:var(--text);">
-                            ${st.name} <span class="text-[11px] mut font-normal">(${st.code})</span>
-                        </td>
-                        <td class="p-3 dim text-[11px]">
-                            ${st.lat.toFixed(4)}, ${st.lon.toFixed(4)}
-                            <span class="text-[10px] mut block">網格距離: ~${distanceKm}km</span>
-                        </td>
-                        <td class="p-3 text-right font-extrabold text-sm ${rainfall >= 20 ? 'accent' : isRaining ? 'text-sky-400' : ''}">
-                            ${rainfall.toFixed(1)} <span class="text-[10px] font-normal mut">mm</span>
-                        </td>
-                        <td class="p-3 text-center">
-                            ${badge}
-                        </td>
-                    </tr>
-                `;
+            // 渲染表頭 (Headers: stationname, xx:xx, xx:xx, ...)
+            thead.innerHTML = '';
+            const headers = lines[0].split(',').map(h => h.trim());
+            headers.forEach((headerText, idx) => {
+                const th = document.createElement('th');
+                th.className = `p-3 ${idx === 0 ? 'text-left' : 'text-center'}`;
+                th.textContent = headerText;
+                thead.appendChild(th);
             });
 
-            tbody.innerHTML = html;
+            // 渲染資料列 (Body)
+            tbody.innerHTML = '';
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+
+                const cols = lines[i].split(',').map(c => c.trim());
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-[var(--bg)] transition-colors';
+
+                cols.forEach((val, colIdx) => {
+                    const td = document.createElement('td');
+                    td.className = 'p-3';
+
+                    if (colIdx === 0) {
+                        // 第一欄：測站名稱 (stationname)
+                        td.className += ' text-left font-bold';
+                        td.style.color = 'var(--text)';
+                        td.textContent = val;
+                    } else {
+                        // 時間欄位雨量數值
+                        td.className += ' text-center num';
+                        const numVal = parseFloat(val);
+                        if (!isNaN(numVal)) {
+                            td.textContent = numVal.toFixed(1);
+                            // 達到 20, 50, 80, 100 觸發儲存格變色
+                            const colorClass = getCellClass(numVal);
+                            if (colorClass) {
+                                td.classList.add(colorClass);
+                            }
+                        } else {
+                            td.textContent = val;
+                        }
+                    }
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            }
         }
 
         async function fetchWeatherData() {
@@ -764,7 +737,7 @@
             }
             radarTimer = setInterval(() => {
                 nextRadarFrame();
-            }, 800); // 每 800ms 切換一幀
+            }, 800);
         }
 
         function pauseRadar() {
