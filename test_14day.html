@@ -32,4 +32,492 @@
         }
         html:not(.dark) {
             --bg-page:#edebe2; --bg:#f4f2ea; --bg-2:#eae8dc;
-            --line:#d6d3c4; --line-strong:#bfbc
+            --line:#d6d3c4; --line-strong:#bfbcab;
+            --text:#1a1e20; --muted:#5c6663; --faint:#8b948f;
+            --accent:#0b9a6b; --cream:#181d20; --cream-text:#f1eee2;
+            --c-red-rgb:190,40,45; --c-orange-rgb:196,90,20; --c-amber-rgb:176,120,10;
+            --c-green-rgb:11,154,107; --c-sky-rgb:20,120,190; --c-blue-rgb:30,90,190;
+        }
+        * { box-sizing: border-box; }
+        body {
+            background: var(--bg-page);
+            color: var(--text);
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+        }
+        ::-webkit-scrollbar { height: 6px; width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(150,165,170,0.08); }
+        ::-webkit-scrollbar-thumb { background: var(--line-strong); }
+        .scrollbar-none::-webkit-scrollbar { display: none; }
+
+        /* ===== Text helpers ===== */
+        .micro { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+        .mut { color:var(--muted); }
+        .accent { color:var(--accent); }
+        .num { font-variant-numeric: tabular-nums; }
+
+        /* ===== Panels ===== */
+        .panel {
+            background: var(--bg);
+            border: 1px solid var(--line);
+        }
+        .panel-head {
+            display:flex; align-items:center; justify-content:space-between;
+            gap:12px; padding:16px 18px; border-bottom:1px solid var(--line);
+        }
+        .panel-title { font-size:14px; font-weight:700; color:var(--text); letter-spacing:.02em; display:flex; align-items:center; gap:8px; }
+        .panel-num { color:var(--accent); font-weight:800; }
+        .panel-body { padding:18px; }
+
+        /* ===== Brand mark ===== */
+        .brand-mark {
+            position:relative; width:44px; height:44px; flex:0 0 44px;
+            border:1px solid var(--line-strong); background:var(--bg-2);
+            display:flex; align-items:center; justify-content:center;
+            color:var(--accent); font-size:18px;
+        }
+        .pulse-dot { position:absolute; right:-3px; top:-3px; width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 0 rgba(var(--c-green-rgb),.6); animation:pulseRing 2s infinite; }
+        @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(var(--c-green-rgb),.55);} 70%{box-shadow:0 0 0 8px rgba(var(--c-green-rgb),0);} 100%{box-shadow:0 0 0 0 rgba(var(--c-green-rgb),0);} }
+
+        /* ===== Buttons & Cards ===== */
+        .icon-btn {
+            width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted);
+            transition:.15s; cursor:pointer;
+        }
+        .icon-btn:hover { color:var(--accent); border-color:var(--accent); }
+        .icon-btn .ic-sun { display:none; }
+        html.dark .icon-btn .ic-moon { display:none; }
+        html.dark .icon-btn .ic-sun { display:inline; color:var(--accent); }
+
+        .mode-btn {
+            padding: 5px 12px; font-size: 11px; font-weight: 700; border: 1px solid var(--line-strong);
+            background: var(--bg-2); color: var(--muted); cursor: pointer; transition: .15s;
+        }
+        .mode-btn.active, .mode-btn:hover {
+            color: var(--accent); border-color: var(--accent); background: rgba(var(--c-green-rgb), 0.1);
+        }
+
+        .day-card {
+            background:var(--bg-2); border:1px solid var(--line);
+            padding:12px; transition:.15s;
+        }
+        .day-card:hover { border-color:var(--line-strong); }
+        .card-hr { border:none; border-top:1px solid var(--line); margin:8px 0; }
+        .t-min { color:rgb(var(--c-sky-rgb)); font-weight:700; }
+        .t-max { color:rgb(var(--c-orange-rgb)); font-weight:700; }
+        .t-sep { color:var(--faint); margin:0 3px; }
+
+        /* ===== Loader ===== */
+        .loader-ring { width:38px; height:38px; border:2px solid var(--line-strong); border-top-color:var(--accent); border-radius:50%; animation:loaderSpin .8s linear infinite; }
+        @keyframes loaderSpin { to { transform:rotate(360deg); } }
+        .animate-view-fade { animation:viewFadeIn .3s ease; }
+        @keyframes viewFadeIn { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+        footer { color:var(--muted); border-top:1px solid var(--line); }
+    </style>
+    <script>
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        } else {
+            const currentHour = new Date().getHours();
+            if (currentHour >= 8 && currentHour < 20) document.documentElement.classList.remove('dark');
+            else document.documentElement.classList.add('dark');
+        }
+    </script>
+</head>
+<body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-12 transition-colors duration-200">
+
+    <div class="w-full max-w-6xl space-y-6 flex-grow">
+
+        <!-- 標頭 -->
+        <header class="panel animate-view-fade">
+            <div class="panel-head">
+                <div class="flex items-center gap-3">
+                    <div class="brand-mark">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span class="pulse-dot"></span>
+                    </div>
+                    <div>
+                        <h1 class="panel-title">澳門 14天天氣預報與溫度趨勢圖</h1>
+                        <div class="micro mt-1" id="update-time">載入中...</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="theme-toggle" class="icon-btn" title="切換主題">
+                        <i class="fa-solid fa-moon ic-moon"></i>
+                        <i class="fa-solid fa-sun ic-sun"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 載入狀態 -->
+        <div id="loading" class="text-center py-20 mut">
+            <div class="loader-ring mx-auto mb-4"></div>
+            <p>正在取得最新 14 天氣預報數據...</p>
+        </div>
+
+        <!-- 主要內容 -->
+        <div id="dashboard-content" class="space-y-6 hidden">
+            
+            <!-- 14天天氣圖示預報 -->
+            <section class="panel animate-view-fade">
+                <div class="panel-head">
+                    <h2 class="panel-title"><span class="panel-num">01</span> / 14天天氣總覽與圖示</h2>
+                </div>
+                <div class="panel-body">
+                    <div id="daily-cards-container" class="flex overflow-x-auto gap-3 pb-3 items-stretch snap-x scrollbar-none"></div>
+                </div>
+            </section>
+
+            <!-- 14天溫度趨勢圖 -->
+            <section class="panel animate-view-fade">
+                <div class="panel-head flex-wrap">
+                    <h2 class="panel-title"><span class="panel-num">02</span> / 14天溫度趨勢圖 (數值模式對比)</h2>
+                    <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                        <button id="btn-mode-best" class="mode-btn active">綜合最佳 (Best Match)</button>
+                        <button id="btn-mode-all" class="mode-btn">多模式對比 (All Models)</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="relative w-full h-[380px] md:h-[450px]">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- 頁尾 -->
+    <footer class="w-full max-w-6xl mt-10 pt-6 text-center text-xs space-y-1.5">
+        <p><strong class="font-semibold text-[var(--text)]">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        const API_URL = "https://api.open-meteo.com/v1/forecast?latitude=22.214016&longitude=113.546198&daily=temperature_2m_max,temperature_2m_min,weather_code&models=ecmwf_aifs025_single,ecmwf_ifs025,ecmwf_ifs,best_match&timezone=Asia%2FSingapore&forecast_days=14";
+        
+        let rawWeatherData = null;
+        let tempChartInstance = null;
+        let currentChartMode = 'best'; // 'best' or 'all'
+
+        // Register Chart.js DataLabels plugin
+        if (typeof ChartDataLabels !== 'undefined') {
+            Chart.register(ChartDataLabels);
+        }
+
+        // Theme Toggle
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            if (tempChartInstance) renderChart();
+        });
+
+        // Weather Code to Icon and Description
+        function getWeatherDetails(code, maxTemp, minTemp) {
+            let text = '多雲';
+            let icon = 'icon/weather_icon/cloud.png';
+
+            switch (code) {
+                case 0: text = '天晴'; icon = 'icon/weather_icon/sun.png'; break;
+                case 1: text = '大致天晴'; icon = 'icon/weather_icon/sun.png'; break;
+                case 2: text = '部份時間有陽光'; icon = 'icon/weather_icon/partly-sun-day.png'; break;
+                case 3: text = '多雲'; icon = 'icon/weather_icon/cloud.png'; break;
+                case 45:
+                case 48: text = '霧 / 薄霧'; icon = 'icon/weather_icon/fog.png'; break;
+                case 51:
+                case 53:
+                case 55: text = '微雨'; icon = 'icon/weather_icon/cloud-drizzle.png'; break;
+                case 56:
+                case 57:
+                case 66:
+                case 67: text = '凍雨'; icon = 'icon/weather_icon/cloud-rain.png'; break;
+                case 61:
+                case 63:
+                case 65: text = '有雨'; icon = 'icon/weather_icon/cloud-rain.png'; break;
+                case 71:
+                case 73:
+                case 75:
+                case 77:
+                case 85:
+                case 86: text = '有雪'; icon = 'icon/weather_icon/cloud-rain.png'; break;
+                case 80:
+                case 81:
+                case 82: text = '驟雨'; icon = 'icon/weather_icon/rainy-day.png'; break;
+                case 95:
+                case 96:
+                case 99: text = '雷雨'; icon = 'icon/weather_icon/thunder-rain.png'; break;
+                default: text = '多雲'; icon = 'icon/weather_icon/cloud.png'; break;
+            }
+
+            if (maxTemp !== undefined && maxTemp >= 32.5 && code <= 3) {
+                text = `高溫 (${Math.round(maxTemp)}°C)`;
+                icon = 'icon/weather_icon/hot.png';
+            } else if (minTemp !== undefined && minTemp <= 12.5 && code <= 3) {
+                text = `低溫 (${Math.round(minTemp)}°C)`;
+                icon = 'icon/weather_icon/cold.png';
+            }
+
+            return { text, icon };
+        }
+
+        // Dynamic Key Extractor for Open-Meteo Multi-Model Data
+        function getModelVar(daily, varName, modelId) {
+            if (!daily) return [];
+            
+            // 1. Exact variable_modelId
+            const key1 = `${varName}_${modelId}`;
+            if (daily[key1]) return daily[key1];
+
+            // 2. Best match standard variable
+            if (modelId === 'best_match' && daily[varName]) return daily[varName];
+
+            // 3. Search key starting with varName and containing modelId
+            const foundKey = Object.keys(daily).find(k => k.startsWith(varName) && k.includes(modelId));
+            if (foundKey && daily[foundKey]) return daily[foundKey];
+
+            return daily[varName] || [];
+        }
+
+        async function fetchWeatherData() {
+            try {
+                const res = await fetch(API_URL);
+                rawWeatherData = await res.json();
+
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                document.getElementById('update-time').textContent = `更新時間：${year}-${month}-${day} ${hours}:${minutes}`;
+
+                renderDailyCards();
+                renderChart();
+
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+            } catch (err) {
+                console.error("無法載入數據:", err);
+                document.getElementById('loading').innerHTML = `<p style="color:rgb(var(--c-red-rgb))">無法載入天氣數據，請檢查網路連線。</p>`;
+            }
+        }
+
+        function renderDailyCards() {
+            const daily = rawWeatherData.daily;
+            const dates = daily.time || [];
+            const container = document.getElementById('daily-cards-container');
+            container.innerHTML = '';
+
+            const bestMax = getModelVar(daily, 'temperature_2m_max', 'best_match');
+            const bestMin = getModelVar(daily, 'temperature_2m_min', 'best_match');
+            const bestCode = getModelVar(daily, 'weather_code', 'best_match');
+
+            dates.forEach((dateStr, i) => {
+                const dateObj = new Date(dateStr);
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const dayStr = String(dateObj.getDate()).padStart(2, '0');
+                const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
+                const dateDisplay = `${month}/${dayStr} (${weekday})`;
+
+                const maxT = Math.round(bestMax[i] ?? 0);
+                const minT = Math.round(bestMin[i] ?? 0);
+                const code = bestCode[i] ?? 3;
+
+                const weather = getWeatherDetails(code, maxT, minT);
+
+                const card = document.createElement('div');
+                card.className = "day-card flex flex-col w-[130px] sm:w-[145px] flex-shrink-0 snap-start text-center";
+                card.innerHTML = `
+                    <div class="accent num font-bold text-xs pb-1">${dateDisplay}</div>
+                    <div class="py-2 flex justify-center items-center h-14">
+                        <img src="${weather.icon}" alt="${weather.text}" class="w-10 h-10 object-contain" title="${weather.text}">
+                    </div>
+                    <div class="text-[11px] mut font-medium truncate mb-1" title="${weather.text}">${weather.text}</div>
+                    <hr class="card-hr">
+                    <div class="py-0.5 text-sm num font-bold">
+                        <span class="t-min">${minT}°C</span>
+                        <span class="t-sep font-normal">/</span>
+                        <span class="t-max">${maxT}°C</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderChart() {
+            const daily = rawWeatherData.daily;
+            const dates = daily.time || [];
+
+            const dateLabels = dates.map(dStr => {
+                const d = new Date(dStr);
+                return `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`;
+            });
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#e6e9e9' : '#1a1e20';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+            // Models config
+            const modelsConfig = [
+                { id: 'best_match', label: '最佳比對 (Best Match)', maxColor: '#ff7675', minColor: '#74b9ff' },
+                { id: 'ecmwf_aifs025_single', label: 'ECMWF AIFS (AI)', maxColor: '#e17055', minColor: '#00cec9' },
+                { id: 'ecmwf_ifs', label: 'ECMWF IFS (高解析度)', maxColor: '#d63031', minColor: '#0984e3' },
+                { id: 'ecmwf_ifs025', label: 'ECMWF IFS 0.25°', maxColor: '#fd79a8', minColor: '#a29bfe' }
+            ];
+
+            let datasets = [];
+
+            if (currentChartMode === 'best') {
+                const maxVals = getModelVar(daily, 'temperature_2m_max', 'best_match').map(v => Math.round(v));
+                const minVals = getModelVar(daily, 'temperature_2m_min', 'best_match').map(v => Math.round(v));
+
+                datasets = [
+                    {
+                        label: '最高氣溫 (°C)',
+                        data: maxVals,
+                        borderColor: '#ff7675',
+                        backgroundColor: 'rgba(255, 118, 117, 0.15)',
+                        borderWidth: 3,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: false
+                    },
+                    {
+                        label: '最低氣溫 (°C)',
+                        data: minVals,
+                        borderColor: '#74b9ff',
+                        backgroundColor: 'rgba(116, 185, 255, 0.15)',
+                        borderWidth: 3,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: false
+                    }
+                ];
+            } else {
+                // All Models Comparison
+                modelsConfig.forEach(m => {
+                    const maxVals = getModelVar(daily, 'temperature_2m_max', m.id).map(v => Math.round(v));
+                    const minVals = getModelVar(daily, 'temperature_2m_min', m.id).map(v => Math.round(v));
+
+                    const isMain = m.id === 'best_match';
+
+                    datasets.push({
+                        label: `${m.label} 最高`,
+                        data: maxVals,
+                        borderColor: m.maxColor,
+                        borderWidth: isMain ? 3 : 1.5,
+                        borderDash: isMain ? [] : [4, 4],
+                        tension: 0.3,
+                        pointRadius: isMain ? 4 : 2,
+                        fill: false
+                    });
+
+                    datasets.push({
+                        label: `${m.label} 最低`,
+                        data: minVals,
+                        borderColor: m.minColor,
+                        borderWidth: isMain ? 3 : 1.5,
+                        borderDash: isMain ? [] : [4, 4],
+                        tension: 0.3,
+                        pointRadius: isMain ? 4 : 2,
+                        fill: false
+                    });
+                });
+            }
+
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            if (tempChartInstance) tempChartInstance.destroy();
+
+            tempChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dateLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: textColor,
+                                font: { family: 'JetBrains Mono', size: 11 },
+                                boxWidth: 12,
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: isDark ? '#121a1f' : '#ffffff',
+                            titleColor: isDark ? '#e6e9e9' : '#1a1e20',
+                            bodyColor: isDark ? '#93a0a6' : '#5c6663',
+                            borderColor: isDark ? '#2b373e' : '#d6d3c4',
+                            borderWidth: 1,
+                            padding: 10,
+                            callbacks: {
+                                label: (context) => ` ${context.dataset.label}: ${context.raw}°C`
+                            }
+                        },
+                        datalabels: {
+                            display: (ctx) => {
+                                // In all-models mode, display labels only for best_match to prevent clutter
+                                if (currentChartMode === 'all') {
+                                    return ctx.datasetIndex <= 1;
+                                }
+                                return true;
+                            },
+                            anchor: (ctx) => ctx.dataset.label.includes('最高') ? 'end' : 'start',
+                            align: (ctx) => ctx.dataset.label.includes('最高') ? 'top' : 'bottom',
+                            formatter: (val) => val !== null ? val + '°' : '',
+                            color: textColor,
+                            font: { family: 'JetBrains Mono', weight: 'bold', size: 10 },
+                            offset: 2
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, font: { family: 'JetBrains Mono', size: 11 } }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                font: { family: 'JetBrains Mono', size: 11 },
+                                callback: (val) => val + '°C'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Mode Switchers
+        document.getElementById('btn-mode-best').addEventListener('click', function() {
+            currentChartMode = 'best';
+            this.classList.add('active');
+            document.getElementById('btn-mode-all').classList.remove('active');
+            renderChart();
+        });
+
+        document.getElementById('btn-mode-all').addEventListener('click', function() {
+            currentChartMode = 'all';
+            this.classList.add('active');
+            document.getElementById('btn-mode-best').classList.remove('active');
+            renderChart();
+        });
+
+        fetchWeatherData();
+    </script>
+</body>
+</html>
