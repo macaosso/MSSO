@@ -647,6 +647,8 @@
         };
 
         let allActiveStorms = {};
+        let activeStormKey = null;
+        let activeTrackImagePath = 'output/TC/all.png';
 
         function updateWindGauge(stormData) {
             const badgeEl = document.getElementById('gaugeStormBadge');
@@ -704,6 +706,7 @@
         }
 
         function switchGaugeStorm(stormKey, btnElement) {
+            activeStormKey = stormKey;
             const stormData = allActiveStorms[stormKey];
             if (stormData) {
                 updateWindGauge(stormData);
@@ -932,19 +935,27 @@
         }
 
         function switchTrackImage(imagePath, btnElement) {
+            activeTrackImagePath = imagePath;
             const imgEl = document.getElementById('tcTrackImageViewer');
             const mapContainer = document.getElementById('tcMapContainer');
 
             if (mapContainer && !document.getElementById('tcTrackImageViewer')) {
-                mapContainer.innerHTML = `<img id="tcTrackImageViewer" src="${imagePath}" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain">`;
+                mapContainer.innerHTML = `<img id="tcTrackImageViewer" src="${imagePath}?_t=${Date.now()}" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain">`;
             } else if (imgEl) {
-                imgEl.src = imagePath + '?' + new Date().getTime();
+                imgEl.src = imagePath + '?_t=' + Date.now();
             }
 
             const buttons = document.querySelectorAll('#trackImageButtons button');
             buttons.forEach(btn => btn.classList.remove('chip-active'));
             if (btnElement) {
                 btnElement.classList.add('chip-active');
+            }
+        }
+
+        function refreshTrackImageViewer() {
+            const imgEl = document.getElementById('tcTrackImageViewer');
+            if (imgEl) {
+                imgEl.src = activeTrackImagePath + '?_t=' + Date.now();
             }
         }
 
@@ -984,20 +995,29 @@
             const trackCard = document.getElementById('tcTrackCard');
             if (!container) return;
 
-            container.innerHTML = `<button onclick="switchTrackImage('output/TC/all.png', this)" class="chip chip-active">全部熱帶氣旋</button>`;
-            if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
-
+            const previousStormKey = activeStormKey;
             const files = ['A', 'B', 'C', 'D', 'E', 'F'];
             let allCyclonesHtml = '';
             let activeCount = 0;
             allActiveStorms = {};
+
+            // 重新建立軌跡切換按鈕
+            container.innerHTML = '';
+            const allBtn = document.createElement('button');
+            allBtn.className = (activeTrackImagePath === 'output/TC/all.png') ? "chip chip-active" : "chip";
+            allBtn.textContent = "全部熱帶氣旋";
+            allBtn.onclick = function() { switchTrackImage('output/TC/all.png', this); };
+            container.appendChild(allBtn);
+
+            if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
 
             for (const f of files) {
                 const csvPath = `TCdata/${f}.csv`;
                 const imgPath = `output/TC/${f}.png`;
 
                 try {
-                    const response = await fetch(csvPath);
+                    // 加入 no-store 與時間戳記防止快取舊 CSV
+                    const response = await fetch(`${csvPath}?_t=${Date.now()}`, { cache: 'no-store' });
                     if (!response.ok) continue;
                     const text = await response.text();
                     if (!text || text.trim() === '') continue;
@@ -1008,22 +1028,20 @@
                     activeCount++;
                     allActiveStorms[f] = stormData;
 
+                    // 路徑圖按鈕
                     const btn = document.createElement('button');
-                    btn.className = "chip";
+                    btn.className = (activeTrackImagePath === imgPath) ? "chip chip-active" : "chip";
                     btn.textContent = stormData.name;
                     btn.onclick = function() { switchTrackImage(imgPath, this); };
                     container.appendChild(btn);
 
+                    // 儀表盤頁籤按鈕
                     if (gaugeTabsContainer) {
                         const gaugeBtn = document.createElement('button');
-                        gaugeBtn.className = activeCount === 1 ? "chip chip-active" : "chip";
+                        gaugeBtn.className = "chip";
                         gaugeBtn.textContent = stormData.name;
                         gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
                         gaugeTabsContainer.appendChild(gaugeBtn);
-                    }
-
-                    if (activeCount === 1) {
-                        updateWindGauge(stormData);
                     }
 
                     allCyclonesHtml += generateStormCardHtml(stormData);
@@ -1033,9 +1051,37 @@
                 }
             }
 
+            // 確定目前儀表盤活頁卡 Selected Key
+            const activeKeys = Object.keys(allActiveStorms);
+            if (activeKeys.length > 0) {
+                if (!activeKeys.includes(previousStormKey)) {
+                    activeStormKey = activeKeys[0];
+                } else {
+                    activeStormKey = previousStormKey;
+                }
+            } else {
+                activeStormKey = null;
+            }
+
+            // 更新儀表盤按鈕狀態與數值
             if (gaugeTabsContainer) {
                 gaugeTabsContainer.style.display = activeCount === 0 ? 'none' : 'flex';
+                const gaugeButtons = gaugeTabsContainer.querySelectorAll('button');
+                activeKeys.forEach((key, idx) => {
+                    if (gaugeButtons[idx]) {
+                        if (key === activeStormKey) {
+                            gaugeButtons[idx].classList.add('chip-active');
+                        } else {
+                            gaugeButtons[idx].classList.remove('chip-active');
+                        }
+                    }
+                });
             }
+
+            if (activeStormKey && allActiveStorms[activeStormKey]) {
+                updateWindGauge(allActiveStorms[activeStormKey]);
+            }
+
             if (container) {
                 container.style.display = activeCount === 0 ? 'none' : 'flex';
             }
@@ -1049,6 +1095,7 @@
                 if (trackCard) trackCard.style.display = 'block';
             }
 
+            refreshTrackImageViewer();
             checkAllPngAndHandleMessage();
         }
 
@@ -1060,7 +1107,7 @@
                     mapContainer.innerHTML = '<div class="dim py-12 text-center text-sm">現時沒有熱帶氣旋路徑圖</div>';
                 }
             };
-            allImg.src = 'output/TC/all.png';
+            allImg.src = 'output/TC/all.png?_t=' + Date.now();
         }
 
         function toTraditionalLunar(text) {
@@ -1120,7 +1167,11 @@
                 renderTcForecastTable(TC_WARNING_DATA);
             }
 
+            // 初次載入數據
             initTrackButtonsAndLoadAllData();
+
+            // 設定自動定時重新載入數據 (每 60 秒自動更新)
+            setInterval(initTrackButtonsAndLoadAllData, 60000);
         });
     </script>
 </body>
