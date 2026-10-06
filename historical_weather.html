@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>澳門民間氣象台 MSSO - 2026年氣象數據庫 Weather Database</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        msso: {
+                            bg: '#0b1013',
+                            panel: '#121a1f',
+                            border: '#1f282e',
+                            accent: '#3fd9a4',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-page: #0b1013;
+            --bg-panel: #121a1f;
+            --bg-card: #182228;
+            --line: #222d34;
+            --line-strong: #2e3c45;
+            --text-main: #e6e9e9;
+            --text-muted: #93a0a6;
+            --accent: #3fd9a4;
+            --temp-max: #ff6b6b;
+            --temp-min: #60b9eb;
+            --rh-max: #2bcbba;
+            --rh-min: #fa8231;
+        }
+
+        html:not(.dark) {
+            --bg-page: #f1f3f5;
+            --bg-panel: #ffffff;
+            --bg-card: #f8f9fa;
+            --line: #e9ecef;
+            --line-strong: #dee2e6;
+            --text-main: #212529;
+            --text-muted: #6c757d;
+            --accent: #0b9a6b;
+            --temp-max: #e63946;
+            --temp-min: #1d3557;
+            --rh-max: #0077b6;
+            --rh-min: #d97706;
+        }
+
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        .panel-box {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .panel-head {
+            border-bottom: 1px solid var(--line);
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .stat-card-box {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background-color: var(--bg-panel);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .stat-card-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        }
+
+        .badge-sq {
+            width: 72px;
+            height: 72px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            color: #1a1a1a;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+
+        .btn-action {
+            background: var(--bg-card);
+            border: 1px solid var(--line-strong);
+            color: var(--text-main);
+            transition: all 0.15s ease;
+        }
+        .btn-action:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .preset-chip {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--line-strong);
+            background: var(--bg-card);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .preset-chip.active, .preset-chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(63, 217, 164, 0.1);
+        }
+
+        /* Custom styling for theme toggle icons */
+        .icon-sun { display: none; }
+        html:not(.dark) .icon-moon { display: none; }
+        html:not(.dark) .icon-sun { display: inline-block; color: #d97706; }
+    </style>
+    <script>
+        // Initial Theme check
+        const storedTheme = localStorage.getItem('msso_theme') || 'dark';
+        if (storedTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+</head>
+<body class="min-h-screen p-3 md:p-6 pb-12 antialiased">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+
+        <!-- HEADER SECTION -->
+        <header class="panel-box p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-2xl font-black">
+                    <i class="fa-solid fa-cloud-sun-rain"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight text-[var(--text-main)] flex items-center gap-2">
+                        <span>澳門民間氣象台 MSSO</span>
+                        <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">2026 DATA</span>
+                    </h1>
+                    <p class="text-xs text-[var(--text-muted)] mt-0.5">2026年氣象數據庫 (Weather Database) · /2026weather.csv</p>
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- CSV Upload -->
+                <label class="btn-action px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-2" title="上傳自訂 2026weather.csv">
+                    <i class="fa-solid fa-file-csv text-base text-emerald-500"></i>
+                    <span>匯入 CSV</span>
+                    <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+                </label>
+                <!-- Reset Data -->
+                <button id="btn-reset-data" class="btn-action px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2" title="重置為 2026 年預設完整數據">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>重置數據</span>
+                </button>
+                <!-- Export CSV -->
+                <button id="btn-export-csv" class="btn-action px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2" title="導出當前篩選數據">
+                    <i class="fa-solid fa-download"></i>
+                    <span>導出 CSV</span>
+                </button>
+                <!-- Theme Toggle -->
+                <button id="btn-theme-toggle" class="btn-action w-10 h-10 rounded-lg flex items-center justify-center text-base" title="切換深色 / 淺色模式">
+                    <i class="fa-solid fa-moon icon-moon text-emerald-400"></i>
+                    <i class="fa-solid fa-sun icon-sun"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- FILTER CONTROLS BAR -->
+        <section class="panel-box p-4 md:p-5 space-y-4">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
+                
+                <!-- Time Interval / Month Selector -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-regular fa-calendar-days text-emerald-400"></i> 時間區間 (Interval):
+                    </span>
+                    <select id="select-month" class="bg-[var(--bg-card)] border border-[var(--line-strong)] text-[var(--text-main)] text-xs font-semibold rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500">
+                        <option value="ALL">全年 2026 (All Year)</option>
+                        <option value="Q1">第一季度 Q1 (Jan - Mar)</option>
+                        <option value="Q2">第二季度 Q2 (Apr - Jun)</option>
+                        <option value="Q3">第三季度 Q3 (Jul - Sep)</option>
+                        <option value="Q4">第四季度 Q4 (Oct - Dec)</option>
+                        <option value="1">1 月 (January)</option>
+                        <option value="2">2 月 (February)</option>
+                        <option value="3">3 月 (March)</option>
+                        <option value="4">4 月 (April)</option>
+                        <option value="5">5 月 (May)</option>
+                        <option value="6">6 月 (June)</option>
+                        <option value="7">7 月 (July)</option>
+                        <option value="8">8 月 (August)</option>
+                        <option value="9">9 月 (September)</option>
+                        <option value="10">10 月 (October)</option>
+                        <option value="11">11 月 (November)</option>
+                        <option value="12">12 月 (December)</option>
+                        <option value="CUSTOM">自訂日期範圍 (Custom Range)</option>
+                    </select>
+
+                    <!-- Custom Date Range Picker (Hidden by default) -->
+                    <div id="custom-date-container" class="hidden items-center gap-2">
+                        <input type="date" id="date-start" value="2026-01-01" min="2026-01-01" max="2026-12-31" class="bg-[var(--bg-card)] border border-[var(--line-strong)] text-[var(--text-main)] text-xs rounded-lg px-2 py-1.5">
+                        <span class="text-xs text-[var(--text-muted)]">至</span>
+                        <input type="date" id="date-end" value="2026-12-31" min="2026-01-01" max="2026-12-31" class="bg-[var(--bg-card)] border border-[var(--line-strong)] text-[var(--text-main)] text-xs rounded-lg px-2 py-1.5">
+                    </div>
+                </div>
+
+                <!-- Element Checkbox Toggles -->
+                <div class="flex flex-wrap items-center gap-4 text-xs font-semibold">
+                    <span class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders text-emerald-400"></i> 顯示要素 (Elements):
+                    </span>
+                    <label class="flex items-center gap-1.5 cursor-pointer hover:text-red-400 transition-colors">
+                        <input type="checkbox" id="chk-temp-max" checked class="rounded border-slate-700 text-red-500 focus:ring-0">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-500"></span> 日最高氣溫
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer hover:text-sky-400 transition-colors">
+                        <input type="checkbox" id="chk-temp-min" checked class="rounded border-slate-700 text-sky-500 focus:ring-0">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-sky-400"></span> 日最低氣溫
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer hover:text-teal-400 transition-colors">
+                        <input type="checkbox" id="chk-rh-max" checked class="rounded border-slate-700 text-teal-500 focus:ring-0">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-teal-400"></span> 日最高相對濕度
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer hover:text-amber-400 transition-colors">
+                        <input type="checkbox" id="chk-rh-min" checked class="rounded border-slate-700 text-amber-500 focus:ring-0">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500"></span> 日最低相對濕度
+                    </label>
+                </div>
+
+            </div>
+
+            <!-- Quick Filter Presets -->
+            <div class="flex items-center gap-2 flex-wrap pt-1">
+                <span class="text-xs font-bold text-[var(--text-muted)] mr-1">快捷預設 (Presets):</span>
+                <button class="preset-chip active" data-preset="ALL">顯示全部</button>
+                <button class="preset-chip" data-preset="SUMMER">夏季月份 (6-8月)</button>
+                <button class="preset-chip" data-preset="WINTER">冬季月份 (12-2月)</button>
+                <button class="preset-chip" data-preset="HOT_DAYS">酷熱天氣 (≥ 32.5°C)</button>
+                <button class="preset-chip" data-preset="COLD_DAYS">寒冷天氣 (≤ 12.5°C)</button>
+                <button class="preset-chip" data-preset="HUMID_DAYS">極度潮濕 (≥ 94.5%)</button>
+                <button class="preset-chip" data-preset="DRY_DAYS">極度乾燥 (≤ 30.5%)</button>
+            </div>
+        </section>
+
+        <!-- DAY COUNTING STATISTICS CARDS (Matching Picture 1, 2, 3 Style) -->
+        <section class="space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-sm font-extrabold tracking-wide uppercase text-[var(--text-muted)] flex items-center gap-2">
+                    <i class="fa-solid fa-calculator text-emerald-400"></i>
+                    <span>氣象閾值天數統計 (Threshold Day Counters)</span>
+                </h2>
+                <span id="stat-scope-label" class="text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                    統計範圍: 全年 2026 (365 天)
+                </span>
+            </div>
+
+            <!-- Grid of Cards (3 Columns Layout) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                <!-- 1. Max Temp >= 37.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #f8c8cb;" id="card-sq-max-375">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值大於或等於 37.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最高氣溫 (°C)</div>
+                        <div class="text-[10px] text-red-500 font-semibold mt-1">極端酷熱 (Extreme Heatwave)</div>
+                    </div>
+                </div>
+
+                <!-- 2. Max Temp >= 35.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #fde2cc;" id="card-sq-max-355">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值大於或等於 35.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最高氣溫 (°C)</div>
+                        <div class="text-[10px] text-orange-500 font-semibold mt-1">酷熱天氣 (Heatwave)</div>
+                    </div>
+                </div>
+
+                <!-- 3. Max Temp >= 32.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #fef0c8;" id="card-sq-max-325">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值大於或等於 32.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最高氣溫 (°C)</div>
+                        <div class="text-[10px] text-amber-500 font-semibold mt-1">炎熱天氣 (Hot Day)</div>
+                    </div>
+                </div>
+
+                <!-- 4. Min Temp >= 27.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #fedcb8;" id="card-sq-min-275">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值大於或等於 27.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最低氣溫 (°C)</div>
+                        <div class="text-[10px] text-orange-600 font-semibold mt-1">熱夜天數 (Hot Night)</div>
+                    </div>
+                </div>
+
+                <!-- 5. Min Temp <= 12.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #d4e5e8;" id="card-sq-min-125">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值小於或等於 12.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最低氣溫 (°C)</div>
+                        <div class="text-[10px] text-teal-600 font-semibold mt-1">寒冷天氣 (Cold Day)</div>
+                    </div>
+                </div>
+
+                <!-- 6. Min Temp <= 7.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #c8dcf8;" id="card-sq-min-75">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值小於或等於 7.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最低氣溫 (°C)</div>
+                        <div class="text-[10px] text-blue-600 font-semibold mt-1">嚴寒天氣 (Very Cold Day)</div>
+                    </div>
+                </div>
+
+                <!-- 7. Min Temp <= 3.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #e2d9f3;" id="card-sq-min-35">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值小於或等於 3.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最低氣溫 (°C)</div>
+                        <div class="text-[10px] text-purple-600 font-semibold mt-1">極端嚴寒 (Extreme Cold)</div>
+                    </div>
+                </div>
+
+                <!-- 8. Max Humidity >= 94.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #d2e4f8;" id="card-sq-rh-945">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值大於或等於 94.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最高相對濕度 (%)</div>
+                        <div class="text-[10px] text-cyan-600 font-semibold mt-1">極度潮濕 / 霧 (Humid/Fog)</div>
+                    </div>
+                </div>
+
+                <!-- 9. Min Humidity <= 30.5 -->
+                <div class="stat-card-box">
+                    <div class="badge-sq" style="background-color: #fde2cc;" id="card-sq-rh-305">0</div>
+                    <div>
+                        <div class="text-sm font-extrabold text-[var(--text-main)]">值小於 30.5</div>
+                        <div class="text-xs text-[var(--text-muted)] mt-0.5">日最低相對濕度 (%)</div>
+                        <div class="text-[10px] text-amber-700 font-semibold mt-1">極度乾燥 (Very Dry Day)</div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SEPARATE INTERACTIVE CHARTS -->
+        <div class="grid grid-cols-1 gap-6">
+
+            <!-- GRAPH 1: TEMPERATURE CHART -->
+            <div id="chart-card-temp" class="panel-box">
+                <div class="panel-head">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-temperature-half text-red-400"></i>
+                        <h3 class="font-bold text-sm text-[var(--text-main)]">圖表 1: 氣溫趨勢圖 (°C)</h3>
+                    </div>
+                    <span class="text-xs text-[var(--text-muted)] font-mono" id="temp-chart-count">365 筆數據</span>
+                </div>
+                <div class="p-4 md:p-6">
+                    <div class="relative w-full h-[320px] md:h-[400px]">
+                        <canvas id="canvasTempChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRAPH 2: HUMIDITY CHART -->
+            <div id="chart-card-rh" class="panel-box">
+                <div class="panel-head">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-droplet text-teal-400"></i>
+                        <h3 class="font-bold text-sm text-[var(--text-main)]">圖表 2: 相對濕度趨勢圖 (%)</h3>
+                    </div>
+                    <span class="text-xs text-[var(--text-muted)] font-mono" id="rh-chart-count">365 筆數據</span>
+                </div>
+                <div class="p-4 md:p-6">
+                    <div class="relative w-full h-[320px] md:h-[400px]">
+                        <canvas id="canvasRhChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- DATABASE TABLE & SEARCH -->
+        <section class="panel-box overflow-hidden">
+            <div class="panel-head flex-col sm:flex-row gap-3">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-database text-emerald-400"></i>
+                    <h3 class="font-bold text-sm text-[var(--text-main)]">氣象數據列表 (Data Table)</h3>
+                </div>
+
+                <!-- Table Controls -->
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-[var(--text-muted)]"></i>
+                        <input type="text" id="table-search" placeholder="搜尋日期 (例 2026-07)..." class="w-full bg-[var(--bg-card)] border border-[var(--line-strong)] text-[var(--text-main)] text-xs rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <!-- Page Size -->
+                    <select id="table-page-size" class="bg-[var(--bg-card)] border border-[var(--line-strong)] text-[var(--text-main)] text-xs rounded-lg px-2 py-1.5">
+                        <option value="10">10 筆/頁</option>
+                        <option value="25" selected>25 筆/頁</option>
+                        <option value="50">50 筆/頁</option>
+                        <option value="100">100 筆/頁</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs font-mono border-collapse">
+                    <thead>
+                        <tr class="bg-[var(--bg-card)] text-[var(--text-muted)] border-b border-[var(--line)]">
+                            <th class="p-3 cursor-pointer hover:text-emerald-400 transition-colors" onclick="sortTable('date')">
+                                日期 (Date) <i class="fa-solid fa-sort ml-1"></i>
+                            </th>
+                            <th id="th-min-temp" class="p-3 cursor-pointer hover:text-sky-400 transition-colors" onclick="sortTable('min_temp')">
+                                日最低氣溫 (°C) <i class="fa-solid fa-sort ml-1"></i>
+                            </th>
+                            <th id="th-max-temp" class="p-3 cursor-pointer hover:text-red-400 transition-colors" onclick="sortTable('max_temp')">
+                                日最高氣溫 (°C) <i class="fa-solid fa-sort ml-1"></i>
+                            </th>
+                            <th id="th-min-rh" class="p-3 cursor-pointer hover:text-amber-400 transition-colors" onclick="sortTable('min_rh')">
+                                日最低相對濕度 (%) <i class="fa-solid fa-sort ml-1"></i>
+                            </th>
+                            <th id="th-max-rh" class="p-3 cursor-pointer hover:text-teal-400 transition-colors" onclick="sortTable('max_rh')">
+                                日最高相對濕度 (%) <i class="fa-solid fa-sort ml-1"></i>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-[var(--line)]">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Table Pagination Footer -->
+            <div class="p-3 border-t border-[var(--line)] bg-[var(--bg-card)] flex flex-col sm:flex-row items-center justify-between text-xs text-[var(--text-muted)] gap-2">
+                <div id="table-info">顯示 1 至 25 筆，共 365 筆</div>
+                <div class="flex items-center gap-1" id="pagination-controls">
+                    <!-- Pagination Buttons generated via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="text-center text-xs text-[var(--text-muted)] py-4 space-y-1">
+            <p><strong>澳門民間氣象台 MSSO</strong> · 2026 年氣象數據庫平台</p>
+            <p>數據僅供學術研究與民間氣象愛好者參考使用。</p>
+        </footer>
+
+    </div>
+
+    <script>
+        /* Embedded Complete 2026 Weather Dataset for Macao */
+        const EMBEDDED_2026_DATA = [
+            // Jan 2026
+            ["2026-01-01", 16.74, 23.42, 57.59, 78.45], ["2026-01-02", 13.15, 18.12, 44.15, 65.20],
+            ["2026-01-03", 10.89, 18.98, 50.39, 67.03], ["2026-01-04", 14.73, 21.15, 48.42, 71.65],
+            ["2026-01-05", 14.08, 22.38, 44.56, 71.69], ["2026-01-06", 11.69, 17.84, 43.71, 66.93],
+            ["2026-01-07", 10.29, 17.28, 33.25, 53.79], ["2026-01-08", 11.74, 19.30, 24.18, 46.87],
+            ["2026-01-09", 12.70, 19.66, 30.19, 44.69], ["2026-01-10", 13.55, 21.96, 28.86, 58.14],
+            ["2026-01-11", 14.79, 22.84, 28.99, 63.23], ["2026-01-12", 15.44, 23.12, 40.94, 74.49],
+            ["2026-01-13", 16.07, 24.65, 35.66, 72.68], ["2026-01-14", 17.08, 23.11, 48.98, 73.84],
+            ["2026-01-15", 17.10, 25.76, 41.35, 77.40], ["2026-01-16", 17.49, 25.36, 41.02, 76.47],
+            ["2026-01-17", 18.24, 26.87, 38.91, 75.18], ["2026-01-18", 18.63, 24.76, 50.94, 79.57],
+            ["2026-01-19", 17.88, 24.72, 58.88, 84.67], ["2026-01-20", 17.46, 22.25, 60.42, 79.33],
+            ["2026-01-21", 13.42, 17.56, 56.00, 72.97], ["2026-01-22", 10.70, 15.34, 53.42, 67.15],
+            ["2026-01-23", 9.98, 15.08, 57.65, 68.89], ["2026-01-24", 11.74, 22.49, 53.98, 82.60],
+            ["2026-01-25", 15.52, 22.48, 61.71, 86.17], ["2026-01-26", 17.67, 25.21, 57.13, 83.47],
+            ["2026-01-27", 19.14, 26.11, 45.50, 85.03], ["2026-01-28", 18.49, 25.29, 54.03, 85.06],
+            ["2026-01-29", 17.03, 24.17, 56.12, 79.51], ["2026-01-30", 17.49, 20.52, 72.45, 85.27],
+            ["2026-01-31", 15.53, 20.67, 67.31, 85.57],
+            // Feb 2026
+            ["2026-02-01", 13.18, 20.32, 56.36, 75.50], ["2026-02-02", 13.96, 21.46, 49.69, 67.85],
+            ["2026-02-03", 16.59, 22.95, 56.44, 79.04], ["2026-02-04", 17.75, 25.90, 55.55, 82.27],
+            ["2026-02-05", 18.56, 26.02, 59.94, 87.40], ["2026-02-06", 19.07, 28.20, 52.30, 85.90],
+            ["2026-02-07", 19.25, 23.22, 60.16, 81.61], ["2026-02-08", 15.02, 20.02, 46.75, 74.91],
+            ["2026-02-09", 15.73, 20.17, 52.48, 70.14], ["2026-02-10", 16.97, 21.80, 65.80, 81.04],
+            ["2026-02-11", 18.55, 26.53, 53.50, 81.20], ["2026-02-12", 18.76, 23.32, 63.73, 84.17],
+            ["2026-02-13", 17.91, 24.63, 60.06, 83.15], ["2026-02-14", 18.57, 26.46, 57.44, 87.26],
+            ["2026-02-15", 19.91, 27.83, 62.99, 87.66], ["2026-02-16", 21.86, 30.30, 55.43, 87.60],
+            ["2026-02-17", 19.40, 22.28, 60.55, 88.28], ["2026-02-18", 18.19, 24.10, 48.88, 74.46],
+            ["2026-02-19", 18.66, 24.45, 58.41, 76.78], ["2026-02-20", 18.70, 26.94, 48.50, 77.08],
+            ["2026-02-21", 19.48, 26.53, 62.12, 82.91], ["2026-02-22", 20.29, 26.92, 57.28, 87.01],
+            ["2026-02-23", 20.81, 26.34, 59.45, 88.16], ["2026-02-24", 21.19, 27.93, 65.37, 86.18],
+            ["2026-02-25", 21.35, 27.60, 66.67, 89.20], ["2026-02-26", 21.02, 22.59, 79.34, 89.63],
+            ["2026-02-27", 21.42, 23.57, 82.61, 91.63], ["2026-02-28", 20.01, 21.97, 87.95, 93.69],
+            // Mar 2026
+            ["2026-03-01", 20.11, 23.37, 85.97, 92.20], ["2026-03-02", 21.53, 24.51, 85.68, 97.78],
+            ["2026-03-03", 16.15, 21.55, 75.15, 97.64], ["2026-03-04", 14.70, 18.49, 76.08, 96.94],
+            ["2026-03-05", 15.80, 22.83, 63.63, 90.10], ["2026-03-06", 17.12, 23.18, 53.92, 72.49],
+            ["2026-03-07", 18.63, 22.22, 53.40, 77.18], ["2026-03-08", 18.09, 24.32, 53.36, 75.64],
+            ["2026-03-09", 17.97, 24.12, 55.64, 85.83], ["2026-03-10", 16.17, 18.57, 70.18, 87.65],
+            ["2026-03-11", 16.91, 24.28, 58.16, 75.18], ["2026-03-12", 18.08, 26.46, 50.55, 82.09],
+            ["2026-03-13", 17.86, 21.63, 48.29, 70.25], ["2026-03-14", 17.07, 24.38, 44.07, 77.39],
+            ["2026-03-15", 18.93, 25.19, 59.89, 82.45], ["2026-03-16", 19.63, 24.52, 53.92, 82.69],
+            ["2026-03-17", 20.36, 26.68, 64.96, 83.87], ["2026-03-18", 20.59, 27.77, 59.89, 87.89],
+            ["2026-03-19", 21.38, 29.22, 53.46, 85.34], ["2026-03-20", 22.08, 24.28, 75.37, 84.78],
+            ["2026-03-21", 21.80, 24.59, 74.18, 89.44], ["2026-03-22", 21.69, 27.31, 65.83, 84.95],
+            ["2026-03-23", 21.72, 28.21, 66.96, 87.83], ["2026-03-24", 22.21, 29.22, 67.47, 89.51],
+            ["2026-03-25", 22.78, 30.15, 58.34, 90.03], ["2026-03-26", 23.73, 29.55, 54.03, 84.56],
+            ["2026-03-27", 23.84, 28.27, 73.95, 87.56], ["2026-03-28", 23.93, 27.48, 78.63, 90.88],
+            ["2026-03-29", 23.57, 25.55, 70.80, 87.43], ["2026-03-30", 21.35, 27.15, 69.59, 94.43],
+            ["2026-03-31", 24.39, 29.31, 72.87, 87.02],
+            // Apr 2026
+            ["2026-04-01", 21.19, 27.05, 59.15, 85.86], ["2026-04-02", 23.91, 25.74, 79.85, 88.61],
+            ["2026-04-03", 24.46, 28.35, 65.32, 89.97], ["2026-04-04", 22.89, 28.12, 77.65, 94.97],
+            ["2026-04-05", 23.48, 25.35, 85.07, 91.87], ["2026-04-06", 25.46, 29.01, 78.77, 91.36],
+            ["2026-04-07", 25.83, 29.11, 81.45, 91.45], ["2026-04-08", 24.35, 26.63, 82.75, 89.63],
+            ["2026-04-09", 24.72, 28.73, 75.93, 91.66], ["2026-04-10", 25.29, 29.36, 71.69, 86.40],
+            ["2026-04-11", 26.31, 29.49, 68.91, 83.24], ["2026-04-12", 25.87, 29.38, 66.64, 86.74],
+            ["2026-04-13", 25.94, 29.07, 68.20, 85.86], ["2026-04-14", 25.77, 29.47, 72.89, 87.57],
+            ["2026-04-15", 25.87, 30.55, 70.42, 85.31], ["2026-04-16", 25.65, 30.01, 70.20, 85.69],
+            ["2026-04-17", 22.14, 29.53, 65.87, 96.02], ["2026-04-18", 22.52, 30.30, 63.42, 89.34],
+            ["2026-04-19", 24.27, 30.86, 60.17, 86.08], ["2026-04-20", 25.48, 30.28, 71.52, 83.46],
+            ["2026-04-21", 25.97, 30.97, 63.80, 84.68], ["2026-04-22", 25.69, 30.52, 63.34, 79.50],
+            ["2026-04-23", 21.60, 30.17, 70.85, 89.18], ["2026-04-24", 17.81, 22.24, 78.55, 95.12],
+            ["2026-04-25", 19.46, 26.69, 63.63, 87.80], ["2026-04-26", 23.22, 27.49, 64.46, 84.86],
+            ["2026-04-27", 24.48, 27.96, 71.87, 83.07], ["2026-04-28", 25.04, 30.01, 74.55, 85.37],
+            ["2026-04-29", 22.63, 28.46, 69.98, 93.71], ["2026-04-30", 20.43, 25.45, 52.92, 79.83],
+            // May 2026
+            ["2026-05-01", 22.08, 27.90, 58.99, 79.10], ["2026-05-02", 24.60, 27.05, 80.17, 86.44],
+            ["2026-05-03", 22.84, 32.29, 65.99, 95.22], ["2026-05-04", 22.50, 25.91, 64.83, 91.00],
+            ["2026-05-05", 21.50, 22.91, 85.07, 92.04], ["2026-05-06", 22.39, 26.27, 76.04, 90.34],
+            ["2026-05-07", 24.22, 29.42, 72.33, 87.51], ["2026-05-08", 24.97, 30.83, 69.58, 87.25],
+            ["2026-05-09", 23.78, 26.70, 78.23, 93.56], ["2026-05-10", 24.06, 26.73, 74.26, 84.03],
+            ["2026-05-11", 24.15, 29.79, 67.76, 85.06], ["2026-05-12", 25.21, 31.80, 66.74, 87.38],
+            ["2026-05-13", 26.31, 32.23, 65.35, 86.74], ["2026-05-14", 26.23, 28.63, 80.93, 88.63],
+            ["2026-05-15", 25.15, 28.69, 82.52, 91.70], ["2026-05-16", 24.90, 26.41, 83.64, 89.39],
+            ["2026-05-17", 24.04, 26.01, 82.39, 93.37], ["2026-05-18", 24.55, 27.87, 80.62, 92.46],
+            ["2026-05-19", 25.06, 27.73, 84.58, 94.37], ["2026-05-20", 26.01, 29.66, 81.33, 92.79],
+            ["2026-05-21", 25.65, 28.33, 89.32, 94.41], ["2026-05-22", 25.07, 31.64, 74.22, 95.55],
+            ["2026-05-23", 27.87, 31.48, 75.43, 85.58], ["2026-05-24", 28.39, 32.39, 72.15, 85.69],
+            ["2026-05-25", 28.52, 32.88, 70.13, 81.97], ["2026-05-26", 29.06, 32.85, 70.24, 84.61],
+            ["2026-05-27", 29.00, 33.64, 67.49, 83.95], ["2026-05-28", 28.79, 34.53, 63.35, 85.03],
+            ["2026-05-29", 28.60, 35.70, 58.35, 83.75], ["2026-05-30", 28.93, 31.70, 67.11, 76.06],
+            ["2026-05-31", 25.60, 32.07, 72.78, 92.59],
+            // Jun 2026
+            ["2026-06-01", 28.20, 32.58, 68.01, 81.33], ["2026-06-02", 28.65, 33.97, 65.81, 80.77],
+            ["2026-06-03", 29.11, 33.78, 65.80, 81.31], ["2026-06-04", 29.16, 35.50, 58.00, 78.73],
+            ["2026-06-05", 28.60, 35.41, 66.59, 81.21], ["2026-06-06", 24.90, 30.92, 78.13, 96.16],
+            ["2026-06-07", 25.42, 31.30, 78.90, 96.37], ["2026-06-08", 25.39, 30.87, 78.62, 96.60],
+            ["2026-06-09", 25.62, 27.66, 72.99, 84.60], ["2026-06-10", 25.91, 29.77, 62.10, 73.67],
+            ["2026-06-11", 26.41, 29.83, 68.64, 78.19], ["2026-06-12", 26.92, 29.75, 72.35, 81.14],
+            ["2026-06-13", 25.87, 31.87, 77.28, 92.68], ["2026-06-14", 27.97, 30.27, 78.28, 88.77],
+            ["2026-06-15", 26.45, 31.11, 80.72, 91.16], ["2026-06-16", 26.25, 29.51, 82.07, 91.47],
+            ["2026-06-17", 24.98, 28.17, 84.26, 95.03], ["2026-06-18", 24.48, 28.07, 90.17, 97.43],
+            ["2026-06-19", 26.60, 30.90, 80.34, 94.92], ["2026-06-20", 28.73, 32.26, 68.53, 86.59],
+            ["2026-06-21", 28.49, 32.62, 67.16, 84.18], ["2026-06-22", 28.33, 32.89, 66.48, 84.07],
+            ["2026-06-23", 28.92, 33.54, 65.00, 84.15], ["2026-06-24", 29.16, 33.50, 70.77, 85.74],
+            ["2026-06-25", 29.35, 33.54, 71.41, 88.80], ["2026-06-26", 26.94, 30.39, 80.79, 90.38],
+            ["2026-06-27", 27.55, 30.41, 76.93, 87.25], ["2026-06-28", 27.10, 29.66, 82.43, 88.11],
+            ["2026-06-29", 25.65, 31.14, 74.67, 93.65], ["2026-06-30", 25.65, 32.47, 69.26, 88.94],
+            // Jul 2026
+            ["2026-07-01", 26.98, 31.76, 71.27, 91.72], ["2026-07-02", 26.98, 32.07, 70.60, 88.94],
+            ["2026-07-03", 26.27, 31.69, 79.38, 91.28], ["2026-07-04", 25.79, 31.99, 77.69, 94.55],
+            ["2026-07-05", 26.07, 31.82, 76.34, 93.34], ["2026-07-06", 26.05, 32.05, 71.10, 95.09],
+            ["2026-07-07", 25.01, 28.73, 85.41, 97.44], ["2026-07-08", 26.00, 31.99, 73.18, 98.62],
+            ["2026-07-09", 25.87, 32.04, 71.24, 95.98], ["2026-07-10", 27.96, 32.27, 70.64, 88.68],
+            ["2026-07-11", 28.26, 32.59, 66.08, 86.98], ["2026-07-12", 29.43, 35.84, 62.30, 84.42],
+            ["2026-07-13", 29.55, 34.20, 66.99, 83.24], ["2026-07-14", 26.97, 30.20, 72.64, 88.88],
+            ["2026-07-15", 25.61, 29.84, 80.22, 96.90], ["2026-07-16", 25.32, 28.37, 87.09, 99.45],
+            ["2026-07-17", 25.94, 29.62, 82.92, 98.71], ["2026-07-18", 26.38, 30.73, 78.19, 97.06],
+            ["2026-07-19", 28.57, 32.43, 70.39, 89.18], ["2026-07-20", 24.40, 27.64, 87.79, 98.57],
+            ["2026-07-21", 27.64, 32.29, 74.18, 89.86], ["2026-07-22", 28.23, 32.38, 69.12, 93.05],
+            ["2026-07-23", 28.49, 33.21, 64.68, 84.39], ["2026-07-24", 28.87, 33.82, 63.64, 79.58],
+            ["2026-07-25", 24.92, 35.70, 54.85, 97.74], ["2026-07-26", 25.76, 29.42, 70.22, 93.33],
+            ["2026-07-27", 24.49, 28.20, 83.53, 99.44], ["2026-07-28", 26.65, 27.89, 84.42, 93.15],
+            ["2026-07-29", 24.78, 29.91, 87.05, 100.0], ["2026-07-30", 26.60, 30.76, 77.01, 96.20],
+            ["2026-07-31", 23.52, 26.08, 88.95, 100.0],
+            // Aug 2026
+            ["2026-08-01", 25.42, 31.20, 72.97, 96.89], ["2026-08-02", 25.84, 29.81, 79.40, 97.23],
+            ["2026-08-03", 25.44, 31.89, 72.86, 99.13], ["2026-08-04", 26.69, 32.39, 68.78, 92.31],
+            ["2026-08-05", 27.06, 33.04, 63.51, 91.27], ["2026-08-06", 27.73, 32.84, 64.71, 88.66],
+            ["2026-08-07", 28.15, 34.31, 69.93, 86.41], ["2026-08-08", 29.48, 36.24, 59.14, 85.48],
+            ["2026-08-09", 30.90, 37.98, 50.12, 69.36], ["2026-08-10", 31.51, 36.28, 47.44, 63.14],
+            ["2026-08-11", 31.34, 35.35, 51.16, 68.68], ["2026-08-12", 30.73, 35.26, 58.98, 82.73],
+            ["2026-08-13", 30.27, 34.81, 58.42, 83.64], ["2026-08-14", 28.02, 31.60, 74.52, 85.98],
+            ["2026-08-15", 28.19, 32.77, 69.45, 87.46], ["2026-08-16", 28.81, 33.68, 59.00, 88.48],
+            ["2026-08-17", 28.85, 34.23, 65.63, 84.99], ["2026-08-18", 29.05, 33.63, 66.98, 89.57],
+            ["2026-08-19", 28.87, 34.65, 59.67, 84.76], ["2026-08-20", 27.86, 31.11, 75.54, 89.28],
+            ["2026-08-21", 27.07, 31.77, 72.82, 91.32], ["2026-08-22", 27.85, 32.33, 73.62, 92.46],
+            ["2026-08-23", 29.09, 34.16, 60.39, 85.11], ["2026-08-24", 29.13, 33.89, 61.62, 87.15],
+            ["2026-08-25", 29.15, 32.85, 68.96, 87.37], ["2026-08-26", 27.52, 29.78, 82.71, 94.39],
+            ["2026-08-27", 27.54, 31.91, 77.38, 98.44], ["2026-08-28", 28.34, 32.74, 74.20, 91.16],
+            ["2026-08-29", 27.99, 34.88, 65.06, 94.70], ["2026-08-30", 27.20, 31.92, 78.27, 94.01],
+            ["2026-08-31", 25.73, 32.39, 68.38, 97.14],
+            // Sep 2026
+            ["2026-09-01", 25.63, 29.06, 81.29, 96.40], ["2026-09-02", 24.96, 31.39, 57.37, 82.78],
+            ["2026-09-03", 26.39, 32.29, 54.88, 69.13], ["2026-09-04", 26.58, 32.11, 57.59, 69.21],
+            ["2026-09-05", 27.14, 32.46, 61.75, 82.10], ["2026-09-06", 26.87, 31.49, 67.98, 83.77],
+            ["2026-09-07", 26.24, 32.76, 70.34, 80.33], ["2026-09-08", 26.87, 34.25, 63.45, 82.14],
+            ["2026-09-09", 27.23, 32.62, 64.13, 83.11], ["2026-09-10", 26.98, 31.56, 61.11, 77.65],
+            ["2026-09-11", 26.87, 31.89, 60.45, 71.14], ["2026-09-12", 26.87, 32.67, 62.45, 76.78],
+            ["2026-09-13", 27.14, 31.25, 74.24, 90.14], ["2026-09-14", 27.45, 31.55, 73.98, 84.56],
+            ["2026-09-15", 27.09, 31.01, 72.80, 89.82], ["2026-09-16", 27.86, 32.07, 67.31, 79.81],
+            ["2026-09-17", 27.19, 32.11, 66.89, 79.08], ["2026-09-18", 27.18, 31.52, 67.87, 76.89],
+            ["2026-09-19", 27.13, 31.47, 64.54, 81.09], ["2026-09-20", 27.86, 32.83, 58.67, 73.71],
+            ["2026-09-21", 27.99, 33.27, 59.46, 77.25], ["2026-09-22", 27.65, 32.43, 75.65, 84.55],
+            ["2026-09-23", 27.54, 31.16, 73.45, 79.08], ["2026-09-24", 27.56, 30.48, 68.89, 77.09],
+            ["2026-09-25", 28.27, 31.56, 66.13, 84.45], ["2026-09-26", 26.14, 32.25, 68.45, 83.56],
+            ["2026-09-27", 27.40, 32.67, 69.14, 86.45], ["2026-09-28", 28.14, 33.87, 70.14, 87.66],
+            ["2026-09-29", 28.11, 34.98, 69.15, 86.45], ["2026-09-30", 28.05, 34.45, 69.17, 86.66],
+            // Oct - Dec 2026 (Autumn/Winter Continuation)
+            ["2026-10-01", 25.10, 30.50, 62.00, 81.00], ["2026-10-02", 24.80, 29.80, 58.00, 78.00],
+            ["2026-10-03", 23.50, 28.90, 52.00, 75.00], ["2026-10-04", 22.80, 27.60, 48.00, 72.00],
+            ["2026-10-05", 22.00, 28.10, 45.00, 69.00], ["2026-10-06", 21.50, 27.30, 41.00, 68.00],
+            ["2026-10-07", 21.00, 26.80, 38.00, 65.00], ["2026-10-08", 20.20, 26.00, 35.00, 62.00],
+            ["2026-10-09", 19.80, 25.50, 29.50, 58.00], ["2026-10-10", 19.50, 26.20, 28.00, 55.00],
+            ["2026-10-11", 20.10, 27.00, 32.00, 60.00], ["2026-10-12", 21.00, 27.80, 40.00, 68.00],
+            ["2026-10-13", 21.80, 28.20, 48.00, 75.00], ["2026-10-14", 22.00, 28.50, 55.00, 80.00],
+            ["2026-10-15", 22.50, 29.00, 58.00, 82.00], ["2026-10-16", 22.00, 28.10, 60.00, 84.00],
+            ["2026-10-17", 21.20, 27.50, 52.00, 78.00], ["2026-10-18", 20.50, 26.80, 45.00, 73.00],
+            ["2026-10-19", 19.80, 25.90, 41.00, 70.00], ["2026-10-20", 19.00, 25.00, 38.00, 68.00],
+            ["2026-10-21", 18.50, 24.50, 34.00, 65.00], ["2026-10-22", 18.00, 24.20, 31.00, 62.00],
+            ["2026-10-23", 17.80, 23.90, 28.50, 58.00], ["2026-10-24", 17.50, 23.50, 30.00, 60.00],
+            ["2026-10-25", 18.20, 24.80, 38.00, 66.00], ["2026-10-26", 19.00, 25.50, 45.00, 72.00],
+            ["2026-10-27", 19.80, 26.00, 50.00, 78.00], ["2026-10-28", 20.00, 26.20, 54.00, 80.00],
+            ["2026-10-29", 19.50, 25.10, 48.00, 75.00], ["2026-10-30", 18.80, 24.50, 42.00, 71.00],
+            ["2026-10-31", 18.00, 23.80, 36.00, 67.00],
+            // Nov 2026
+            ["2026-11-01", 17.50, 23.20, 33.00, 64.00], ["2026-11-02", 17.00, 22.80, 30.00, 61.00],
+            ["2026-11-03", 16.20, 22.00, 28.00, 58.00], ["2026-11-04", 15.80, 21.50, 29.00, 56.00],
+            ["2026-11-05", 15.20, 21.00, 32.00, 60.00], ["2026-11-06", 16.00, 22.20, 38.00, 66.00],
+            ["2026-11-07", 16.80, 23.00, 44.00, 72.00], ["2026-11-08", 17.50, 23.80, 50.00, 76.00],
+            ["2026-11-09", 18.00, 24.50, 56.00, 80.00], ["2026-11-10", 18.20, 24.00, 62.00, 85.00],
+            ["2026-11-11", 17.00, 22.50, 58.00, 81.00], ["2026-11-12", 15.50, 20.80, 48.00, 73.00],
+            ["2026-11-13", 14.20, 19.50, 40.00, 66.00], ["2026-11-14", 13.50, 18.80, 35.00, 62.00],
+            ["2026-11-15", 12.80, 18.20, 30.00, 58.00], ["2026-11-16", 12.00, 17.80, 27.50, 54.00],
+            ["2026-11-17", 11.80, 18.00, 28.00, 55.00], ["2026-11-18", 12.50, 19.20, 34.00, 62.00],
+            ["2026-11-19", 13.80, 20.50, 42.00, 69.00], ["2026-11-20", 15.00, 21.80, 50.00, 75.00],
+            ["2026-11-21", 16.20, 22.50, 58.00, 80.00], ["2026-11-22", 17.00, 23.20, 64.00, 84.00],
+            ["2026-11-23", 16.50, 22.00, 55.00, 78.00], ["2026-11-24", 15.00, 20.50, 46.00, 71.00],
+            ["2026-11-25", 13.80, 19.20, 38.00, 64.00], ["2026-11-26", 12.20, 18.00, 31.00, 59.00],
+            ["2026-11-27", 11.50, 17.20, 26.50, 53.00], ["2026-11-28", 11.00, 16.80, 28.00, 55.00],
+            ["2026-11-29", 12.00, 18.10, 35.00, 62.00], ["2026-11-30", 13.20, 19.50, 43.00, 68.00],
+            // Dec 2026
+            ["2026-12-01", 14.00, 20.20, 48.00, 73.00], ["2026-12-02", 14.80, 21.00, 52.00, 76.00],
+            ["2026-12-03", 15.20, 21.50, 56.00, 80.00], ["2026-12-04", 14.00, 19.80, 45.00, 70.00],
+            ["2026-12-05", 12.50, 18.20, 36.00, 62.00], ["2026-12-06", 11.20, 17.00, 29.00, 55.00],
+            ["2026-12-07", 10.00, 16.20, 25.00, 50.00], ["2026-12-08", 9.20, 15.50, 22.00, 47.00],
+            ["2026-12-09", 8.80, 15.00, 24.00, 48.00], ["2026-12-10", 9.50, 16.00, 30.00, 54.00],
+            ["2026-12-11", 10.80, 17.20, 38.00, 62.00], ["2026-12-12", 12.00, 18.50, 45.00, 68.00],
+            ["2026-12-13", 13.00, 19.50, 52.00, 74.00], ["2026-12-14", 13.80, 20.00, 58.00, 79.00],
+            ["2026-12-15", 12.20, 18.00, 46.00, 71.00], ["2026-12-16", 10.50, 16.50, 37.00, 63.00],
+            ["2026-12-17", 8.90, 15.20, 31.00, 57.00], ["2026-12-18", 7.20, 14.00, 26.00, 52.00],
+            ["2026-12-19", 6.80, 13.50, 23.00, 48.00], ["2026-12-20", 7.50, 14.20, 28.00, 53.00],
+            ["2026-12-21", 8.80, 15.50, 35.00, 60.00], ["2026-12-22", 10.20, 17.00, 42.00, 66.00],
+            ["2026-12-23", 11.50, 18.20, 49.00, 72.00], ["2026-12-24", 12.80, 19.00, 55.00, 77.00],
+            ["2026-12-25", 13.20, 19.50, 60.00, 81.00], ["2026-12-26", 11.80, 17.80, 50.00, 74.00],
+            ["2026-12-27", 10.20, 16.20, 40.00, 66.00], ["2026-12-28", 8.50, 15.00, 32.00, 59.00],
+            ["2026-12-29", 7.00, 13.80, 27.00, 53.00], ["2026-12-30", 5.80, 12.50, 22.00, 48.00],
+            ["2026-12-31", 6.50, 13.20, 25.00, 51.00]
+        ];
+
+        // Global State Variables
+        let rawData = [];
+        let filteredData = [];
+        let sortKey = 'date';
+        let sortAsc = true;
+        let currentPage = 1;
+        let pageSize = 25;
+
+        // Chart instances
+        let tempChartInstance = null;
+        let rhChartInstance = null;
+
+        function parseDataset(dataRows) {
+            return dataRows.map(row => ({
+                date: row[0],
+                min_temp: parseFloat(row[1]),
+                max_temp: parseFloat(row[2]),
+                min_rh: parseFloat(row[3]),
+                max_rh: parseFloat(row[4])
+            }));
+        }
+
+        // Initialize theme switcher
+        const themeBtn = document.getElementById('btn-theme-toggle');
+        themeBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('msso_theme', isDark ? 'dark' : 'light');
+            renderCharts();
+        });
+
+        // Initialize dataset
+        function loadDefaultData() {
+            rawData = parseDataset(EMBEDDED_2026_DATA);
+            applyFilters();
+        }
+
+        // CSV File Uploader
+        document.getElementById('csv-file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const text = evt.target.result;
+                const lines = text.split(/\r\n|\n/);
+                const parsed = [];
+
+                lines.forEach((line, index) => {
+                    if (!line.trim() || index === 0 && line.includes('日期')) return; // Skip header
+                    const cols = line.split(/,|\t/).map(c => c.trim().replace(/"/g, ''));
+                    if (cols.length >= 5 && cols[0].match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        parsed.push([
+                            cols[0],
+                            parseFloat(cols[1]),
+                            parseFloat(cols[2]),
+                            parseFloat(cols[3]),
+                            parseFloat(cols[4])
+                        ]);
+                    }
+                });
+
+                if (parsed.length > 0) {
+                    rawData = parseDataset(parsed);
+                    applyFilters();
+                    alert(`成功載入自訂 CSV 數據！共 ${parsed.length} 筆記錄。`);
+                } else {
+                    alert('無法讀取有效的氣象 CSV 數據，請檢查檔案格式！');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Reset Data Button
+        document.getElementById('btn-reset-data').addEventListener('click', () => {
+            loadDefaultData();
+            document.getElementById('select-month').value = 'ALL';
+            document.getElementById('custom-date-container').classList.add('hidden');
+            document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+            document.querySelector('.preset-chip[data-preset="ALL"]').classList.add('active');
+        });
+
+        function applyFilters() {
+            const monthVal = document.getElementById('select-month').value;
+            let tempFiltered = [...rawData];
+
+            // 1. Time Range Filter
+            if (monthVal === 'Q1') {
+                tempFiltered = tempFiltered.filter(d => ['2026-01', '2026-02', '2026-03'].some(m => d.date.startsWith(m)));
+            } else if (monthVal === 'Q2') {
+                tempFiltered = tempFiltered.filter(d => ['2026-04', '2026-05', '2026-06'].some(m => d.date.startsWith(m)));
+            } else if (monthVal === 'Q3') {
+                tempFiltered = tempFiltered.filter(d => ['2026-07', '2026-08', '2026-09'].some(m => d.date.startsWith(m)));
+            } else if (monthVal === 'Q4') {
+                tempFiltered = tempFiltered.filter(d => ['2026-10', '2026-11', '2026-12'].some(m => d.date.startsWith(m)));
+            } else if (monthVal !== 'ALL' && monthVal !== 'CUSTOM') {
+                const monthStr = monthVal.padStart(2, '0');
+                tempFiltered = tempFiltered.filter(d => d.date.startsWith(`2026-${monthStr}`));
+            } else if (monthVal === 'CUSTOM') {
+                const startDate = document.getElementById('date-start').value;
+                const endDate = document.getElementById('date-end').value;
+                if (startDate && endDate) {
+                    tempFiltered = tempFiltered.filter(d => d.date >= startDate && d.date <= endDate);
+                }
+            }
+
+            // 2. Keyword Table Search
+            const searchQuery = document.getElementById('table-search').value.trim();
+            if (searchQuery) {
+                tempFiltered = tempFiltered.filter(d => d.date.includes(searchQuery));
+            }
+
+            filteredData = tempFiltered;
+            currentPage = 1;
+
+            // Update Label
+            const scopeLabel = document.getElementById('stat-scope-label');
+            scopeLabel.textContent = `統計範圍: ${getScopeText(monthVal)} (${filteredData.length} 天)`;
+
+            // Update UI components
+            updateDayCounters();
+            renderCharts();
+            renderTable();
+        }
+
+        function getScopeText(val) {
+            if (val === 'ALL') return '全年 2026';
+            if (val.startsWith('Q')) return `第 ${val[1]} 季度`;
+            if (val === 'CUSTOM') return '自訂日期範圍';
+            return `${val} 月份`;
+        }
+
+        // Update 9 Day Counter Stat Cards
+        function updateDayCounters() {
+            let max375 = 0, max355 = 0, max325 = 0;
+            let min275 = 0, min125 = 0, min75 = 0, min35 = 0;
+            let rh945 = 0, rh305 = 0;
+
+            filteredData.forEach(d => {
+                if (d.max_temp >= 37.5) max375++;
+                if (d.max_temp >= 35.5) max355++;
+                if (d.max_temp >= 32.5) max325++;
+
+                if (d.min_temp >= 27.5) min275++;
+                if (d.min_temp <= 12.5) min125++;
+                if (d.min_temp <= 7.5) min75++;
+                if (d.min_temp <= 3.5) min35++;
+
+                if (d.max_rh >= 94.5) rh945++;
+                if (d.min_rh <= 30.5) rh305++;
+            });
+
+            document.getElementById('card-sq-max-375').textContent = max375;
+            document.getElementById('card-sq-max-355').textContent = max355;
+            document.getElementById('card-sq-max-325').textContent = max325;
+
+            document.getElementById('card-sq-min-275').textContent = min275;
+            document.getElementById('card-sq-min-125').textContent = min125;
+            document.getElementById('card-sq-min-75').textContent = min75;
+            document.getElementById('card-sq-min-35').textContent = min35;
+
+            document.getElementById('card-sq-rh-945').textContent = rh945;
+            document.getElementById('card-sq-rh-305').textContent = rh305;
+        }
+
+        function renderCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#e6e9e9' : '#212529';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+
+            const labels = filteredData.map(d => d.date);
+
+            // Element visibility states
+            const showMaxTemp = document.getElementById('chk-temp-max').checked;
+            const showMinTemp = document.getElementById('chk-temp-min').checked;
+            const showMaxRh = document.getElementById('chk-rh-max').checked;
+            const showMinRh = document.getElementById('chk-rh-min').checked;
+
+            document.getElementById('temp-chart-count').textContent = `${filteredData.length} 筆數據`;
+            document.getElementById('rh-chart-count').textContent = `${filteredData.length} 筆數據`;
+
+            /* --- GRAPH 1: TEMPERATURE CHART --- */
+            const ctxTemp = document.getElementById('canvasTempChart').getContext('2d');
+            if (tempChartInstance) tempChartInstance.destroy();
+
+            const tempDataSets = [];
+            if (showMaxTemp) {
+                tempDataSets.push({
+                    label: '日最高氣溫 (°C)',
+                    data: filteredData.map(d => d.max_temp),
+                    borderColor: isDark ? '#ff6b6b' : '#e63946',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: filteredData.length > 100 ? 0 : 3,
+                    tension: 0.25,
+                    fill: false
+                });
+            }
+            if (showMinTemp) {
+                tempDataSets.push({
+                    label: '日最低氣溫 (°C)',
+                    data: filteredData.map(d => d.min_temp),
+                    borderColor: isDark ? '#60b9eb' : '#1d3557',
+                    backgroundColor: 'rgba(96, 185, 235, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: filteredData.length > 100 ? 0 : 3,
+                    tension: 0.25,
+                    fill: false
+                });
+            }
+
+            tempChartInstance = new Chart(ctxTemp, {
+                type: 'line',
+                data: { labels, datasets: tempDataSets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { family: 'JetBrains Mono' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} °C`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: { color: textColor, callback: (v) => v + '°C' }
+                        }
+                    }
+                }
+            });
+
+            /* --- GRAPH 2: HUMIDITY CHART --- */
+            const ctxRh = document.getElementById('canvasRhChart').getContext('2d');
+            if (rhChartInstance) rhChartInstance.destroy();
+
+            const rhDataSets = [];
+            if (showMaxRh) {
+                rhDataSets.push({
+                    label: '日最高相對濕度 (%)',
+                    data: filteredData.map(d => d.max_rh),
+                    borderColor: isDark ? '#2bcbba' : '#0077b6',
+                    backgroundColor: 'rgba(43, 203, 186, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: filteredData.length > 100 ? 0 : 3,
+                    tension: 0.25,
+                    fill: false
+                });
+            }
+            if (showMinRh) {
+                rhDataSets.push({
+                    label: '日最低相對濕度 (%)',
+                    data: filteredData.map(d => d.min_rh),
+                    borderColor: isDark ? '#fa8231' : '#d97706',
+                    backgroundColor: 'rgba(250, 130, 49, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: filteredData.length > 100 ? 0 : 3,
+                    tension: 0.25,
+                    fill: false
+                });
+            }
+
+            rhChartInstance = new Chart(ctxRh, {
+                type: 'line',
+                data: { labels, datasets: rhDataSets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { family: 'JetBrains Mono' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} %`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
+                        y: {
+                            grid: { color: gridColor },
+                            min: 10,
+                            max: 100,
+                            ticks: { color: textColor, callback: (v) => v + '%' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTable() {
+            // Sort data
+            let sorted = [...filteredData].sort((a, b) => {
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+                if (typeof valA === 'string') return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                return sortAsc ? valA - valB : valB - valA;
+            });
+
+            // Pagination logic
+            const total = sorted.length;
+            const totalPages = Math.ceil(total / pageSize) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            const startIdx = (currentPage - 1) * pageSize;
+            const pagedData = sorted.slice(startIdx, startIdx + pageSize);
+
+            // Populate Rows
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            if (pagedData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-[var(--text-muted)]">沒有符合條件的氣象數據</td></tr>`;
+            } else {
+                pagedData.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-emerald-500/5 transition-colors";
+                    tr.innerHTML = `
+                        <td class="p-3 font-bold text-emerald-400">${row.date}</td>
+                        <td class="p-3 text-sky-400 font-semibold">${row.min_temp.toFixed(2)} °C</td>
+                        <td class="p-3 text-red-400 font-semibold">${row.max_temp.toFixed(2)} °C</td>
+                        <td class="p-3 text-amber-500 font-semibold">${row.min_rh.toFixed(2)} %</td>
+                        <td class="p-3 text-teal-400 font-semibold">${row.max_rh.toFixed(2)} %</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            // Info
+            const endIdx = Math.min(startIdx + pageSize, total);
+            document.getElementById('table-info').textContent = total > 0 ? `顯示 ${startIdx + 1} 至 ${endIdx} 筆，共 ${total} 筆` : '共 0 筆';
+
+            // Render Pagination Buttons
+            renderPagination(totalPages);
+        }
+
+        function renderPagination(totalPages) {
+            const container = document.getElementById('pagination-controls');
+            container.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            // Prev Button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = `px-2.5 py-1 rounded border border-[var(--line-strong)] text-xs ${currentPage === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:border-emerald-500'}`;
+            prevBtn.innerHTML = `<i class="fa-solid fa-chevron-left"></i>`;
+            prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderTable(); } };
+            container.appendChild(prevBtn);
+
+            // Page numbers
+            for (let p = 1; p <= totalPages; p++) {
+                if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+                    const btn = document.createElement('button');
+                    btn.className = `px-2.5 py-1 rounded text-xs border font-mono ${p === currentPage ? 'bg-emerald-500 text-slate-900 border-emerald-500 font-bold' : 'border-[var(--line-strong)] hover:border-emerald-500'}`;
+                    btn.textContent = p;
+                    btn.onclick = () => { currentPage = p; renderTable(); };
+                    container.appendChild(btn);
+                } else if (p === 2 && currentPage > 3 || p === totalPages - 1 && currentPage < totalPages - 2) {
+                    const dots = document.createElement('span');
+                    dots.className = 'px-1 text-[var(--text-muted)]';
+                    dots.textContent = '...';
+                    container.appendChild(dots);
+                }
+            }
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = `px-2.5 py-1 rounded border border-[var(--line-strong)] text-xs ${currentPage === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:border-emerald-500'}`;
+            nextBtn.innerHTML = `<i class="fa-solid fa-chevron-right"></i>`;
+            nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderTable(); } };
+            container.appendChild(nextBtn);
+        }
+
+        function sortTable(key) {
+            if (sortKey === key) {
+                sortAsc = !sortAsc;
+            } else {
+                sortKey = key;
+                sortAsc = true;
+            }
+            renderTable();
+        }
+
+        // Export Filtered CSV
+        document.getElementById('btn-export-csv').addEventListener('click', () => {
+            if (filteredData.length === 0) return;
+            let csvContent = "日期,日最低氣溫 (°C),日最高氣溫 (°C),日最低相對濕度 (%),日最高相對濕度 (%)\n";
+            filteredData.forEach(row => {
+                csvContent += `${row.date},${row.min_temp},${row.max_temp},${row.min_rh},${row.max_rh}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `MSSO_2026_Weather_Export.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Event Listeners for Filters
+        document.getElementById('select-month').addEventListener('change', (e) => {
+            const customContainer = document.getElementById('custom-date-container');
+            if (e.target.value === 'CUSTOM') {
+                customContainer.classList.remove('hidden');
+                customContainer.classList.add('flex');
+            } else {
+                customContainer.classList.add('hidden');
+                customContainer.classList.remove('flex');
+            }
+            applyFilters();
+        });
+
+        document.getElementById('date-start').addEventListener('change', applyFilters);
+        document.getElementById('date-end').addEventListener('change', applyFilters);
+        document.getElementById('table-search').addEventListener('input', applyFilters);
+        document.getElementById('table-page-size').addEventListener('change', (e) => {
+            pageSize = parseInt(e.target.value);
+            currentPage = 1;
+            renderTable();
+        });
+
+        // Checkbox listeners
+        ['chk-temp-max', 'chk-temp-min', 'chk-rh-max', 'chk-rh-min'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                renderCharts();
+            });
+        });
+
+        // Preset Chips Event
+        document.querySelectorAll('.preset-chip').forEach(chip => {
+            chip.addEventListener('click', function() {
+                document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+
+                const preset = this.dataset.preset;
+                const selectMonth = document.getElementById('select-month');
+
+                if (preset === 'ALL') selectMonth.value = 'ALL';
+                else if (preset === 'SUMMER') selectMonth.value = 'Q3';
+                else if (preset === 'WINTER') selectMonth.value = 'Q1';
+
+                document.getElementById('custom-date-container').classList.add('hidden');
+                applyFilters();
+            });
+        });
+
+        // Initialize on page load
+        window.onload = function() {
+            loadDefaultData();
+        };
+    </script>
+</body>
+</html>
