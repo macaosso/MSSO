@@ -1652,7 +1652,7 @@
                 });
             }
 
-            /* 2. 渲染系統自動計算的提示 (高溫、低溫、自動降雨預警、大風) - 遞增嚴重要程度 */
+            /* 2. 渲染系統自動計算的提示 (高溫、低溫、火災危險、自動降雨預警、大風) - 遞增嚴重要程度 */
             /* 高溫提示分級：28°C(炎熱提示), 32°C(酷熱提示), 35°C(非常酷熱警告), 37°C(極為酷熱特別警告) */
             if (isHot) {
                 let hotBadgeColor = 'b-amber';
@@ -1704,6 +1704,33 @@
                     <div class="${alertClass} ${coldBadgeColor}">
                         <span class="alert-icon"><i class="fa-solid fa-snowflake"></i></span>
                         <div><span class="alert-title">${coldTitle}</span>${coldContent}</div>
+                    </div>`;
+            }
+
+            /* 火災危險提示：當前或未來6小時相對濕度 <=50 (amber), <=35 (orange), <=25 (red) */
+            const next6Humidities = (data.hourly && data.hourly.relative_humidity_2m) ? data.hourly.relative_humidity_2m.slice(currentHourIndex, currentHourIndex + 6) : [];
+            const validHumidities = [humidityVal, ...next6Humidities].filter(h => typeof h === 'number' && !isNaN(h));
+            const minFireHum = validHumidities.length > 0 ? Math.min(...validHumidities) : 100;
+
+            if (minFireHum <= 50) {
+                let fireBadgeColor = 'b-amber';
+                let fireTitle = '火災危險提示：';
+                let fireContent = `相對濕度偏低（預測最低 ${minFireHum}%），請注意用火及用電安全，小心火種。`;
+
+                if (minFireHum <= 25) {
+                    fireBadgeColor = 'b-red';
+                    fireTitle = '極高火災危險提示：';
+                    fireContent = `相對濕度極低（預測最低 ${minFireHum}%），火災極易發生並迅速蔓延，請切實注意防火及用電安全。`;
+                } else if (minFireHum <= 35) {
+                    fireBadgeColor = 'b-orange';
+                    fireTitle = '高火災危險提示：';
+                    fireContent = `相對濕度相當低（預測最低 ${minFireHum}%），火災容易發生，請小心防火，嚴防火災。`;
+                }
+
+                alertsContainer.innerHTML += `
+                    <div class="${alertClass} ${fireBadgeColor}">
+                        <span class="alert-icon"><i class="fa-solid fa-fire-flame-curved"></i></span>
+                        <div><span class="alert-title">${fireTitle}</span>${fireContent}</div>
                     </div>`;
             }
 
