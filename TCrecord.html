@@ -3,167 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>熱帶氣旋警報記錄儀表板 | TC Alert Dashboard</title>
+    <title>熱帶氣旋警報歷史紀錄儀表板 | TC Alert Record Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#0f172a',
+                            950: '#020617'
+                        }
+                    },
+                    animation: {
+                        'spin-slow': 'spin 12s linear infinite',
+                        'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
         }
     </script>
     <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         ::-webkit-scrollbar {
             height: 6px;
             width: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: rgba(100, 116, 139, 0.1);
-            border-radius: 4px;
+            background: rgba(15, 23, 42, 0.6);
         }
         ::-webkit-scrollbar-thumb {
             background: rgba(100, 116, 139, 0.4);
             border-radius: 4px;
         }
-        /* 警報等級左側邊框色條定義 */
-        .lv-注意警報 { background: rgba(91, 99, 93, 0.1); border-left: 3px solid #5b635d; }
-        .lv-戒備警報 { background: rgba(33, 141, 52, 0.1); border-left: 3px solid #218d34; }
-        .lv-強風警報 { background: rgba(21, 123, 164, 0.1); border-left: 3px solid #157ba4; }
-        .lv-烈風預警警報 { background: rgba(251, 242, 5, 0.1); border-left: 3px solid #fbf205; }
-        .lv-東北烈風警報, .lv-東南烈風警報, .lv-西北烈風警報, .lv-西南烈風警報 { background: rgba(214, 153, 10, 0.1); border-left: 3px solid #d6990a; }
-        .lv-暴風警報 { background: rgba(215, 100, 0, 0.1); border-left: 3px solid #d76400; }
-        .lv-颶風警報 { background: rgba(212, 17, 17, 0.15); border-left: 3px solid #d41111; }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.6);
+        }
+
+        /* 警報等級特化樣式與左邊條色標 */
+        .lv-注意警報 { background: rgba(91, 99, 93, 0.12); border-left: 4px solid #5b635d; }
+        .lv-戒備警報 { background: rgba(33, 141, 52, 0.12); border-left: 4px solid #218d34; }
+        .lv-強風警報 { background: rgba(21, 123, 164, 0.12); border-left: 4px solid #157ba4; }
+        .lv-烈風預警警報 { background: rgba(251, 242, 5, 0.15); border-left: 4px solid #fbf205; }
+        .lv-東北烈風警報, .lv-東南烈風警報, .lv-西北烈風警報, .lv-西南烈風警報 { background: rgba(214, 153, 10, 0.15); border-left: 4px solid #d6990a; }
+        .lv-暴風警報 { background: rgba(215, 100, 0, 0.15); border-left: 4px solid #d76400; }
+        .lv-颶風警報 { background: rgba(212, 17, 17, 0.2); border-left: 4px solid #d41111; }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(51, 65, 85, 0.6);
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 min-h-screen font-sans antialiased flex flex-col lg:flex-row transition-colors duration-300">
 
+    <!-- 手機端頂部導覽列 -->
+    <header class="lg:hidden glass-panel sticky top-0 z-40 px-4 py-3 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+            <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400">
+                <i class="fa-solid fa-hurricane text-lg animate-spin-slow"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-extrabold text-white">熱帶氣旋警報記錄</h1>
+                <p class="text-[10px] text-slate-400">TC Alert Dashboard</p>
+            </div>
+        </div>
+        <button id="toggleMobileMenu" class="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700">
+            <i class="fa-solid fa-sliders text-sm"></i>
+        </button>
+    </header>
+
     <!-- 側邊欄篩選面板 -->
-    <aside class="w-full lg:w-80 bg-slate-900/80 backdrop-blur-2xl border-b lg:border-b-0 lg:border-r border-slate-800/80 p-6 lg:h-screen lg:sticky lg:top-0 overflow-y-auto flex flex-col justify-between shrink-0 shadow-2xl">
-        <div class="space-y-6">
-            <!-- 標題 -->
-            <div class="flex items-center gap-3">
-                <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400">
-                    <i class="fa-solid fa-hurricane text-xl animate-spin-slow"></i>
+    <aside id="sidebar" class="hidden lg:flex w-full lg:w-80 glass-panel border-b lg:border-b-0 lg:border-r border-slate-800/80 p-5 lg:h-screen lg:sticky lg:top-0 overflow-y-auto flex-col justify-between shrink-0 shadow-2xl z-30">
+        <div class="space-y-5">
+            <!-- 標題與標誌 -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-inner">
+                        <i class="fa-solid fa-hurricane text-xl animate-spin-slow"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-extrabold tracking-tight text-white">熱帶氣旋警報儀表板</h1>
+                        <p class="text-[11px] text-slate-400">TC Alert Dashboard</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="text-lg font-extrabold tracking-tight text-white">熱帶氣旋警報儀表板</h1>
-                    <p class="text-xs text-slate-400">TC Alert Dashboard</p>
+                <button id="closeMobileMenu" class="lg:hidden text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <hr class="border-slate-800/80">
+
+            <!-- 快捷預設標籤 (Quick Chips) -->
+            <div>
+                <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                    <i class="fa-solid fa-bolt text-amber-400 mr-1"></i> 快捷篩選 Quick Filter
+                </label>
+                <div class="flex flex-wrap gap-1.5">
+                    <button data-chip="all" class="chip-btn active px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-all">全部 All</button>
+                    <button data-chip="gale" class="chip-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-all">烈風(8號)+</button>
+                    <button data-chip="hurricane" class="chip-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-all">颶風(10號)</button>
+                    <button data-chip="2026" class="chip-btn px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800/80 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white transition-all">2026 最新</button>
                 </div>
             </div>
 
-            <hr class="border-slate-800">
-
-            <!-- 篩選群組 -->
-            <div class="space-y-4">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-calendar-days text-cyan-500"></i> 年份篩選 (Year)
+            <!-- 篩選控制項 -->
+            <div class="space-y-3.5">
+                <!-- 關鍵字搜尋 -->
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span><i class="fa-solid fa-magnifying-glass text-cyan-400 mr-1.5"></i>氣旋搜尋</span>
+                        <span id="searchClearBtn" class="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer hidden">清除</span>
                     </label>
-                    <select id="yearFilter" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all">
-                        <option value="">全部年份 All</option>
-                        <option value="2021">2021</option>
-                        <option value="2022">2022</option>
-                        <option value="2023">2023</option>
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
+                    <div class="relative">
+                        <input id="nameFilter" type="text" placeholder="輸入名稱或編號：風神, 2524..." class="w-full pl-3.5 pr-8 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-100 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/80 focus:border-cyan-500 transition-all placeholder:text-slate-600">
+                        <i class="fa-solid fa-font text-slate-600 absolute right-3 top-2.5 text-xs"></i>
+                    </div>
+                </div>
+
+                <!-- 年份篩選 -->
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-calendar-days text-cyan-400"></i> 年份 (Year)
+                    </label>
+                    <select id="yearFilter" class="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/80 transition-all">
+                        <option value="">全部年份 All Years</option>
+                        <option value="2026">2026 年</option>
+                        <option value="2025">2025 年</option>
+                        <option value="2024">2024 年</option>
+                        <option value="2023">2023 年</option>
+                        <option value="2022">2022 年</option>
+                        <option value="2021">2021 年</option>
                     </select>
                 </div>
 
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-magnifying-glass text-cyan-500"></i> 氣旋名稱搜尋 (TC Name)
+                <!-- 最高警報等級 -->
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halved text-cyan-400"></i> 最高警報等級 (Max Level)
                     </label>
-                    <input id="nameFilter" placeholder="輸入名稱：風神、鳳凰..." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all placeholder:text-slate-600">
-                </div>
-
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-                        <i class="fa-solid fa-shield-halved text-cyan-500"></i> 最高警報等級 (Max Alert)
-                    </label>
-                    <select id="levelFilter" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all">
-                        <option value="">全部 All</option>
+                    <select id="levelFilter" class="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/80 transition-all">
+                        <option value="">全部等級 All Levels</option>
                         <option value="注意警報">注意警報</option>
                         <option value="戒備警報">戒備警報</option>
                         <option value="強風警報">強風警報</option>
-                        <option value="烈風警報">烈風警報</option>
-                        <option value="暴風警報">暴風警報</option>
-                        <option value="颶風警報">颶風警報</option>
+                        <option value="烈風警報">烈風警報 (8號)</option>
+                        <option value="暴風警報">暴風警報 (9號)</option>
+                        <option value="颶風警報">颶風警報 (10號)</option>
+                    </select>
+                </div>
+
+                <!-- 排序方式 -->
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-down-wide-short text-cyan-400"></i> 排序方式 (Sort By)
+                    </label>
+                    <select id="sortOrder" class="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/80 transition-all">
+                        <option value="year-desc">年份由新至舊 (Newest First)</option>
+                        <option value="year-asc">年份由舊至新 (Oldest First)</option>
+                        <option value="level-desc">警報強度 (最高至最低)</option>
+                        <option value="alerts-desc">發放次數 (最多至最少)</option>
                     </select>
                 </div>
             </div>
 
             <!-- 圖例說明 -->
-            <div class="pt-4 border-t border-slate-800/80 space-y-3">
-                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">警報等級色標 Legend</h3>
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#5b635d"></span>
-                        <span class="text-slate-300">注意警報</span>
+            <div class="pt-3 border-t border-slate-800/80 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">警報圖例 Legend</h3>
+                    <button id="resetFilterBtn" class="text-[11px] text-cyan-400 hover:underline">重置所有條件</button>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#5b635d"></span>
+                        <span class="text-slate-300 truncate">注意警報</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#218d34"></span>
-                        <span class="text-slate-300">戒備警報</span>
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#218d34"></span>
+                        <span class="text-slate-300 truncate">戒備警報</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#157ba4"></span>
-                        <span class="text-slate-300">強風警報</span>
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#157ba4"></span>
+                        <span class="text-slate-300 truncate">強風警報</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#fbf205"></span>
-                        <span class="text-slate-300">烈風預警</span>
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#fbf205"></span>
+                        <span class="text-slate-300 truncate">烈風預警</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#d6990a"></span>
-                        <span class="text-slate-300">烈風警報</span>
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#d6990a"></span>
+                        <span class="text-slate-300 truncate">烈風警報</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#d76400"></span>
-                        <span class="text-slate-300">暴風警報</span>
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#d76400"></span>
+                        <span class="text-slate-300 truncate">暴風警報</span>
                     </div>
-                    <div class="flex items-center gap-2 col-span-2">
-                        <span class="w-3 h-3 rounded-md shrink-0" style="background:#d41111"></span>
-                        <span class="text-slate-300">颶風警報</span>
+                    <div class="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/50 col-span-2">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:#d41111"></span>
+                        <span class="text-slate-300 truncate">颶風警報 (10號)</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 text-center">
-            澳門民間氣象台 MSSO &copy; 2026
+        <div class="mt-6 pt-3 border-t border-slate-800/80 text-[10px] text-slate-500 text-center flex flex-col gap-1">
+            <span>澳門民間氣象台 MSSO &copy; 2026</span>
+            <span class="text-slate-600">熱帶氣旋警報歷程分析系統</span>
         </div>
     </aside>
 
     <!-- 主儀表板區域 -->
-    <main class="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+    <main class="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-6">
         
-        <!-- 統計數據橫條 -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
-                <div class="text-xs font-semibold text-slate-400">記錄總數 Total TC</div>
-                <div class="text-2xl md:text-3xl font-extrabold font-mono text-white mt-2" id="totalTC">0</div>
+        <!-- 工具與操作欄 -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 glass-panel p-4 rounded-2xl border border-slate-800">
+            <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                    <span>歷史紀錄數據統計</span>
+                    <span id="activeFilterBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-normal">顯示全部</span>
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">即時統計與熱帶氣旋數據分析</p>
             </div>
-            <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
-                <div class="text-xs font-semibold text-slate-400">當前篩選數 Filtered</div>
-                <div class="text-2xl md:text-3xl font-extrabold font-mono text-cyan-400 mt-2" id="filteredTC">0</div>
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <button id="toggleExpandAll" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    <span id="expandAllText">全部展開</span>
+                </button>
+                <button id="exportCsvBtn" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-file-csv text-sm"></i>
+                    <span>匯出 CSV</span>
+                </button>
+                <button id="openStatsModal" class="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-chart-pie text-sm"></i>
+                    <span>統計分析</span>
+                </button>
             </div>
-            <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
-                <div class="text-xs font-semibold text-slate-400">烈風及以上個案</div>
-                <div class="text-2xl md:text-3xl font-extrabold font-mono text-amber-400 mt-2" id="galeCount">0</div>
+        </div>
+
+        <!-- 統計數據卡片 -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            <div class="glass-panel rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
+                <div class="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                    <span>紀錄總數 Total</span>
+                    <i class="fa-solid fa-folder-open text-slate-600 text-xs"></i>
+                </div>
+                <div class="text-2xl md:text-3xl font-black font-mono text-white mt-1.5" id="totalTC">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">資料庫熱帶氣旋總個案</div>
             </div>
-            <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-4 shadow-lg flex flex-col justify-between">
-                <div class="text-xs font-semibold text-slate-400">最高為颶風個案</div>
-                <div class="text-2xl md:text-3xl font-extrabold font-mono text-rose-500 mt-2" id="hurricaneCount">0</div>
+
+            <div class="glass-panel rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
+                <div class="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                    <span>當前篩選 Filtered</span>
+                    <i class="fa-solid fa-filter text-cyan-500 text-xs"></i>
+                </div>
+                <div class="text-2xl md:text-3xl font-black font-mono text-cyan-400 mt-1.5" id="filteredTC">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">符合篩選條件的筆數</div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
+                <div class="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                    <span>烈風及以上 (8號+)</span>
+                    <i class="fa-solid fa-wind text-amber-400 text-xs"></i>
+                </div>
+                <div class="text-2xl md:text-3xl font-black font-mono text-amber-400 mt-1.5" id="galeCount">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">發出8號或以上警報個案</div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 shadow-lg hover:border-slate-700 transition-all">
+                <div class="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                    <span>颶風個案 (10號)</span>
+                    <i class="fa-solid fa-skull-crossbones text-rose-500 text-xs"></i>
+                </div>
+                <div class="text-2xl md:text-3xl font-black font-mono text-rose-500 mt-1.5" id="hurricaneCount">0</div>
+                <div class="text-[10px] text-slate-500 mt-1">極端颱風最高颶風個案</div>
             </div>
         </div>
 
         <!-- 氣旋清單容器 -->
-        <div class="tc-container space-y-4" id="tcList"></div>
+        <div class="space-y-4" id="tcList"></div>
 
     </main>
 
-    <!-- 邏輯腳本維持原樣 -->
+    <!-- 統計圖表彈窗 Modal -->
+    <div id="statsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md hidden transition-opacity">
+        <div class="glass-panel max-w-lg w-full rounded-2xl p-6 border border-slate-700 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-cyan-400"></i> 熱帶氣旋警報等級分佈統計
+                </h3>
+                <button id="closeStatsModal" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="statsBreakdown" class="space-y-3">
+                <!-- 動態注入統計條 -->
+            </div>
+            <div class="pt-3 border-t border-slate-800 text-right">
+                <button id="closeStatsModalBtn" class="px-4 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">關閉 Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 邏輯腳本 -->
     <script>
         const levelRank = {
             "注意警報": 1,
@@ -172,11 +318,12 @@
             "烈風預警警報": 4,
             "東北烈風警報": 5,
             "東南烈風警報": 5,
-            "西北烈風警報":5,
+            "西北烈風警報": 5,
             "西南烈風警報": 5,
             "暴風警報": 6,
             "颶風警報": 7
         };
+
         const groupMap = {
             "注意警報": "注意警報",
             "戒備警報": "戒備警報",
@@ -189,13 +336,25 @@
             "暴風警報": "暴風警報",
             "颶風警報": "颶風警報"
         };
+
         const badgeClassMap = {
-            "注意警報": "bg-[#5b635d]/20 text-[#5b635d] border border-[#5b635d]/40",
-            "戒備警報": "bg-[#218d34]/20 text-emerald-400 border border-[#218d34]/40",
-            "強風警報": "bg-[#157ba4]/20 text-sky-400 border border-[#157ba4]/40",
-            "烈風警報": "bg-[#d6990a]/20 text-amber-400 border border-[#d6990a]/40",
-            "暴風警報": "bg-[#d76400]/20 text-orange-400 border border-[#d76400]/40",
-            "颶風警報": "bg-[#d41111]/20 text-rose-400 border border-[#d41111]/40"
+            "注意警報": "bg-[#5b635d]/20 text-[#949c96] border border-[#5b635d]/50",
+            "戒備警報": "bg-[#218d34]/20 text-emerald-400 border border-[#218d34]/50",
+            "強風警報": "bg-[#157ba4]/20 text-sky-400 border border-[#157ba4]/50",
+            "烈風預警警報": "bg-[#fbf205]/20 text-yellow-300 border border-[#fbf205]/50",
+            "烈風警報": "bg-[#d6990a]/20 text-amber-400 border border-[#d6990a]/50",
+            "暴風警報": "bg-[#d76400]/20 text-orange-400 border border-[#d76400]/50",
+            "颶風警報": "bg-[#d41111]/20 text-rose-400 border border-[#d41111]/50 shadow-red-900/30 shadow-lg"
+        };
+
+        const dotColorMap = {
+            "注意警報": "#5b635d",
+            "戒備警報": "#218d34",
+            "強風警報": "#157ba4",
+            "烈風預警警報": "#fbf205",
+            "烈風警報": "#d6990a",
+            "暴風警報": "#d76400",
+            "颶風警報": "#d41111"
         };
 
         const rawData = [
@@ -580,21 +739,71 @@
             }
         ];
 
-        function enrichTC(tc) {
+        // 計算時間差 helper
+        function parseDateTime(year, str) {
+            const m = str.match(/(\d{2})月(\d{2})日\s+(\d{2}):(\d{2})/);
+            if(!m) return null;
+            return new Date(year, parseInt(m[1]) - 1, parseInt(m[2]), parseInt(m[3]), parseInt(m[4]));
+        }
+
+        function calculateDuration(year, startStr, endStr) {
+            const d1 = parseDateTime(year, startStr);
+            let d2 = parseDateTime(year, endStr);
+            if(!d1 || !d2) return { hours: 0, mins: 0, text: '-' };
+            if(d2 < d1) { // 跨年或跨月極端情況
+                d2 = new Date(d2.setFullYear(year + 1));
+            }
+            const diffMs = d2 - d1;
+            const totalMins = Math.floor(diffMs / (1000 * 60));
+            const hours = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            return {
+                hours,
+                mins,
+                totalMins,
+                text: `${hours}h ${mins > 0 ? `${mins}m` : ''}`
+            };
+        }
+
+        let allExpanded = false;
+
+        function enrichTC(tc, index) {
             let maxRank = 0;
             let maxType = "";
-            tc.alerts.forEach(a => {
-                const r = levelRank[a.type];
+            let calculatedTotalMins = 0;
+
+            tc.id = `tc-card-${index}`;
+            tc.alerts = tc.alerts.map(a => {
+                const dur = calculateDuration(tc.year, a.start, a.end);
+                calculatedTotalMins += dur.totalMins;
+                const r = levelRank[a.type] || 0;
                 if(r > maxRank) {
                     maxRank = r;
                     maxType = a.type;
                 }
+                return {
+                    ...a,
+                    durationText: dur.text,
+                    durationMins: dur.totalMins
+                };
             });
+
+            tc.maxRank = maxRank;
             tc.maxRaw = maxType;
-            tc.maxGroup = groupMap[maxType];
+            tc.maxGroup = groupMap[maxType] || maxType;
+
+            if(!tc.totalH || tc.totalH === "") {
+                const h = Math.floor(calculatedTotalMins / 60);
+                const m = calculatedTotalMins % 60;
+                tc.calculatedTotalH = `${h}h ${m > 0 ? `${m}m` : '00m'}`;
+            } else {
+                tc.calculatedTotalH = tc.totalH;
+            }
+
             return tc;
         }
-        const dataset = rawData.map(enrichTC);
+
+        const dataset = rawData.map((tc, idx) => enrichTC(tc, idx));
 
         function renderStats(list) {
             document.getElementById("totalTC").textContent = dataset.length;
@@ -602,6 +811,7 @@
 
             let hurricane = 0;
             let galeOrAbove = 0;
+
             list.forEach(tc => {
                 if (!tc?.maxGroup) return;
                 if(tc.maxGroup === "颶風警報") hurricane++;
@@ -618,8 +828,9 @@
             const yearVal = document.getElementById("yearFilter").value;
             const nameVal = document.getElementById("nameFilter").value.trim().toLowerCase();
             const levelVal = document.getElementById("levelFilter").value;
+            const sortVal = document.getElementById("sortOrder").value;
 
-            return dataset.filter(tc => {
+            let filtered = dataset.filter(tc => {
                 if(yearVal && String(tc.year) !== yearVal) return false;
                 if(nameVal && !tc.name.toLowerCase().includes(nameVal)) return false;
                 if(levelVal) {
@@ -629,6 +840,17 @@
                 }
                 return true;
             });
+
+            // 排序邏輯
+            filtered.sort((a, b) => {
+                if(sortVal === "year-desc") return b.year - a.year || b.maxRank - a.maxRank;
+                if(sortVal === "year-asc") return a.year - b.year || b.maxRank - a.maxRank;
+                if(sortVal === "level-desc") return b.maxRank - a.maxRank || b.year - a.year;
+                if(sortVal === "alerts-desc") return b.alerts.length - a.alerts.length || b.year - a.year;
+                return 0;
+            });
+
+            return filtered;
         }
 
         function renderList() {
@@ -638,9 +860,10 @@
 
             if(filtered.length === 0) {
                 container.innerHTML = `
-                    <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-16 text-center text-slate-400">
-                        <i class="fa-solid fa-face-sad-tear text-4xl mb-3 text-slate-600"></i>
-                        <p class="text-sm">沒有符合篩選條件的熱帶氣旋記錄</p>
+                    <div class="glass-panel rounded-2xl p-12 text-center text-slate-400 border border-slate-800">
+                        <i class="fa-solid fa-wind text-4xl mb-3 text-slate-600 animate-pulse"></i>
+                        <h3 class="text-base font-bold text-slate-300">未找到符合條件的熱帶氣旋記錄</h3>
+                        <p class="text-xs text-slate-500 mt-1">請嘗試縮小搜尋條件或點擊「重置所有條件」</p>
                     </div>
                 `;
                 return;
@@ -649,34 +872,77 @@
             let html = "";
             filtered.forEach(tc => {
                 const badgeCls = badgeClassMap[tc.maxGroup] || "bg-slate-800 text-slate-300";
+                
+                // 警報發放管線/時序圖示
+                let pipelineDots = "";
+                tc.alerts.forEach(a => {
+                    const color = dotColorMap[groupMap[a.type] || a.type] || "#64748b";
+                    pipelineDots += `
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-900/80 border border-slate-700/60" style="color:${color}">
+                            <span class="w-1.5 h-1.5 rounded-full" style="background:${color}"></span>
+                            ${a.type}
+                        </span>
+                    `;
+                });
+
                 let alertRows = "";
-                tc.alerts.forEach(alert => {
+                tc.alerts.forEach((alert, i) => {
                     const rowCls = `lv-${alert.type}`;
                     alertRows += `
-                    <div class="p-3 rounded-xl ${rowCls} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs md:text-sm font-mono transition-all">
-                        <span class="font-bold text-slate-200">${alert.type}</span>
-                        <span class="text-slate-400"><i class="fa-regular fa-clock mr-1.5 text-cyan-500"></i>${alert.start} ～ ${alert.end}</span>
+                    <div class="p-3 rounded-xl ${rowCls} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs font-mono transition-all hover:bg-slate-800/40">
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-500 text-[10px] w-4">#${i+1}</span>
+                            <span class="font-bold text-slate-100">${alert.type}</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3 text-slate-300 text-[11px] sm:text-xs">
+                            <span><i class="fa-regular fa-clock mr-1 text-cyan-400"></i>${alert.start} ～ ${alert.end}</span>
+                            <span class="px-2 py-0.5 rounded bg-slate-900/60 text-cyan-300 border border-slate-700/50 text-[10px] font-semibold">${alert.durationText}</span>
+                        </div>
                     </div>
                     `;
                 });
 
                 html += `
-                <div class="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 rounded-2xl overflow-hidden shadow-lg hover:border-slate-700 transition-all">
-                    <div class="p-5 border-b border-slate-800/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                        <div>
-                            <h2 class="text-base md:text-lg font-bold text-white flex items-center gap-2">
-                                <i class="fa-solid fa-wind text-cyan-400 text-sm"></i> ${tc.name}
-                            </h2>
-                            <p class="text-xs text-slate-400 mt-1 flex items-center gap-3">
-                                <span><i class="fa-regular fa-calendar mr-1"></i>年份：${tc.year}</span>
-                                ${tc.totalH ? `<span><i class="fa-solid fa-hourglass-half mr-1"></i>總時長：${tc.totalH}</span>` : ''}
-                            </p>
+                <div class="glass-panel rounded-2xl overflow-hidden shadow-xl border border-slate-800 hover:border-slate-700 transition-all duration-200">
+                    <!-- 卡片頂部 -->
+                    <div class="p-4 sm:p-5 border-b border-slate-800/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-slate-900/40">
+                        <div class="space-y-1.5">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h2 class="text-base sm:text-lg font-black text-white tracking-wide flex items-center gap-2">
+                                    <i class="fa-solid fa-hurricane text-cyan-400 text-sm"></i> ${tc.name}
+                                </h2>
+                                <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold ${badgeCls}">
+                                    最高：${tc.maxGroup}
+                                </span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-4 text-xs text-slate-400 font-mono">
+                                <span><i class="fa-regular fa-calendar-check mr-1 text-cyan-500"></i>年份：${tc.year}</span>
+                                <span><i class="fa-solid fa-hourglass-half mr-1 text-cyan-500"></i>總約時長：<strong class="text-slate-200">${tc.calculatedTotalH}</strong></span>
+                                <span><i class="fa-solid fa-list-ol mr-1 text-cyan-500"></i>發放次數：${tc.alerts.length} 次</span>
+                            </div>
                         </div>
-                        <span class="px-3 py-1.5 rounded-xl text-xs font-bold ${badgeCls} shadow-sm">
-                            最高：${tc.maxGroup}
-                        </span>
+
+                        <!-- 卡片右上操作按鈕 -->
+                        <div class="flex items-center gap-2 self-end md:self-center">
+                            <button onclick="copyTCDetails('${tc.name}', ${tc.year})" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs transition-all flex items-center gap-1" title="複製紀錄">
+                                <i class="fa-regular fa-copy"></i>
+                                <span class="hidden sm:inline">複製</span>
+                            </button>
+                            <button onclick="toggleCard('${tc.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs transition-all flex items-center gap-1">
+                                <span id="toggle-text-${tc.id}">展開細節</span>
+                                <i id="toggle-icon-${tc.id}" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="p-4 space-y-2.5 bg-slate-950/30">
+
+                    <!-- 警報快捷進程管線條 -->
+                    <div class="px-4 py-2 bg-slate-950/60 border-b border-slate-800/60 flex flex-wrap gap-1.5 items-center">
+                        <span class="text-[10px] text-slate-500 font-semibold mr-1">發放歷程:</span>
+                        ${pipelineDots}
+                    </div>
+
+                    <!-- 警報明細卡片主體 -->
+                    <div id="${tc.id}" class="p-4 space-y-2 bg-slate-950/40 ${allExpanded ? '' : 'hidden'}">
                         ${alertRows}
                     </div>
                 </div>
@@ -685,11 +951,188 @@
             container.innerHTML = html;
         }
 
-        document.getElementById("yearFilter").addEventListener("change", renderList);
-        document.getElementById("nameFilter").addEventListener("input", renderList);
-        document.getElementById("levelFilter").addEventListener("change", renderList);
+        // 切換單個卡片展開/折疊
+        function toggleCard(cardId) {
+            const el = document.getElementById(cardId);
+            const icon = document.getElementById(`toggle-icon-${cardId}`);
+            const text = document.getElementById(`toggle-text-${cardId}`);
 
-        window.addEventListener("DOMContentLoaded", renderList);
-    </script>
-</body>
-</html>
+            if(el.classList.contains("hidden")) {
+                el.classList.remove("hidden");
+                icon.style.transform = "rotate(180deg)";
+                text.textContent = "收起細節";
+            } else {
+                el.classList.add("hidden");
+                icon.style.transform = "rotate(0deg)";
+                text.textContent = "展開細節";
+            }
+        }
+
+        // 複製歷程文字
+        function copyTCDetails(name, year) {
+            const tc = dataset.find(item => item.name === name && item.year === year);
+            if(!tc) return;
+
+            let text = `【${tc.year}】${tc.name} 熱帶氣旋警報歷程：\n最高警報：${tc.maxGroup}\n總時長：${tc.calculatedTotalH}\n------------------\n`;
+            tc.alerts.forEach((a, i) => {
+                text += `${i+1}. [${a.type}] ${a.start} ～ ${a.end} (${a.durationText})\n`;
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert(`已複製「${tc.name}」的熱帶氣旋警報記錄至剪貼簿！`);
+            });
+        }
+
+        // 匯出 CSV 檔案
+        function exportToCSV() {
+            const filtered = getFilteredList();
+            let csvContent = "\uFEFF年份,熱帶氣旋名稱,最高警報,警報類型,開始時間,結束時間,時長\n";
+
+            filtered.forEach(tc => {
+                tc.alerts.forEach(a => {
+                    csvContent += `"${tc.year}","${tc.name}","${tc.maxGroup}","${a.type}","${a.start}","${a.end}","${a.durationText}"\n`;
+                });
+            });
+
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `TC_Alert_Records_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 顯示統計 Analytics Modal
+        function showStatsModal() {
+            const counts = {};
+            dataset.forEach(tc => {
+                tc.alerts.forEach(a => {
+                    const grp = groupMap[a.type] || a.type;
+                    counts[grp] = (counts[grp] || 0) + 1;
+                });
+            });
+
+            const totalAlerts = Object.values(counts).reduce((a,b)=>a+b, 0);
+            const breakdownEl = document.getElementById("statsBreakdown");
+            let html = "";
+
+            const targetLevels = ["注意警報", "戒備警報", "強風警報", "烈風預警警報", "烈風警報", "暴風警報", "颶風警報"];
+
+            targetLevels.forEach(lvl => {
+                const count = counts[lvl] || 0;
+                const percent = totalAlerts > 0 ? ((count / totalAlerts) * 100).toFixed(1) : 0;
+                const color = dotColorMap[lvl] || "#3b82f6";
+
+                html += `
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full" style="background:${color}"></span>
+                                ${lvl}
+                            </span>
+                            <span class="font-mono text-slate-400">${count} 次 (${percent}%)</span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-slate-950 border border-slate-800 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-500" style="width: ${percent}%; background: ${color}"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            breakdownEl.innerHTML = html;
+            document.getElementById("statsModal").classList.remove("hidden");
+        }
+
+        // 事件監聽綁定
+        document.getElementById("yearFilter").addEventListener("change", renderList);
+        document.getElementById("nameFilter").addEventListener("input", (e) => {
+            document.getElementById("searchClearBtn").classList.toggle("hidden", !e.target.value);
+            renderList();
+        });
+        document.getElementById("searchClearBtn").addEventListener("click", () => {
+            const input = document.getElementById("nameFilter");
+            input.value = "";
+            document.getElementById("searchClearBtn").classList.add("hidden");
+            renderList();
+        });
+        document.getElementById("levelFilter").addEventListener("change", renderList);
+        document.getElementById("sortOrder").addEventListener("change", renderList);
+
+        // 快捷 Chips 點擊
+        document.querySelectorAll(".chip-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                document.querySelectorAll(".chip-btn").forEach(b => {
+                    b.classList.remove("active", "bg-cyan-500/20", "text-cyan-300", "border-cyan-500/40");
+                    b.classList.add("bg-slate-800/80", "text-slate-300", "border-slate-700");
+                });
+                
+                const target = e.currentTarget;
+                target.classList.add("active", "bg-cyan-500/20", "text-cyan-300", "border-cyan-500/40");
+
+                const chip = target.getAttribute("data-chip");
+                const levelSelect = document.getElementById("levelFilter");
+                const yearSelect = document.getElementById("yearFilter");
+                const badge = document.getElementById("activeFilterBadge");
+
+                if(chip === "all") {
+                    levelSelect.value = "";
+                    yearSelect.value = "";
+                    badge.textContent = "顯示全部";
+                } else if(chip === "gale") {
+                    levelSelect.value = "烈風警報";
+                    yearSelect.value = "";
+                    badge.textContent = "烈風(8號)+";
+                } else if(chip === "hurricane") {
+                    levelSelect.value = "颶風警報";
+                    yearSelect.value = "";
+                    badge.textContent = "颶風(10號)";
+                } else if(chip === "2026") {
+                    levelSelect.value = "";
+                    yearSelect.value = "2026";
+                    badge.textContent = "2026年最新";
+                }
+                renderList();
+            });
+        });
+
+        // 重置篩選
+        document.getElementById("resetFilterBtn").addEventListener("click", () => {
+            document.getElementById("yearFilter").value = "";
+            document.getElementById("nameFilter").value = "";
+            document.getElementById("levelFilter").value = "";
+            document.getElementById("sortOrder").value = "year-desc";
+            document.getElementById("searchClearBtn").classList.add("hidden");
+            
+            document.querySelectorAll(".chip-btn").forEach(b => {
+                b.classList.remove("active", "bg-cyan-500/20", "text-cyan-300", "border-cyan-500/40");
+                b.classList.add("bg-slate-800/80", "text-slate-300", "border-slate-700");
+            });
+            document.querySelector('[data-chip="all"]').classList.add("active", "bg-cyan-500/20", "text-cyan-300", "border-cyan-500/40");
+
+            renderList();
+        });
+
+        // 全部展開 / 全部折疊
+        document.getElementById("toggleExpandAll").addEventListener("click", () => {
+            allExpanded = !allExpanded;
+            document.getElementById("expandAllText").textContent = allExpanded ? "全部收起" : "全部展開";
+            renderList();
+        });
+
+        // CSV 匯出點擊
+        document.getElementById("exportCsvBtn").addEventListener("click", exportToCSV);
+
+        // 統計 Modal 開關
+        document.getElementById("openStatsModal").addEventListener("click", showStatsModal);
+        document.getElementById("closeStatsModal").addEventListener("click", () => {
+            document.getElementById("statsModal").classList.add("hidden");
+        });
+        document.getElementById("closeStatsModalBtn").addEventListener("click", () => {
+            document.getElementById("statsModal").classList.add("hidden");
+        });
+
+        // 移動端選單手勢開關
+        const sidebar = document.getElementById("sidebar");
+        document.getElementById("toggleMobileMenu").addEventListener("click", () => {
+            sidebar.
