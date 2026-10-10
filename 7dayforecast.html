@@ -13,6 +13,8 @@
     </script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for PNG Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,7 +98,7 @@
         html.dark .icon-btn .ic-moon { display:none; }
         html.dark .icon-btn .ic-sun { display:inline; color:var(--accent); }
 
-        .btn { display:inline-flex; align-items:center; gap:6px; border-radius:0; font-size:12px; font-weight:600; padding:7px 12px; border:1px solid var(--line-strong); transition:.15s; text-decoration:none; }
+        .btn { display:inline-flex; align-items:center; gap:6px; border-radius:0; font-size:12px; font-weight:600; padding:7px 12px; border:1px solid var(--line-strong); transition:.15s; text-decoration:none; cursor:pointer; }
         .btn-primary { background:var(--cream); color:var(--cream-text); border-color:var(--cream); }
         .btn-primary:hover { filter:brightness(.94); }
         .btn-ghost { background:var(--bg-2); color:var(--muted); }
@@ -212,12 +214,18 @@
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
             <!-- 7天天氣預報 (橫向滾動) -->
-            <section class="panel animate-view-fade">
+            <section id="forecast-section" class="panel animate-view-fade">
                 <div class="panel-head">
                     <h2 class="panel-title"><span class="panel-num">01</span> / 7天天氣預報與詳細狀況</h2>
-                    <a href="https://macaosso.github.io/MSSO/symbol.html" target="_blank" class="btn btn-ghost btn-xs">
-                        天氣符號說明 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                    </a>
+                    <div class="flex items-center gap-2">
+                        <!-- 儲存 PNG 按鈕 -->
+                        <button id="btn-save-png" onclick="downloadForecastPNG()" class="btn btn-ghost btn-xs">
+                            <i class="fa-solid fa-image"></i> 儲存圖片
+                        </button>
+                        <a href="https://macaosso.github.io/MSSO/symbol.html" target="_blank" class="btn btn-ghost btn-xs">
+                            天氣符號說明 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                    </div>
                 </div>
                 <div class="panel-body">
                     <!-- 橫向滾動容器 -->
@@ -1235,6 +1243,51 @@
             speedTable.innerHTML = speedHeaderHtml + speedBodyHtml;
             speedWrapper.appendChild(speedTable);
             container.appendChild(speedWrapper);
+        }
+
+        async function downloadForecastPNG() {
+            const targetSection = document.getElementById('forecast-section');
+            const dailyContainer = document.getElementById('daily-container');
+            const saveBtn = document.getElementById('btn-save-png');
+
+            if (!targetSection) return;
+
+            // Temporarily update button state
+            const originalBtnHtml = saveBtn.innerHTML;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 處理中...`;
+            saveBtn.disabled = true;
+
+            // Temporarily disable overflow so all 7 days render in full width without scrollbar clipping
+            const originalOverflow = dailyContainer.style.overflow;
+            dailyContainer.style.overflow = 'visible';
+
+            try {
+                // Read current theme background color dynamically
+                const bgColor = getComputedStyle(document.body).backgroundColor;
+
+                const canvas = await html2canvas(targetSection, {
+                    scale: 2, // High DPI resolution output
+                    useCORS: true, // Allow cross-origin images (icons/fonts)
+                    backgroundColor: bgColor,
+                    ignoreElements: (element) => element.id === 'btn-save-png' // Exclude the download button from image
+                });
+
+                // Trigger file download
+                const link = document.createElement('a');
+                const now = new Date();
+                const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+                link.download = `MSSO_7Day_Forecast_${dateStr}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch (err) {
+                console.error("生成圖片失敗:", err);
+                alert("圖片匯出失敗，請重試。");
+            } finally {
+                // Restore original styles and button status
+                dailyContainer.style.overflow = originalOverflow;
+                saveBtn.innerHTML = originalBtnHtml;
+                saveBtn.disabled = false;
+            }
         }
 
         fetchWeatherData();
