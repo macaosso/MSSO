@@ -410,6 +410,9 @@
     </nav>
 
     <script>
+        let myChart = null;
+        let largeChart = null; // 獨立管理風速圖表實例
+
         function updateClock() {
             const now = new Date();
             const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -808,7 +811,6 @@
         let typhoons = {};
         let currentStormKey = 'all';
         let currentSelectedYear = 'current';
-        let myChart = null;
         let mapLoaded = false;
         let activeIntensityFilter = 'all';
         let currentView = 'map'; // 'map', 'stats', 'tables'
@@ -1249,6 +1251,10 @@
                 return;
             }
 
+            // 若已有地圖實例則銷毀
+            if (myChart) {
+                myChart.dispose();
+            }
             myChart = echarts.init(chartDom);
 
             myChart.showLoading(loadingOpts('載入 v4.2.3 GIS 向量圖資與氣旋檔案...'));
@@ -1294,7 +1300,8 @@
             }
 
             window.addEventListener('resize', () => {
-                myChart.resize();
+                if (myChart) myChart.resize();
+                if (largeChart) largeChart.resize();
             });
         }
 
@@ -1595,14 +1602,17 @@
 
                 const keys = Object.keys(typhoons);
                 if (keys.length === 0 || currentStormKey === 'all') {
+                    // 若有現存實例，銷毀後再改寫 innerHTML
+                    if (largeChart) {
+                        largeChart.dispose();
+                        largeChart = null;
+                    }
                     chartDom.innerHTML = `
                         <div class="w-full h-full flex flex-col items-center justify-center py-24 text-center space-y-3">
                             <i class="fa-solid fa-triangle-exclamation text-2xl accent"></i>
                             <div class="text-sm font-bold" style="color:var(--text);">請先在左側檔案庫選擇一個特定的熱帶氣旋</div>
                             <div class="text-xs mut">選擇後即可在此頁面檢視該氣旋的詳細風速變化歷史圖表</div>
                         </div>`;
-                    let existingInstance = echarts.getInstanceByDom(chartDom);
-                    if (existingInstance) existingInstance.clear();
                     return;
                 }
 
@@ -1673,8 +1683,15 @@
                 const axisColor = isDark ? '#93a0a6' : '#5c6663';
                 const titleColor = isDark ? '#e6e9e9' : '#1a1e20';
                 const splitColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
-                let chartInstance = echarts.getInstanceByDom(chartDom) || echarts.init(chartDom);
-                chartInstance.setOption({
+
+                // 避免內部 removeChild 錯誤：如該 DOM 被非 ECharts 行為改動過，處置實例
+                if (!largeChart || echarts.getInstanceByDom(chartDom) !== largeChart) {
+                    if (largeChart) largeChart.dispose();
+                    chartDom.innerHTML = ''; // 確保容器潔淨
+                    largeChart = echarts.init(chartDom);
+                }
+
+                largeChart.setOption({
                     title: {
                         text: `${storm.name} - 中心最大風速變化與預報圖表`,
                         left: 'center',
@@ -1764,7 +1781,7 @@
                         }
                     }
                 }, true);
-                chartInstance.resize();
+                largeChart.resize();
             }, 50);
         }
 
@@ -2312,4 +2329,3 @@
     </script>
 </body>
 </html>
-```[cite: 3]
