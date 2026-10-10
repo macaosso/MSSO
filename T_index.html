@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>T值強度換算工具 - 澳門民間氣象台 MSSO</title>
+    <title>T值與強度雙向換算工具 - 澳門民間氣象台 MSSO</title>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -100,7 +100,7 @@
         .ic-moon { display:inline; } .ic-sun { display:none; }
         html.dark .ic-moon { display:none; } html.dark .ic-sun { display:inline; }
 
-        /* ============ Chips (Preset buttons) ============ */
+        /* ============ Chips & Mode Tabs ============ */
         .chip {
             padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
             border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted); transition:.15s;
@@ -108,6 +108,14 @@
         .chip:hover { color:var(--text); border-color:var(--faint); }
         .chip-active { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
         .chip-active:hover { color:var(--cream-text); border-color:var(--accent); }
+
+        .mode-tab {
+            padding:8px 16px; font-size:12px; font-weight:800; cursor:pointer;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted); transition:.15s;
+            display:flex; align-items:center; gap:8px;
+        }
+        .mode-tab:hover { color:var(--text); border-color:var(--faint); }
+        .mode-tab-active { background:var(--cream); color:var(--cream-text); border-color:var(--cream); }
 
         /* ============ Badges & tags ============ */
         .badge {
@@ -126,7 +134,7 @@
         /* ============ Form Controls & Range ============ */
         .num-input {
             background:var(--bg-2); border:1px solid var(--line-strong); color:var(--text);
-            font-weight:700; text-align:center; padding:4px 8px; font-size:14px;
+            font-weight:700; text-align:center; padding:6px 10px; font-size:14px;
         }
         .num-input:focus { outline:none; border-color:var(--accent); }
 
@@ -138,14 +146,14 @@
             width:100%; height:6px; cursor:pointer; background:var(--line-strong); border-radius:0px;
         }
         input[type=range]::-webkit-slider-thumb {
-            height:16px; width:16px; background:var(--accent); cursor:pointer;
-            -webkit-appearance:none; margin-top:-5px; border:none;
+            height:18px; width:18px; background:var(--accent); cursor:pointer;
+            -webkit-appearance:none; margin-top:-6px; border:none;
         }
         input[type=range]::-moz-range-track {
             width:100%; height:6px; cursor:pointer; background:var(--line-strong); border-radius:0px;
         }
         input[type=range]::-moz-range-thumb {
-            height:16px; width:16px; background:var(--accent); cursor:pointer; border:none;
+            height:18px; width:18px; background:var(--accent); cursor:pointer; border:none;
         }
 
         /* ===== 底部導航 ===== */
@@ -198,8 +206,8 @@
                 </div>
                 <div>
                     <h1 class="text-lg md:text-2xl font-extrabold tracking-tight flex items-center gap-2 flex-wrap">
-                        Dvorak T值風速換算工具
-                        <span class="badge b-sky">v1.1.0</span>
+                        Dvorak T值雙向風速換算工具
+                        <span class="badge b-sky">v1.2.0</span>
                     </h1>
                     <div class="mt-1.5 space-y-0.5">
                         <div id="current-datetime" class="num text-xs md:text-sm font-bold accent">載入中...</div>
@@ -216,27 +224,44 @@
             </div>
         </header>
 
+        <!-- 模式選擇列 (Mode Switcher) -->
+        <div class="panel p-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="micro">換算模式：</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <button id="btnModeT2Wind" onclick="switchCalcMode('t2wind')" class="mode-tab mode-tab-active">
+                        <i class="fa-solid fa-arrow-right-long accent"></i> T號碼 ➔ 風速/強度
+                    </button>
+                    <button id="btnModeWind2T" onclick="switchCalcMode('wind2t')" class="mode-tab">
+                        <i class="fa-solid fa-arrow-right-long accent"></i> 風速(km/h) ➔ T號碼
+                    </button>
+                </div>
+            </div>
+            <span class="text-[11px] mut hidden sm:inline"><i class="fa-solid fa-circle-info accent"></i> 支援公式正反向精確逆算</span>
+        </div>
+
         <!-- 轉換器主卡片網格 -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- 左側：輸入與計算結果 -->
             <div class="lg:col-span-7 panel flex flex-col justify-between">
                 <div class="panel-head">
-                    <span class="panel-title"><span class="panel-num">01</span> / 輸入 T 號碼 (T-Number)</span>
-                    <div class="flex items-center gap-2">
-                        <span class="micro">數值：</span>
-                        <input type="number" id="tNumberInput" min="1.0" max="8.0" step="0.1" value="4.0" 
-                            class="num-input w-20 num"
-                            oninput="onNumberInputChange(this.value)">
+                    <span class="panel-title">
+                        <span class="panel-num">01</span> / 
+                        <span id="calcPanelTitle">T-Number 參數輸入</span>
+                    </span>
+                    <div id="topInputControl" class="flex items-center gap-2">
+                        <!-- 動態切換控制項 -->
                     </div>
                 </div>
 
                 <div class="panel-body space-y-6 flex-grow flex flex-col justify-between">
-                    <div class="space-y-5">
-                        <!-- 高精度滑桿 (Step 0.1) -->
+                    
+                    <!-- 模式 A：輸入 T 號碼 -->
+                    <div id="sectionModeT2Wind" class="space-y-5">
                         <div class="space-y-3 pt-2">
                             <input type="range" id="tSlider" min="1.0" max="8.0" step="0.1" value="4.0" 
-                                oninput="onSliderChange(this.value)">
+                                oninput="onTSliderChange(this.value)">
                             
                             <div class="flex justify-between items-center text-[10px] mut num font-bold">
                                 <span>T1.0</span>
@@ -253,7 +278,31 @@
                         <!-- 快速預設按鈕 -->
                         <div class="space-y-2">
                             <div class="micro">快速選擇常見整數 T 值：</div>
-                            <div id="presetButtons" class="flex flex-wrap gap-1.5">
+                            <div id="presetButtonsT" class="flex flex-wrap gap-1.5">
+                                <!-- 動態生成快速按鈕 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 模式 B：輸入風速 (Wind Speed) -->
+                    <div id="sectionModeWind2T" class="space-y-5 hidden">
+                        <div class="space-y-3 pt-2">
+                            <input type="range" id="windSlider" min="10" max="300" step="1" value="100" 
+                                oninput="onWindSliderChange(this.value)">
+                            
+                            <div class="flex justify-between items-center text-[10px] mut num font-bold">
+                                <span>10 km/h</span>
+                                <span>75 km/h</span>
+                                <span>150 km/h</span>
+                                <span>225 km/h</span>
+                                <span>300 km/h</span>
+                            </div>
+                        </div>
+
+                        <!-- 快速選擇常見強度點 -->
+                        <div class="space-y-2">
+                            <div class="micro">快速選取典型級別風速：</div>
+                            <div id="presetButtonsWind" class="flex flex-wrap gap-1.5">
                                 <!-- 動態生成快速按鈕 -->
                             </div>
                         </div>
@@ -268,13 +317,14 @@
                         
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                             <div>
-                                <div class="text-[11px] mut">估算中心風速 (Intensity)</div>
+                                <div id="resPrimaryLabel" class="text-[11px] mut">估算中心風速 (Intensity)</div>
                                 <div class="text-3xl md:text-4xl font-extrabold num mt-1" style="color:var(--text);">
-                                    <span id="resultWind">--</span> <span class="text-xs font-normal mut">km/h</span>
+                                    <span id="resPrimaryVal">--</span> 
+                                    <span id="resPrimaryUnit" class="text-xs font-normal mut">km/h</span>
                                 </div>
                             </div>
                             <div>
-                                <div class="text-[11px] mut mb-1">強度分級</div>
+                                <div id="resSecondaryLabel" class="text-[11px] mut mb-1">強度分級</div>
                                 <div id="resultBadge" class="inline-flex items-center gap-2 px-3 py-1.5 font-bold text-xs border">
                                     <!-- 動態徽章 -->
                                 </div>
@@ -282,7 +332,7 @@
                         </div>
 
                         <div class="pt-3 border-t border-[var(--line)] text-[11px] mut flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
-                            <span>公式：Intensity = -1.05 + 23.5T + 1.27T²</span>
+                            <span id="formulaLabel">公式：Intensity = -1.05 + 23.5T + 1.27T²</span>
                             <span id="formulaResultText" class="num font-bold accent"></span>
                         </div>
                     </div>
@@ -297,7 +347,7 @@
                 </div>
                 <div class="panel-body space-y-3 flex-grow flex flex-col">
                     <div class="text-[11px] mut">
-                        依據最高持續風速劃分之熱帶氣旋強度分級標準：
+                        點擊下方級別可直接帶入對應風速或T值：
                     </div>
 
                     <div class="space-y-2 flex-grow overflow-y-auto max-h-[420px] pr-1">
@@ -313,7 +363,7 @@
 
     <!-- 頁尾免責聲明與版權 -->
     <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-[var(--line)] text-center text-[11px] mut space-y-1.5 pb-20">
-        <p><strong class="font-bold" style="color:var(--text);">免責聲明：</strong>本工具基於數學公式估算熱帶氣旋強度，僅供參考，實際數據以官方氣象機構發佈為準。</p>
+        <p><strong class="font-bold" style="color:var(--text);">免責聲明：</strong>本工具基於 Dvorak 數學公式推算熱帶氣旋強度，僅供參考，實際數據以官方氣象機構發佈為準。</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
@@ -390,31 +440,214 @@
 
         // 風速分級規則對應表
         const TC_INTENSITY_TABLE = [
-            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#64748b" },
-            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#94a3b8" },
-            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#38bdf8" },
-            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#34d399" },
-            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#fbbf24" },
-            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#fb923c" },
-            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#f87171" },
-            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#c084fc" }
+            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#64748b", defaultWind: 30 },
+            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#94a3b8", defaultWind: 35 },
+            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#38bdf8", defaultWind: 55 },
+            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#34d399", defaultWind: 75 },
+            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#fbbf24", defaultWind: 100 },
+            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#fb923c", defaultWind: 135 },
+            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#f87171", defaultWind: 165 },
+            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#c084fc", defaultWind: 210 }
         ];
 
-        let activeTValue = 4.0;
+        let currentMode = 't2wind'; // 't2wind' | 'wind2t'
+        let currentT = 4.0;
+        let currentWind = 100;
 
-        // 初始化快速選擇按鈕
-        function initPresetButtons() {
-            const container = document.getElementById('presetButtons');
-            const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-            let html = '';
-            commonTs.forEach(t => {
-                const isActive = t === activeTValue ? 'chip-active' : '';
-                html += `<button onclick="setTValue(${t})" class="chip ${isActive}">T${t.toFixed(1)}</button>`;
-            });
-            container.innerHTML = html;
+        // 計算公式正向：V = -1.05 + 23.5T + 1.27T^2
+        function calcWindFromT(T) {
+            const v = -1.05 + (23.5 * T) + (1.27 * T * T);
+            return Math.max(0, Math.round(v));
         }
 
-        // 初始化右側對應表清單
+        // 計算公式逆算：1.27 T^2 + 23.5 T - (1.05 + V) = 0
+        function calcTFromWind(V) {
+            if (V <= 0) return 0;
+            const a = 1.27;
+            const b = 23.5;
+            const c = -(1.05 + V);
+            const discriminant = b * b - 4 * a * c;
+            if (discriminant < 0) return 0;
+            const t = (-b + Math.sqrt(discriminant)) / (2 * a);
+            return Math.max(0, parseFloat(t.toFixed(2)));
+        }
+
+        function getIntensityInfo(windSpeed) {
+            for (let item of TC_INTENSITY_TABLE) {
+                if (windSpeed <= item.max_wind) {
+                    return item;
+                }
+            }
+            return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
+        }
+
+        // 切換換算模式
+        function switchCalcMode(mode) {
+            currentMode = mode;
+            
+            const btnT2Wind = document.getElementById('btnModeT2Wind');
+            const btnWind2T = document.getElementById('btnModeWind2T');
+            const secT2Wind = document.getElementById('sectionModeT2Wind');
+            const secWind2T = document.getElementById('sectionModeWind2T');
+            const panelTitle = document.getElementById('calcPanelTitle');
+            const topControl = document.getElementById('topInputControl');
+
+            if (mode === 't2wind') {
+                btnT2Wind.className = 'mode-tab mode-tab-active';
+                btnWind2T.className = 'mode-tab';
+                secT2Wind.classList.remove('hidden');
+                secWind2T.classList.add('hidden');
+                panelTitle.textContent = 'T-Number 參數輸入';
+                topControl.innerHTML = `
+                    <span class="micro">T值：</span>
+                    <input type="number" id="tNumberInput" min="1.0" max="8.0" step="0.1" value="${currentT.toFixed(1)}" 
+                        class="num-input w-20 num" oninput="onTNumberInputChange(this.value)">
+                `;
+                updateT2Wind(currentT);
+            } else {
+                btnWind2T.className = 'mode-tab mode-tab-active';
+                btnT2Wind.className = 'mode-tab';
+                secWind2T.classList.remove('hidden');
+                secT2Wind.classList.add('hidden');
+                panelTitle.textContent = '最高持續風速輸入';
+                topControl.innerHTML = `
+                    <span class="micro">風速：</span>
+                    <input type="number" id="windNumberInput" min="10" max="300" step="1" value="${currentWind}" 
+                        class="num-input w-24 num" oninput="onWindNumberInputChange(this.value)">
+                `;
+                updateWind2T(currentWind);
+            }
+        }
+
+        // 更新 T ➔ 風速
+        function updateT2Wind(val) {
+            let T = parseFloat(val);
+            if (isNaN(T)) T = 1.0;
+            if (T < 1.0) T = 1.0;
+            if (T > 8.0) T = 8.0;
+
+            currentT = T;
+
+            document.getElementById('tSlider').value = T;
+            const numberInput = document.getElementById('tNumberInput');
+            if (numberInput && document.activeElement !== numberInput) {
+                numberInput.value = T.toFixed(1);
+            }
+
+            // 更新預設按鈕高亮
+            const presetBtns = document.querySelectorAll('#presetButtonsT button');
+            const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+            presetBtns.forEach((btn, idx) => {
+                if (commonTs[idx] === T) btn.classList.add('chip-active');
+                else btn.classList.remove('chip-active');
+            });
+
+            const wind = calcWindFromT(T);
+            const info = getIntensityInfo(wind);
+
+            document.getElementById('resPrimaryLabel').textContent = '估算中心風速 (Intensity)';
+            document.getElementById('resPrimaryVal').textContent = wind;
+            document.getElementById('resPrimaryUnit').textContent = 'km/h';
+
+            document.getElementById('resSecondaryLabel').textContent = '強度分級與估算 T 號碼';
+            
+            const badgeEl = document.getElementById('resultBadge');
+            badgeEl.innerHTML = `
+                <span class="w-2 h-2 rounded-full" style="background-color: ${info.color};"></span>
+                <span style="color: ${info.color};">${info.name} (${info.code})</span>
+            `;
+            badgeEl.style.backgroundColor = `${info.color}1a`;
+            badgeEl.style.borderColor = `${info.color}55`;
+
+            document.getElementById('formulaLabel').textContent = '公式：V = -1.05 + 23.5T + 1.27T²';
+            document.getElementById('formulaResultText').textContent = `T${T.toFixed(1)} ➔ ${wind} km/h`;
+
+            renderIntensityTableList(info.code);
+        }
+
+        // 更新 風速 ➔ T
+        function updateWind2T(val) {
+            let wind = parseInt(val, 10);
+            if (isNaN(wind)) wind = 10;
+            if (wind < 10) wind = 10;
+            if (wind > 300) wind = 300;
+
+            currentWind = wind;
+
+            document.getElementById('windSlider').value = wind;
+            const numberInput = document.getElementById('windNumberInput');
+            if (numberInput && document.activeElement !== numberInput) {
+                numberInput.value = wind;
+            }
+
+            // 更新風速預設按鈕高亮
+            const presetBtns = document.querySelectorAll('#presetButtonsWind button');
+            const commonWinds = [40, 62, 87, 117, 149, 184, 220];
+            presetBtns.forEach((btn, idx) => {
+                if (commonWinds[idx] === wind) btn.classList.add('chip-active');
+                else btn.classList.remove('chip-active');
+            });
+
+            const calculatedT = calcTFromWind(wind);
+            const info = getIntensityInfo(wind);
+
+            document.getElementById('resPrimaryLabel').textContent = '推算 Dvorak T 號碼';
+            document.getElementById('resPrimaryVal').textContent = `T${calculatedT.toFixed(2)}`;
+            document.getElementById('resPrimaryUnit').textContent = '';
+
+            document.getElementById('resSecondaryLabel').textContent = '強度分級標準';
+
+            const badgeEl = document.getElementById('resultBadge');
+            badgeEl.innerHTML = `
+                <span class="w-2 h-2 rounded-full" style="background-color: ${info.color};"></span>
+                <span style="color: ${info.color};">${info.name} (${info.code})</span>
+            `;
+            badgeEl.style.backgroundColor = `${info.color}1a`;
+            badgeEl.style.borderColor = `${info.color}55`;
+
+            document.getElementById('formulaLabel').textContent = '公式逆算：1.27T² + 23.5T - (1.05 + V) = 0';
+            document.getElementById('formulaResultText').textContent = `${wind} km/h ➔ T${calculatedT.toFixed(2)}`;
+
+            renderIntensityTableList(info.code);
+        }
+
+        // 事件監聽與控制
+        function onTSliderChange(val) { updateT2Wind(val); }
+        function onTNumberInputChange(val) { if (val !== '') updateT2Wind(val); }
+
+        function onWindSliderChange(val) { updateWind2T(val); }
+        function onWindNumberInputChange(val) { if (val !== '') updateWind2T(val); }
+
+        // 初始化快速預設按鈕
+        function initPresetButtons() {
+            // T 值按鈕
+            const containerT = document.getElementById('presetButtonsT');
+            const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+            let htmlT = '';
+            commonTs.forEach(t => {
+                htmlT += `<button onclick="updateT2Wind(${t})" class="chip">T${t.toFixed(1)}</button>`;
+            });
+            containerT.innerHTML = htmlT;
+
+            // 風速按鈕
+            const containerWind = document.getElementById('presetButtonsWind');
+            const commonWinds = [
+                { name: 'TD臨界', wind: 40 },
+                { name: 'TS臨界', wind: 62 },
+                { name: 'STS臨界', wind: 87 },
+                { name: 'TY臨界', wind: 117 },
+                { name: 'STY臨界', wind: 149 },
+                { name: 'SuTY臨界', wind: 184 },
+                { name: '超強颱風', wind: 220 }
+            ];
+            let htmlWind = '';
+            commonWinds.forEach(w => {
+                htmlWind += `<button onclick="updateWind2T(${w.wind})" class="chip">${w.name} (${w.wind}k)</button>`;
+            });
+            containerWind.innerHTML = htmlWind;
+        }
+
+        // 渲染右側分級表
         function renderIntensityTableList(currentCode = '') {
             const container = document.getElementById('intensityTableList');
             let html = '';
@@ -434,7 +667,7 @@
                 }
 
                 html += `
-                    <div class="flex items-center justify-between p-3 border transition-all" style="${activeStyle}">
+                    <div onclick="selectCategoryPreset(${item.defaultWind})" class="flex items-center justify-between p-3 border transition-all cursor-pointer hover:border-[var(--accent)]" style="${activeStyle}">
                         <div class="flex items-center gap-2.5">
                             <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color};"></span>
                             <div>
@@ -451,86 +684,19 @@
             container.innerHTML = html;
         }
 
-        // 計算風速與強度
-        function calculateIntensity(T) {
-            // 公式：Intensity = -1.05 + 23.5T + 1.27T^2
-            const wind = -1.05 + (23.5 * T) + (1.27 * T * T);
-            return Math.max(0, Math.round(wind));
-        }
-
-        function getIntensityInfo(windSpeed) {
-            for (let item of TC_INTENSITY_TABLE) {
-                if (windSpeed <= item.max_wind) {
-                    return item;
-                }
-            }
-            return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
-        }
-
-        function updateConversion(val) {
-            let T = parseFloat(val);
-            if (isNaN(T)) T = 1.0;
-            if (T < 1.0) T = 1.0;
-            if (T > 8.0) T = 8.0;
-
-            activeTValue = T;
-
-            // 同步更新滑桿與數值輸入框
-            document.getElementById('tSlider').value = T;
-            const numberInput = document.getElementById('tNumberInput');
-            if (document.activeElement !== numberInput) {
-                numberInput.value = T.toFixed(1);
-            }
-
-            // 更新 Preset 按鈕高亮
-            const presetBtns = document.querySelectorAll('#presetButtons button');
-            const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
-            presetBtns.forEach((btn, idx) => {
-                if (commonTs[idx] === T) {
-                    btn.classList.add('chip-active');
-                } else {
-                    btn.classList.remove('chip-active');
-                }
-            });
-
-            const windSpeed = calculateIntensity(T);
-            const info = getIntensityInfo(windSpeed);
-
-            document.getElementById('resultWind').textContent = windSpeed;
-            
-            // 更新結果徽章
-            const badgeEl = document.getElementById('resultBadge');
-            badgeEl.innerHTML = `
-                <span class="w-2 h-2 rounded-full" style="background-color: ${info.color};"></span>
-                <span style="color: ${info.color};">${info.name} (${info.code})</span>
-            `;
-            badgeEl.style.backgroundColor = `${info.color}1a`;
-            badgeEl.style.borderColor = `${info.color}55`;
-
-            document.getElementById('formulaResultText').textContent = `-1.05 + 23.5(${T.toFixed(1)}) + 1.27(${T.toFixed(1)})² = ${windSpeed} km/h`;
-
-            // 同步高亮右側對應表
-            renderIntensityTableList(info.code);
-        }
-
-        function setTValue(val) {
-            updateConversion(val);
-        }
-
-        function onSliderChange(val) {
-            updateConversion(val);
-        }
-
-        function onNumberInputChange(val) {
-            if (val !== '') {
-                updateConversion(val);
+        function selectCategoryPreset(defaultWind) {
+            if (currentMode === 't2wind') {
+                const tVal = calcTFromWind(defaultWind);
+                updateT2Wind(tVal);
+            } else {
+                updateWind2T(defaultWind);
             }
         }
 
         // 初始化
         window.addEventListener('DOMContentLoaded', () => {
             initPresetButtons();
-            updateConversion(4.0); // 預設 T4.0
+            switchCalcMode('t2wind');
         });
     </script>
 </body>
