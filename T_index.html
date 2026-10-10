@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>T值強度換算工具 - 澳門民間氣象台 MSSO</title>
-    <!-- Tailwind CSS -->
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (layout/spacing only) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -16,17 +22,146 @@
     <!-- 引入自動農曆計算套件 -->
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     <style>
-        ::-webkit-scrollbar {
-            height: 6px;
-            width: 6px;
+        /* ============ Design tokens ============ */
+        :root, html:not(.dark) {
+            --bg-page:#edebe2; --bg:#f4f2ea; --bg-2:#eae8dc;
+            --line:#d6d3c4; --line-strong:#bfbcab;
+            --text:#1a1e20; --muted:#5c6663; --faint:#8b948f;
+            --accent:#0b9a6b; --cream:#181d20; --cream-text:#f1eee2;
+            --c-red-rgb:190,40,45; --c-orange-rgb:200,90,20; --c-amber-rgb:190,140,10;
+            --c-yellow-rgb:150,140,20; --c-green-rgb:11,154,107; --c-sky-rgb:20,120,180;
+            --c-blue-rgb:30,90,190; --c-indigo-rgb:80,70,200; --c-purple-rgb:140,70,210;
+            --c-rose-rgb:210,40,90; --c-cyan-rgb:10,140,160; --c-slate-rgb:90,100,105;
+            --track-color:#d6d3c4; --needle-color:#1a1e20; --text-3:#8b948f;
         }
-        ::-webkit-scrollbar-track {
-            background: rgba(100, 116, 139, 0.1);
-            border-radius: 4px;
+        html.dark {
+            --bg-page:#0b1013; --bg:#0e1418; --bg-2:#121a1f;
+            --line:#1f282e; --line-strong:#2b373e;
+            --text:#e6e9e9; --muted:#93a0a6; --faint:#5f6b72;
+            --accent:#3fd9a4; --cream:#e7e2d2; --cream-text:#12181b;
+            --c-red-rgb:255,107,107; --c-orange-rgb:255,150,90; --c-amber-rgb:255,200,87;
+            --c-yellow-rgb:230,225,130; --c-green-rgb:63,217,164; --c-sky-rgb:96,185,235;
+            --c-blue-rgb:96,155,235; --c-indigo-rgb:130,140,250; --c-purple-rgb:180,150,255;
+            --c-rose-rgb:255,110,150; --c-cyan-rgb:105,225,240; --c-slate-rgb:150,165,170;
+            --track-color:#1f282e; --needle-color:#e6e9e9; --text-3:#5f6b72;
         }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.4);
-            border-radius: 4px;
+
+        body {
+            font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+            -webkit-font-smoothing:antialiased;
+            background:var(--bg-page); color:var(--text);
+        }
+
+        /* ============ Scrollbar ============ */
+        ::-webkit-scrollbar { width:8px; height:8px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--line-strong); }
+        ::-webkit-scrollbar-thumb:hover { background:var(--faint); }
+
+        /* ============ Text helpers ============ */
+        .micro { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+        .dim { color:var(--faint); }
+        .mut { color:var(--muted); }
+        .accent { color:var(--accent); }
+        .num { font-variant-numeric:tabular-nums; }
+
+        /* ============ Panels ============ */
+        .panel { background:var(--bg); border:1px solid var(--line); }
+        .panel-head {
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:14px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap;
+        }
+        .panel-title { font-size:13px; font-weight:700; letter-spacing:.03em; display:flex; align-items:center; gap:9px; }
+        .panel-num { color:var(--accent); font-weight:800; }
+        .panel-body { padding:16px; }
+
+        /* ============ Brand ============ */
+        .brand-mark {
+            width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--accent);
+            position:relative; flex-shrink:0; font-size:20px;
+        }
+        .dot { width:6px; height:6px; border-radius:50%; background:var(--accent); display:inline-block; }
+        .pulse-dot { position:relative; }
+        .pulse-dot::after {
+            content:''; position:absolute; inset:0; border-radius:50%;
+            background:var(--accent); animation:pulseRing 2s infinite ease-in-out;
+        }
+        @keyframes pulseRing { 0%{transform:scale(1);opacity:.7;} 100%{transform:scale(2.6);opacity:0;} }
+
+        /* ============ Buttons ============ */
+        .icon-btn {
+            width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted);
+            cursor:pointer; transition:.15s; font-size:15px;
+        }
+        .icon-btn:hover { color:var(--text); border-color:var(--accent); }
+        .icon-btn:active { transform:translateY(1px); }
+        .ic-moon { display:inline; } .ic-sun { display:none; }
+        html.dark .ic-moon { display:none; } html.dark .ic-sun { display:inline; }
+
+        /* ============ Chips (Preset buttons) ============ */
+        .chip {
+            padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted); transition:.15s;
+        }
+        .chip:hover { color:var(--text); border-color:var(--faint); }
+        .chip-active { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+        .chip-active:hover { color:var(--cream-text); border-color:var(--accent); }
+
+        /* ============ Badges & tags ============ */
+        .badge {
+            display:inline-flex; align-items:center; gap:4px; padding:2px 7px; font-size:10px; font-weight:700;
+            color:rgb(var(--bc-rgb,150,165,170)); background:rgba(var(--bc-rgb,150,165,170),.13);
+            border:1px solid rgba(var(--bc-rgb,150,165,170),.3);
+        }
+        .b-sky{--bc-rgb:var(--c-sky-rgb);}
+
+        /* ============ Info Box ============ */
+        .info-box {
+            background:var(--bg-2); border:1px solid var(--line); padding:12px;
+            font-size:12px; line-height:1.7; color:var(--text);
+        }
+
+        /* ============ Form Controls & Range ============ */
+        .num-input {
+            background:var(--bg-2); border:1px solid var(--line-strong); color:var(--text);
+            font-weight:700; text-align:center; padding:4px 8px; font-size:14px;
+        }
+        .num-input:focus { outline:none; border-color:var(--accent); }
+
+        input[type=range] {
+            -webkit-appearance:none; width:100%; background:transparent;
+        }
+        input[type=range]:focus { outline:none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width:100%; height:6px; cursor:pointer; background:var(--line-strong); border-radius:0px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height:16px; width:16px; background:var(--accent); cursor:pointer;
+            -webkit-appearance:none; margin-top:-5px; border:none;
+        }
+        input[type=range]::-moz-range-track {
+            width:100%; height:6px; cursor:pointer; background:var(--line-strong); border-radius:0px;
+        }
+        input[type=range]::-moz-range-thumb {
+            height:16px; width:16px; background:var(--accent); cursor:pointer; border:none;
+        }
+
+        /* ===== 底部導航 ===== */
+        .bottom-fixed-bar { background: var(--bg); border-top: 1px solid var(--line); }
+        .bottom-bar-btn {
+            position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 8px 14px 6px; color: var(--faint);
+            font-size: 10px; letter-spacing: .14em; font-weight: 600; text-decoration: none;
+            transition: color .15s ease;
+        }
+        .bottom-bar-btn:hover { color: var(--muted); }
+        .bottom-bar-btn.active { color: var(--accent); }
+        .bottom-bar-btn.active::after {
+            content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 18px; height: 2px; background: var(--accent);
         }
     </style>
     <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
@@ -49,119 +184,126 @@
         }
     </script>
 </head>
-<body class="bg-gradient-to-br from-sky-50 via-slate-50 to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 min-h-screen font-sans antialiased flex flex-col items-center p-4 md:p-8 pb-28 transition-colors duration-300">
+<body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-28">
 
     <!-- 容器 -->
-    <div class="w-full max-w-5xl space-y-6 flex-grow">
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
         
         <!-- 標頭 -->
-        <header class="flex justify-between items-center bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors">
-            <div>
-                <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight dark:text-white flex items-center gap-3">
-                    <div class="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-500 dark:text-cyan-400">
-                        <i class="fa-solid fa-calculator"></i>
+        <header class="panel flex justify-between items-center p-5 md:p-6">
+            <div class="flex items-center gap-4">
+                <div class="brand-mark">
+                    <i class="fa-solid fa-calculator"></i>
+                    <span class="pulse-dot dot absolute -top-1 -right-1" style="width:6px;height:6px;"></span>
+                </div>
+                <div>
+                    <h1 class="text-lg md:text-2xl font-extrabold tracking-tight flex items-center gap-2 flex-wrap">
+                        Dvorak T值風速換算工具
+                        <span class="badge b-sky">v1.1.0</span>
+                    </h1>
+                    <div class="mt-1.5 space-y-0.5">
+                        <div id="current-datetime" class="num text-xs md:text-sm font-bold accent">載入中...</div>
+                        <div id="lunar-date" class="text-[11px] mut">農曆計算中...</div>
                     </div>
-                    <span>Dvorak T值風速換算工具</span>
-                    <span class="text-xs md:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">v1.1.0</span>
-                </h1>
-                <div class="mt-2 space-y-0.5">
-                    <div id="current-datetime" class="text-sm md:text-base font-semibold text-cyan-600 dark:text-cyan-400">載入中...</div>
-                    <div id="lunar-date" class="text-xs text-slate-500 dark:text-slate-400">農曆計算中...</div>
                 </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
                 <!-- 主題切換按鈕 -->
-                <button id="theme-toggle" class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm" title="切換主題">
-                    <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                    <i class="fa-solid fa-sun hidden dark:inline text-yellow-400 text-lg"></i>
+                <button id="theme-toggle" class="icon-btn" title="切換主題">
+                    <i class="fa-solid fa-moon ic-moon"></i>
+                    <i class="fa-solid fa-sun ic-sun accent"></i>
                 </button>
             </div>
         </header>
 
-        <!-- 轉換器主卡片 -->
+        <!-- 轉換器主卡片網格 -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             <!-- 左側：輸入與計算結果 -->
-            <div class="lg:col-span-7 bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 md:p-8 rounded-3xl shadow-xl dark:shadow-2xl transition-colors space-y-6 flex flex-col justify-between">
-                <div class="space-y-6">
-                    <div class="flex justify-between items-center">
-                        <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                            <i class="fa-solid fa-sliders text-cyan-500"></i> 輸入 T 號碼 (T-Number)
-                        </h2>
-                        <!-- 直接數值輸入框 -->
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-slate-500 font-semibold">數值：</span>
-                            <input type="number" id="tNumberInput" min="1.0" max="8.0" step="0.1" value="4.0" 
-                                class="w-20 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-cyan-600 dark:text-cyan-400 font-mono font-bold text-center focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                                oninput="onNumberInputChange(this.value)">
-                        </div>
-                    </div>
-
-                    <!-- 高精度滑桿 (Step 0.1) -->
-                    <div class="space-y-3">
-                        <input type="range" id="tSlider" min="1.0" max="8.0" step="0.1" value="4.0" 
-                            class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                            oninput="onSliderChange(this.value)">
-                        
-                        <div class="flex justify-between items-center text-xs text-slate-400 font-mono">
-                            <span>T1.0</span>
-                            <span>T2.0</span>
-                            <span>T3.0</span>
-                            <span>T4.0</span>
-                            <span>T5.0</span>
-                            <span>T6.0</span>
-                            <span>T7.0</span>
-                            <span>T8.0</span>
-                        </div>
-                    </div>
-
-                    <!-- 快速預設按鈕 -->
-                    <div class="space-y-2">
-                        <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">快速選擇常見整數 T 值：</div>
-                        <div id="presetButtons" class="flex flex-wrap gap-2">
-                            <!-- 動態生成快速按鈕 -->
-                        </div>
+            <div class="lg:col-span-7 panel flex flex-col justify-between">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">01</span> / 輸入 T 號碼 (T-Number)</span>
+                    <div class="flex items-center gap-2">
+                        <span class="micro">數值：</span>
+                        <input type="number" id="tNumberInput" min="1.0" max="8.0" step="0.1" value="4.0" 
+                            class="num-input w-20 num"
+                            oninput="onNumberInputChange(this.value)">
                     </div>
                 </div>
 
-                <!-- 計算結果展示面板 -->
-                <div class="mt-6 p-6 rounded-2xl bg-slate-50/80 dark:bg-slate-950/50 border border-slate-200/60 dark:border-slate-800/60 space-y-4">
-                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">計算結果與強度對應</div>
-                    
-                    <div class="grid grid-cols-2 gap-4 items-center">
-                        <div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400">估算中心風速 (Intensity)</div>
-                            <div class="text-3xl md:text-4xl font-extrabold font-mono text-slate-800 dark:text-slate-100 mt-1">
-                                <span id="resultWind">--</span> <span class="text-sm font-normal text-slate-500">km/h</span>
+                <div class="panel-body space-y-6 flex-grow flex flex-col justify-between">
+                    <div class="space-y-5">
+                        <!-- 高精度滑桿 (Step 0.1) -->
+                        <div class="space-y-3 pt-2">
+                            <input type="range" id="tSlider" min="1.0" max="8.0" step="0.1" value="4.0" 
+                                oninput="onSliderChange(this.value)">
+                            
+                            <div class="flex justify-between items-center text-[10px] mut num font-bold">
+                                <span>T1.0</span>
+                                <span>T2.0</span>
+                                <span>T3.0</span>
+                                <span>T4.0</span>
+                                <span>T5.0</span>
+                                <span>T6.0</span>
+                                <span>T7.0</span>
+                                <span>T8.0</span>
                             </div>
                         </div>
-                        <div>
-                            <div class="text-xs text-slate-500 dark:text-slate-400">強度分級</div>
-                            <div id="resultBadge" class="mt-1 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-bold text-sm shadow-sm">
-                                <!-- 動態徽章 -->
+
+                        <!-- 快速預設按鈕 -->
+                        <div class="space-y-2">
+                            <div class="micro">快速選擇常見整數 T 值：</div>
+                            <div id="presetButtons" class="flex flex-wrap gap-1.5">
+                                <!-- 動態生成快速按鈕 -->
                             </div>
                         </div>
                     </div>
 
-                    <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 text-xs text-slate-500 dark:text-slate-400 flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
-                        <span>公式：Intensity = -1.05 + 23.5T + 1.27T²</span>
-                        <span id="formulaResultText" class="font-mono"></span>
+                    <!-- 計算結果展示面板 -->
+                    <div class="info-box space-y-4">
+                        <div class="micro border-b border-[var(--line)] pb-2 flex items-center justify-between">
+                            <span>計算結果與強度對應</span>
+                            <i class="fa-solid fa-chart-simple accent"></i>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                            <div>
+                                <div class="text-[11px] mut">估算中心風速 (Intensity)</div>
+                                <div class="text-3xl md:text-4xl font-extrabold num mt-1" style="color:var(--text);">
+                                    <span id="resultWind">--</span> <span class="text-xs font-normal mut">km/h</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] mut mb-1">強度分級</div>
+                                <div id="resultBadge" class="inline-flex items-center gap-2 px-3 py-1.5 font-bold text-xs border">
+                                    <!-- 動態徽章 -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-[var(--line)] text-[11px] mut flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
+                            <span>公式：Intensity = -1.05 + 23.5T + 1.27T²</span>
+                            <span id="formulaResultText" class="num font-bold accent"></span>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- 右側：風速分級對應表參考 -->
-            <div class="lg:col-span-5 bg-white/80 backdrop-blur-xl border border-slate-200/80 dark:bg-slate-900/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-xl dark:shadow-2xl transition-colors space-y-4 flex flex-col">
-                <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <i class="fa-solid fa-list-ul text-cyan-500"></i> 風速分級規則對應表
-                </h2>
-                <div class="text-xs text-slate-500 dark:text-slate-400">
-                    依據最高持續風速（km/h）劃分之熱帶氣旋強度分級標準：
+            <div class="lg:col-span-5 panel flex flex-col">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">02</span> / 風速分級對應表</span>
+                    <span class="micro">最高持續風速 (km/h)</span>
                 </div>
+                <div class="panel-body space-y-3 flex-grow flex flex-col">
+                    <div class="text-[11px] mut">
+                        依據最高持續風速劃分之熱帶氣旋強度分級標準：
+                    </div>
 
-                <div class="space-y-2 flex-grow overflow-y-auto max-h-[420px] pr-1">
-                    <div id="intensityTableList" class="space-y-2">
-                        <!-- 動態帶入對應表 -->
+                    <div class="space-y-2 flex-grow overflow-y-auto max-h-[420px] pr-1">
+                        <div id="intensityTableList" class="space-y-2">
+                            <!-- 動態帶入對應表 -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -170,29 +312,29 @@
     </div>
 
     <!-- 頁尾免責聲明與版權 -->
-    <footer class="w-full max-w-5xl mt-10 pt-6 border-t border-slate-200 dark:border-slate-800/80 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5 pb-20">
-        <p><strong class="font-semibold text-slate-600 dark:text-slate-300">免責聲明：</strong>本工具基於數學公式估算熱帶氣旋強度，僅供參考，實際數據以官方氣象機構發佈為準。</p>
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-[var(--line)] text-center text-[11px] mut space-y-1.5 pb-20">
+        <p><strong class="font-bold" style="color:var(--text);">免責聲明：</strong>本工具基於數學公式估算熱帶氣旋強度，僅供參考，實際數據以官方氣象機構發佈為準。</p>
         <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
     </footer>
 
     <!-- 底部固定導航欄 -->
-    <nav class="bottom-fixed-bar fixed bottom-3 left-4 right-4 z-50 max-w-lg mx-auto bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl rounded-3xl px-3 py-2 transition-all duration-300">
-        <div class="flex justify-around items-center">
-            <a href="index.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50">
+        <div class="max-w-3xl mx-auto flex justify-around items-center px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn">
                 <i class="fa-solid fa-cloud text-lg"></i>
-                <span class="text-[11px]">天氣實況</span>
+                <span>天氣實況</span>
             </a>
-            <a href="tc.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn">
                 <i class="fa-solid fa-hurricane text-lg"></i>
-                <span class="text-[11px]">熱帶氣旋</span>
+                <span>熱帶氣旋</span>
             </a>
-            <a href="t-converter.html" class="bottom-bar-btn active flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-cyan-600 dark:text-cyan-400 font-bold transition-all hover:scale-105" style="text-decoration: none;">
-                <i class="fa-solid fa-calculator text-lg"></i>
-                <span class="text-[11px]">T值換算</span>
+            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span>天氣預報</span>
             </a>
-            <a href="records.html" class="bottom-bar-btn flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all hover:scale-105" style="text-decoration: none;">
-                <i class="fa-solid fa-clipboard-list text-lg"></i>
-                <span class="text-[11px]">歷史記錄</span>
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span>空氣質素</span>
             </a>
         </div>
     </nav>
@@ -248,15 +390,17 @@
 
         // 風速分級規則對應表
         const TC_INTENSITY_TABLE = [
-            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#DDDFE2" },
-            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#DDDFE2" },
-            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#6DD8FA" },
-            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#9DD79C" },
-            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#FFD363" },
-            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#F78A31" },
-            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#FF6F6F" },
-            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#DE82FF" }
+            { max_wind: -1,   code: "Ex",   name: "溫帶氣旋",     color: "#64748b" },
+            { max_wind: 40,   code: "LPA",  name: "低壓區",       color: "#94a3b8" },
+            { max_wind: 62,   code: "TD",   name: "熱帶低氣壓",   color: "#38bdf8" },
+            { max_wind: 87,   code: "TS",   name: "熱帶風暴",     color: "#34d399" },
+            { max_wind: 117,  code: "STS",  name: "強烈熱帶風暴", color: "#fbbf24" },
+            { max_wind: 149,  code: "TY",   name: "颱風",         color: "#fb923c" },
+            { max_wind: 184,  code: "STY",  name: "強颱風",       color: "#f87171" },
+            { max_wind: 9999, code: "SuTY", name: "超強颱風",     color: "#c084fc" }
         ];
+
+        let activeTValue = 4.0;
 
         // 初始化快速選擇按鈕
         function initPresetButtons() {
@@ -264,7 +408,8 @@
             const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
             let html = '';
             commonTs.forEach(t => {
-                html += `<button onclick="setTValue(${t})" class="px-3 py-1 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-cyan-500 transition-all">T${t.toFixed(1)}</button>`;
+                const isActive = t === activeTValue ? 'chip-active' : '';
+                html += `<button onclick="setTValue(${t})" class="chip ${isActive}">T${t.toFixed(1)}</button>`;
             });
             container.innerHTML = html;
         }
@@ -275,7 +420,7 @@
             let html = '';
             TC_INTENSITY_TABLE.forEach((item, index) => {
                 const isHighlight = item.code === currentCode;
-                const borderStyle = isHighlight ? 'border-cyan-500 ring-2 ring-cyan-500/30' : 'border-slate-200/60 dark:border-slate-800/60';
+                const activeStyle = isHighlight ? `background:var(--bg-2); border-color:var(--accent);` : `background:var(--bg-2); border-color:var(--line);`;
                 
                 let rangeText = '';
                 if (index === 0) rangeText = '無固定風速';
@@ -289,15 +434,15 @@
                 }
 
                 html += `
-                    <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50/60 dark:bg-slate-950/40 border ${borderStyle} transition-all">
-                        <div class="flex items-center gap-3">
-                            <span class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${item.color};"></span>
+                    <div class="flex items-center justify-between p-3 border transition-all" style="${activeStyle}">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color};"></span>
                             <div>
-                                <span class="font-bold text-xs text-slate-800 dark:text-slate-200">${item.name}</span>
-                                <span class="text-[10px] text-slate-400 ml-1.5 font-mono">(${item.code})</span>
+                                <span class="font-bold text-xs" style="color:var(--text);">${item.name}</span>
+                                <span class="text-[10px] mut font-mono ml-1">(${item.code})</span>
                             </div>
                         </div>
-                        <div class="font-mono text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <div class="num font-mono text-xs font-bold" style="color:${isHighlight ? 'var(--accent)' : 'var(--muted)'};">
                             ${rangeText}
                         </div>
                     </div>
@@ -328,12 +473,25 @@
             if (T < 1.0) T = 1.0;
             if (T > 8.0) T = 8.0;
 
+            activeTValue = T;
+
             // 同步更新滑桿與數值輸入框
             document.getElementById('tSlider').value = T;
             const numberInput = document.getElementById('tNumberInput');
             if (document.activeElement !== numberInput) {
                 numberInput.value = T.toFixed(1);
             }
+
+            // 更新 Preset 按鈕高亮
+            const presetBtns = document.querySelectorAll('#presetButtons button');
+            const commonTs = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+            presetBtns.forEach((btn, idx) => {
+                if (commonTs[idx] === T) {
+                    btn.classList.add('chip-active');
+                } else {
+                    btn.classList.remove('chip-active');
+                }
+            });
 
             const windSpeed = calculateIntensity(T);
             const info = getIntensityInfo(windSpeed);
@@ -343,10 +501,11 @@
             // 更新結果徽章
             const badgeEl = document.getElementById('resultBadge');
             badgeEl.innerHTML = `
-                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${info.color};"></span>
-                <span style="color: ${info.color === '#DDDFE2' ? '#334155' : info.color};">${info.name} (${info.code})</span>
+                <span class="w-2 h-2 rounded-full" style="background-color: ${info.color};"></span>
+                <span style="color: ${info.color};">${info.name} (${info.code})</span>
             `;
-            badgeEl.style.backgroundColor = `${info.color}20`; // 半透明背景
+            badgeEl.style.backgroundColor = `${info.color}1a`;
+            badgeEl.style.borderColor = `${info.color}55`;
 
             document.getElementById('formulaResultText').textContent = `-1.05 + 23.5(${T.toFixed(1)}) + 1.27(${T.toFixed(1)})² = ${windSpeed} km/h`;
 
