@@ -1177,9 +1177,10 @@
             let thunderstormHours = 0;
             let maxHourlyRainfall = 0;
         
-            // 新增：統計 code45 時數、收集對應濕度
+            // 新增旗標
             let code45Hours = 0;
-            let code45HumidityList = [];
+            let anyCode45HumidityOver95 = false;
+            let anyCode45HumidityOver85 = false;
         
             hourlyIndices.forEach(idx => {
                 const hCode = data.hourly.weather_code[idx];
@@ -1199,10 +1200,11 @@
                 if (hCode === 45 || hCode === 48) hasFog = true;
                 if (hCode === 63 || hCode === 65 || hCode === 82) hasHeavyRain = true;
         
-                // 計算 code45 時數 & 儲存濕度
+                // code45 逐小時檢查當下濕度
                 if (hCode === 45) {
                     code45Hours++;
-                    code45HumidityList.push(hHumidity);
+                    if (hHumidity >= 95) anyCode45HumidityOver95 = true;
+                    if (hHumidity >= 85) anyCode45HumidityOver85 = true;
                 }
             });
         
@@ -1217,14 +1219,12 @@
             let icon = 'icon/weather_icon/cloud.png';
             let text = '多雲';
         
-            // 優先判斷當日有 >=1hr code45 的分支（霧 / 薄霧 / 煙霞）
+            // 優先：當日有 >=1hr code45，以 code45 發生當下該小時濕度旗標判斷
             if(code45Hours >= 1){
-                // 取所有 code45 小時的平均濕度作為當日代表濕度
-                const avgHumidity = code45HumidityList.reduce((a,b)=>a+b, 0) / code45HumidityList;
-                if(avgHumidity >= 95){
+                if(anyCode45HumidityOver95){
                     icon = 'icon/weather_icon/fog.png';
                     text = '霧';
-                }else if(avgHumidity >= 85){
+                }else if(anyCode45HumidityOver85){
                     icon = 'icon/weather_icon/mist.png';
                     text = '薄霧';
                 }else{
@@ -1310,6 +1310,7 @@
             }
             return { icon, text };
         }
+
 
 
         function checkIfNight(dateObj, dailyData, dayIndex = 0) {
