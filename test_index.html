@@ -910,7 +910,46 @@
             if (aqi <= 200) return { label: '不良', class: 'b-red' };
             return { label: '非常不良', class: 'b-purple' };
         }
-
+        function renderLifestyleIndices(temp, humidity, pop, precip, uv, windSpeed) {
+            const container = document.getElementById('lifestyle-container');
+            if (!container) return;
+            container.innerHTML = '';
+        
+            let clothing = { label: '舒適', desc: '適合一般衣物' };
+            if (temp >= 28) clothing = { label: '炎熱', desc: '穿著透氣輕便衣物' };
+            else if (temp <= 18) clothing = { label: '寒冷', desc: '請注意保暖，穿著厚衣' };
+            else if (temp <= 22) clothing = { label: '清涼', desc: '建議穿著長袖或外套' };
+        
+            let umbrella = { label: '不需要', desc: '降雨機率低' };
+            if (pop >= 50 || precip > 1) umbrella = { label: '必需', desc: '有降雨可能，請帶傘' };
+        
+            let carWash = { label: '適宜', desc: '近期天氣晴朗' };
+            if (pop >= 40 || precip > 0.5) carWash = { label: '不宜', desc: '有雨影響車身清潔' };
+        
+            let sport = { label: '適宜', desc: '天氣狀況良好' };
+            if (temp >= 33 || temp <= 10 || windSpeed >= 40) sport = { label: '較不宜', desc: '氣象條件較極端' };
+        
+            const indices = [
+                { name: '穿衣指數', ...clothing, icon: 'fa-shirt', color: 't-amber' },
+                { name: '帶傘指數', ...umbrella, icon: 'fa-umbrella', color: 't-blue' },
+                { name: '洗車指數', ...carWash, icon: 'fa-car', color: 't-sky' },
+                { name: '運動指數', ...sport, icon: 'fa-person-running', color: 't-accent' }
+            ];
+        
+            indices.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'tile p-3.5 flex items-center gap-3';
+                div.innerHTML = `
+                    <div class="text-xl ${item.color}"><i class="fa-solid ${item.icon}"></i></div>
+                    <div>
+                        <div class="micro">${item.name}</div>
+                        <div class="text-xs font-bold mt-0.5">${item.label}</div>
+                        <div class="micro dim mt-0.5">${item.desc}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
         /* ===== 滾動進度條 ===== */
         window.addEventListener('scroll', () => {
             const scrollTop = window.scrollY;
