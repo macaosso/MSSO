@@ -1390,4 +1390,689 @@
 
                 const activeClasses = isSelected
                     ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30 border-blue-600"
-                    : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border-slate-2
+                    : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-700";
+
+                return `
+                    <button onclick="selectYear('${y}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold border whitespace-nowrap min-h-[36px] transition-all ${activeClasses}">
+                        <span>${y === 'ALL' ? '全部年份' : y + '年'}</span>
+                        <span class="px-1.5 py-0.2 rounded-md text-[10px] font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}">${count}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function renderAlertBadge(type, size = "sm") {
+            const meta = ALERT_META[type] || ALERT_META["注意警報"];
+            const sizeClasses = (size === "lg") ? "px-3 py-1 text-xs" : "px-2.5 py-0.5 text-[11px]";
+
+            const ping = (meta.rank === 7)
+                ? `<span class="w-2 h-2 rounded-full bg-red-600 animate-ping mr-1"></span>`
+                : '';
+
+            const dirTag = meta.direction
+                ? `<span class="ml-1 font-mono text-[10px] opacity-80">[${meta.direction}]</span>`
+                : '';
+
+            return `
+                <span class="inline-flex items-center rounded-lg font-bold border ${sizeClasses} ${meta.badgeLight} ${meta.badgeDark}">
+                    ${ping}${type}${dirTag}
+                </span>
+            `;
+        }
+
+        function renderKPIsAndCharts(filtered) {
+            document.getElementById('kpiTotalCount').textContent = filtered.length;
+            document.getElementById('kpiYearSpanText').textContent = (state.selectedYear === 'ALL')
+                ? '2021 – 2026 全集'
+                : `${state.selectedYear} 年統計`;
+
+            const galePlus = filtered.filter(d => d.maxRank >= 5).length;
+            const hurricaneCount = filtered.filter(d => d.maxRank === 7).length;
+            const stormCount = filtered.filter(d => d.maxRank === 6).length;
+            document.getElementById('kpiGalePlusCount').textContent = galePlus;
+            document.getElementById('kpiHurricaneBreakdown').textContent = `含𩗗風 ${hurricaneCount} 次、暴風 ${stormCount} 次`;
+
+            if (filtered.length > 0) {
+                const longest = [...filtered].sort((a, b) => b.totalMinutes - a.totalMinutes)[0];
+                document.getElementById('kpiLongestHours').textContent = longest.totalH;
+                document.getElementById('kpiLongestName').textContent = `${longest.year}年 ${longest.rawName}`;
+
+                const sumMins = filtered.reduce((acc, cur) => acc + cur.totalMinutes, 0);
+                const avgMins = Math.round(sumMins / filtered.length);
+                document.getElementById('kpiTotalHours').textContent = formatMinutesToHM(sumMins);
+                document.getElementById('kpiAvgHours').textContent = `平均每氣旋維持 ${formatMinutesToHM(avgMins)}`;
+            } else {
+                document.getElementById('kpiLongestHours').textContent = "--";
+                document.getElementById('kpiLongestName').textContent = "無符合條件紀錄";
+                document.getElementById('kpiTotalHours').textContent = "0h 00m";
+                document.getElementById('kpiAvgHours').textContent = "平均每氣旋維持 --";
+            }
+
+            // Yearly Chart
+            const years = [...new Set(processedData.map(d => d.year))].sort();
+            const maxPerYear = Math.max(...years.map(y => processedData.filter(d => d.year === y).length), 1);
+
+            document.getElementById('yearlyChartContainer').innerHTML = years.map(y => {
+                const yearItems = processedData.filter(d => d.year === y);
+                const hurricaneStorm = yearItems.filter(d => d.maxRank >= 6).length;
+                const galeItems = yearItems.filter(d => d.maxRank === 5).length;
+                const strongItems = yearItems.filter(d => d.maxRank === 3 || d.maxRank === 4).length;
+                const lowItems = yearItems.filter(d => d.maxRank <= 2).length;
+                const total = yearItems.length;
+
+                const isSelected = String(state.selectedYear) === String(y);
+                const totalHeightPct = Math.max(20, Math.round((total / maxPerYear) * 100));
+
+                return `
+                    <div onclick="selectYear('${String(state.selectedYear) === String(y) ? 'ALL' : y}')"
+                         class="group cursor-pointer flex flex-col items-center h-full justify-end select-none">
+                        <div class="text-[11px] font-mono font-bold mb-1 ${isSelected ? 'text-blue-600 dark:text-blue-400 scale-110' : 'text-slate-600 dark:text-slate-400'}">
+                            ${total}
+                        </div>
+                        <div style="height: ${totalHeightPct}%"
+                             class="w-full max-w-[42px] rounded-t-xl overflow-hidden flex flex-col-reverse border transition-all ${isSelected ? 'ring-2 ring-blue-500 border-blue-400 shadow-md' : 'border-slate-200/60 dark:border-slate-700/60 opacity-85 group-hover:opacity-100'}">
+                            ${lowItems > 0 ? `<div style="flex: ${lowItems}" class="bg-emerald-500" title="戒備/注意: ${lowItems}"></div>` : ''}
+                            ${strongItems > 0 ? `<div style="flex: ${strongItems}" class="bg-blue-600" title="強風: ${strongItems}"></div>` : ''}
+                            ${galeItems > 0 ? `<div style="flex: ${galeItems}" class="bg-amber-500" title="烈風: ${galeItems}"></div>` : ''}
+                            ${hurricaneStorm > 0 ? `<div style="flex: ${hurricaneStorm}" class="bg-red-600" title="暴風/𩗗風: ${hurricaneStorm}"></div>` : ''}
+                        </div>
+                        <div class="mt-2 text-xs font-mono font-semibold ${isSelected ? 'text-blue-600 dark:text-blue-400 font-bold underline underline-offset-4' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}">
+                            ${y}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Proportional Distribution of Alert Hours
+            const alertBuckets = [
+                { label: "𩗗風警報 (Red)", color: "bg-red-600", hex: "#dc2626", mins: 0 },
+                { label: "暴風警報 (Orange)", color: "bg-orange-500", hex: "#f97316", mins: 0 },
+                { label: "烈風警報 (Amber)", color: "bg-amber-500", hex: "#f59e0b", mins: 0 },
+                { label: "強風警報 (Blue)", color: "bg-blue-600", hex: "#2563eb", mins: 0 },
+                { label: "戒備警報 (Green)", color: "bg-emerald-500", hex: "#10b981", mins: 0 },
+                { label: "注意警報 (Gray)", color: "bg-slate-500", hex: "#64748b", mins: 0 }
+            ];
+
+            let totalAlertMins = 0;
+            filtered.forEach(item => {
+                item.alerts.forEach(al => {
+                    if (al.type === "烈風預警警報") return;
+                    totalAlertMins += al.durationMins;
+                    if (al.type.includes("𩗗風") || al.type.includes("颶風")) alertBuckets[0].mins += al.durationMins;
+                    else if (al.type.includes("暴風")) alertBuckets[1].mins += al.durationMins;
+                    else if (al.type.includes("烈風")) alertBuckets[2].mins += al.durationMins;
+                    else if (al.type === "強風警報") alertBuckets[3].mins += al.durationMins;
+                    else if (al.type === "戒備警報") alertBuckets[4].mins += al.durationMins;
+                    else alertBuckets[5].mins += al.durationMins;
+                });
+            });
+
+            document.getElementById('alertTypeDistribution').innerHTML = alertBuckets.map(b => {
+                const pct = totalAlertMins > 0 ? ((b.mins / totalAlertMins) * 100).toFixed(1) : "0.0";
+                return `
+                    <div class="space-y-1">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                <span class="w-2.5 h-2.5 rounded-full ${b.color}"></span>
+                                ${b.label}
+                            </span>
+                            <span class="font-mono text-slate-500 dark:text-slate-400">
+                                <strong class="text-slate-900 dark:text-white">${formatMinutesToHM(b.mins)}</strong> (${pct}%)
+                            </span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                            <div class="h-full rounded-full ${b.color} transition-all duration-500" style="width: ${Math.max(Number(pct), b.mins > 0 ? 2 : 0)}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderMainViews() {
+            const filtered = getFilteredData();
+            renderYearPills();
+            renderKPIsAndCharts(filtered);
+
+            document.getElementById('showingCount').textContent = filtered.length;
+
+            const hasActiveFilter = (state.selectedYear !== 'ALL' || state.searchQuery !== '' || state.alertFilter !== 'ALL' || state.seasonFilter !== 'ALL' || state.durationFilter !== 'ALL');
+            const resetBtn = document.getElementById('resetFiltersBtn');
+            resetBtn.classList.toggle('hidden', !hasActiveFilter);
+            resetBtn.classList.toggle('inline-flex', hasActiveFilter);
+            document.getElementById('clearSearchBtn').classList.toggle('hidden', !state.searchQuery);
+
+            const emptyEl = document.getElementById('emptyStateContainer');
+            const cardEl = document.getElementById('cardViewContainer');
+            const tableEl = document.getElementById('tableViewContainer');
+
+            if (filtered.length === 0) {
+                emptyEl.classList.remove('hidden');
+                cardEl.classList.add('hidden');
+                tableEl.classList.add('hidden');
+                return;
+            }
+
+            emptyEl.classList.add('hidden');
+            if (state.viewMode === 'card') {
+                cardEl.classList.remove('hidden');
+                tableEl.classList.add('hidden');
+                renderCards(filtered);
+            } else {
+                cardEl.classList.add('hidden');
+                tableEl.classList.remove('hidden');
+                renderTable(filtered);
+            }
+        }
+
+        function renderCards(items) {
+            const container = document.getElementById('cardViewContainer');
+            container.innerHTML = items.map(item => {
+                const intMeta = INTENSITY_META[item.intensity] || INTENSITY_META["熱帶低氣壓"];
+                const isExpanded = state.expandedCards.has(item.id);
+
+                // Bar calculations
+                const barAlerts = item.alerts.filter(a => a.type !== "烈風預警警報");
+                const barTotalMins = barAlerts.reduce((acc, a) => acc + Math.max(a.durationMins, 30), 0);
+
+                const proportionalBarHTML = barAlerts.map(al => {
+                    const widthPct = ((Math.max(al.durationMins, 30) / barTotalMins) * 100).toFixed(2);
+                    return `
+                        <div style="width: ${widthPct}%"
+                             class="timeline-seg relative h-full ${al.meta.bgBar} first:rounded-l-full last:rounded-r-full transition-opacity hover:opacity-90">
+                            <div class="seg-tip opacity-0 pointer-events-none transition-all duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-30 whitespace-nowrap bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-lg">
+                                <div class="font-bold">${al.type} (${al.durationText})</div>
+                                <div class="font-mono text-[10px] opacity-80">${al.start} &rarr; ${al.end}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const alertsTimelineHTML = item.alerts.map((al, idx) => {
+                    const isPreGale = (al.type === "烈風預警警報");
+                    return `
+                        <div class="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded-xl text-xs ${isPreGale ? 'bg-amber-50/70 dark:bg-amber-950/30 border border-dashed border-amber-300 dark:border-amber-800/60' : 'bg-slate-50/80 dark:bg-slate-800/50'}">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="font-mono text-[10px] text-slate-400 w-4">${idx + 1}.</span>
+                                ${renderAlertBadge(al.type)}
+                                ${isPreGale ? `<span class="text-[10px] text-amber-600 dark:text-amber-400 hidden sm:inline">(預警生效)</span>` : ''}
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                                <span>${al.start} &rarr; ${al.end}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 font-semibold w-16 text-center">
+                                    ${al.durationText}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <article class="bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-blue-300 dark:hover:border-blue-800 transition-all flex flex-col justify-between overflow-hidden">
+                        <div class="p-4 sm:p-5 space-y-4">
+                            <!-- Card Header -->
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="space-y-1">
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
+                                            ${item.year}
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded-md text-xs font-semibold border ${intMeta.badge}">
+                                            ${item.intensity}
+                                        </span>
+                                        ${item.code ? `<span class="px-2 py-0.5 rounded-md text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">#${item.code}</span>` : ''}
+                                    </div>
+                                    <h3 onclick="openDetailModal('${item.id}')" class="text-base sm:text-lg font-black text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer flex items-center gap-1.5 pt-0.5">
+                                        <span>${item.rawName}</span>
+                                        <i class="ph ph-arrow-square-out text-sm text-slate-400"></i>
+                                    </h3>
+                                </div>
+
+                                <div class="text-right shrink-0">
+                                    <div class="flex justify-end">
+                                        ${renderAlertBadge(item.highestAlertType, 'lg')}
+                                    </div>
+                                    <div class="mt-1 flex items-center justify-end gap-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                                        <i class="ph ph-clock text-blue-600"></i>
+                                        <strong class="text-slate-800 dark:text-slate-200">${item.totalH}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Proportional Color Timeline Bar -->
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                                    <span>${item.firstStartStr}</span>
+                                    <span>${item.alerts.length} 個階段</span>
+                                    <span>${item.lastEndStr}</span>
+                                </div>
+                                <div class="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 p-0.5 flex gap-0.5">
+                                    ${proportionalBarHTML}
+                                </div>
+                            </div>
+
+                            <!-- Steps (First 3 or All) -->
+                            <div class="space-y-1.5 pt-1">
+                                ${isExpanded || item.alerts.length <= 3
+                                    ? alertsTimelineHTML
+                                    : item.alerts.slice(0, 3).map((al, idx) => `
+                                        <div class="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded-xl text-xs bg-slate-50/80 dark:bg-slate-800/50">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <span class="font-mono text-[10px] text-slate-400 w-4">${idx + 1}.</span>${renderAlertBadge(al.type)}
+                                            </div>
+                                            <div class="flex items-center gap-2 shrink-0 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                                                <span>${al.start} &rarr; ${al.end}</span>
+                                                <span class="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 font-semibold w-16 text-center">
+                                                    ${al.durationText}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `).join('')
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Card Footer -->
+                        <div class="px-4 sm:px-5 py-2.5 bg-slate-50/90 dark:bg-slate-800/40 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between text-xs">
+                            ${item.alerts.length > 3 ? `
+                                <button onclick="toggleCardExpand('${item.id}')" class="font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 min-h-[32px]">
+                                    <i class="ph ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'}"></i>
+                                    ${isExpanded ? '收起明細' : `展開其餘 ${item.alerts.length - 3} 階段`}
+                                </button>
+                            ` : `
+                                <span class="text-slate-400 text-[11px]">共 ${item.alerts.length} 個警報階段</span>
+                            `}
+                            <button onclick="openDetailModal('${item.id}')" class="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 font-semibold inline-flex items-center gap-1 min-h-[32px]">
+                                <span>統計分析</span>
+                                <i class="ph ph-caret-right"></i>
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('tableBodyContainer');
+            tbody.innerHTML = items.map(item => {
+                const intMeta = INTENSITY_META[item.intensity] || INTENSITY_META["熱帶低氣壓"];
+                const barAlerts = item.alerts.filter(a => a.type !== "烈風預警警報");
+                const barTotalMins = barAlerts.reduce((acc, a) => acc + Math.max(a.durationMins, 30), 0);
+
+                const miniBarHTML = barAlerts.map(al => {
+                    const widthPct = ((Math.max(al.durationMins, 30) / barTotalMins) * 100).toFixed(1);
+                    return `<div style="width:${widthPct}%" class="h-full ${al.meta.bgBar}" title="${al.type}: ${al.durationText}"></div>`;
+                }).join('');
+
+                return `
+                    <tr onclick="openDetailModal('${item.id}')" class="hover:bg-blue-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-colors">
+                        <td class="py-3.5 px-4 font-mono whitespace-nowrap">
+                            <span class="font-black text-slate-900 dark:text-white">${item.year}</span>
+                            ${item.code ? `<span class="ml-1.5 text-xs text-slate-400">#${item.code}</span>` : ''}
+                        </td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${intMeta.badge}">${item.intensity}</span>
+                                <span class="font-bold text-slate-900 dark:text-white">${item.cnName ? `「${item.cnName}」` : item.rawName}</span>
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            ${renderAlertBadge(item.highestAlertType)}
+                        </td>
+                        <td class="py-3.5 px-4 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                            ${item.firstStartStr} &rarr; ${item.lastEndStr}
+                        </td>
+                        <td class="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                            ${item.totalH}
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <div class="w-44 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex gap-0.5 p-0.5">
+                                ${miniBarHTML}
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                            <button class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100">
+                                檢視 (${item.alerts.length})
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ============================================================================
+        // 4. INTERACTION & FILTER CONTROLS
+        // ============================================================================
+        function selectYear(year) {
+            state.selectedYear = year;
+            renderMainViews();
+        }
+
+        function handleFilterChange() {
+            state.searchQuery = document.getElementById('searchInput').value.trim();
+            state.alertFilter = document.getElementById('alertFilterSelect').value;
+            state.seasonFilter = document.getElementById('seasonFilterSelect').value;
+            state.durationFilter = document.getElementById('durationFilterSelect').value;
+            state.sortBy = document.getElementById('sortSelect').value;
+            renderMainViews();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            handleFilterChange();
+        }
+
+        function resetAllFilters() {
+            state.selectedYear = 'ALL';
+            state.searchQuery = '';
+            state.alertFilter = 'ALL';
+            state.seasonFilter = 'ALL';
+            state.durationFilter = 'ALL';
+            state.sortBy = 'DATE_DESC';
+
+            document.getElementById('searchInput').value = '';
+            document.getElementById('alertFilterSelect').value = 'ALL';
+            document.getElementById('seasonFilterSelect').value = 'ALL';
+            document.getElementById('durationFilterSelect').value = 'ALL';
+            document.getElementById('sortSelect').value = 'DATE_DESC';
+
+            renderMainViews();
+            showToast('已恢復預設篩選條件');
+        }
+
+        function setViewMode(mode) {
+            state.viewMode = mode;
+            const cardBtn = document.getElementById('viewCardBtn');
+            const tableBtn = document.getElementById('viewTableBtn');
+
+            if (mode === 'card') {
+                cardBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm";
+                tableBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+            } else {
+                tableBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm";
+                cardBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+            }
+            renderMainViews();
+        }
+
+        function toggleCardExpand(id) {
+            if (state.expandedCards.has(id)) state.expandedCards.delete(id);
+            else state.expandedCards.add(id);
+            renderMainViews();
+        }
+
+        function toggleExpandAllCards() {
+            state.allExpanded = !state.allExpanded;
+            const btnSpan = document.querySelector('#expandAllBtn span');
+            if (state.allExpanded) {
+                processedData.forEach(d => state.expandedCards.add(d.id));
+                btnSpan.textContent = "收起全部明細";
+            } else {
+                state.expandedCards.clear();
+                btnSpan.textContent = "展開全部階段明細";
+            }
+            renderMainViews();
+        }
+
+        // ============================================================================
+        // 5. WIND CALCULATOR TOOL
+        // ============================================================================
+        function updateWindCalculator(val) {
+            const speed = parseInt(val, 10);
+            document.getElementById('sliderSpeedValue').textContent = speed;
+            const box = document.getElementById('calcResultBox');
+
+            let alertName = "注意警報 / 戒備階段";
+            let alertColor = "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:text-slate-200";
+            let gustRange = "陣風小於 63 km/h";
+            let beaufort = "5級或以下 (清勁/和緩)";
+            let bridgeStatus = "跨海大橋正常通行";
+
+            if (speed >= 118) {
+                alertName = "𩗗風警報 (Red 紅色)";
+                alertColor = "bg-red-100 text-red-950 border-red-300 dark:bg-red-950/70 dark:text-red-200";
+                gustRange = "陣風超過 133 km/h";
+                beaufort = "12級 (颶風/𩗗風)";
+                bridgeStatus = "跨海大橋全面封閉，下層行車道亦將停運";
+            } else if (speed >= 88) {
+                alertName = "暴風警報 (Orange 橙色)";
+                alertColor = "bg-orange-100 text-orange-950 border-orange-300 dark:bg-orange-950/70 dark:text-orange-200";
+                gustRange = "陣風 118 至 133 km/h";
+                beaufort = "10 至 11級 (狂風暴風)";
+                bridgeStatus = "跨海大橋及下層行車道維持最高警戒";
+            } else if (speed >= 63) {
+                alertName = "烈風警報 (Amber 琥珀黃)";
+                alertColor = "bg-amber-100 text-amber-950 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200";
+                gustRange = "陣風 88 至 117 km/h";
+                beaufort = "8 至 9級 (大風/烈風)";
+                bridgeStatus = "三座跨海大橋於發出後1.5小時內封閉，開放西灣大橋下層通道";
+            } else if (speed >= 41) {
+                alertName = "強風警報 (Blue 藍色)";
+                alertColor = "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/70 dark:text-blue-200";
+                gustRange = "陣風 63 至 87 km/h";
+                beaufort = "6 至 7級 (強風/疾風)";
+                bridgeStatus = "跨海大橋電單車專道開放，公眾行車注意橫風";
+            }
+
+            box.className = `p-4 rounded-xl border ${alertColor} transition-all space-y-2`;
+            box.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="text-xs uppercase font-bold tracking-wider opacity-75">對應預警級別</span>
+                    <span class="text-xs font-mono font-bold">${beaufort}</span>
+                </div>
+                <div class="text-base font-black">${alertName}</div>
+                <div class="text-xs space-y-1 font-mono pt-1 border-t border-current/15">
+                    <div>預估陣風規模：<strong>${gustRange}</strong></div>
+                    <div>大橋通行指引：<strong>${bridgeStatus}</strong></div>
+                </div>
+            `;
+        }
+
+        function openWindCalcModal() {
+            document.getElementById('windCalcModal').classList.remove('hidden');
+            document.getElementById('windCalcModal').classList.add('flex');
+            updateWindCalculator(document.getElementById('windSlider').value);
+        }
+
+        function closeWindCalcModal() {
+            document.getElementById('windCalcModal').classList.add('hidden');
+            document.getElementById('windCalcModal').classList.remove('flex');
+        }
+
+        // ============================================================================
+        // 6. CSV EXPORT ENGINE
+        // ============================================================================
+        function exportToCSV() {
+            const dataToExport = getFilteredData();
+            if (!dataToExport.length) {
+                showToast('目前無可匯出的資料');
+                return;
+            }
+
+            const headers = ["年份", "熱帶氣旋名稱", "氣旋強度", "國際編號", "最高警報級別", "發佈時間", "取消時間", "總生效時數", "警報階段數", "各階段明細"];
+            const rows = dataToExport.map(item => {
+                const stageDetails = item.alerts.map(a => `${a.type}[${a.start}-${a.end}](${a.durationText})`).join('; ');
+                return [
+                    item.year,
+                    `"${item.rawName}"`,
+                    item.intensity,
+                    item.code || "",
+                    item.highestAlertType,
+                    `"${item.firstStartStr}"`,
+                    `"${item.lastEndStr}"`,
+                    `"${item.totalH}"`,
+                    item.alerts.length,
+                    `"${stageDetails}"`
+                ];
+            });
+
+            const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Macao_TC_Warning_Records_${new Date().toISOString().slice(0, 10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast(`已匯出 ${dataToExport.length} 筆資料為 CSV 檔`);
+        }
+
+        // ============================================================================
+        // 7. DETAIL MODAL & TOAST
+        // ============================================================================
+        function openDetailModal(id) {
+            const item = processedData.find(d => d.id === id);
+            if (!item) return;
+            state.activeModalItem = item;
+
+            const intMeta = INTENSITY_META[item.intensity] || INTENSITY_META["熱帶低氣壓"];
+
+            const breakdownMap = {};
+            item.alerts.forEach(al => {
+                if (!breakdownMap[al.type]) breakdownMap[al.type] = { mins: 0, count: 0, meta: al.meta };
+                breakdownMap[al.type].mins += al.durationMins;
+                breakdownMap[al.type].count += 1;
+            });
+
+            document.getElementById('modalHeaderContent').innerHTML = `
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900">${item.year}年</span>
+                    <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold border ${intMeta.badge}">${item.intensity}</span>
+                    ${renderAlertBadge(item.highestAlertType)}
+                </div>
+                <h2 class="text-xl font-black text-slate-900 dark:text-white">${item.rawName}</h2>
+                <p class="text-xs font-mono text-slate-500 dark:text-slate-400">總有效維持時數：<strong class="text-blue-600 dark:text-blue-400 font-bold">${item.totalH}</strong></p>
+            `;
+
+            const breakdownHTML = Object.entries(breakdownMap).map(([type, data]) => {
+                const pct = Math.min(100, Math.round((data.mins / item.totalMinutes) * 100));
+                return `
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between">
+                        <div>
+                            ${renderAlertBadge(type)}
+                            <div class="text-[11px] text-slate-500 mt-1 font-mono">發佈 ${data.count} 次</div>
+                        </div>
+                        <div class="text-right font-mono">
+                            <div class="text-sm font-bold text-slate-900 dark:text-white">${formatMinutesToHM(data.mins)}</div>
+                            <div class="text-[11px] text-slate-500">${pct}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const timelineStepsHTML = item.alerts.map((al, idx) => `
+                <div class="relative pl-6 pb-4 last:pb-0 border-l-2 border-slate-200 dark:border-slate-700 ml-2">
+                    <span class="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full ${al.meta.bgBar} ring-4 ring-white dark:ring-slate-900"></span>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-xs text-slate-400">#${idx + 1}</span>
+                            ${renderAlertBadge(al.type)}
+                            ${al.type === '烈風預警警報' ? '<span class="text-[11px] text-amber-500 font-bold">(烈風前預警)</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-3 font-mono text-xs text-slate-700 dark:text-slate-300">
+                            <span>${al.start} &rarr; ${al.end}</span>
+                            <span class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-bold">${al.durationText}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('modalBodyContent').innerHTML = `
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">各級警報維持時數統計</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">${breakdownHTML}</div>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">完整警報階段進程 (${item.alerts.length} 個階段)</h4>
+                    <div class="space-y-1">${timelineStepsHTML}</div>
+                </div>
+            `;
+
+            const modal = document.getElementById('detailModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function copyModalSummary() {
+            const item = state.activeModalItem;
+            if (!item) return;
+            const lines = [
+                `【澳門氣象紀錄 - ${item.year}年 ${item.rawName}】`,
+                `最高警報：${item.highestAlertType}`,
+                `總生效時數：${item.totalH}`,
+                `警報歷程：`,
+                ...item.alerts.map((a, i) => `${i + 1}. ${a.type}：${a.start} 至 ${a.end} (${a.durationText})`)
+            ];
+            navigator.clipboard.writeText(lines.join('\n')).then(() => {
+                showToast(`已複製「${item.rawName}」紀錄摘要`);
+            });
+        }
+
+        function openLegendModal() {
+            document.getElementById('legendModal').classList.remove('hidden');
+            document.getElementById('legendModal').classList.add('flex');
+        }
+
+        function closeLegendModal() {
+            document.getElementById('legendModal').classList.add('hidden');
+            document.getElementById('legendModal').classList.remove('flex');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.remove('opacity-0', 'translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 2600);
+        }
+
+        // ============================================================================
+        // 8. THEME & INITIALIZATION
+        // ============================================================================
+        function initTheme() {
+            const saved = localStorage.getItem('macao_tc_theme');
+            if (saved === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+            updateThemeIcon();
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('macao_tc_theme', isDark ? 'dark' : 'light');
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const isDark = document.documentElement.classList.contains('dark');
+            document.getElementById('themeIcon').className = isDark ? 'ph-fill ph-sun text-base' : 'ph-fill ph-moon-stars text-base';
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDetailModal();
+                closeLegendModal();
+                closeWindCalcModal();
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initializeDataset();
+            renderMainViews();
+        });
+    </script>
+</body>
+</html>
