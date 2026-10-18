@@ -2,11 +2,11 @@
 <html lang="zh-Hant" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>熱帶氣旋警報紀錄資料庫 | TC Warning Record Observatory</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>澳門熱帶氣旋警報紀錄資料庫 | Macao TC Warning Observatory</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Inter & Noto Sans TC & JetBrains Mono -->
+    <!-- Google Fonts: Inter, Noto Sans TC & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700;900&display=swap" rel="stylesheet">
@@ -23,18 +23,24 @@
                         mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     colors: {
-                        obs: {
-                            50: '#f0f7ff',
-                            100: '#e0effe',
-                            500: '#0284c7',
-                            600: '#0369a1',
-                            900: '#0c4a6e',
-                            950: '#061320'
+                        tc: {
+                            gray: '#64748b',
+                            green: '#10b981',
+                            blue: '#2563eb',
+                            amber: '#f59e0b',
+                            orange: '#f97316',
+                            red: '#dc2626'
                         }
                     },
                     animation: {
-                        'spin-slow': 'spin 12s linear infinite',
-                        'pulse-fast': 'pulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'spin-slow': 'spin 14s linear infinite',
+                        'pulse-glow': 'pulseGlow 2.5s infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.8', transform: 'scale(1)' },
+                            '50%': { opacity: '1', transform: 'scale(1.04)' },
+                        }
                     }
                 }
             }
@@ -42,10 +48,9 @@
     </script>
 
     <style>
-        /* Custom Scrollbar & Radar Grid Aesthetics */
         ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
         }
         ::-webkit-scrollbar-track {
             background: transparent;
@@ -58,566 +63,228 @@
             background: rgba(148, 163, 184, 0.6);
         }
 
-        .radar-grid-bg {
-            background-size: 32px 32px;
+        .radar-grid {
+            background-size: 36px 36px;
             background-image: 
-                linear-gradient(to right, rgba(148, 163, 184, 0.07) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+                linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
         }
-        .dark .radar-grid-bg {
+        .dark .radar-grid {
             background-image: 
-                linear-gradient(to right, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+                linear-gradient(to right, rgba(56, 189, 248, 0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(56, 189, 248, 0.06) 1px, transparent 1px);
         }
 
-        /* Smooth theme transitions */
-        body, header, div, span, button, input, select, table, tr, td, th {
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
-        }
-
-        /* Custom Tooltip on Timeline Bar */
-        .timeline-segment:hover .segment-tooltip {
+        .timeline-seg:hover .seg-tip {
             opacity: 1;
             transform: translate(-50%, -6px);
             pointer-events: auto;
         }
-    </style>
 
-    <!-- 1. External Data Script as requested -->
-    <script src="data/TCwarning_record.js"></script>
-
-    <!-- 2. Fallback Data Script so preview & standalone execution always work seamlessly -->
-    <script>
-        if (typeof rawData === 'undefined') {
-            window.rawData = [
-                {
-                    year:2021, name:"熱帶風暴「彩雲」2103", totalH:"", alerts:[
-                        {type:"注意警報", start:"06月03日 21:00", end:"06月04日 18:00"}
-                    ]
-                },
-                {
-                    year:2021, name:"熱帶風暴「小熊」2104", totalH:"", alerts:[
-                        {type:"戒備警報", start:"06月11日 07:40", end:"06月11日 23:00"},
-                        {type:"強風警報", start:"06月11日 23:00", end:"06月12日 17:30"},
-                        {type:"戒備警報", start:"06月12日 17:30", end:"06月12日 22:00"}
-                    ]
-                },
-                {
-                    year:2021, name:"熱帶低氣壓 07W", totalH:"", alerts:[
-                        {type:"注意警報", start:"07月06日 07:30", end:"07月06日 15:30"}
-                    ]
-                },
-                {
-                    year:2021, name:"熱帶低氣壓 08W", totalH:"", alerts:[
-                        {type:"戒備警報", start:"07月06日 07:30", end:"07月07日 16:30"}
-                    ]
-                },
-                {
-                    year:2021, name:"颱風「查帕卡」2107", totalH:"", alerts:[
-                        {type:"戒備警報", start:"07月17日 16:00", end:"07月19日 13:45"},
-                        {type:"強風警報", start:"07月19日 13:45", end:"07月20日 15:00"},
-                        {type:"戒備警報", start:"07月20日 15:00", end:"07月21日 01:10"}
-                    ]
-                },
-                {
-                    year:2021, name:"熱帶風暴「盧碧」2109", totalH:"", alerts:[
-                        {type:"戒備警報", start:"08月02日 17:40", end:"08月03日 13:20"},
-                        {type:"強風警報", start:"08月03日 13:20", end:"08月04日 09:20"},
-                        {type:"戒備警報", start:"08月04日 09:20", end:"08月05日 17:20"}
-                    ]
-                },
-                {
-                    year:2021, name:"強烈熱帶風暴「康森」2113", totalH:"", alerts:[
-                        {type:"注意警報", start:"09月09日 13:00", end:"09月10日 15:00"}
-                    ]
-                },
-                {
-                    year:2021, name:"超強颱風「燦都」2114", totalH:"", alerts:[
-                        {type:"注意警報", start:"09月10日 15:00", end:"09月12日 15:30"}
-                    ]
-                },
-                {
-                    year:2021, name:"熱帶風暴「獅子山」2117", totalH:"", alerts:[
-                        {type:"戒備警報", start:"10月06日 21:40", end:"10月07日 22:40"},
-                        {type:"強風警報", start:"10月07日 22:40", end:"10月09日 06:20"},
-                        {type:"烈風預警警報", start:"10月09日 03:20", end:"10月09日 06:20"},
-                        {type:"東南烈風警報", start:"10月09日 06:20", end:"10月10日 00:20"},
-                        {type:"強風警報", start:"10月10日 00:20", end:"10月10日 13:40"},
-                        {type:"戒備警報", start:"10月10日 13:40", end:"10月10日 16:20"}
-                    ]
-                },
-                {
-                    year:2021, name:"颱風「圓規」2118", totalH:"", alerts:[
-                        {type:"戒備警報", start:"10月11日 19:40", end:"10月12日 00:20"},
-                        {type:"強風警報", start:"10月12日 00:20", end:"10月12日 21:20"},
-                        {type:"烈風預警警報", start:"10月12日 18:40", end:"10月12日 21:20"},
-                        {type:"東北烈風警報", start:"10月12日 21:20", end:"10月13日 14:40"},
-                        {type:"東南烈風警報", start:"10月13日 14:40", end:"10月13日 17:20"},
-                        {type:"強風警報", start:"10月13日 17:20", end:"10月14日 01:40"},
-                        {type:"戒備警報", start:"10月14日 01:40", end:"10月14日 10:40"}
-                    ]
-                },
-                {
-                    year:2021, name:"超強颱風「雷伊」2122", totalH:"", alerts:[
-                        {type:"注意警報", start:"12月18日 20:40", end:"12月20日 00:40"},
-                        {type:"戒備警報", start:"12月20日 00:40", end:"12月21日 15:20"}
-                    ]
-                },
-                {
-                    year:2022, name:"颱風「暹芭」2203", totalH:"", alerts:[
-                        {type:"戒備警報", start:"06月29日 18:20", end:"07月01日 01:20"},
-                        {type:"強風警報", start:"07月01日 01:20", end:"07月01日 19:20"},
-                        {type:"烈風預警警報", start:"07月01日 17:40", end:"07月01日 19:20"},
-                        {type:"東南烈風警報", start:"07月01日 19:20", end:"07月02日 09:40"},
-                        {type:"暴風警報", start:"07月02日 09:40", end:"07月02日 12:20"},
-                        {type:"東南烈風警報", start:"07月02日 12:20", end:"07月02日 17:20"},
-                        {type:"強風警報", start:"07月02日 17:20", end:"07月03日 15:20"},
-                        {type:"戒備警報", start:"07月03日 15:20", end:"07月03日 19:20"}
-                    ]
-                },
-                {
-                    year:2022, name:"熱帶低氣壓 08W", totalH:"", alerts:[
-                        {type:"戒備警報", start:"08月03日 18:20", end:"08月04日 17:40"}
-                    ]
-                },
-                {
-                    year:2022, name:"熱帶風暴「木蘭」2207", totalH:"", alerts:[
-                        {type:"戒備警報", start:"08月08日 15:40", end:"08月09日 11:20"},
-                        {type:"強風警報", start:"08月09日 11:20", end:"08月10日 06:20"},
-                        {type:"烈風預警警報", start:"08月10日 04:20", end:"08月10日 06:20"},
-                        {type:"東南烈風警報", start:"08月10日 06:20", end:"08月10日 14:20"},
-                        {type:"強風警報", start:"08月10日 14:20", end:"08月10日 19:20"}
-                    ]
-                },
-                {
-                    year:2022, name:"颱風「馬鞍」2209", totalH:"", alerts:[
-                        {type:"注意警報", start:"08月22日 23:20", end:"08月23日 19:20"},
-                        {type:"戒備警報", start:"08月23日 19:20", end:"08月24日 13:20"},
-                        {type:"強風警報", start:"08月24日 13:20", end:"08月24日 20:20"},
-                        {type:"烈風預警警報", start:"08月24日 18:20", end:"08月24日 20:20"},
-                        {type:"東北烈風警報", start:"08月24日 20:20", end:"08月25日 02:40"},
-                        {type:"東南烈風警報", start:"08月25日 02:40", end:"08月25日 10:40"},
-                        {type:"強風警報", start:"08月25日 10:40", end:"08月25日 16:20"}
-                    ]
-                },
-                {
-                    year:2022, name:"強颱風「納沙」2220", totalH:"", alerts:[
-                        {type:"戒備警報", start:"10月16日 10:40", end:"10月17日 13:40"},
-                        {type:"強風警報", start:"10月17日 13:40", end:"10月18日 20:40"}
-                    ]
-                },
-                {
-                    year:2022, name:"颱風「尼格」2222", totalH:"", alerts:[
-                        {type:"注意警報", start:"10月29日 20:40", end:"10月30日 20:40"},
-                        {type:"戒備警報", start:"10月30日 20:40", end:"10月31日 13:40"},
-                        {type:"強風警報", start:"10月31日 13:40", end:"11月02日 20:20"},
-                        {type:"烈風預警警報", start:"11月02日 17:40", end:"11月02日 20:20"},
-                        {type:"西北烈風警報", start:"11月02日 20:20", end:"11月03日 05:40"},
-                        {type:"強風警報", start:"11月03日 05:40", end:"11月03日 07:40"}
-                    ]
-                },
-                {
-                    year:2023, name:"颱風「泰利」2304", totalH:"", alerts:[
-                        {type:"注意警報", start:"07月14日 12:20", end:"07月14日 20:20"},
-                        {type:"戒備警報", start:"07月14日 20:20", end:"07月16日 11:20"},
-                        {type:"強風警報", start:"07月16日 11:20", end:"07月17日 01:20"},
-                        {type:"烈風預警警報", start:"07月17日 00:20", end:"07月17日 01:20"},
-                        {type:"東北烈風警報", start:"07月17日 01:20", end:"07月17日 11:20"},
-                        {type:"東南烈風警報", start:"07月17日 11:20", end:"07月17日 19:20"},
-                        {type:"強風警報", start:"07月17日 19:20", end:"07月18日 10:20"}
-                    ]
-                },
-                {
-                    year:2023, name:"超強颱風「杜蘇芮」2305", totalH:"", alerts:[
-                        {type:"戒備警報", start:"07月26日 19:20", end:"07月28日 11:20"}
-                    ]
-                },
-                {
-                    year:2023, name:"超強颱風「蘇拉」2309", totalH:"", alerts:[
-                        {type:"注意警報", start:"08月29日 20:20", end:"08月30日 14:20"},
-                        {type:"戒備警報", start:"08月30日 14:20", end:"08月31日 22:20"},
-                        {type:"強風警報", start:"08月31日 22:20", end:"09月01日 09:20"},
-                        {type:"烈風預警警報", start:"09月01日 06:20", end:"09月01日 09:20"},
-                        {type:"西北烈風警報", start:"09月01日 09:20", end:"09月01日 21:20"},
-                        {type:"暴風警報", start:"09月01日 21:20", end:"09月01日 23:20"},
-                        {type:"颶風警報", start:"09月01日 23:20", end:"09月02日 05:20"},
-                        {type:"東南烈風警報", start:"09月02日 05:20", end:"09月02日 12:20"},
-                        {type:"強風警報", start:"09月02日 12:20", end:"09月03日 00:20"}
-                    ]
-                },
-                {
-                    year:2023, name:"強颱風「海葵」2311", totalH:"", alerts:[
-                        {type:"戒備警報", start:"09月04日 00:20", end:"09月05日 13:20"}
-                    ]
-                },
-                {
-                    year:2023, name:"超強颱風「小犬」2314", totalH:"", alerts:[
-                        {type:"注意警報", start:"10月05日 13:20", end:"10月06日 01:20"},
-                        {type:"戒備警報", start:"10月06日 01:20", end:"10月07日 01:20"},
-                        {type:"強風警報", start:"10月07日 01:20", end:"10月08日 17:20"},
-                        {type:"烈風預警警報", start:"10月08日 13:20", end:"10月08日 17:20"},
-                        {type:"東北烈風警報", start:"10月08日 17:20", end:"10月09日 08:20"},
-                        {type:"強風警報", start:"10月09日 08:20", end:"10月09日 12:20"}
-                    ]
-                },
-                {
-                    year:2023, name:"強烈熱帶風暴「三巴」2316", totalH:"", alerts:[
-                        {type:"戒備警報", start:"10月18日 17:20", end:"10月20日 21:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"熱帶風暴「馬力斯」2402", totalH:"", alerts:[
-                        {type:"戒備警報", start:"05月30日 13:20", end:"05月31日 18:20"},
-                        {type:"強風警報", start:"05月31日 18:20", end:"06月01日 18:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"超強颱風「格美」2403", totalH:"", alerts:[
-                        {type:"戒備警報", start:"07月25日 15:20", end:"07月25日 21:40"},
-                        {type:"強風警報", start:"07月25日 21:40", end:"07月26日 15:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"強烈熱帶風暴「派比安」2404", totalH:"", alerts:[
-                        {type:"戒備警報", start:"07月20日 08:40", end:"07月22日 14:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"超強颱風「摩羯」2411", totalH:"", alerts:[
-                        {type:"注意警報", start:"09月02日 23:40", end:"09月03日 18:20"},
-                        {type:"戒備警報", start:"09月03日 18:20", end:"09月05日 07:40"},
-                        {type:"強風警報", start:"09月05日 07:40", end:"09月05日 20:20"},
-                        {type:"烈風預警警報", start:"09月05日 17:20", end:"09月05日 20:20"},
-                        {type:"東北烈風警報", start:"09月05日 20:20", end:"09月06日 13:20"},
-                        {type:"強風警報", start:"09月06日 13:20", end:"09月07日 10:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"超強颱風「山陀兒」2418", totalH:"", alerts:[
-                        {type:"戒備警報", start:"10月01日 00:20", end:"10月01日 19:20"},
-                        {type:"強風警報", start:"10月01日 19:20", end:"10月02日 19:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"颱風「潭美」2420", totalH:"", alerts:[
-                        {type:"戒備警報", start:"10月25日 07:40", end:"10月25日 23:40"},
-                        {type:"強風警報", start:"10月25日 23:40", end:"10月26日 21:40"}
-                    ]
-                },
-                {
-                    year:2024, name:"超強颱風「銀杏」2422", totalH:"", alerts:[
-                        {type:"戒備警報", start:"11月08日 13:20", end:"11月10日 01:40"},
-                        {type:"強風警報", start:"11月10日 01:40", end:"11月10日 13:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"颱風「桃芝」2423", totalH:"", alerts:[
-                        {type:"注意警報", start:"11月11日 13:20", end:"11月12日 08:20"},
-                        {type:"戒備警報", start:"11月12日 08:20", end:"11月13日 18:20"},
-                        {type:"強風警報", start:"11月13日 18:20", end:"11月15日 02:20"}
-                    ]
-                },
-                {
-                    year:2024, name:"超強颱風「萬宜」2424", totalH:"", alerts:[
-                        {type:"強風警報", start:"11月18日 13:20", end:"11月19日 20:20"},
-                        {type:"戒備警報", start:"11月19日 20:20", end:"11月20日 01:40"}
-                    ]
-                },
-                {
-                    year:2025, name:"颱風「蝴蝶」2501", totalH:"109h 00m", alerts:[
-                        {type:"戒備警報", start:"06月11日 01:20", end:"06月11日 22:20"},
-                        {type:"強風警報", start:"06月11日 22:20", end:"06月12日 18:20"},
-                        {type:"戒備警報", start:"06月12日 18:20", end:"06月14日 02:20"},
-                        {type:"強風警報", start:"06月14日 02:20", end:"06月15日 14:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"熱帶低氣壓 08W", totalH:"42h 00m", alerts:[
-                        {type:"戒備警報", start:"06月25日 01:20", end:"06月26日 19:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"強颱風 「丹娜絲」2504", totalH:"56h 40m", alerts:[
-                        {type:"戒備警報", start:"07月04日 13:40", end:"07月06日 13:20"},
-                        {type:"戒備警報", start:"07月09日 15:20", end:"07月10日 00:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"颱風「韋帕」2506", totalH:"64h 20m", alerts:[
-                        {type:"注意警報", start:"07月18日 12:20", end:"07月19日 04:20"},
-                        {type:"戒備警報", start:"07月19日 04:20", end:"07月19日 16:20"},
-                        {type:"強風警報", start:"07月19日 16:20", end:"07月20日 03:20"},
-                        {type:"烈風預警警報", start:"07月19日 23:40", end:"07月20日 03:20"},
-                        {type:"西北烈風警報", start:"07月20日 03:20", end:"07月20日 09:40"},
-                        {type:"暴風警報", start:"07月20日 09:40", end:"07月20日 13:40"},
-                        {type:"颶風警報", start:"07月20日 13:40", end:"07月20日 16:40"},
-                        {type:"強風警報", start:"07月20日 16:40", end:"07月21日 04:40"}
-                    ]
-                },
-                {
-                    year:2025, name:"強颱風「楊柳」2511", totalH:"24h 00m", alerts:[
-                        {type:"戒備警報", start:"08月13日 13:20", end:"08月14日 13:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"熱帶低氣壓 17W", totalH:"33h 40m", alerts:[
-                        {type:"注意警報", start:"08月17日 02:40", end:"08月17日 08:20"},
-                        {type:"強風警報", start:"08月17日 08:20", end:"08月18日 00:20"},
-                        {type:"戒備警報", start:"08月18日 00:20", end:"08月18日 12:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"強颱風「劍魚」2513", totalH:"41h 40m", alerts:[
-                        {type:"戒備警報", start:"08月23日 02:40", end:"08月23日 20:20"},
-                        {type:"強風警報", start:"08月23日 20:20", end:"08月24日 20:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"熱帶風暴「藍湖」2514", totalH:"31h 00m", alerts:[
-                        {type:"戒備警報", start:"08月28日 17:20", end:"08月29日 07:20"},
-                        {type:"強風警報", start:"08月29日 07:20", end:"08月30日 00:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"強烈熱帶風暴「塔巴」2516", totalH:"72h 00m", alerts:[
-                        {type:"注意警報", start:"09月05日 17:20", end:"09月06日 10:20"},
-                        {type:"戒備警報", start:"09月06日 10:20", end:"09月07日 10:20"},
-                        {type:"強風警報", start:"09月07日 10:20", end:"09月07日 21:20"},
-                        {type:"烈風預警警報", start:"09月07日 18:20", end:"09月07日 21:20"},
-                        {type:"東北烈風警報", start:"09月07日 21:20", end:"09月08日 04:20"},
-                        {type:"東南烈風警報", start:"09月08日 04:20", end:"09月08日 12:20"},
-                        {type:"強風警報", start:"09月08日 12:20", end:"09月08日 17:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"強烈熱帶風暴「米娜」2517", totalH:"79h 00m", alerts:[
-                        {type:"注意警報", start:"09月17日 01:20", end:"09月18日 09:20"},
-                        {type:"戒備警報", start:"09月18日 09:20", end:"09月19日 11:20"},
-                        {type:"強風警報", start:"09月19日 11:20", end:"09月20日 08:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"超強颱風「樺加沙」2518", totalH:"103h 00m", alerts:[
-                        {type:"注意警報", start:"09月21日 10:20", end:"09月22日 10:20"},
-                        {type:"戒備警報", start:"09月22日 10:20", end:"09月23日 10:20"},
-                        {type:"強風警報", start:"09月23日 10:20", end:"09月23日 21:20"},
-                        {type:"烈風預警警報", start:"09月23日 18:20", end:"09月23日 21:20"},
-                        {type:"西北烈風警報", start:"09月23日 21:20", end:"09月24日 02:40"},
-                        {type:"暴風警報", start:"09月24日 02:40", end:"09月24日 09:50"},
-                        {type:"颶風警報", start:"09月24日 09:50", end:"09月24日 14:20"},
-                        {type:"暴風警報", start:"09月24日 14:20", end:"09月24日 16:20"},
-                        {type:"東南烈風警報", start:"09月24日 16:20", end:"09月25日 01:20"},
-                        {type:"強風警報", start:"09月25日 01:20", end:"09月25日 17:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"颱風「麥德姆」2521", totalH:"62h 00m", alerts:[
-                        {type:"注意警報", start:"10月03日 08:20", end:"10月03日 22:20"},
-                        {type:"戒備警報", start:"10月03日 22:20", end:"10月04日 15:20"},
-                        {type:"強風警報", start:"10月04日 15:20", end:"10月04日 23:20"},
-                        {type:"烈風預警警報", start:"10月04日 22:40", end:"10月04日 23:20"},
-                        {type:"東南烈風警報", start:"10月04日 23:20", end:"10月05日 01:20"},
-                        {type:"暴風警報", start:"10月05日 01:20", end:"10月05日 09:20"},
-                        {type:"東南烈風警報", start:"10月05日 09:20", end:"10月05日 15:20"},
-                        {type:"強風警報", start:"10月05日 15:20", end:"10月05日 22:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"強烈熱帶風暴「風神」2524", totalH:"62h 00m", alerts:[
-                        {type:"注意警報", start:"10月19日 10:20", end:"10月19日 22:20"},
-                        {type:"戒備警報", start:"10月19日 22:20", end:"10月20日 16:20"},
-                        {type:"強風警報", start:"10月20日 16:20", end:"10月21日 18:20"},
-                        {type:"戒備警報", start:"10月21日 18:20", end:"10月22日 00:20"}
-                    ]
-                },
-                {
-                    year:2025, name:"超強颱風「鳳凰」2526", totalH:"38h 00m", alerts:[
-                        {type:"戒備警報", start:"11月10日 14:20", end:"11月12日 04:20"}
-                    ]
-                },
-                {
-                    year:2026, name:"颱風「美莎克」2610", totalH:"63h 00m", alerts:[
-                        {type:"戒備警報", start:"07月02日 02:20", end:"07月03日 11:20"},
-                        {type:"強風警報", start:"07月03日 11:20", end:"07月04日 17:20"}
-                    ]
-                },
-                {
-                    year:2026, name:"熱帶低氣壓 99W", totalH:"18h 20m", alerts:[
-                        {type:"注意警報", start:"07月13日 22:20", end:"07月14日 10:40"},
-                        {type:"戒備警報", start:"07月14日 10:40", end:"07月14日 16:40"}
-                    ]
-                },
-                {
-                    year:2026, name:"颱風「紅霞」2612", totalH:"56h 00m", alerts:[
-                        {type:"注意警報", start:"07月24日 08:20", end:"07月24日 22:20"},
-                        {type:"戒備警報", start:"07月24日 22:20", end:"07月25日 17:20"},
-                        {type:"強風警報", start:"07月25日 17:20", end:"07月26日 07:20"},
-                        {type:"西南烈風警報", start:"07月26日 07:20", end:"07月26日 16:20"}
-                    ]
-                },
-                {
-                    year:2026, name:"熱帶風暴「紫檀」2619", totalH:"52h 00m", alerts:[
-                        {type:"強風警報", start:"08月19日 21:20", end:"08月20日 13:20"},
-                        {type:"戒備警報", start:"08月25日 02:20", end:"08月26日 14:20"}
-                    ]
-                },      
-                {
-                    year: 2026, name: "超強颱風「沙德爾」2618", totalH: "84h 40m", alerts: [
-                        { type: "注意警報", start: "08月31日 11:40", end: "08月31日 19:40" },
-                        { type: "戒備警報", start: "08月31日 19:40", end: "09月01日 13:20" },
-                        { type: "強風警報", start: "09月01日 13:20", end: "09月02日 14:20" },
-                        { type: "戒備警報", start: "09月02日 14:20", end: "09月04日 00:20" }
-                    ]
-                }
-            ];
-            window.usingFallbackData = true;
-        } else {
-            window.usingFallbackData = false;
+        body, header, div, span, button, input, select, table, tr, td, th {
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
         }
-    </script>
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen radar-grid-bg selection:bg-sky-500 selection:text-white">
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen radar-grid selection:bg-blue-600 selection:text-white pb-12">
 
-    <!-- Top Sticky Observatory Navbar -->
-    <header class="sticky top-0 z-40 backdrop-blur-xl bg-white/85 dark:bg-slate-900/85 border-b border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-            <!-- Brand Title -->
+    <!-- Sticky Meteorological Navbar -->
+    <header class="sticky top-0 z-40 backdrop-blur-xl bg-white/90 dark:bg-slate-900/90 border-b border-slate-200/80 dark:border-slate-800/80 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+            <!-- Brand -->
             <div class="flex items-center gap-3">
-                <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-md shadow-sky-500/20">
-                    <!-- Custom Animated Typhoon SVG Icon -->
-                    <svg class="w-6 h-6 animate-spin-slow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
-                        <path d="M12 8c-3.5 0-6.5 2-8 5.5 2.5-1.5 5-2 8-1.5"/>
-                        <path d="M12 16c3.5 0 6.5-2 8-5.5-2.5 1.5-5 2-8 1.5"/>
-                        <path d="M15.5 9.5c1.5-3 1-6.5-1.5-7.5.5 2.5 0 5-1.5 7"/>
-                        <path d="M8.5 14.5c-1.5 3-1 6.5 1.5 7.5-.5-2.5 0-5 1.5-7"/>
+                <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-500 text-white shadow-md shadow-blue-500/25 shrink-0">
+                    <svg class="w-6 h-6 animate-spin-slow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <circle cx="12" cy="12" r="3.5" stroke-dasharray="2 2"/>
+                        <path d="M12 7c-3 0-5.5 1.8-7 4.5 2-1 4.5-1.5 7-1"/>
+                        <path d="M12 17c3 0 5.5-1.8 7-4.5-2 1-4.5 1.5-7 1"/>
+                        <path d="M15.5 8.5c1.2-2.5.8-5.5-1-6.5.2 2-.5 4-2 5.5"/>
+                        <path d="M8.5 15.5c-1.2 2.5-.8 5.5 1 6.5-.2-2 .5-4 2-5.5"/>
                     </svg>
-                    <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-slate-900"></span>
+                    <span class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900 animate-ping"></span>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                            熱帶氣旋警報紀錄
+                        <h1 class="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                            澳門熱帶氣旋警報紀錄
                         </h1>
-                        <span class="hidden md:inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
                             2021 – 2026
                         </span>
                     </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                        Tropical Cyclone Warning Archive &bull; <span id="dataSourceIndicator">data/TCwarning_record.js</span>
+                    <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Macao TC Warning Records Observatory
                     </p>
                 </div>
             </div>
 
-            <!-- Right Actions: Legend Modal, JS File Download, Theme Toggle -->
-            <div class="flex items-center gap-2 sm:gap-3">
-                <button onclick="openLegendModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700">
-                    <i class="ph ph-warning-diamond text-sm text-amber-500"></i>
-                    <span class="hidden sm:inline">警報分級說明</span>
+            <!-- Header Quick Tools -->
+            <div class="flex items-center gap-2 sm:gap-2.5">
+                <!-- Info Criteria Modal Button -->
+                <button onclick="openLegendModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200/90 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 min-h-[38px]">
+                    <i class="ph-fill ph-shield-check text-sm text-amber-500"></i>
+                    <span class="hidden sm:inline">警報標準與顏色</span>
                 </button>
 
-                <button onclick="downloadJSDataFile()" title="下載 data/TCwarning_record.js 檔案" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:hover:bg-sky-900/70 dark:text-sky-300 border border-sky-200/70 dark:border-sky-800/70">
-                    <i class="ph ph-file-js text-sm"></i>
-                    <span class="hidden md:inline">下載 JS 資料檔</span>
+                <!-- Wind Calculator Modal Button -->
+                <button onclick="openWindCalcModal()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:hover:bg-blue-900/80 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 min-h-[38px]">
+                    <i class="ph-fill ph-wind text-sm"></i>
+                    <span class="hidden md:inline">風速換算器</span>
                 </button>
 
-                <!-- Dark / Light Mode Toggle Button -->
-                <button id="themeToggleBtn" onclick="toggleTheme()" aria-label="切換深淺色模式" class="relative inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 text-white dark:bg-amber-400 dark:text-slate-950 shadow-sm hover:opacity-90 active:scale-95 transition-all">
+                <!-- Export CSV Button (replaces external JS download) -->
+                <button onclick="exportToCSV()" title="匯出當前篩選之氣旋資料表為 CSV" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 min-h-[38px]">
+                    <i class="ph-fill ph-file-csv text-sm"></i>
+                    <span class="hidden lg:inline">匯出 CSV 報表</span>
+                </button>
+
+                <!-- Theme Toggle Button -->
+                <button id="themeToggleBtn" onclick="toggleTheme()" aria-label="切換深淺模式" class="inline-flex items-center justify-center p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 min-h-[38px] min-w-[38px]">
                     <i id="themeIcon" class="ph-fill ph-sun text-base"></i>
-                    <span id="themeText" class="hidden sm:inline">淺色模式</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Content Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 space-y-6">
 
-        <!-- Top KPI Summary Cards -->
-        <section aria-label="統計摘要" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- KPI 1: Total Cyclones -->
-            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">發佈警報氣旋總數</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="kpiTotalCount" class="text-3xl font-extrabold font-mono text-slate-900 dark:text-white">0</span>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">個熱帶氣旋</span>
+        <!-- Banner: Meteorological Signal Colors Quick Strip -->
+        <section aria-label="澳門熱帶氣旋警報標準圖例" class="bg-white/80 dark:bg-slate-900/80 backdrop-blur rounded-2xl p-3 sm:p-4 border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-x-auto">
+            <div class="flex items-center justify-between min-w-[680px] gap-2 text-xs">
+                <span class="text-slate-400 font-mono font-semibold text-[11px] shrink-0 uppercase tracking-wider flex items-center gap-1">
+                    <i class="ph-bold ph-faders"></i> 官方標準分級：
+                </span>
+                <div class="flex items-center gap-2 flex-1 justify-around">
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                        <strong class="font-bold">注意警報</strong>
+                        <span class="text-[10px] opacity-75 font-mono">1200/800km</span>
                     </div>
-                    <p id="kpiYearSpanText" class="mt-2 text-xs text-sky-600 dark:text-sky-400 font-medium flex items-center gap-1">
-                        <i class="ph ph-calendar-blank"></i> 涵蓋 2021 - 2026 年度
-                    </p>
-                </div>
-                <div class="w-11 h-11 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-500/20">
-                    <i class="ph-duotone ph-wind text-2xl"></i>
-                </div>
-            </div>
-
-            <!-- KPI 2: Gale or Above Count -->
-            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">烈風或以上警報</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="kpiGalePlusCount" class="text-3xl font-extrabold font-mono text-rose-600 dark:text-rose-400">0</span>
-                        <span class="text-xs text-slate-500 dark:text-slate-400">次嚴重影響</span>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                        <strong class="font-bold">戒備警報</strong>
+                        <span class="text-[10px] opacity-75 font-mono">800km警戒</span>
                     </div>
-                    <p id="kpiHurricaneBreakdown" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        含颶風警報 0 次、暴風 0 次
-                    </p>
-                </div>
-                <div class="w-11 h-11 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-500/20">
-                    <i class="ph-duotone ph-warning-octagon text-2xl"></i>
-                </div>
-            </div>
-
-            <!-- KPI 3: Longest Duration Record -->
-            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-start justify-between">
-                <div class="min-w-0 pr-2">
-                    <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">最長生效時間紀錄</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="kpiLongestHours" class="text-2xl sm:text-3xl font-extrabold font-mono text-amber-600 dark:text-amber-400">--</span>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-300 dark:border-blue-800">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                        <strong class="font-bold">強風警報</strong>
+                        <span class="text-[10px] opacity-75 font-mono">41-62 km/h</span>
                     </div>
-                    <p id="kpiLongestName" class="mt-2 text-xs text-slate-600 dark:text-slate-300 font-medium truncate">
-                        --
-                    </p>
-                </div>
-                <div class="w-11 h-11 shrink-0 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20">
-                    <i class="ph-duotone ph-timer text-2xl"></i>
-                </div>
-            </div>
-
-            <!-- KPI 4: Total Cumulative Hours -->
-            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-start justify-between">
-                <div>
-                    <p class="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">累計警報生效時數</p>
-                    <div class="mt-2 flex items-baseline gap-2">
-                        <span id="kpiTotalHours" class="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-600 dark:text-emerald-400">0h</span>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                        <strong class="font-bold">烈風警報</strong>
+                        <span class="text-[10px] opacity-75 font-mono">63-87 km/h</span>
                     </div>
-                    <p id="kpiAvgHours" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        平均每個氣旋維持 --
-                    </p>
-                </div>
-                <div class="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                    <i class="ph-duotone ph-chart-bar text-2xl"></i>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50 text-orange-950 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-300 dark:border-orange-800">
+                        <span class="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+                        <strong class="font-bold">暴風警報</strong>
+                        <span class="text-[10px] opacity-75 font-mono">88-117 km/h</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-50 text-red-950 dark:bg-red-950/70 dark:text-red-300 border border-red-300 dark:border-red-800 font-bold">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
+                        <strong>𩗗風警報</strong>
+                        <span class="text-[10px] opacity-80 font-mono">&gt;118 km/h</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Interactive Visual Analytics Section (Yearly Overview & Signal Distribution) -->
+        <!-- KPI Cards Grid -->
+        <section aria-label="資料庫核心統計摘要" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <!-- KPI 1 -->
+            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">記錄熱帶氣旋數</span>
+                    <span class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                        <i class="ph-duotone ph-wind text-xl"></i>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="kpiTotalCount" class="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white">0</span>
+                        <span class="text-xs text-slate-500">個氣旋</span>
+                    </div>
+                    <p id="kpiYearSpanText" class="mt-1 text-[11px] text-blue-600 dark:text-blue-400 font-mono truncate">
+                        2021 – 2026 全集
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPI 2 -->
+            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">烈風或以上重創</span>
+                    <span class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                        <i class="ph-duotone ph-warning-octagon text-xl"></i>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="kpiGalePlusCount" class="text-2xl sm:text-3xl font-black font-mono text-amber-600 dark:text-amber-400">0</span>
+                        <span class="text-xs text-slate-500">次嚴重影響</span>
+                    </div>
+                    <p id="kpiHurricaneBreakdown" class="mt-1 text-[11px] text-red-600 dark:text-red-400 font-mono truncate">
+                        含𩗗風 0 次、暴風 0 次
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPI 3 -->
+            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">最長影響紀錄</span>
+                    <span class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                        <i class="ph-duotone ph-timer text-xl"></i>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="kpiLongestHours" class="text-2xl sm:text-3xl font-black font-mono text-purple-600 dark:text-purple-400">--</span>
+                    </div>
+                    <p id="kpiLongestName" class="mt-1 text-[11px] text-slate-600 dark:text-slate-300 font-medium truncate">
+                        --
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPI 4 -->
+            <div class="bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">累計生效總時數</span>
+                    <span class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                        <i class="ph-duotone ph-hourglass-medium text-xl"></i>
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <div class="flex items-baseline gap-1.5">
+                        <span id="kpiTotalHours" class="text-2xl sm:text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400">0h</span>
+                    </div>
+                    <p id="kpiAvgHours" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                        平均每氣旋維持 --
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visual Analytics: Charts Section -->
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <!-- Yearly Breakdown Card -->
+            <!-- Yearly Stacked Bar Chart -->
             <div class="lg:col-span-7 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <i class="ph-fill ph-chart-line-up text-sky-500"></i>
-                            歷年熱帶氣旋警報數量與最高級別分佈
+                            <i class="ph-fill ph-chart-bar text-blue-600"></i>
+                            歷年氣旋發佈總數與最高烈風以上分佈
                         </h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">點擊年份柱狀圖可快速篩選該年紀錄</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">點擊年份柱可快速鎖定該年紀錄</p>
                     </div>
-                    <div class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-rose-500"></span>烈風或以上</span>
-                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>強風</span>
-                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-amber-400"></span>戒備/注意</span>
+                    <div class="flex items-center gap-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-red-600"></span>𩗗/暴風</span>
+                        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-amber-500"></span>烈風</span>
+                        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-blue-600"></span>強風</span>
+                        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-emerald-500"></span>戒備/注意</span>
                     </div>
                 </div>
                 <div id="yearlyChartContainer" class="grid grid-cols-6 gap-2 sm:gap-4 items-end h-40 pt-4 px-1">
@@ -625,14 +292,14 @@
                 </div>
             </div>
 
-            <!-- Highest Alert Distribution & Quick Filter Card -->
+            <!-- Alert Total Hours Proportional Distribution -->
             <div class="lg:col-span-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
                 <div class="mb-3">
                     <h2 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <i class="ph-fill ph-shield-warning text-amber-500"></i>
-                        各級警報發佈時數佔比 (依目前篩選)
+                        <i class="ph-fill ph-pie-chart text-amber-500"></i>
+                        各級警報累計維持時數佔比 (依目前篩選)
                     </h2>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">顯示各警報種類累計生效時間比例</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">呈現六大官方警戒狀態之時間權重</p>
                 </div>
                 <div id="alertTypeDistribution" class="space-y-2.5 my-auto">
                     <!-- Populated via JS -->
@@ -640,22 +307,22 @@
             </div>
         </section>
 
-        <!-- Filter, Search & View Controls Bar -->
+        <!-- Advanced Filter & Control Bar -->
         <section class="bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
-            <!-- Row 1: Year Pills + View Switcher -->
+            <!-- Year Pills & View Mode Switcher -->
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-200/70 dark:border-slate-800">
-                <!-- Year Filter Pills -->
+                <!-- Year Pills Scroll Container -->
                 <div class="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0" id="yearPillsContainer">
                     <!-- Populated via JS -->
                 </div>
 
-                <!-- View Switcher & Reset -->
+                <!-- Right View Toggle & Reset -->
                 <div class="flex items-center justify-between md:justify-end gap-2 shrink-0">
-                    <button id="resetFiltersBtn" onclick="resetAllFilters()" class="hidden items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 border border-rose-200 dark:border-rose-800/60">
-                        <i class="ph ph-arrow-counter-clockwise"></i> 重設篩選
+                    <button id="resetFiltersBtn" onclick="resetAllFilters()" class="hidden items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 hover:bg-red-100 border border-red-200 dark:border-red-800/60 min-h-[36px]">
+                        <i class="ph ph-arrow-counter-clockwise"></i> 重設全部
                     </button>
                     <div class="inline-flex rounded-xl p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70">
-                        <button id="viewCardBtn" onclick="setViewMode('card')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm">
+                        <button id="viewCardBtn" onclick="setViewMode('card')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm">
                             <i class="ph-fill ph-cards text-sm"></i> 時間軸卡片
                         </button>
                         <button id="viewTableBtn" onclick="setViewMode('table')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
@@ -665,56 +332,64 @@
                 </div>
             </div>
 
-            <!-- Row 2: Search Input, Alert Level Select, Intensity Select, Sort Select -->
+            <!-- Multi-Dimensional Filters Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
-                <!-- Search Input -->
-                <div class="lg:col-span-4 relative">
+                <!-- 1. Text Search Input -->
+                <div class="lg:col-span-3 relative">
                     <i class="ph ph-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-base"></i>
                     <input
                         id="searchInput"
                         type="text"
-                        placeholder="搜尋氣旋名稱、編號 (如：蘇拉、2518、08W)..."
+                        placeholder="搜尋氣旋名稱、編號 (如: 蘇拉, 2518, 08W)..."
                         oninput="handleFilterChange()"
-                        class="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        class="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                     <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                         <i class="ph-fill ph-x-circle text-base"></i>
                     </button>
                 </div>
 
-                <!-- Highest Alert Filter -->
+                <!-- 2. Warning Level Filter (Updated with user's exact hierarchy) -->
                 <div class="lg:col-span-3">
-                    <select id="alertFilterSelect" onchange="handleFilterChange()" class="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    <select id="alertFilterSelect" onchange="handleFilterChange()" class="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="ALL">最高警報級別：全部</option>
-                        <option value="HURRICANE">颶風警報 (最高級別)</option>
-                        <option value="STORM">暴風警報或以上</option>
-                        <option value="GALE">烈風警報 (八號) 或以上</option>
+                        <option value="HURRICANE">𩗗風警報 (紅，平均&gt;118km/h)</option>
+                        <option value="STORM">暴風警報或以上 (橙/紅)</option>
+                        <option value="GALE">烈風警報或以上 (黃/橙/紅)</option>
                         <option value="GALE_ONLY">最高為烈風警報 (東北/東南/西北/西南)</option>
-                        <option value="STRONG">最高為強風警報</option>
-                        <option value="STANDBY">最高為戒備警報</option>
-                        <option value="ATTENTION">最高為注意警報</option>
-                        <option value="HAS_PREGALE">曾發佈「烈風預警警報」</option>
+                        <option value="STRONG">最高為強風警報 (藍)</option>
+                        <option value="STANDBY">最高為戒備警報 (綠)</option>
+                        <option value="ATTENTION">最高為注意警報 (灰)</option>
                     </select>
                 </div>
 
-                <!-- Cyclone Intensity Filter -->
-                <div class="lg:col-span-3">
-                    <select id="intensityFilterSelect" onchange="handleFilterChange()" class="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                        <option value="ALL">氣旋強度分類：全部</option>
-                        <option value="超強颱風">超強颱風 (Super Typhoon)</option>
-                        <option value="強颱風">強颱風 (Severe Typhoon)</option>
-                        <option value="颱風">颱風 (Typhoon)</option>
-                        <option value="強烈熱帶風暴">強烈熱帶風暴 (STS)</option>
-                        <option value="熱帶風暴">熱帶風暴 (TS)</option>
-                        <option value="熱帶低氣壓">熱帶低氣壓 (TD)</option>
-                    </select>
-                </div>
-
-                <!-- Sort Order -->
+                <!-- 3. Season / Month Classification Filter (New Feature) -->
                 <div class="lg:col-span-2">
-                    <select id="sortSelect" onchange="handleFilterChange()" class="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    <select id="seasonFilterSelect" onchange="handleFilterChange()" class="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="ALL">季節月份：全部</option>
+                        <option value="EARLY">初夏 (5月 – 6月)</option>
+                        <option value="MIDSUMMER">盛夏 (7月 – 8月)</option>
+                        <option value="AUTUMN">秋颱 (9月 – 10月)</option>
+                        <option value="LATE">晚秋與冬颱 (11月 – 12月)</option>
+                    </select>
+                </div>
+
+                <!-- 4. Duration Range Filter (New Feature) -->
+                <div class="lg:col-span-2">
+                    <select id="durationFilterSelect" onchange="handleFilterChange()" class="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="ALL">影響時數：全部</option>
+                        <option value="OVER_72">超長影響 (&gt;72 小時)</option>
+                        <option value="48_TO_72">中度影響 (48 – 72 小時)</option>
+                        <option value="24_TO_48">短中影響 (24 – 48 小時)</option>
+                        <option value="UNDER_24">短暫掠過 (&lt;24 小時)</option>
+                    </select>
+                </div>
+
+                <!-- 5. Sort Order Select -->
+                <div class="lg:col-span-2">
+                    <select id="sortSelect" onchange="handleFilterChange()" class="w-full px-3 py-2.5 text-xs sm:text-sm rounded-xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="DATE_DESC">排序：最新年份優先</option>
-                        <option value="DATE_ASC">排序：最舊年份優先</option>
+                        <option value="DATE_ASC">排序：最早年份優先</option>
                         <option value="DURATION_DESC">排序：總時數最長優先</option>
                         <option value="DURATION_ASC">排序：總時數最短優先</option>
                         <option value="SEVERITY_DESC">排序：警報級別最高優先</option>
@@ -723,36 +398,36 @@
             </div>
         </section>
 
-        <!-- Results Status Bar -->
-        <div class="flex flex-wrap items-center justify-between gap-2 px-1">
-            <div class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                顯示 <span id="showingCount" class="font-bold font-mono text-slate-900 dark:text-white">0</span> 個熱帶氣旋紀錄
-                <span id="activeFilterSummary" class="ml-2 text-sky-600 dark:text-sky-400 font-medium"></span>
+        <!-- Count Summary & Expand Controls -->
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+            <div class="text-slate-600 dark:text-slate-400">
+                符合條件熱帶氣旋：<span id="showingCount" class="font-bold font-mono text-slate-900 dark:text-white">0</span> 個
+                <span id="activeFilterBadge" class="ml-1.5 text-blue-600 dark:text-blue-400 font-semibold"></span>
             </div>
-            <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                <button onclick="toggleExpandAllCards()" id="expandAllBtn" class="hover:text-sky-600 dark:hover:text-sky-400 inline-flex items-center gap-1 font-medium">
-                    <i class="ph ph-arrows-out-line-vertical"></i> <span>展開全部時間軸明細</span>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleExpandAllCards()" id="expandAllBtn" class="hover:text-blue-600 dark:hover:text-blue-400 inline-flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-400">
+                    <i class="ph ph-arrows-out-line-vertical"></i> <span>展開全部階段明細</span>
                 </button>
             </div>
         </div>
 
-        <!-- Card Timeline View Container -->
+        <!-- Card Timeline View -->
         <section id="cardViewContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Populated via JS -->
         </section>
 
-        <!-- Compact Table View Container -->
+        <!-- Table View -->
         <section id="tableViewContainer" class="hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        <tr class="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-800/60 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             <th class="py-3.5 px-4">年份 / 編號</th>
                             <th class="py-3.5 px-4">熱帶氣旋名稱與強度</th>
                             <th class="py-3.5 px-4">最高警報級別</th>
                             <th class="py-3.5 px-4">首發時間 &rarr; 取消時間</th>
-                            <th class="py-3.5 px-4">總有效時數</th>
-                            <th class="py-3.5 px-4 w-56">警報歷程比例</th>
+                            <th class="py-3.5 px-4">總生效時數</th>
+                            <th class="py-3.5 px-4 w-52">警報進程比例條</th>
                             <th class="py-3.5 px-4 text-right">詳情</th>
                         </tr>
                     </thead>
@@ -764,230 +439,756 @@
         </section>
 
         <!-- Empty State -->
-        <section id="emptyStateContainer" class="hidden bg-white/90 dark:bg-slate-900/90 rounded-2xl p-12 text-center border border-slate-200/80 dark:border-slate-800">
-            <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-4">
-                <i class="ph-duotone ph-cloud-slash text-4xl"></i>
+        <section id="emptyStateContainer" class="hidden bg-white/90 dark:bg-slate-900/90 rounded-2xl p-10 text-center border border-slate-200/80 dark:border-slate-800">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+                <i class="ph-duotone ph-wind text-4xl"></i>
             </div>
-            <h3 class="text-base font-bold text-slate-900 dark:text-white">找不到符合條件的熱帶氣旋紀錄</h3>
-            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                請嘗試調整搜尋關鍵字、年份或警報級別篩選條件。
-            </p>
-            <button onclick="resetAllFilters()" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm">
-                <i class="ph ph-arrow-counter-clockwise"></i> 顯示全部紀錄
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">未找到符合條件的氣旋紀錄</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">請嘗試清除篩選器或調整關鍵字。</p>
+            <button onclick="resetAllFilters()" class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm">
+                <i class="ph ph-arrow-counter-clockwise"></i> 恢復顯示全部
             </button>
         </section>
 
     </main>
 
     <!-- Footer -->
-    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-8 border-t border-slate-200/80 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-slate-200/80 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-sky-500"></span>
-            <span>熱帶氣旋警報資料庫 (2021–2026) &bull; 自動時數推算與視覺化分析系統</span>
+            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+            <span>澳門熱帶氣旋警報歷年紀錄 (2021–2026) &bull; 免外連獨立運行系統</span>
         </div>
         <div class="flex items-center gap-4">
-            <span>資料來源路徑：<code class="font-mono text-sky-600 dark:text-sky-400">data/TCwarning_record.js</code></span>
-            <button onclick="downloadJSDataFile()" class="underline hover:text-slate-800 dark:hover:text-slate-200">匯出 JS 檔案</button>
+            <button onclick="openLegendModal()" class="hover:underline">警報標準與顏色規格</button>
+            <button onclick="exportToCSV()" class="hover:underline text-blue-600 dark:text-blue-400">匯出 CSV 報表</button>
         </div>
     </footer>
 
-    <!-- Detailed Cyclone Inspector Modal -->
+    <!-- MODAL 1: Alert Definition & Color Legend Modal -->
+    <div id="legendModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/40">
+                <div class="flex items-center gap-2.5">
+                    <i class="ph-fill ph-shield-check text-blue-600 text-xl"></i>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">澳門熱帶氣旋警報定義與顏色標準</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">各級別風速規範與發佈條件說明</p>
+                    </div>
+                </div>
+                <button onclick="closeLegendModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4 text-xs sm:text-sm">
+                <!-- 注意警報 -->
+                <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border-l-4 border-slate-500 border border-slate-200/70 dark:border-slate-700 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                            注意警報 (Gray 灰色)
+                        </span>
+                        <span class="text-xs font-mono text-slate-500">警戒範圍觀察</span>
+                    </div>
+                    <ul class="list-decimal pl-4 space-y-1 text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        <li>有一熱帶氣旋進入澳門1200公里範圍，未來24-72小時將進入澳門800公里範圍，並對澳門構成較大威脅。</li>
+                        <li>有一潛在熱帶氣旋位於本澳800公里範圍內，未來24小時內將發展成熱帶氣旋，並有可能對澳門構成較大威脅。</li>
+                    </ul>
+                </div>
+
+                <!-- 戒備警報 -->
+                <div class="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border-l-4 border-emerald-500 border border-emerald-200/70 dark:border-emerald-900/60 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/70 dark:text-emerald-200">
+                            戒備警報 (Green 綠色)
+                        </span>
+                        <span class="text-xs font-mono text-emerald-600 dark:text-emerald-400">800公里警戒</span>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        有一熱帶氣旋進入澳門800公里範圍，未來24-48小時內將逐漸影響澳門。
+                    </p>
+                </div>
+
+                <!-- 強風警報 -->
+                <div class="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-blue-600 border border-blue-200/70 dark:border-blue-900/60 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/70 dark:text-blue-200">
+                            強風警報 (Blue 藍色)
+                        </span>
+                        <span class="text-xs font-mono text-blue-600 dark:text-blue-400 font-bold">41 – 62 km/h</span>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        受熱帶氣旋影響，預料澳門平均風速為每小時41至62公里，陣風約為每小時63至87公里，橋上或空曠地方風力可能更大。
+                    </p>
+                </div>
+
+                <!-- 烈風警報 -->
+                <div class="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border-l-4 border-amber-500 border border-amber-200/70 dark:border-amber-900/60 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-amber-100 text-amber-900 dark:bg-amber-900/70 dark:text-amber-200">
+                            烈風警報 (Amber 琥珀黃)
+                        </span>
+                        <span class="text-xs font-mono text-amber-600 dark:text-amber-400 font-bold">63 – 87 km/h</span>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        受熱帶氣旋影響，預料澳門吹（西北/西南/東北/東南）風，平均風速為每小時63至87公里，陣風約為每小時88至117公里，橋上或空曠地方風力可能更大。
+                    </p>
+                </div>
+
+                <!-- 暴風警報 -->
+                <div class="p-4 rounded-xl bg-orange-50/60 dark:bg-orange-950/20 border-l-4 border-orange-500 border border-orange-200/70 dark:border-orange-900/60 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-orange-100 text-orange-950 dark:bg-orange-900/70 dark:text-orange-200">
+                            暴風警報 (Orange 橙色)
+                        </span>
+                        <span class="text-xs font-mono text-orange-600 dark:text-orange-400 font-bold">88 – 117 km/h</span>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        受熱帶氣旋影響，預料澳門平均風速為每小時88至117公里，陣風約為每小時118至133公里，橋上或空曠地方風力可能更大，且風力可能在短時間內顯著增強。
+                    </p>
+                </div>
+
+                <!-- 𩗗風警報 -->
+                <div class="p-4 rounded-xl bg-red-50/60 dark:bg-red-950/30 border-l-4 border-red-600 border border-red-200/70 dark:border-red-900/70 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-red-100 text-red-950 dark:bg-red-900 dark:text-red-100">
+                            𩗗風警報 (Red 紅色)
+                        </span>
+                        <span class="text-xs font-mono text-red-600 dark:text-red-400 font-bold">&gt; 118 km/h</span>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        受颱風或以上級別的熱帶氣旋影響，預料澳門平均風速超過每小時118公里，陣風超過每小時133公里。
+                    </p>
+                </div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-right">
+                <button onclick="closeLegendModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Interactive Wind Speed Calculator -->
+    <div id="windCalcModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/40">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-gauge text-blue-600 text-xl"></i>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">澳門風速換算與警報匹配器</h3>
+                </div>
+                <button onclick="closeWindCalcModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-5">
+                <div>
+                    <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center justify-between">
+                        <span>預估本澳平均持續風速：</span>
+                        <span class="text-base font-mono font-extrabold text-blue-600 dark:text-blue-400">
+                            <span id="sliderSpeedValue">65</span> km/h
+                        </span>
+                    </label>
+                    <input id="windSlider" type="range" min="20" max="150" value="65" oninput="updateWindCalculator(this.value)" class="w-full mt-3 accent-blue-600 cursor-pointer">
+                    <div class="flex justify-between text-[10px] font-mono text-slate-400 mt-1">
+                        <span>20 km/h</span>
+                        <span>41 km/h (強風)</span>
+                        <span>63 km/h (烈風)</span>
+                        <span>88 km/h (暴風)</span>
+                        <span>118+ km/h (𩗗風)</span>
+                    </div>
+                </div>
+
+                <!-- Calculator Result Card -->
+                <div id="calcResultBox" class="p-4 rounded-xl border transition-all space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-right">
+                <button onclick="closeWindCalcModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Detailed Cyclone Modal -->
     <div id="detailModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <!-- Modal Header -->
             <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4 bg-slate-50/70 dark:bg-slate-800/40">
-                <div id="modalHeaderContent">
-                    <!-- Populated via JS -->
-                </div>
+                <div id="modalHeaderContent"></div>
                 <button onclick="closeDetailModal()" class="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60">
                     <i class="ph ph-x text-lg"></i>
                 </button>
             </div>
-            <!-- Modal Body -->
-            <div id="modalBodyContent" class="p-5 overflow-y-auto space-y-5">
-                <!-- Populated via JS -->
-            </div>
-            <!-- Modal Footer -->
+            <div id="modalBodyContent" class="p-5 overflow-y-auto space-y-5"></div>
             <div class="px-5 py-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between">
-                <button onclick="copyModalSummary()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-sky-600 hover:bg-sky-500 text-white shadow-sm">
-                    <i class="ph ph-copy text-sm"></i> 複製文字紀錄摘要
+                <button onclick="copyModalSummary()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm min-h-[36px]">
+                    <i class="ph ph-copy text-sm"></i> 複製文字摘要
                 </button>
-                <button onclick="closeDetailModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:opacity-90">
+                <button onclick="closeDetailModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     關閉視窗
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Alert Legend Modal -->
-    <div id="legendModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
-            <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <i class="ph-fill ph-warning-diamond text-amber-500 text-xl"></i>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">熱帶氣旋警報級別與圖例說明</h3>
-                </div>
-                <button onclick="closeLegendModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white">
-                    <i class="ph ph-x text-lg"></i>
-                </button>
-            </div>
-            <div class="p-5 overflow-y-auto space-y-3 text-xs sm:text-sm" id="legendModalList">
-                <!-- Populated via JS -->
-            </div>
-            <div class="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-right">
-                <button onclick="closeLegendModal()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-900 dark:bg-white text-white dark:text-slate-900">
-                    了解
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Custom Toast Notification -->
+    <!-- Toast Notification -->
     <div id="toastNotification" class="fixed bottom-5 right-5 z-50 pointer-events-none opacity-0 translate-y-2 transition-all duration-200 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-xl border border-slate-700 dark:border-slate-200 flex items-center gap-2.5 text-xs font-semibold">
         <i class="ph-fill ph-check-circle text-emerald-400 dark:text-emerald-600 text-base"></i>
-        <span id="toastMessage">已複製到剪貼簿</span>
+        <span id="toastMessage">已完成操作</span>
     </div>
 
-    <!-- Application Logic -->
+    <!-- Embedded Standalone Raw Data (No External JS Required) -->
+    <script>
+        window.rawData = [
+            {
+                year:2021, name:"熱帶風暴「彩雲」2103", totalH:"", alerts:[
+                    {type:"注意警報", start:"06月03日 21:00", end:"06月04日 18:00"}
+                ]
+            },
+            {
+                year:2021, name:"熱帶風暴「小熊」2104", totalH:"", alerts:[
+                    {type:"戒備警報", start:"06月11日 07:40", end:"06月11日 23:00"},
+                    {type:"強風警報", start:"06月11日 23:00", end:"06月12日 17:30"},
+                    {type:"戒備警報", start:"06月12日 17:30", end:"06月12日 22:00"}
+                ]
+            },
+            {
+                year:2021, name:"熱帶低氣壓 07W", totalH:"", alerts:[
+                    {type:"注意警報", start:"07月06日 07:30", end:"07月06日 15:30"}
+                ]
+            },
+            {
+                year:2021, name:"熱帶低氣壓 08W", totalH:"", alerts:[
+                    {type:"戒備警報", start:"07月06日 07:30", end:"07月07日 16:30"}
+                ]
+            },
+            {
+                year:2021, name:"颱風「查帕卡」2107", totalH:"", alerts:[
+                    {type:"戒備警報", start:"07月17日 16:00", end:"07月19日 13:45"},
+                    {type:"強風警報", start:"07月19日 13:45", end:"07月20日 15:00"},
+                    {type:"戒備警報", start:"07月20日 15:00", end:"07月21日 01:10"}
+                ]
+            },
+            {
+                year:2021, name:"熱帶風暴「盧碧」2109", totalH:"", alerts:[
+                    {type:"戒備警報", start:"08月02日 17:40", end:"08月03日 13:20"},
+                    {type:"強風警報", start:"08月03日 13:20", end:"08月04日 09:20"},
+                    {type:"戒備警報", start:"08月04日 09:20", end:"08月05日 17:20"}
+                ]
+            },
+            {
+                year:2021, name:"強烈熱帶風暴「康森」2113", totalH:"", alerts:[
+                    {type:"注意警報", start:"09月09日 13:00", end:"09月10日 15:00"}
+                ]
+            },
+            {
+                year:2021, name:"超強颱風「燦都」2114", totalH:"", alerts:[
+                    {type:"注意警報", start:"09月10日 15:00", end:"09月12日 15:30"}
+                ]
+            },
+            {
+                year:2021, name:"熱帶風暴「獅子山」2117", totalH:"", alerts:[
+                    {type:"戒備警報", start:"10月06日 21:40", end:"10月07日 22:40"},
+                    {type:"強風警報", start:"10月07日 22:40", end:"10月09日 06:20"},
+                    {type:"烈風預警警報", start:"10月09日 03:20", end:"10月09日 06:20"},
+                    {type:"東南烈風警報", start:"10月09日 06:20", end:"10月10日 00:20"},
+                    {type:"強風警報", start:"10月10日 00:20", end:"10月10日 13:40"},
+                    {type:"戒備警報", start:"10月10日 13:40", end:"10月10日 16:20"}
+                ]
+            },
+            {
+                year:2021, name:"颱風「圓規」2118", totalH:"", alerts:[
+                    {type:"戒備警報", start:"10月11日 19:40", end:"10月12日 00:20"},
+                    {type:"強風警報", start:"10月12日 00:20", end:"10月12日 21:20"},
+                    {type:"烈風預警警報", start:"10月12日 18:40", end:"10月12日 21:20"},
+                    {type:"東北烈風警報", start:"10月12日 21:20", end:"10月13日 14:40"},
+                    {type:"東南烈風警報", start:"10月13日 14:40", end:"10月13日 17:20"},
+                    {type:"強風警報", start:"10月13日 17:20", end:"10月14日 01:40"},
+                    {type:"戒備警報", start:"10月14日 01:40", end:"10月14日 10:40"}
+                ]
+            },
+            {
+                year:2021, name:"超強颱風「雷伊」2122", totalH:"", alerts:[
+                    {type:"注意警報", start:"12月18日 20:40", end:"12月20日 00:40"},
+                    {type:"戒備警報", start:"12月20日 00:40", end:"12月21日 15:20"}
+                ]
+            },
+            {
+                year:2022, name:"颱風「暹芭」2203", totalH:"", alerts:[
+                    {type:"戒備警報", start:"06月29日 18:20", end:"07月01日 01:20"},
+                    {type:"強風警報", start:"07月01日 01:20", end:"07月01日 19:20"},
+                    {type:"烈風預警警報", start:"07月01日 17:40", end:"07月01日 19:20"},
+                    {type:"東南烈風警報", start:"07月01日 19:20", end:"07月02日 09:40"},
+                    {type:"暴風警報", start:"07月02日 09:40", end:"07月02日 12:20"},
+                    {type:"東南烈風警報", start:"07月02日 12:20", end:"07月02日 17:20"},
+                    {type:"強風警報", start:"07月02日 17:20", end:"07月03日 15:20"},
+                    {type:"戒備警報", start:"07月03日 15:20", end:"07月03日 19:20"}
+                ]
+            },
+            {
+                year:2022, name:"熱帶低氣壓 08W", totalH:"", alerts:[
+                    {type:"戒備警報", start:"08月03日 18:20", end:"08月04日 17:40"}
+                ]
+            },
+            {
+                year:2022, name:"熱帶風暴「木蘭」2207", totalH:"", alerts:[
+                    {type:"戒備警報", start:"08月08日 15:40", end:"08月09日 11:20"},
+                    {type:"強風警報", start:"08月09日 11:20", end:"08月10日 06:20"},
+                    {type:"烈風預警警報", start:"08月10日 04:20", end:"08月10日 06:20"},
+                    {type:"東南烈風警報", start:"08月10日 06:20", end:"08月10日 14:20"},
+                    {type:"強風警報", start:"08月10日 14:20", end:"08月10日 19:20"}
+                ]
+            },
+            {
+                year:2022, name:"颱風「馬鞍」2209", totalH:"", alerts:[
+                    {type:"注意警報", start:"08月22日 23:20", end:"08月23日 19:20"},
+                    {type:"戒備警報", start:"08月23日 19:20", end:"08月24日 13:20"},
+                    {type:"強風警報", start:"08月24日 13:20", end:"08月24日 20:20"},
+                    {type:"烈風預警警報", start:"08月24日 18:20", end:"08月24日 20:20"},
+                    {type:"東北烈風警報", start:"08月24日 20:20", end:"08月25日 02:40"},
+                    {type:"東南烈風警報", start:"08月25日 02:40", end:"08月25日 10:40"},
+                    {type:"強風警報", start:"08月25日 10:40", end:"08月25日 16:20"}
+                ]
+            },
+            {
+                year:2022, name:"強颱風「納沙」2220", totalH:"", alerts:[
+                    {type:"戒備警報", start:"10月16日 10:40", end:"10月17日 13:40"},
+                    {type:"強風警報", start:"10月17日 13:40", end:"10月18日 20:40"}
+                ]
+            },
+            {
+                year:2022, name:"颱風「尼格」2222", totalH:"", alerts:[
+                    {type:"注意警報", start:"10月29日 20:40", end:"10月30日 20:40"},
+                    {type:"戒備警報", start:"10月30日 20:40", end:"10月31日 13:40"},
+                    {type:"強風警報", start:"10月31日 13:40", end:"11月02日 20:20"},
+                    {type:"烈風預警警報", start:"11月02日 17:40", end:"11月02日 20:20"},
+                    {type:"西北烈風警報", start:"11月02日 20:20", end:"11月03日 05:40"},
+                    {type:"強風警報", start:"11月03日 05:40", end:"11月03日 07:40"}
+                ]
+            },
+            {
+                year:2023, name:"颱風「泰利」2304", totalH:"", alerts:[
+                    {type:"注意警報", start:"07月14日 12:20", end:"07月14日 20:20"},
+                    {type:"戒備警報", start:"07月14日 20:20", end:"07月16日 11:20"},
+                    {type:"強風警報", start:"07月16日 11:20", end:"07月17日 01:20"},
+                    {type:"烈風預警警報", start:"07月17日 00:20", end:"07月17日 01:20"},
+                    {type:"東北烈風警報", start:"07月17日 01:20", end:"07月17日 11:20"},
+                    {type:"東南烈風警報", start:"07月17日 11:20", end:"07月17日 19:20"},
+                    {type:"強風警報", start:"07月17日 19:20", end:"07月18日 10:20"}
+                ]
+            },
+            {
+                year:2023, name:"超強颱風「杜蘇芮」2305", totalH:"", alerts:[
+                    {type:"戒備警報", start:"07月26日 19:20", end:"07月28日 11:20"}
+                ]
+            },
+            {
+                year:2023, name:"超強颱風「蘇拉」2309", totalH:"", alerts:[
+                    {type:"注意警報", start:"08月29日 20:20", end:"08月30日 14:20"},
+                    {type:"戒備警報", start:"08月30日 14:20", end:"08月31日 22:20"},
+                    {type:"強風警報", start:"08月31日 22:20", end:"09月01日 09:20"},
+                    {type:"烈風預警警報", start:"09月01日 06:20", end:"09月01日 09:20"},
+                    {type:"西北烈風警報", start:"09月01日 09:20", end:"09月01日 21:20"},
+                    {type:"暴風警報", start:"09月01日 21:20", end:"09月01日 23:20"},
+                    {type:"𩗗風警報", start:"09月01日 23:20", end:"09月02日 05:20"},
+                    {type:"東南烈風警報", start:"09月02日 05:20", end:"09月02日 12:20"},
+                    {type:"強風警報", start:"09月02日 12:20", end:"09月03日 00:20"}
+                ]
+            },
+            {
+                year:2023, name:"強颱風「海葵」2311", totalH:"", alerts:[
+                    {type:"戒備警報", start:"09月04日 00:20", end:"09月05日 13:20"}
+                ]
+            },
+            {
+                year:2023, name:"超強颱風「小犬」2314", totalH:"", alerts:[
+                    {type:"注意警報", start:"10月05日 13:20", end:"10月06日 01:20"},
+                    {type:"戒備警報", start:"10月06日 01:20", end:"10月07日 01:20"},
+                    {type:"強風警報", start:"10月07日 01:20", end:"10月08日 17:20"},
+                    {type:"烈風預警警報", start:"10月08日 13:20", end:"10月08日 17:20"},
+                    {type:"東北烈風警報", start:"10月08日 17:20", end:"10月09日 08:20"},
+                    {type:"強風警報", start:"10月09日 08:20", end:"10月09日 12:20"}
+                ]
+            },
+            {
+                year:2023, name:"強烈熱帶風暴「三巴」2316", totalH:"", alerts:[
+                    {type:"戒備警報", start:"10月18日 17:20", end:"10月20日 21:20"}
+                ]
+            },
+            {
+                year:2024, name:"熱帶風暴「馬力斯」2402", totalH:"", alerts:[
+                    {type:"戒備警報", start:"05月30日 13:20", end:"05月31日 18:20"},
+                    {type:"強風警報", start:"05月31日 18:20", end:"06月01日 18:20"}
+                ]
+            },
+            {
+                year:2024, name:"超強颱風「格美」2403", totalH:"", alerts:[
+                    {type:"戒備警報", start:"07月25日 15:20", end:"07月25日 21:40"},
+                    {type:"強風警報", start:"07月25日 21:40", end:"07月26日 15:20"}
+                ]
+            },
+            {
+                year:2024, name:"強烈熱帶風暴「派比安」2404", totalH:"", alerts:[
+                    {type:"戒備警報", start:"07月20日 08:40", end:"07月22日 14:20"}
+                ]
+            },
+            {
+                year:2024, name:"超強颱風「摩羯」2411", totalH:"", alerts:[
+                    {type:"注意警報", start:"09月02日 23:40", end:"09月03日 18:20"},
+                    {type:"戒備警報", start:"09月03日 18:20", end:"09月05日 07:40"},
+                    {type:"強風警報", start:"09月05日 07:40", end:"09月05日 20:20"},
+                    {type:"烈風預警警報", start:"09月05日 17:20", end:"09月05日 20:20"},
+                    {type:"東北烈風警報", start:"09月05日 20:20", end:"09月06日 13:20"},
+                    {type:"強風警報", start:"09月06日 13:20", end:"09月07日 10:20"}
+                ]
+            },
+            {
+                year:2024, name:"超強颱風「山陀兒」2418", totalH:"", alerts:[
+                    {type:"戒備警報", start:"10月01日 00:20", end:"10月01日 19:20"},
+                    {type:"強風警報", start:"10月01日 19:20", end:"10月02日 19:20"}
+                ]
+            },
+            {
+                year:2024, name:"颱風「潭美」2420", totalH:"", alerts:[
+                    {type:"戒備警報", start:"10月25日 07:40", end:"10月25日 23:40"},
+                    {type:"強風警報", start:"10月25日 23:40", end:"10月26日 21:40"}
+                ]
+            },
+            {
+                year:2024, name:"超強颱風「銀杏」2422", totalH:"", alerts:[
+                    {type:"戒備警報", start:"11月08日 13:20", end:"11月10日 01:40"},
+                    {type:"強風警報", start:"11月10日 01:40", end:"11月10日 13:20"}
+                ]
+            },
+            {
+                year:2024, name:"颱風「桃芝」2423", totalH:"", alerts:[
+                    {type:"注意警報", start:"11月11日 13:20", end:"11月12日 08:20"},
+                    {type:"戒備警報", start:"11月12日 08:20", end:"11月13日 18:20"},
+                    {type:"強風警報", start:"11月13日 18:20", end:"11月15日 02:20"}
+                ]
+            },
+            {
+                year:2024, name:"超強颱風「萬宜」2424", totalH:"", alerts:[
+                    {type:"強風警報", start:"11月18日 13:20", end:"11月19日 20:20"},
+                    {type:"戒備警報", start:"11月19日 20:20", end:"11月20日 01:40"}
+                ]
+            },
+            {
+                year:2025, name:"颱風「蝴蝶」2501", totalH:"109h 00m", alerts:[
+                    {type:"戒備警報", start:"06月11日 01:20", end:"06月11日 22:20"},
+                    {type:"強風警報", start:"06月11日 22:20", end:"06月12日 18:20"},
+                    {type:"戒備警報", start:"06月12日 18:20", end:"06月14日 02:20"},
+                    {type:"強風警報", start:"06月14日 02:20", end:"06月15日 14:20"}
+                ]
+            },
+            {
+                year:2025, name:"熱帶低氣壓 08W", totalH:"42h 00m", alerts:[
+                    {type:"戒備警報", start:"06月25日 01:20", end:"06月26日 19:20"}
+                ]
+            },
+            {
+                year:2025, name:"強颱風 「丹娜絲」2504", totalH:"56h 40m", alerts:[
+                    {type:"戒備警報", start:"07月04日 13:40", end:"07月06日 13:20"},
+                    {type:"戒備警報", start:"07月09日 15:20", end:"07月10日 00:20"}
+                ]
+            },
+            {
+                year:2025, name:"颱風「韋帕」2506", totalH:"64h 20m", alerts:[
+                    {type:"注意警報", start:"07月18日 12:20", end:"07月19日 04:20"},
+                    {type:"戒備警報", start:"07月19日 04:20", end:"07月19日 16:20"},
+                    {type:"強風警報", start:"07月19日 16:20", end:"07月20日 03:20"},
+                    {type:"烈風預警警報", start:"07月19日 23:40", end:"07月20日 03:20"},
+                    {type:"西北烈風警報", start:"07月20日 03:20", end:"07月20日 09:40"},
+                    {type:"暴風警報", start:"07月20日 09:40", end:"07月20日 13:40"},
+                    {type:"𩗗風警報", start:"07月20日 13:40", end:"07月20日 16:40"},
+                    {type:"強風警報", start:"07月20日 16:40", end:"07月21日 04:40"}
+                ]
+            },
+            {
+                year:2025, name:"強颱風「楊柳」2511", totalH:"24h 00m", alerts:[
+                    {type:"戒備警報", start:"08月13日 13:20", end:"08月14日 13:20"}
+                ]
+            },
+            {
+                year:2025, name:"熱帶低氣壓 17W", totalH:"33h 40m", alerts:[
+                    {type:"注意警報", start:"08月17日 02:40", end:"08月17日 08:20"},
+                    {type:"強風警報", start:"08月17日 08:20", end:"08月18日 00:20"},
+                    {type:"戒備警報", start:"08月18日 00:20", end:"08月18日 12:20"}
+                ]
+            },
+            {
+                year:2025, name:"強颱風「劍魚」2513", totalH:"41h 40m", alerts:[
+                    {type:"戒備警報", start:"08月23日 02:40", end:"08月23日 20:20"},
+                    {type:"強風警報", start:"08月23日 20:20", end:"08月24日 20:20"}
+                ]
+            },
+            {
+                year:2025, name:"熱帶風暴「藍湖」2514", totalH:"31h 00m", alerts:[
+                    {type:"戒備警報", start:"08月28日 17:20", end:"08月29日 07:20"},
+                    {type:"強風警報", start:"08月29日 07:20", end:"08月30日 00:20"}
+                ]
+            },
+            {
+                year:2025, name:"強烈熱帶風暴「塔巴」2516", totalH:"72h 00m", alerts:[
+                    {type:"注意警報", start:"09月05日 17:20", end:"09月06日 10:20"},
+                    {type:"戒備警報", start:"09月06日 10:20", end:"09月07日 10:20"},
+                    {type:"強風警報", start:"09月07日 10:20", end:"09月07日 21:20"},
+                    {type:"烈風預警警報", start:"09月07日 18:20", end:"09月07日 21:20"},
+                    {type:"東北烈風警報", start:"09月07日 21:20", end:"09月08日 04:20"},
+                    {type:"東南烈風警報", start:"09月08日 04:20", end:"09月08日 12:20"},
+                    {type:"強風警報", start:"09月08日 12:20", end:"09月08日 17:20"}
+                ]
+            },
+            {
+                year:2025, name:"強烈熱帶風暴「米娜」2517", totalH:"79h 00m", alerts:[
+                    {type:"注意警報", start:"09月17日 01:20", end:"09月18日 09:20"},
+                    {type:"戒備警報", start:"09月18日 09:20", end:"09月19日 11:20"},
+                    {type:"強風警報", start:"09月19日 11:20", end:"09月20日 08:20"}
+                ]
+            },
+            {
+                year:2025, name:"超強颱風「樺加沙」2518", totalH:"103h 00m", alerts:[
+                    {type:"注意警報", start:"09月21日 10:20", end:"09月22日 10:20"},
+                    {type:"戒備警報", start:"09月22日 10:20", end:"09月23日 10:20"},
+                    {type:"強風警報", start:"09月23日 10:20", end:"09月23日 21:20"},
+                    {type:"烈風預警警報", start:"09月23日 18:20", end:"09月23日 21:20"},
+                    {type:"西北烈風警報", start:"09月23日 21:20", end:"09月24日 02:40"},
+                    {type:"暴風警報", start:"09月24日 02:40", end:"09月24日 09:50"},
+                    {type:"𩗗風警報", start:"09月24日 09:50", end:"09月24日 14:20"},
+                    {type:"暴風警報", start:"09月24日 14:20", end:"09月24日 16:20"},
+                    {type:"東南烈風警報", start:"09月24日 16:20", end:"09月25日 01:20"},
+                    {type:"強風警報", start:"09月25日 01:20", end:"09月25日 17:20"}
+                ]
+            },
+            {
+                year:2025, name:"颱風「麥德姆」2521", totalH:"62h 00m", alerts:[
+                    {type:"注意警報", start:"10月03日 08:20", end:"10月03日 22:20"},
+                    {type:"戒備警報", start:"10月03日 22:20", end:"10月04日 15:20"},
+                    {type:"強風警報", start:"10月04日 15:20", end:"10月04日 23:20"},
+                    {type:"烈風預警警報", start:"10月04日 22:40", end:"10月04日 23:20"},
+                    {type:"東南烈風警報", start:"10月04日 23:20", end:"10月05日 01:20"},
+                    {type:"暴風警報", start:"10月05日 01:20", end:"10月05日 09:20"},
+                    {type:"東南烈風警報", start:"10月05日 09:20", end:"10月05日 15:20"},
+                    {type:"強風警報", start:"10月05日 15:20", end:"10月05日 22:20"}
+                ]
+            },
+            {
+                year:2025, name:"強烈熱帶風暴「風神」2524", totalH:"62h 00m", alerts:[
+                    {type:"注意警報", start:"10月19日 10:20", end:"10月19日 22:20"},
+                    {type:"戒備警報", start:"10月19日 22:20", end:"10月20日 16:20"},
+                    {type:"強風警報", start:"10月20日 16:20", end:"10月21日 18:20"},
+                    {type:"戒備警報", start:"10月21日 18:20", end:"10月22日 00:20"}
+                ]
+            },
+            {
+                year:2025, name:"超強颱風「鳳凰」2526", totalH:"38h 00m", alerts:[
+                    {type:"戒備警報", start:"11月10日 14:20", end:"11月12日 04:20"}
+                ]
+            },
+            {
+                year:2026, name:"颱風「美莎克」2610", totalH:"63h 00m", alerts:[
+                    {type:"戒備警報", start:"07月02日 02:20", end:"07月03日 11:20"},
+                    {type:"強風警報", start:"07月03日 11:20", end:"07月04日 17:20"}
+                ]
+            },
+            {
+                year:2026, name:"熱帶低氣壓 99W", totalH:"18h 20m", alerts:[
+                    {type:"注意警報", start:"07月13日 22:20", end:"07月14日 10:40"},
+                    {type:"戒備警報", start:"07月14日 10:40", end:"07月14日 16:40"}
+                ]
+            },
+            {
+                year:2026, name:"颱風「紅霞」2612", totalH:"56h 00m", alerts:[
+                    {type:"注意警報", start:"07月24日 08:20", end:"07月24日 22:20"},
+                    {type:"戒備警報", start:"07月24日 22:20", end:"07月25日 17:20"},
+                    {type:"強風警報", start:"07月25日 17:20", end:"07月26日 07:20"},
+                    {type:"西南烈風警報", start:"07月26日 07:20", end:"07月26日 16:20"}
+                ]
+            },
+            {
+                year:2026, name:"熱帶風暴「紫檀」2619", totalH:"52h 00m", alerts:[
+                    {type:"強風警報", start:"08月19日 21:20", end:"08月20日 13:20"},
+                    {type:"戒備警報", start:"08月25日 02:20", end:"08月26日 14:20"}
+                ]
+            },      
+            {
+                year: 2026, name: "超強颱風「沙德爾」2618", totalH: "84h 40m", alerts: [
+                    { type: "注意警報", start: "08月31日 11:40", end: "08月31日 19:40" },
+                    { type: "戒備警報", start: "08月31日 19:40", end: "09月01日 13:20" },
+                    { type: "強風警報", start: "09月01日 13:20", end: "09月02日 14:20" },
+                    { type: "戒備警報", start: "09月02日 14:20", end: "09月04日 00:20" }
+                ]
+            }
+        ];
+    </script>
+
+    <!-- Application Script -->
     <script>
         // ============================================================================
-        // 1. ALERT METADATA & COLOR TOKENS
+        // 1. MACAO ALERT COLOR & METADATA CONFIGURATION (STRICT RULES)
         // ============================================================================
         const ALERT_META = {
             "注意警報": {
                 rank: 1,
                 group: "ATTENTION",
                 short: "注意",
-                code: "AD",
-                hex: "#06b6d4",
-                bgBar: "bg-cyan-500",
-                badgeLight: "bg-cyan-50 text-cyan-800 border-cyan-200",
-                badgeDark: "dark:bg-cyan-950/70 dark:text-cyan-300 dark:border-cyan-800/80",
-                desc: "熱帶氣旋進入警戒範圍或可能構成影響，提醒公眾留意最新氣象資訊。"
+                colorName: "gray",
+                hex: "#64748b",
+                bgBar: "bg-slate-500",
+                badgeLight: "bg-slate-100 text-slate-800 border-slate-300",
+                badgeDark: "dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600",
+                desc: "熱帶氣旋進入澳門1200km範圍，或800km內潛在氣旋24h內發展成型並構成威脅。"
             },
             "戒備警報": {
                 rank: 2,
                 group: "STANDBY",
                 short: "戒備",
-                code: "S1",
-                hex: "#f59e0b",
-                bgBar: "bg-amber-400",
-                badgeLight: "bg-amber-50 text-amber-800 border-amber-200",
-                badgeDark: "dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800/80",
-                desc: "熱帶氣旋集結並可能令本地風力增強，處於戒備狀態。"
+                colorName: "green",
+                hex: "#10b981",
+                bgBar: "bg-emerald-500",
+                badgeLight: "bg-emerald-50 text-emerald-800 border-emerald-300",
+                badgeDark: "dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800",
+                desc: "有一熱帶氣旋進入澳門800公里範圍，未來24-48小時內將逐漸影響澳門。"
             },
             "強風警報": {
                 rank: 3,
                 group: "STRONG",
                 short: "強風",
-                code: "S3",
-                hex: "#10b981",
-                bgBar: "bg-emerald-500",
-                badgeLight: "bg-emerald-50 text-emerald-800 border-emerald-200",
-                badgeDark: "dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800/80",
-                desc: "持續風力達強風程度，陣風可能更強。"
+                colorName: "blue",
+                hex: "#2563eb",
+                bgBar: "bg-blue-600",
+                badgeLight: "bg-blue-50 text-blue-800 border-blue-300",
+                badgeDark: "dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800",
+                desc: "受影響平均風速為每小時41至62公里，陣風約為每小時63至87公里。"
             },
             "烈風預警警報": {
                 rank: 4,
                 group: "PREGALE",
                 short: "烈風預警",
-                code: "PRE-8",
-                hex: "#f97316",
-                bgBar: "bg-orange-500",
-                badgeLight: "bg-orange-50 text-orange-800 border-orange-200",
-                badgeDark: "dark:bg-orange-950/70 dark:text-orange-300 dark:border-orange-800/80",
-                desc: "預計數小時內風力將增強至烈風程度，於改發烈風警報前發出之預警（與強風警報時段重疊）。"
+                colorName: "amber",
+                hex: "#f59e0b",
+                bgBar: "bg-amber-400",
+                badgeLight: "bg-amber-50 text-amber-900 border-amber-300",
+                badgeDark: "dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-700",
+                desc: "預計未來數小時內風力顯著增強至烈風程度，提前於強風期間發出之預警。"
             },
             "東北烈風警報": {
                 rank: 5,
                 group: "GALE",
                 short: "東北烈風",
-                code: "8NE",
                 direction: "NE",
-                hex: "#f43f5e",
-                bgBar: "bg-rose-500",
-                badgeLight: "bg-rose-50 text-rose-800 border-rose-200",
-                badgeDark: "dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800/80",
-                desc: "東北象限持續風力達烈風程度。"
+                colorName: "amber",
+                hex: "#f59e0b",
+                bgBar: "bg-amber-500",
+                badgeLight: "bg-amber-50 text-amber-900 border-amber-300 font-bold",
+                badgeDark: "dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 font-bold",
+                desc: "吹東北風，平均風速每小時63至87公里，陣風約每小時88至117公里。"
             },
             "東南烈風警報": {
                 rank: 5,
                 group: "GALE",
                 short: "東南烈風",
-                code: "8SE",
                 direction: "SE",
-                hex: "#e11d48",
-                bgBar: "bg-rose-600",
-                badgeLight: "bg-rose-50 text-rose-800 border-rose-200",
-                badgeDark: "dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800/80",
-                desc: "東南象限持續風力達烈風程度。"
+                colorName: "amber",
+                hex: "#d97706",
+                bgBar: "bg-amber-600",
+                badgeLight: "bg-amber-50 text-amber-900 border-amber-300 font-bold",
+                badgeDark: "dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 font-bold",
+                desc: "吹東南風，平均風速每小時63至87公里，陣風約每小時88至117公里。"
             },
             "西北烈風警報": {
                 rank: 5,
                 group: "GALE",
                 short: "西北烈風",
-                code: "8NW",
                 direction: "NW",
-                hex: "#fb7185",
-                bgBar: "bg-rose-500",
-                badgeLight: "bg-rose-50 text-rose-800 border-rose-200",
-                badgeDark: "dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800/80",
-                desc: "西北象限持續風力達烈風程度。"
+                colorName: "amber",
+                hex: "#f59e0b",
+                bgBar: "bg-amber-500",
+                badgeLight: "bg-amber-50 text-amber-900 border-amber-300 font-bold",
+                badgeDark: "dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 font-bold",
+                desc: "吹西北風，平均風速每小時63至87公里，陣風約每小時88至117公里。"
             },
             "西南烈風警報": {
                 rank: 5,
                 group: "GALE",
                 short: "西南烈風",
-                code: "8SW",
                 direction: "SW",
-                hex: "#be123c",
-                bgBar: "bg-rose-700",
-                badgeLight: "bg-rose-50 text-rose-800 border-rose-200",
-                badgeDark: "dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800/80",
-                desc: "西南象限持續風力達烈風程度。"
+                colorName: "amber",
+                hex: "#b45309",
+                bgBar: "bg-amber-600",
+                badgeLight: "bg-amber-50 text-amber-900 border-amber-300 font-bold",
+                badgeDark: "dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 font-bold",
+                desc: "吹西南風，平均風速每小時63至87公里，陣風約每小時88至117公里。"
+            },
+            "烈風警報": {
+                rank: 5,
+                group: "GALE",
+                short: "烈風",
+                colorName: "amber",
+                hex: "#f59e0b",
+                bgBar: "bg-amber-500",
+                badgeLight: "bg-amber-50 text-amber-900 border-amber-300 font-bold",
+                badgeDark: "dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-700 font-bold",
+                desc: "平均風速每小時63至87公里，陣風約每小時88至117公里。"
             },
             "暴風警報": {
                 rank: 6,
                 group: "STORM",
                 short: "暴風",
-                code: "S9",
-                hex: "#8b5cf6",
-                bgBar: "bg-violet-600",
-                badgeLight: "bg-violet-50 text-violet-800 border-violet-200",
-                badgeDark: "dark:bg-violet-950/70 dark:text-violet-300 dark:border-violet-800/80",
-                desc: "風力顯著增強至暴風程度，熱帶氣旋中心正逼近。"
+                colorName: "orange",
+                hex: "#ea580c",
+                bgBar: "bg-orange-500",
+                badgeLight: "bg-orange-50 text-orange-950 border-orange-300 font-bold",
+                badgeDark: "dark:bg-orange-950/80 dark:text-orange-200 dark:border-orange-700 font-bold",
+                desc: "受影響平均風速為每小時88至117公里，陣風約為每小時118至133公里。"
+            },
+            "𩗗風警報": {
+                rank: 7,
+                group: "HURRICANE",
+                short: "𩗗風",
+                colorName: "red",
+                hex: "#dc2626",
+                bgBar: "bg-red-600",
+                badgeLight: "bg-red-100 text-red-950 border-red-300 font-black",
+                badgeDark: "dark:bg-red-950 dark:text-red-100 dark:border-red-700 font-black",
+                desc: "受颱風或以上級別影響，平均風速超過每小時118公里，陣風超過每小時133公里。"
             },
             "颶風警報": {
                 rank: 7,
                 group: "HURRICANE",
-                short: "颶風",
-                code: "S10",
+                short: "𩗗風/颶風",
+                colorName: "red",
                 hex: "#dc2626",
                 bgBar: "bg-red-600",
-                badgeLight: "bg-red-100 text-red-900 border-red-300 font-bold",
-                badgeDark: "dark:bg-red-950/90 dark:text-red-200 dark:border-red-700 font-bold",
-                desc: "最高級別警報，持續風力達颶風程度，中心直接掠過或極度接近。"
+                badgeLight: "bg-red-100 text-red-950 border-red-300 font-black",
+                badgeDark: "dark:bg-red-950 dark:text-red-100 dark:border-red-700 font-black",
+                desc: "受颱風或以上級別影響，平均風速超過每小時118公里，陣風超過每小時133公里。"
             }
         };
 
         const INTENSITY_META = {
-            "超強颱風": { short: "Super TY", badge: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200 dark:bg-fuchsia-950/60 dark:text-fuchsia-300 dark:border-fuchsia-800/70", dot: "bg-fuchsia-500" },
-            "強颱風":   { short: "STY",      badge: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/70", dot: "bg-rose-500" },
-            "颱風":     { short: "TY",       badge: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/70", dot: "bg-amber-500" },
-            "強烈熱帶風暴": { short: "STS",  badge: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/70", dot: "bg-emerald-500" },
-            "熱帶風暴": { short: "TS",       badge: "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/70", dot: "bg-sky-500" },
-            "熱帶低氣壓": { short: "TD",     badge: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700", dot: "bg-slate-400" }
+            "超強颱風": { short: "Super TY", badge: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/70 dark:text-purple-300 dark:border-purple-800" },
+            "強颱風":   { short: "STY",      badge: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/70 dark:text-rose-300 dark:border-rose-800" },
+            "颱風":     { short: "TY",       badge: "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-950/70 dark:text-sky-300 dark:border-sky-800" },
+            "強烈熱帶風暴": { short: "STS",  badge: "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-950/70 dark:text-teal-300 dark:border-teal-800" },
+            "熱帶風暴": { short: "TS",       badge: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/70 dark:text-blue-300 dark:border-blue-800" },
+            "熱帶低氣壓": { short: "TD",     badge: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" }
         };
 
         // ============================================================================
-        // 2. DATA PARSING & DURATION ENGINE
+        // 2. DATA PROCESSING & DURATION ENGINE
         // ============================================================================
         let processedData = [];
         let state = {
             selectedYear: 'ALL',
             searchQuery: '',
             alertFilter: 'ALL',
-            intensityFilter: 'ALL',
+            seasonFilter: 'ALL',
+            durationFilter: 'ALL',
             sortBy: 'DATE_DESC',
             viewMode: 'card',
             expandedCards: new Set(),
@@ -995,7 +1196,6 @@
             activeModalItem: null
         };
 
-        // Parse "MM月DD日 HH:mm" with given year into timestamp (ms)
         function parseDateTime(year, str) {
             const match = str.trim().match(/(\d{2})月(\d{2})日\s+(\d{2}):(\d{2})/);
             if (!match) return 0;
@@ -1019,7 +1219,6 @@
             return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
         }
 
-        // Parse cyclone full title into intensity, stormName, stormCode
         function parseCycloneName(fullName) {
             let intensity = "熱帶氣旋";
             const intensities = ["超強颱風", "強烈熱帶風暴", "強颱風", "熱帶風暴", "熱帶低氣壓", "颱風"];
@@ -1032,51 +1231,40 @@
 
             let cnName = "";
             const bracketMatch = fullName.match(/「([^」]+)」/);
-            if (bracketMatch) {
-                cnName = bracketMatch[1];
-            }
+            if (bracketMatch) cnName = bracketMatch[1];
 
             let code = "";
             const codeMatch = fullName.match(/([0-9]{4}|[0-9]{2}W)\s*$/);
-            if (codeMatch) {
-                code = codeMatch[1];
-            }
+            if (codeMatch) code = codeMatch[1];
 
-            const displayTitle = cnName ? `「${cnName}」` : code || fullName;
-            return { intensity, cnName, code, displayTitle };
+            return { intensity, cnName, code };
         }
 
         function initializeDataset() {
-            const sourceArray = typeof rawData !== 'undefined' ? rawData : window.rawData;
-
-            processedData = sourceArray.map((item, idx) => {
+            processedData = window.rawData.map((item, idx) => {
                 const parsedName = parseCycloneName(item.name);
-
-                // Parse each alert and compute its individual duration
                 let maxRank = 0;
                 let highestAlertType = item.alerts[0]?.type || "注意警報";
                 let hasPreGale = false;
 
                 const enrichedAlerts = item.alerts.map((al, aIdx) => {
+                    const normalizedType = (al.type === "颶風警報") ? "𩗗風警報" : al.type;
                     const startMs = parseDateTime(item.year, al.start);
                     let endMs = parseDateTime(item.year, al.end);
-                    if (endMs < startMs) {
-                        // Handle potential year rollover if any
-                        endMs = parseDateTime(item.year + 1, al.end);
-                    }
+                    if (endMs < startMs) endMs = parseDateTime(item.year + 1, al.end);
+
                     const durationMins = Math.max(0, Math.round((endMs - startMs) / 60000));
-                    const meta = ALERT_META[al.type] || ALERT_META["注意警報"];
+                    const meta = ALERT_META[normalizedType] || ALERT_META[al.type] || ALERT_META["注意警報"];
 
                     if (meta.rank > maxRank) {
                         maxRank = meta.rank;
-                        highestAlertType = al.type;
+                        highestAlertType = normalizedType;
                     }
-                    if (al.type === "烈風預警警報") {
-                        hasPreGale = true;
-                    }
+                    if (normalizedType === "烈風預警警報") hasPreGale = true;
 
                     return {
                         ...al,
+                        type: normalizedType,
                         index: aIdx,
                         startMs,
                         endMs,
@@ -1086,38 +1274,38 @@
                     };
                 });
 
-                // Compute union of non-overlapping intervals for accurate total warning duration
-                const intervals = enrichedAlerts
-                    .map(a => [a.startMs, a.endMs])
-                    .sort((a, b) => a[0] - b[0]);
-
+                // Compute union intervals for total non-overlapping duration
+                const intervals = enrichedAlerts.map(a => [a.startMs, a.endMs]).sort((a, b) => a[0] - b[0]);
                 const merged = [];
-                for (const interval of intervals) {
-                    if (!merged.length || merged[merged.length - 1][1] < interval[0]) {
-                        merged.push([...interval]);
+                for (const inter of intervals) {
+                    if (!merged.length || merged[merged.length - 1][1] < inter[0]) {
+                        merged.push([...inter]);
                     } else {
-                        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], interval[1]);
+                        merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], inter[1]);
                     }
                 }
                 const computedUnionMins = merged.reduce((acc, cur) => acc + Math.round((cur[1] - cur[0]) / 60000), 0);
-
-                // Use provided totalH if non-empty, otherwise use computed union duration
-                const totalMinutes = item.totalH && item.totalH.trim() !== ""
+                const totalMinutes = (item.totalH && item.totalH.trim() !== "")
                     ? parseHMStringToMinutes(item.totalH)
                     : computedUnionMins;
 
-                const totalHFormatted = item.totalH && item.totalH.trim() !== ""
+                const totalHFormatted = (item.totalH && item.totalH.trim() !== "")
                     ? item.totalH.trim()
                     : formatMinutesToHM(computedUnionMins);
 
                 const firstStartMs = enrichedAlerts.length ? Math.min(...enrichedAlerts.map(a => a.startMs)) : 0;
                 const lastEndMs = enrichedAlerts.length ? Math.max(...enrichedAlerts.map(a => a.endMs)) : 0;
-                const firstStartStr = item.alerts[0]?.start || "";
-                const lastEndStr = item.alerts[item.alerts.length - 1]?.end || "";
+                const startMonth = enrichedAlerts.length ? new Date(firstStartMs).getMonth() + 1 : 1;
+
+                // Season classification
+                let seasonKey = "AUTUMN";
+                if (startMonth <= 6) seasonKey = "EARLY";
+                else if (startMonth <= 8) seasonKey = "MIDSUMMER";
+                else if (startMonth <= 10) seasonKey = "AUTUMN";
+                else seasonKey = "LATE";
 
                 return {
                     id: `tc-${item.year}-${idx}`,
-                    chronologicalIndex: idx,
                     year: item.year,
                     rawName: item.name,
                     ...parsedName,
@@ -1130,59 +1318,24 @@
                     hasPreGale,
                     firstStartMs,
                     lastEndMs,
-                    firstStartStr,
-                    lastEndStr,
+                    startMonth,
+                    seasonKey,
+                    firstStartStr: item.alerts[0]?.start || "",
+                    lastEndStr: item.alerts[item.alerts.length - 1]?.end || "",
                     alerts: enrichedAlerts
                 };
             });
         }
 
         // ============================================================================
-        // 3. THEME MANAGEMENT (DARK / LIGHT MODE)
-        // ============================================================================
-        function initTheme() {
-            const savedTheme = localStorage.getItem('tc_theme');
-            if (savedTheme === 'light') {
-                document.documentElement.classList.remove('dark');
-            } else if (savedTheme === 'dark') {
-                document.documentElement.classList.add('dark');
-            } else {
-                // Default to dark meteorological radar theme
-                document.documentElement.classList.add('dark');
-            }
-            updateThemeButtonUI();
-        }
-
-        function toggleTheme() {
-            const htmlEl = document.documentElement;
-            const isDark = htmlEl.classList.toggle('dark');
-            localStorage.setItem('tc_theme', isDark ? 'dark' : 'light');
-            updateThemeButtonUI();
-        }
-
-        function updateThemeButtonUI() {
-            const isDark = document.documentElement.classList.contains('dark');
-            const icon = document.getElementById('themeIcon');
-            const text = document.getElementById('themeText');
-            if (isDark) {
-                icon.className = 'ph-fill ph-sun text-base';
-                text.textContent = '淺色模式';
-            } else {
-                icon.className = 'ph-fill ph-moon-stars text-base';
-                text.textContent = '深色模式';
-            }
-        }
-
-        // ============================================================================
-        // 4. FILTERING, SORTING & ANALYTICS RENDERING
+        // 3. UI RENDERING & FILTERING
         // ============================================================================
         function getFilteredData() {
             return processedData.filter(item => {
-                // Year filter
-                if (state.selectedYear !== 'ALL' && item.year !== Number(state.selectedYear)) {
-                    return false;
-                }
-                // Search query
+                // Year Filter
+                if (state.selectedYear !== 'ALL' && item.year !== Number(state.selectedYear)) return false;
+
+                // Text Search
                 if (state.searchQuery) {
                     const q = state.searchQuery.toLowerCase();
                     const matchName = item.rawName.toLowerCase().includes(q);
@@ -1190,7 +1343,8 @@
                     const matchAlert = item.alerts.some(a => a.type.toLowerCase().includes(q));
                     if (!matchName && !matchYear && !matchAlert) return false;
                 }
-                // Alert Level Filter
+
+                // Alert Filter
                 if (state.alertFilter !== 'ALL') {
                     if (state.alertFilter === 'HURRICANE' && item.maxRank < 7) return false;
                     if (state.alertFilter === 'STORM' && item.maxRank < 6) return false;
@@ -1199,27 +1353,29 @@
                     if (state.alertFilter === 'STRONG' && item.maxRank !== 3 && item.maxRank !== 4) return false;
                     if (state.alertFilter === 'STANDBY' && item.maxRank !== 2) return false;
                     if (state.alertFilter === 'ATTENTION' && item.maxRank !== 1) return false;
-                    if (state.alertFilter === 'HAS_PREGALE' && !item.hasPreGale) return false;
                 }
-                // Intensity Filter
-                if (state.intensityFilter !== 'ALL' && item.intensity !== state.intensityFilter) {
-                    return false;
+
+                // Season Filter
+                if (state.seasonFilter !== 'ALL' && item.seasonKey !== state.seasonFilter) return false;
+
+                // Duration Range Filter
+                if (state.durationFilter !== 'ALL') {
+                    const hours = item.totalMinutes / 60;
+                    if (state.durationFilter === 'OVER_72' && hours < 72) return false;
+                    if (state.durationFilter === '48_TO_72' && (hours < 48 || hours >= 72)) return false;
+                    if (state.durationFilter === '24_TO_48' && (hours < 24 || hours >= 48)) return false;
+                    if (state.durationFilter === 'UNDER_24' && hours >= 24) return false;
                 }
+
                 return true;
             }).sort((a, b) => {
                 switch (state.sortBy) {
-                    case 'DATE_DESC':
-                        return b.year !== a.year ? b.year - a.year : b.firstStartMs - a.firstStartMs;
-                    case 'DATE_ASC':
-                        return a.year !== b.year ? a.year - b.year : a.firstStartMs - b.firstStartMs;
-                    case 'DURATION_DESC':
-                        return b.totalMinutes - a.totalMinutes;
-                    case 'DURATION_ASC':
-                        return a.totalMinutes - b.totalMinutes;
-                    case 'SEVERITY_DESC':
-                        return b.maxRank !== a.maxRank ? b.maxRank - a.maxRank : b.totalMinutes - a.totalMinutes;
-                    default:
-                        return 0;
+                    case 'DATE_DESC': return b.year !== a.year ? b.year - a.year : b.firstStartMs - a.firstStartMs;
+                    case 'DATE_ASC':  return a.year !== b.year ? a.year - b.year : a.firstStartMs - b.firstStartMs;
+                    case 'DURATION_DESC': return b.totalMinutes - a.totalMinutes;
+                    case 'DURATION_ASC':  return a.totalMinutes - b.totalMinutes;
+                    case 'SEVERITY_DESC': return b.maxRank !== a.maxRank ? b.maxRank - a.maxRank : b.totalMinutes - a.totalMinutes;
+                    default: return 0;
                 }
             });
         }
@@ -1230,615 +1386,8 @@
 
             container.innerHTML = years.map(y => {
                 const isSelected = String(state.selectedYear) === String(y);
-                const count = y === 'ALL'
-                    ? processedData.length
-                    : processedData.filter(d => d.year === Number(y)).length;
+                const count = (y === 'ALL') ? processedData.length : processedData.filter(d => d.year === Number(y)).length;
 
                 const activeClasses = isSelected
-                    ? "bg-sky-600 text-white shadow-sm shadow-sky-500/30 border-sky-600"
-                    : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border-slate-200/70 dark:border-slate-700";
-
-                return `
-                    <button onclick="selectYear('${y}')" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold border whitespace-nowrap transition-all ${activeClasses}">
-                        <span>${y === 'ALL' ? '全部年份' : y + '年'}</span>
-                        <span class="px-1.5 py-0.2 rounded-md text-[10px] font-mono ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}">${count}</span>
-                    </button>
-                `;
-            }).join('');
-        }
-
-        function renderKPIsAndCharts(filtered) {
-            // 1. KPI Cards
-            document.getElementById('kpiTotalCount').textContent = filtered.length;
-            document.getElementById('kpiYearSpanText').innerHTML = state.selectedYear === 'ALL'
-                ? `<i class="ph ph-calendar-blank"></i> 涵蓋 2021 – 2026 年度`
-                : `<i class="ph ph-calendar-check"></i> 目前檢視：${state.selectedYear} 年度`;
-
-            const galePlus = filtered.filter(d => d.maxRank >= 5).length;
-            const hurricaneCount = filtered.filter(d => d.maxRank === 7).length;
-            const stormCount = filtered.filter(d => d.maxRank >= 6).length;
-            document.getElementById('kpiGalePlusCount').textContent = galePlus;
-            document.getElementById('kpiHurricaneBreakdown').textContent =
-                `含颶風警報 ${hurricaneCount} 次、暴風或以上 ${stormCount} 次`;
-
-            if (filtered.length > 0) {
-                const longest = [...filtered].sort((a, b) => b.totalMinutes - a.totalMinutes)[0];
-                document.getElementById('kpiLongestHours').textContent = longest.totalH;
-                document.getElementById('kpiLongestName').textContent = `${longest.year}年 ${longest.rawName}`;
-
-                const sumMins = filtered.reduce((acc, cur) => acc + cur.totalMinutes, 0);
-                const avgMins = Math.round(sumMins / filtered.length);
-                document.getElementById('kpiTotalHours').textContent = formatMinutesToHM(sumMins);
-                document.getElementById('kpiAvgHours').textContent = `平均每個氣旋維持 ${formatMinutesToHM(avgMins)}`;
-            } else {
-                document.getElementById('kpiLongestHours').textContent = "--";
-                document.getElementById('kpiLongestName').textContent = "無符合資料";
-                document.getElementById('kpiTotalHours').textContent = "0h 00m";
-                document.getElementById('kpiAvgHours').textContent = "平均每個氣旋維持 --";
-            }
-
-            // 2. Yearly Stacked Bar Chart
-            const years = [...new Set(processedData.map(d => d.year))].sort();
-            const maxPerYear = Math.max(...years.map(y => processedData.filter(d => d.year === y).length), 1);
-
-            const chartHTML = years.map(y => {
-                const yearItems = processedData.filter(d => d.year === y);
-                const galeItems = yearItems.filter(d => d.maxRank >= 5).length;
-                const strongItems = yearItems.filter(d => d.maxRank === 3 || d.maxRank === 4).length;
-                const lowItems = yearItems.filter(d => d.maxRank <= 2).length;
-                const total = yearItems.length;
-
-                const isSelected = String(state.selectedYear) === String(y);
-                const totalHeightPct = Math.max(18, Math.round((total / maxPerYear) * 100));
-
-                return `
-                    <div onclick="selectYear('${String(state.selectedYear) === String(y) ? 'ALL' : y}')"
-                         class="group cursor-pointer flex flex-col items-center h-full justify-end select-none">
-                        <div class="text-[11px] font-mono font-bold mb-1 ${isSelected ? 'text-sky-600 dark:text-sky-400 scale-110' : 'text-slate-600 dark:text-slate-400'}">
-                            ${total}個
-                        </div>
-                        <div style="height: ${totalHeightPct}%"
-                             class="w-full max-w-[44px] rounded-t-xl overflow-hidden flex flex-col-reverse border transition-all ${isSelected ? 'ring-2 ring-sky-500 border-sky-400 shadow-md' : 'border-slate-200/60 dark:border-slate-700/60 opacity-85 group-hover:opacity-100'}">
-                            ${lowItems > 0 ? `<div style="flex: ${lowItems}" class="bg-amber-400" title="注意/戒備: ${lowItems}"></div>` : ''}
-                            ${strongItems > 0 ? `<div style="flex: ${strongItems}" class="bg-emerald-500" title="強風: ${strongItems}"></div>` : ''}
-                            ${galeItems > 0 ? `<div style="flex: ${galeItems}" class="bg-rose-500" title="烈風或以上: ${galeItems}"></div>` : ''}
-                        </div>
-                        <div class="mt-2 text-xs font-mono font-semibold ${isSelected ? 'text-sky-600 dark:text-sky-400 underline underline-offset-4' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white'}">
-                            ${y}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            document.getElementById('yearlyChartContainer').innerHTML = chartHTML;
-
-            // 3. Alert Duration Distribution Bar
-            const groupDurations = {
-                "注意警報": { mins: 0, color: "bg-cyan-500", text: "text-cyan-600 dark:text-cyan-400" },
-                "戒備警報": { mins: 0, color: "bg-amber-400", text: "text-amber-600 dark:text-amber-400" },
-                "強風警報": { mins: 0, color: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
-                "烈風警報 (八號)": { mins: 0, color: "bg-rose-500", text: "text-rose-600 dark:text-rose-400" },
-                "暴風 / 颶風警報": { mins: 0, color: "bg-purple-600", text: "text-purple-600 dark:text-purple-400" }
-            };
-
-            let totalAlertMins = 0;
-            filtered.forEach(item => {
-                item.alerts.forEach(al => {
-                    if (al.type === "烈風預警警報") return; // Pre-warning overlaps with Strong Wind
-                    totalAlertMins += al.durationMins;
-                    if (al.type === "注意警報") groupDurations["注意警報"].mins += al.durationMins;
-                    else if (al.type === "戒備警報") groupDurations["戒備警報"].mins += al.durationMins;
-                    else if (al.type === "強風警報") groupDurations["強風警報"].mins += al.durationMins;
-                    else if (al.type.includes("烈風警報")) groupDurations["烈風警報 (八號)"].mins += al.durationMins;
-                    else groupDurations["暴風 / 颶風警報"].mins += al.durationMins;
-                });
-            });
-
-            const distContainer = document.getElementById('alertTypeDistribution');
-            distContainer.innerHTML = Object.entries(groupDurations).map(([label, info]) => {
-                const pct = totalAlertMins > 0 ? ((info.mins / totalAlertMins) * 100).toFixed(1) : "0.0";
-                return `
-                    <div class="space-y-1">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                <span class="w-2 h-2 rounded-full ${info.color}"></span>
-                                ${label}
-                            </span>
-                            <span class="font-mono text-slate-500 dark:text-slate-400">
-                                <strong class="text-slate-800 dark:text-slate-200">${formatMinutesToHM(info.mins)}</strong> (${pct}%)
-                            </span>
-                        </div>
-                        <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                            <div class="h-full rounded-full ${info.color} transition-all duration-500" style="width: ${Math.max(Number(pct), info.mins > 0 ? 2 : 0)}%"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // ============================================================================
-        // 5. CARD & TABLE VIEW RENDERING
-        // ============================================================================
-        function renderAlertBadge(type, size = "sm") {
-            const meta = ALERT_META[type] || ALERT_META["注意警報"];
-            const sizeClasses = size === "lg"
-                ? "px-3 py-1 text-xs"
-                : "px-2.5 py-0.5 text-[11px]";
-
-            const pulseDot = meta.rank === 7
-                ? `<span class="w-2 h-2 rounded-full bg-red-600 dark:bg-red-400 animate-ping mr-1"></span>`
-                : '';
-
-            const dirBadge = meta.direction
-                ? `<span class="ml-1 font-mono text-[10px] opacity-80">[${meta.direction}]</span>`
-                : '';
-
-            return `
-                <span class="inline-flex items-center rounded-lg font-semibold border ${sizeClasses} ${meta.badgeLight} ${meta.badgeDark}">
-                    ${pulseDot}${type}${dirBadge}
-                </span>
-            `;
-        }
-
-        function renderMainViews() {
-            const filtered = getFilteredData();
-            renderYearPills();
-            renderKPIsAndCharts(filtered);
-
-            document.getElementById('showingCount').textContent = filtered.length;
-
-            // Show/hide Reset Button & Search clear
-            const hasActiveFilter = state.selectedYear !== 'ALL' || state.searchQuery !== '' || state.alertFilter !== 'ALL' || state.intensityFilter !== 'ALL';
-            const resetBtn = document.getElementById('resetFiltersBtn');
-            resetBtn.classList.toggle('hidden', !hasActiveFilter);
-            resetBtn.classList.toggle('inline-flex', hasActiveFilter);
-
-            document.getElementById('clearSearchBtn').classList.toggle('hidden', !state.searchQuery);
-
-            const emptyEl = document.getElementById('emptyStateContainer');
-            const cardEl = document.getElementById('cardViewContainer');
-            const tableEl = document.getElementById('tableViewContainer');
-
-            if (filtered.length === 0) {
-                emptyEl.classList.remove('hidden');
-                cardEl.classList.add('hidden');
-                tableEl.classList.add('hidden');
-                return;
-            }
-
-            emptyEl.classList.add('hidden');
-            if (state.viewMode === 'card') {
-                cardEl.classList.remove('hidden');
-                tableEl.classList.add('hidden');
-                renderCards(filtered);
-            } else {
-                cardEl.classList.add('hidden');
-                tableEl.classList.remove('hidden');
-                renderTable(filtered);
-            }
-        }
-
-        function renderCards(items) {
-            const container = document.getElementById('cardViewContainer');
-
-            container.innerHTML = items.map(item => {
-                const intMeta = INTENSITY_META[item.intensity] || INTENSITY_META["熱帶低氣壓"];
-                const isExpanded = state.expandedCards.has(item.id);
-
-                // Filter main sequence for proportional bar (exclude overlapping 烈風預警警報 from width distortion, or show it as overlay indicator)
-                const barAlerts = item.alerts.filter(a => a.type !== "烈風預警警報");
-                const barTotalMins = barAlerts.reduce((acc, a) => acc + Math.max(a.durationMins, 30), 0);
-
-                const proportionalBarHTML = barAlerts.map(al => {
-                    const widthPct = ((Math.max(al.durationMins, 30) / barTotalMins) * 100).toFixed(2);
-                    return `
-                        <div style="width: ${widthPct}%"
-                             class="timeline-segment relative h-full ${al.meta.bgBar} first:rounded-l-full last:rounded-r-full transition-opacity hover:opacity-90">
-                            <div class="segment-tooltip opacity-0 pointer-events-none transition-all duration-150 absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-30 whitespace-nowrap bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-lg">
-                                <div class="font-bold">${al.type} (${al.durationText})</div>
-                                <div class="font-mono text-[10px] opacity-80">${al.start} &rarr; ${al.end}</div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                const alertsTimelineHTML = item.alerts.map((al, idx) => {
-                    const isPreGale = al.type === "烈風預警警報";
-                    return `
-                        <div class="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded-xl text-xs ${isPreGale ? 'bg-orange-50/70 dark:bg-orange-950/30 border border-dashed border-orange-300 dark:border-orange-800/60' : 'bg-slate-50/80 dark:bg-slate-800/50'}">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="font-mono text-[10px] text-slate-400 w-4">${idx + 1}.</span>
-                                ${renderAlertBadge(al.type)}
-                                ${isPreGale ? `<span class="text-[10px] text-orange-600 dark:text-orange-400 hidden sm:inline">(預警重疊時段)</span>` : ''}
-                            </div>
-                            <div class="flex items-center gap-2.5 shrink-0 font-mono text-[11px] text-slate-600 dark:text-slate-300">
-                                <span>${al.start} <span class="text-slate-400">&rarr;</span> ${al.end}</span>
-                                <span class="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 font-semibold w-16 text-center">
-                                    ${al.durationText}
-                                </span>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                return `
-                    <article class="bg-white/95 dark:bg-slate-900/95 backdrop-blur rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-sky-300 dark:hover:border-sky-800 transition-all flex flex-col justify-between overflow-hidden">
-                        <div class="p-5 space-y-4">
-                            <!-- Card Top Header -->
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="space-y-1">
-                                    <div class="flex flex-wrap items-center gap-1.5">
-                                        <span class="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                                            ${item.year}
-                                        </span>
-                                        <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold border ${intMeta.badge}">
-                                            ${item.intensity}
-                                        </span>
-                                        ${item.code ? `<span class="px-2 py-0.5 rounded-md text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">#${item.code}</span>` : ''}
-                                        ${item.hasPreGale ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-orange-100 text-orange-800 dark:bg-orange-950/70 dark:text-orange-300">含烈風預警</span>` : ''}
-                                    </div>
-                                    <h3 onclick="openDetailModal('${item.id}')" class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white hover:text-sky-600 dark:hover:text-sky-400 cursor-pointer flex items-center gap-1.5 pt-0.5">
-                                        <span>${item.rawName}</span>
-                                        <i class="ph ph-arrow-square-out text-sm text-slate-400"></i>
-                                    </h3>
-                                </div>
-
-                                <!-- Right Highest Signal & Total Duration -->
-                                <div class="text-right shrink-0">
-                                    <div class="flex justify-end">
-                                        ${renderAlertBadge(item.highestAlertType, 'lg')}
-                                    </div>
-                                    <div class="mt-1.5 flex items-center justify-end gap-1 text-xs font-mono text-slate-500 dark:text-slate-400" title="${item.wasAutoCalculated ? '系統根據警報起訖時間自動推算' : '原始資料提供時數'}">
-                                        <i class="ph ph-clock text-sky-500"></i>
-                                        <strong class="text-slate-800 dark:text-slate-200">${item.totalH}</strong>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Proportional Multi-Segment Timeline Bar -->
-                            <div class="space-y-1.5">
-                                <div class="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                                    <span><i class="ph ph-play-circle text-emerald-500"></i> ${item.firstStartStr}</span>
-                                    <span>${item.alerts.length} 個警報階段</span>
-                                    <span>${item.lastEndStr} <i class="ph ph-stop-circle text-rose-500"></i></span>
-                                </div>
-                                <div class="w-full h-3 rounded-full bg-slate-100 dark:bg-slate-800 p-0.5 flex gap-0.5">
-                                    ${proportionalBarHTML}
-                                </div>
-                            </div>
-
-                            <!-- Alert Steps List (Collapsible if > 3 steps, or always shown if expanded) -->
-                            <div class="space-y-1.5 pt-1">
-                                ${isExpanded || item.alerts.length <= 3
-                                    ? alertsTimelineHTML
-                                    : item.alerts.slice(0, 3).map((al, idx) => `
-                                        <div class="flex items-center justify-between gap-2 py-1.5 px-2.5 rounded-xl text-xs bg-slate-50/80 dark:bg-slate-800/50">
-                                            <div class="flex items-center gap-2 min-w-0">
-                                                <span class="font-mono text-[10px] text-slate-400 w-4">${idx + 1}.</span>
-                                                ${renderAlertBadge(al.type)}
-                                            </div>
-                                            <div class="flex items-center gap-2.5 shrink-0 font-mono text-[11px] text-slate-600 dark:text-slate-300">
-                                                <span>${al.start} &rarr; ${al.end}</span>
-                                                <span class="px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700/80 text-slate-700 dark:text-slate-200 font-semibold w-16 text-center">
-                                                    ${al.durationText}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    `).join('')
-                                }
-                            </div>
-                        </div>
-
-                        <!-- Card Footer Actions -->
-                        <div class="px-5 py-2.5 bg-slate-50/90 dark:bg-slate-800/40 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between text-xs">
-                            ${item.alerts.length > 3 ? `
-                                <button onclick="toggleCardExpand('${item.id}')" class="font-semibold text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1">
-                                    <i class="ph ${isExpanded ? 'ph-caret-up' : 'ph-caret-down'}"></i>
-                                    ${isExpanded ? '收起階段明細' : `展開其餘 ${item.alerts.length - 3} 個警報階段`}
-                                </button>
-                            ` : `
-                                <span class="text-slate-400 dark:text-slate-500 text-[11px]">完整顯示全部 ${item.alerts.length} 個階段</span>
-                            `}
-
-                            <button onclick="openDetailModal('${item.id}')" class="text-slate-600 dark:text-slate-300 hover:text-sky-600 dark:hover:text-sky-400 font-medium inline-flex items-center gap-1">
-                                <span>時數統計分析</span>
-                                <i class="ph ph-caret-right"></i>
-                            </button>
-                        </div>
-                    </article>
-                `;
-            }).join('');
-        }
-
-        function renderTable(items) {
-            const tbody = document.getElementById('tableBodyContainer');
-            tbody.innerHTML = items.map(item => {
-                const intMeta = INTENSITY_META[item.intensity] || INTENSITY_META["熱帶低氣壓"];
-                const barAlerts = item.alerts.filter(a => a.type !== "烈風預警警報");
-                const barTotalMins = barAlerts.reduce((acc, a) => acc + Math.max(a.durationMins, 30), 0);
-
-                const miniBarHTML = barAlerts.map(al => {
-                    const widthPct = ((Math.max(al.durationMins, 30) / barTotalMins) * 100).toFixed(1);
-                    return `<div style="width:${widthPct}%" class="h-full ${al.meta.bgBar}" title="${al.type}: ${al.durationText}"></div>`;
-                }).join('');
-
-                return `
-                    <tr onclick="openDetailModal('${item.id}')" class="hover:bg-sky-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors">
-                        <td class="py-3.5 px-4 font-mono whitespace-nowrap">
-                            <span class="font-bold text-slate-900 dark:text-white">${item.year}</span>
-                            ${item.code ? `<span class="ml-1.5 text-xs text-slate-400">#${item.code}</span>` : ''}
-                        </td>
-                        <td class="py-3.5 px-4 whitespace-nowrap">
-                            <div class="flex items-center gap-2">
-                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold border ${intMeta.badge}">${item.intensity}</span>
-                                <span class="font-bold text-slate-900 dark:text-white">${item.cnName ? `「${item.cnName}」` : item.rawName}</span>
-                            </div>
-                        </td>
-                        <td class="py-3.5 px-4 whitespace-nowrap">
-                            ${renderAlertBadge(item.highestAlertType)}
-                        </td>
-                        <td class="py-3.5 px-4 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                            ${item.firstStartStr} &rarr; ${item.lastEndStr}
-                        </td>
-                        <td class="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                            ${item.totalH}
-                        </td>
-                        <td class="py-3.5 px-4">
-                            <div class="w-44 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex gap-0.5 p-0.5">
-                                ${miniBarHTML}
-                            </div>
-                        </td>
-                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                            <button class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 hover:bg-sky-100">
-                                檢視 (${item.alerts.length})
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // ============================================================================
-        // 6. USER INTERACTIONS & MODAL HANDLERS
-        // ============================================================================
-        function selectYear(year) {
-            state.selectedYear = year;
-            renderMainViews();
-        }
-
-        function handleFilterChange() {
-            state.searchQuery = document.getElementById('searchInput').value.trim();
-            state.alertFilter = document.getElementById('alertFilterSelect').value;
-            state.intensityFilter = document.getElementById('intensityFilterSelect').value;
-            state.sortBy = document.getElementById('sortSelect').value;
-            renderMainViews();
-        }
-
-        function clearSearch() {
-            document.getElementById('searchInput').value = '';
-            handleFilterChange();
-        }
-
-        function resetAllFilters() {
-            state.selectedYear = 'ALL';
-            state.searchQuery = '';
-            state.alertFilter = 'ALL';
-            state.intensityFilter = 'ALL';
-            state.sortBy = 'DATE_DESC';
-
-            document.getElementById('searchInput').value = '';
-            document.getElementById('alertFilterSelect').value = 'ALL';
-            document.getElementById('intensityFilterSelect').value = 'ALL';
-            document.getElementById('sortSelect').value = 'DATE_DESC';
-
-            renderMainViews();
-        }
-
-        function setViewMode(mode) {
-            state.viewMode = mode;
-            const cardBtn = document.getElementById('viewCardBtn');
-            const tableBtn = document.getElementById('viewTableBtn');
-
-            if (mode === 'card') {
-                cardBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm";
-                tableBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
-            } else {
-                tableBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-400 shadow-sm";
-                cardBtn.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
-            }
-            renderMainViews();
-        }
-
-        function toggleCardExpand(id) {
-            if (state.expandedCards.has(id)) {
-                state.expandedCards.delete(id);
-            } else {
-                state.expandedCards.add(id);
-            }
-            renderMainViews();
-        }
-
-        function toggleExpandAllCards() {
-            state.allExpanded = !state.allExpanded;
-            const btnSpan = document.querySelector('#expandAllBtn span');
-            if (state.allExpanded) {
-                processedData.forEach(d => state.expandedCards.add(d.id));
-                btnSpan.textContent = "收起全部時間軸明細";
-            } else {
-                state.expandedCards.clear();
-                btnSpan.textContent = "展開全部時間軸明細";
-            }
-            renderMainViews();
-        }
-
-        // Open Detailed Modal for a Cyclone
-        function openDetailModal(id) {
-            const item = processedData.find(d => d.id === id);
-            if (!item) return;
-            state.activeModalItem = item;
-
-            const intMeta = INTENSITY_META[item.intensity] || INTENSITY_META["熱帶低氣壓"];
-
-            // Group durations by alert type for this cyclone
-            const breakdownMap = {};
-            item.alerts.forEach(al => {
-                if (!breakdownMap[al.type]) {
-                    breakdownMap[al.type] = { mins: 0, count: 0, meta: al.meta };
-                }
-                breakdownMap[al.type].mins += al.durationMins;
-                breakdownMap[al.type].count += 1;
-            });
-
-            document.getElementById('modalHeaderContent').innerHTML = `
-                <div class="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span class="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900">${item.year}年</span>
-                    <span class="px-2.5 py-0.5 rounded-md text-xs font-semibold border ${intMeta.badge}">${item.intensity}</span>
-                    ${renderAlertBadge(item.highestAlertType)}
-                </div>
-                <h2 class="text-xl font-extrabold text-slate-900 dark:text-white">${item.rawName}</h2>
-                <p class="text-xs font-mono text-slate-500 dark:text-slate-400 mt-0.5">
-                    生效總時數：<strong class="text-sky-600 dark:text-sky-400">${item.totalH}</strong>
-                    ${item.wasAutoCalculated ? ' (由系統自動推算)' : ' (官方紀錄時數)'}
-                </p>
-            `;
-
-            const breakdownHTML = Object.entries(breakdownMap).map(([type, data]) => {
-                const pct = Math.min(100, Math.round((data.mins / item.totalMinutes) * 100));
-                return `
-                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between">
-                        <div class="space-y-1">
-                            ${renderAlertBadge(type)}
-                            <div class="text-[11px] text-slate-500 dark:text-slate-400">發佈 ${data.count} 次</div>
-                        </div>
-                        <div class="text-right font-mono">
-                            <div class="text-sm font-bold text-slate-900 dark:text-white">${formatMinutesToHM(data.mins)}</div>
-                            <div class="text-[11px] text-slate-500">${pct}%</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            const timelineStepsHTML = item.alerts.map((al, idx) => `
-                <div class="relative pl-6 pb-4 last:pb-0 border-l-2 border-slate-200 dark:border-slate-700 ml-2">
-                    <span class="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full ${al.meta.bgBar} ring-4 ring-white dark:ring-slate-900"></span>
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800">
-                        <div class="flex items-center gap-2">
-                            <span class="font-mono text-xs text-slate-400">#${idx + 1}</span>
-                            ${renderAlertBadge(al.type)}
-                            ${al.type === '烈風預警警報' ? '<span class="text-[11px] text-orange-500 font-medium">(預警時段)</span>' : ''}
-                        </div>
-                        <div class="flex items-center gap-3 font-mono text-xs text-slate-700 dark:text-slate-300">
-                            <span>${al.start} &rarr; ${al.end}</span>
-                            <span class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 font-bold">${al.durationText}</span>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            document.getElementById('modalBodyContent').innerHTML = `
-                <div>
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">各級警報累計維持時間</h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        ${breakdownHTML}
-                    </div>
-                </div>
-                <div>
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">完整警報發佈時間軸 (${item.alerts.length} 個階段)</h4>
-                    <div class="space-y-1">
-                        ${timelineStepsHTML}
-                    </div>
-                </div>
-            `;
-
-            const modal = document.getElementById('detailModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-
-        function closeDetailModal() {
-            const modal = document.getElementById('detailModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        function copyModalSummary() {
-            const item = state.activeModalItem;
-            if (!item) return;
-            const lines = [
-                `【${item.year}年 ${item.rawName} 警報紀錄】`,
-                `最高警報：${item.highestAlertType}`,
-                `總生效時數：${item.totalH}`,
-                `警報明細：`,
-                ...item.alerts.map((a, i) => `${i + 1}. ${a.type}：${a.start} 至 ${a.end} (${a.durationText})`)
-            ];
-            const textArea = document.createElement('textarea');
-            textArea.value = lines.join('\n');
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            showToast(`已複製「${item.rawName}」警報摘要`);
-        }
-
-        // Legend Modal
-        function openLegendModal() {
-            const listEl = document.getElementById('legendModalList');
-            listEl.innerHTML = Object.entries(ALERT_META).map(([name, meta]) => `
-                <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70 flex items-start gap-3">
-                    <div class="shrink-0 mt-0.5">${renderAlertBadge(name)}</div>
-                    <div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${meta.desc}</div>
-                </div>
-            `).join('');
-            const modal = document.getElementById('legendModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-
-        function closeLegendModal() {
-            const modal = document.getElementById('legendModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        // Export standalone data/TCwarning_record.js file
-        function downloadJSDataFile() {
-            const sourceArray = typeof rawData !== 'undefined' ? rawData : window.rawData;
-            const jsContent = `const rawData = ${JSON.stringify(sourceArray, null, 4)};\n`;
-            const blob = new Blob([jsContent], { type: 'application/javascript;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'TCwarning_record.js';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('已下載 TCwarning_record.js 資料檔');
-        }
-
-        function showToast(msg) {
-            const toast = document.getElementById('toastNotification');
-            document.getElementById('toastMessage').textContent = msg;
-            toast.classList.remove('opacity-0', 'translate-y-2');
-            toast.classList.add('opacity-100', 'translate-y-0');
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-2');
-                toast.classList.remove('opacity-100', 'translate-y-0');
-            }, 2600);
-        }
-
-        // Close modals on Escape or backdrop click
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeDetailModal();
-                closeLegendModal();
-            }
-        });
-
-        window.addEventListener('DOMContentLoaded', () => {
-            initTheme();
-            initializeDataset();
-            renderMainViews();
-        });
-    </script>
-</body>
-</html>
+                    ? "bg-blue-600 text-white shadow-sm shadow-blue-500/30 border-blue-600"
+                    : "bg-slate-100 hover:bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border-slate-2
