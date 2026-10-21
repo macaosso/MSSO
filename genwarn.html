@@ -35,11 +35,10 @@
     <style>
         body { font-family: 'Inter', 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        input, textarea, button { font-size: 14px; }
+        input, select, textarea, button { font-size: 14px; }
         @media (max-width: 640px) {
-            input, textarea { font-size: 16px !important; }
+            input, select, textarea { font-size: 16px !important; }
         }
-        /* Custom scrollbar for record list */
         .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scroll::-webkit-scrollbar-track { background: #0e121b; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #222b3d; border-radius: 4px; }
@@ -62,7 +61,7 @@
         <div class="flex items-center gap-2">
             <button type="button" onclick="syncCurrentTime()" class="flex items-center gap-1 text-xs bg-dark-800 hover:bg-dark-700 border border-dark-700 px-2.5 py-1.5 rounded-lg text-slate-200 transition">
                 <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
-                <span>校正現時</span>
+                <span>填入現時</span>
             </button>
             <button type="button" onclick="toggleGithubModal(true)" class="flex items-center gap-1.5 text-xs bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 px-3 py-1.5 rounded-lg text-teal-300 transition">
                 <i data-lucide="github" class="w-3.5 h-3.5 text-teal-400"></i>
@@ -88,7 +87,7 @@
         <!-- 左側配置區 (7 欄位) -->
         <div id="panelEdit" class="lg:col-span-7 space-y-4">
             
-            <!-- 編輯模式狀態條 (當正在編輯舊紀錄時顯示) -->
+            <!-- 歷史紀錄載入提示條 -->
             <div id="editingBanner" class="hidden bg-amber-500/10 border border-amber-500/40 rounded-xl p-3 flex items-center justify-between">
                 <div class="flex items-center space-x-2 text-xs text-amber-300">
                     <i data-lucide="edit-3" class="w-4 h-4 text-amber-400"></i>
@@ -104,19 +103,19 @@
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-2">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">選擇警報類別</span>
                 <div class="grid grid-cols-5 gap-1.5 sm:gap-2">
+                    <button type="button" onclick="selectCategory('cyclone')" id="cat-cyclone" class="cat-pill py-2.5 px-1 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow">
+                        <i data-lucide="wind" class="w-4 h-4 mb-1"></i>
+                        <span>氣旋</span>
+                    </button>
                     <button type="button" onclick="selectCategory('surge')" id="cat-surge" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="waves" class="w-4 h-4 mb-1"></i>
                         <span>風暴潮</span>
-                    </button>
-                    <button type="button" onclick="selectCategory('cyclone')" id="cat-cyclone" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
-                        <i data-lucide="wind" class="w-4 h-4 mb-1"></i>
-                        <span>氣旋</span>
                     </button>
                     <button type="button" onclick="selectCategory('rain')" id="cat-rain" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="cloud-rain" class="w-4 h-4 mb-1"></i>
                         <span>降雨</span>
                     </button>
-                    <button type="button" onclick="selectCategory('heat')" id="cat-heat" class="cat-pill py-2.5 px-1 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow">
+                    <button type="button" onclick="selectCategory('heat')" id="cat-heat" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="sun" class="w-4 h-4 mb-1"></i>
                         <span>酷熱</span>
                     </button>
@@ -127,7 +126,7 @@
                 </div>
             </div>
 
-            <!-- 2. 發布狀態 (新/舊) 與 時間 (獨立 Responsive 排版防重疊) -->
+            <!-- 2. 發布狀態 (新/舊) 與 時間 (日期開放自由修改，不固定) -->
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">發布模式與時間 (MST)</span>
                 
@@ -143,7 +142,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div class="flex flex-col">
                         <label class="text-[11px] text-slate-400 mb-1.5 font-medium">發布日期 (YYYY-MM-DD)</label>
-                        <input type="date" id="inputDate" oninput="renderWarning()" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-slate-100 outline-none font-mono">
+                        <input type="text" id="inputDate" oninput="renderWarning()" placeholder="YYYY-MM-DD (隨意修改)" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-slate-100 outline-none font-mono">
                     </div>
                     <div class="flex flex-col">
                         <label class="text-[11px] text-slate-400 mb-1.5 font-medium">發布時間 (HH:MM)</label>
@@ -152,24 +151,80 @@
                 </div>
             </div>
 
-            <!-- 3. 酷熱警報模組 -->
-            <div id="module-heat" class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
-                <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">酷熱警報等級</span>
-                
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="selectHeatLevel('酷熱')" id="btn-heat-酷熱" class="heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow">酷熱</button>
-                    <button type="button" onclick="selectHeatLevel('非常酷熱')" id="btn-heat-非常酷熱" class="heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">非常酷熱</button>
-                    <button type="button" onclick="selectHeatLevel('極為酷熱')" id="btn-heat-極為酷熱" class="heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">極為酷熱</button>
+            <!-- 3. 熱帶氣旋模組 (支援 MSSO/TCdata/A.csv~F.csv 自動解析) -->
+            <div id="module-cyclone" class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">熱帶氣旋警報信號</span>
+                    <button type="button" onclick="loadAllTCDataCsv()" class="text-[11px] text-cyan-300 hover:text-cyan-200 bg-cyan-950/60 border border-cyan-500/40 px-2 py-1 rounded-md flex items-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                        <span>同步 TCdata (A~F.csv)</span>
+                    </button>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                    <div class="flex flex-col">
-                        <label class="text-[11px] text-slate-400 mb-1">預計最高氣溫 (°C)</label>
-                        <input type="text" id="heatTemp" oninput="renderWarning()" placeholder="如 34 或 33 - 34" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                    <button type="button" onclick="selectCycloneSignal('注意警報')" id="btn-tc-注意警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">注意警報</button>
+                    <button type="button" onclick="selectCycloneSignal('戒備警報')" id="btn-tc-戒備警報" class="tc-btn p-2 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-bold transition text-center shadow">戒備警報</button>
+                    <button type="button" onclick="selectCycloneSignal('強風警報')" id="btn-tc-強風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">強風警報</button>
+                    <button type="button" onclick="selectCycloneSignal('東北烈風警報')" id="btn-tc-東北烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">東北烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('東南烈風警報')" id="btn-tc-東南烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">東南烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('西北烈風警報')" id="btn-tc-西北烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">西北烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('西南烈風警報')" id="btn-tc-西南烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">西南烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('暴風警報')" id="btn-tc-暴風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">暴風警報</button>
+                    <button type="button" onclick="selectCycloneSignal('𩗗風警報')" id="btn-tc-𩗗風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center col-span-1 sm:col-span-2">𩗗風警報</button>
+                </div>
+
+                <div id="cautionRangeBox" class="hidden bg-dark-950 border border-amber-500/30 rounded-lg p-2.5 space-y-1.5">
+                    <span class="text-xs text-amber-300 font-semibold block">注意警報範圍：</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="btn-c1200" onclick="selectCautionRange('1200')" class="py-1.5 px-2 rounded border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold">1200 公里範圍</button>
+                        <button type="button" id="btn-c800" onclick="selectCautionRange('800')" class="py-1.5 px-2 rounded border border-dark-700 bg-dark-800 text-slate-400 text-xs font-bold">800 公里範圍</button>
                     </div>
-                    <div class="flex flex-col">
-                        <label class="text-[11px] text-slate-400 mb-1">部分地區氣溫 (°C)</label>
-                        <input type="text" id="heatPartTemp" oninput="renderWarning()" placeholder="如 35 - 36" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                </div>
+
+                <!-- 氣旋選擇 / 手動輸入區 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-[11px] text-slate-400">氣旋名稱</label>
+                            <span id="tcDataSourceBadge" class="text-[10px] text-slate-500 font-mono">支援手填或選單</span>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="tcName" oninput="renderWarning()" placeholder="輸入或選取名稱" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none">
+                            <select id="tcCsvSelect" onchange="onSelectTcFromCsv(this.value)" class="bg-dark-800 border border-dark-700 rounded-lg px-2 text-xs text-cyan-300 outline-none max-w-[130px]">
+                                <option value="">選取氣旋...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">中心風速 (km/h) (自動自 current 填入)</label>
+                        <input type="number" inputmode="numeric" id="tcWind" oninput="handleWindChange()" placeholder="如 140" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between bg-dark-950 border border-dark-700 px-3 py-2 rounded-lg text-xs">
+                    <span class="text-slate-400">判定強度：</span>
+                    <span id="tcIntensityTag" class="font-bold text-slate-300 font-mono">未輸入風速</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-dark-700/80">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">中心緯度 (°N) (current)</label>
+                        <input type="number" step="0.1" inputmode="decimal" id="tcCurLat" oninput="renderWarning()" placeholder="如 19.8" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">中心經度 (°E) (current)</label>
+                        <input type="number" step="0.1" inputmode="decimal" id="tcCurLon" oninput="renderWarning()" placeholder="如 115.6" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">24H 預報緯度 (°N) (24H)</label>
+                        <input type="number" step="0.1" inputmode="decimal" id="tcFcLat" oninput="renderWarning()" placeholder="如 21.5" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">24H 預報經度 (°E) (24H)</label>
+                        <input type="number" step="0.1" inputmode="decimal" id="tcFcLon" oninput="renderWarning()" placeholder="如 113.2" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
                     </div>
                 </div>
             </div>
@@ -236,7 +291,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">潮汐日期</label>
-                            <input type="date" id="surgeTideDate" oninput="renderWarning()" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                            <input type="text" id="surgeTideDate" oninput="renderWarning()" placeholder="YYYY-MM-DD" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">高潮時間</label>
@@ -272,65 +327,24 @@
                 </div>
             </div>
 
-            <!-- 6. 熱帶氣旋模組 -->
-            <div id="module-cyclone" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
-                <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">熱帶氣旋警報信號</span>
-
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                    <button type="button" onclick="selectCycloneSignal('注意警報')" id="btn-tc-注意警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">注意警報</button>
-                    <button type="button" onclick="selectCycloneSignal('戒備警報')" id="btn-tc-戒備警報" class="tc-btn p-2 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-bold transition text-center shadow">戒備警報</button>
-                    <button type="button" onclick="selectCycloneSignal('強風警報')" id="btn-tc-強風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">強風警報</button>
-                    <button type="button" onclick="selectCycloneSignal('東北烈風警報')" id="btn-tc-東北烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">東北烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('東南烈風警報')" id="btn-tc-東南烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">東南烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('西北烈風警報')" id="btn-tc-西北烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">西北烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('西南烈風警報')" id="btn-tc-西南烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">西南烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('暴風警報')" id="btn-tc-暴風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">暴風警報</button>
-                    <button type="button" onclick="selectCycloneSignal('𩗗風警報')" id="btn-tc-𩗗風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center col-span-1 sm:col-span-2">𩗗風警報</button>
+            <!-- 6. 酷熱警報模組 -->
+            <div id="module-heat" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
+                <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">酷熱警報等級</span>
+                
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="selectHeatLevel('酷熱')" id="btn-heat-酷熱" class="heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow">酷熱</button>
+                    <button type="button" onclick="selectHeatLevel('非常酷熱')" id="btn-heat-非常酷熱" class="heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">非常酷熱</button>
+                    <button type="button" onclick="selectHeatLevel('極為酷熱')" id="btn-heat-極為酷熱" class="heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">極為酷熱</button>
                 </div>
 
-                <div id="cautionRangeBox" class="hidden bg-dark-950 border border-amber-500/30 rounded-lg p-2.5 space-y-1.5">
-                    <span class="text-xs text-amber-300 font-semibold block">注意警報範圍：</span>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" id="btn-c1200" onclick="selectCautionRange('1200')" class="py-1.5 px-2 rounded border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold">1200 公里範圍</button>
-                        <button type="button" id="btn-c800" onclick="selectCautionRange('800')" class="py-1.5 px-2 rounded border border-dark-700 bg-dark-800 text-slate-400 text-xs font-bold">800 公里範圍</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div class="flex flex-col">
+                        <label class="text-[11px] text-slate-400 mb-1">預計最高氣溫 (°C)</label>
+                        <input type="text" id="heatTemp" oninput="renderWarning()" placeholder="如 34 或 33 - 34" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
                     </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">氣旋名稱</label>
-                        <input type="text" id="tcName" oninput="renderWarning()" placeholder="如 萬宜" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">中心風速 (km/h)</label>
-                        <input type="number" inputmode="numeric" id="tcWind" oninput="handleWindChange()" placeholder="如 140" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between bg-dark-950 border border-dark-700 px-3 py-2 rounded-lg text-xs">
-                    <span class="text-slate-400">判定強度：</span>
-                    <span id="tcIntensityTag" class="font-bold text-slate-300 font-mono">未輸入風速</span>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2 pt-1 border-t border-dark-700/80">
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">中心緯度 (°N)</label>
-                        <input type="number" step="0.1" inputmode="decimal" id="tcCurLat" oninput="renderWarning()" placeholder="如 19.8" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">中心經度 (°E)</label>
-                        <input type="number" step="0.1" inputmode="decimal" id="tcCurLon" oninput="renderWarning()" placeholder="如 115.6" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">24H 預報緯度 (°N)</label>
-                        <input type="number" step="0.1" inputmode="decimal" id="tcFcLat" oninput="renderWarning()" placeholder="如 21.5" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">24H 預報經度 (°E)</label>
-                        <input type="number" step="0.1" inputmode="decimal" id="tcFcLon" oninput="renderWarning()" placeholder="如 113.2" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    <div class="flex flex-col">
+                        <label class="text-[11px] text-slate-400 mb-1">部分地區氣溫 (°C)</label>
+                        <input type="text" id="heatPartTemp" oninput="renderWarning()" placeholder="如 35 - 36" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
                     </div>
                 </div>
             </div>
@@ -359,40 +373,25 @@
 
         </div>
 
-        <!-- 右側預覽與匯出 (5 欄位) -->
+        <!-- 右側輸出區 (已移除預覽卡片，5 欄位直接呈現純文字與操作) -->
         <div id="panelPreview" class="lg:col-span-5 space-y-4 flex flex-col">
             
-            <!-- 即時視覺預覽卡片 -->
-            <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm flex-1 flex flex-col">
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                        發布視覺預覽
-                    </span>
-                    <span id="badgeCat" class="text-[11px] font-mono px-2 py-0.5 rounded border bg-amber-500/10 text-amber-300 border-amber-500/30">
-                        酷熱警報
-                    </span>
-                </div>
-
-                <div id="previewCard" class="flex-1 min-h-[240px] rounded-lg p-4 bg-amber-950/20 border-2 border-amber-500/40 text-slate-100 shadow flex flex-col justify-between">
-                    <!-- 動態渲染內容 -->
-                </div>
-            </div>
-
-            <!-- 純文字輸出與操作 -->
-            <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm space-y-3">
+            <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm flex-1 flex flex-col space-y-3">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">純文字輸出 (剪貼簿格式)</span>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        純文字輸出 (剪貼簿格式)
+                    </span>
                     <button type="button" onclick="uploadCurrentToGithub()" class="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1">
                         <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
                         <span>存入 GitHub</span>
                     </button>
                 </div>
                 
-                <textarea id="outputText" readonly rows="9" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-3 text-xs sm:text-sm font-mono text-slate-200 outline-none resize-none leading-relaxed select-all"></textarea>
+                <textarea id="outputText" readonly class="w-full flex-1 min-h-[320px] lg:min-h-[480px] bg-dark-950 border border-dark-700 rounded-lg p-3 text-xs sm:text-sm font-mono text-slate-200 outline-none resize-none leading-relaxed select-all"></textarea>
                 
-                <div class="grid grid-cols-2 gap-2">
-                    <button type="button" onclick="copyWarningText()" class="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-bold py-2.5 px-3 rounded-lg text-xs sm:text-sm transition">
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button type="button" onclick="copyWarningText()" class="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-bold py-2.5 px-3 rounded-lg text-xs sm:text-sm transition shadow-lg shadow-amber-500/10">
                         <i data-lucide="copy" class="w-4 h-4"></i>
                         <span>複製文字</span>
                     </button>
@@ -411,7 +410,6 @@
     <div id="modalGithub" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 hidden">
         <div class="bg-dark-900 border border-dark-700 w-full max-w-2xl rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col max-h-[92vh] space-y-4">
             
-            <!-- Modal 頂部標題 -->
             <div class="flex items-center justify-between border-b border-dark-700 pb-3">
                 <div class="flex items-center space-x-2">
                     <i data-lucide="github" class="w-5 h-5 text-teal-400"></i>
@@ -423,7 +421,7 @@
                 </button>
             </div>
 
-            <!-- 連線配置區塊 (可折疊/展開) -->
+            <!-- 連線配置區塊 -->
             <div class="bg-dark-950 border border-dark-700 rounded-xl p-3.5 space-y-2.5 text-xs">
                 <div class="flex items-center justify-between">
                     <span class="font-semibold text-slate-300">儲存庫連線配置</span>
@@ -473,7 +471,7 @@
                 </button>
             </div>
 
-            <!-- 紀錄清單檢視區 (Scrollable Table / Cards) -->
+            <!-- 紀錄清單檢視區 -->
             <div class="flex-1 overflow-y-auto custom-scroll border border-dark-700 rounded-xl bg-dark-950/60 p-2 space-y-2 min-h-[180px]">
                 <div id="ghRecordList" class="space-y-2">
                     <div class="py-12 text-center text-slate-500 text-xs">
@@ -482,7 +480,6 @@
                 </div>
             </div>
 
-            <!-- 底部操作列 -->
             <div class="flex justify-end pt-1 border-t border-dark-700">
                 <button type="button" onclick="toggleGithubModal(false)" class="bg-dark-800 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs transition">
                     關閉視窗
@@ -522,8 +519,8 @@
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
 
-        // 當前介面狀態
-        let curCat = 'heat';
+        // 當前介面狀態 (預設氣旋)
+        let curCat = 'cyclone';
         let curMode = 'new';
         let curSurge = 'watch';
         let curCyclone = '戒備警報';
@@ -535,7 +532,10 @@
         // GitHub 紀錄庫快取與編輯識別
         let githubRecordsCache = [];
         let githubFileSha = null;
-        let editingRecordId = null; // 當正在編輯某筆紀錄時，記錄該筆 ID
+        let editingRecordId = null;
+
+        // 存儲解析後的 TC CSV 數據集合
+        let parsedTcDatasets = {}; // key: cyclone name -> { name, wind, lat, lon, fcLat, fcLon, file }
 
         // 澳門熱帶氣旋強度對照表
         const TC_INTENSITIES = [
@@ -560,7 +560,135 @@
 長者、孕婦、嬰兒及小童、慢性病如心臟病或高血壓患者，以及過胖人士均較易中暑，應及時觀察是否出現中暑徵兆。在極為酷熱天氣下，更應時常留意身體健康狀況，確保有充分休息，保持體溫正常，避免身體過份受熱。`
         };
 
-        // 1. 類別切換
+        // ================= MSSO/TCdata/A.csv ~ F.csv 解析模組 =================
+
+        async function fetchSingleCsv(filename) {
+            const path = `MSSO/TCdata/${filename}.csv`;
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+
+            // 1. 優先嘗試由本機或同源伺服器路徑讀取
+            try {
+                const res = await fetch(path);
+                if (res.ok) {
+                    return await res.text();
+                }
+            } catch (e) {}
+
+            // 2. 若同源無檔案且已填寫 GitHub 倉庫，嘗試自 GitHub API 獲取
+            if (token && repo) {
+                try {
+                    const ghUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+                    const ghRes = await fetch(ghUrl, {
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+                    if (ghRes.ok) {
+                        const json = await ghRes.json();
+                        return decodeURIComponent(escape(atob(json.content)));
+                    }
+                } catch (e) {}
+            }
+
+            return null;
+        }
+
+        function parseTcCsvContent(csvText, filename) {
+            if (!csvText) return null;
+            const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) return null;
+
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const rows = lines.slice(1).map(line => {
+                const vals = line.split(',').map(v => v.trim());
+                const rowObj = {};
+                headers.forEach((h, i) => {
+                    rowObj[h] = vals[i] || '';
+                });
+                return rowObj;
+            });
+
+            // 尋找 key 欄位 (通常首列是 time / period / track 標籤)
+            const firstHeader = headers[0];
+            const currentRow = rows.find(r => (r[firstHeader] || '').toLowerCase() === 'current' || (r.time || '').toLowerCase() === 'current');
+            const fc24Row = rows.find(r => (r[firstHeader] || '').toUpperCase() === '24H' || (r.time || '').toUpperCase() === '24H');
+
+            if (!currentRow) return null;
+
+            const name = currentRow.name || currentRow['氣旋名稱'] || '';
+            if (!name) return null;
+
+            return {
+                name: name,
+                wind: currentRow.wind || currentRow.speed || '',
+                lat: currentRow.lat || currentRow.latitude || '',
+                lon: currentRow.lon || currentRow.lng || currentRow.longitude || '',
+                fcLat: fc24Row ? (fc24Row.lat || fc24Row.latitude || '') : '',
+                fcLon: fc24Row ? (fc24Row.lon || fc24Row.lng || fc24Row.longitude || '') : '',
+                sourceFile: `${filename}.csv`
+            };
+        }
+
+        async function loadAllTCDataCsv() {
+            const files = ['A', 'B', 'C', 'D', 'E', 'F'];
+            parsedTcDatasets = {};
+            let foundCount = 0;
+
+            const selectEl = document.getElementById('tcCsvSelect');
+            selectEl.innerHTML = '<option value="">載入中...</option>';
+
+            for (const f of files) {
+                const text = await fetchSingleCsv(f);
+                if (text) {
+                    const parsed = parseTcCsvContent(text, f);
+                    if (parsed && parsed.name) {
+                        parsedTcDatasets[parsed.name] = parsed;
+                        foundCount++;
+                    }
+                }
+            }
+
+            selectEl.innerHTML = '<option value="">選取氣旋...</option>';
+            const names = Object.keys(parsedTcDatasets);
+            if (names.length > 0) {
+                names.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = `${name} (${parsedTcDatasets[name].sourceFile})`;
+                    selectEl.appendChild(opt);
+                });
+                document.getElementById('tcDataSourceBadge').innerText = `已載入 ${foundCount} 個氣旋`;
+                showToast(`已載入 ${foundCount} 個熱帶氣旋資料 (A~F.csv)！`);
+            } else {
+                document.getElementById('tcDataSourceBadge').innerText = `未檢測到 A~F.csv`;
+                showToast("未找到 MSSO/TCdata/A.csv~F.csv，請確認本地路徑或 GitHub 倉庫配置。");
+            }
+        }
+
+        function onSelectTcFromCsv(tcName) {
+            if (!tcName || !parsedTcDatasets[tcName]) return;
+            const data = parsedTcDatasets[tcName];
+
+            // 自動填入氣旋名稱
+            document.getElementById('tcName').value = data.name;
+            // 自動填入中心風速 (current row wind)
+            document.getElementById('tcWind').value = data.wind;
+            // 自動填入中心緯度 / 經度 (current row lat/lon)
+            document.getElementById('tcCurLat').value = data.lat;
+            document.getElementById('tcCurLon').value = data.lon;
+            // 自動填入 24H 預報點 (24H row lat/lon)
+            document.getElementById('tcFcLat').value = data.fcLat;
+            document.getElementById('tcFcLon').value = data.fcLon;
+
+            handleWindChange();
+            renderWarning();
+            showToast(`已套用氣旋「${data.name}」實時與 24H 數值！`);
+        }
+
+        // ================= 介面選取與事件模組 =================
+
         function selectCategory(cat) {
             curCat = cat;
 
@@ -585,7 +713,6 @@
             renderWarning();
         }
 
-        // 2. 發布模式切換 (新 / 舊)
         function selectIssueMode(mode) {
             curMode = mode;
             const btnNew = document.getElementById('btnModeNew');
@@ -601,7 +728,6 @@
             renderWarning();
         }
 
-        // 3. 酷熱等級切換
         function selectHeatLevel(level) {
             curHeat = level;
             document.querySelectorAll('.heat-btn').forEach(btn => {
@@ -614,7 +740,6 @@
             renderWarning();
         }
 
-        // 4. 降雨模板切換
         function selectRainSignal(tplKey) {
             curRain = tplKey;
             document.querySelectorAll('.rain-btn').forEach(btn => {
@@ -640,7 +765,6 @@
             renderWarning();
         }
 
-        // 5. 風暴潮級別切換
         function selectSurgeSignal(signalKey) {
             curSurge = signalKey;
             document.querySelectorAll('.surge-btn').forEach(btn => {
@@ -653,7 +777,6 @@
             renderWarning();
         }
 
-        // 6. 熱帶氣旋信號切換
         function selectCycloneSignal(sigName) {
             curCyclone = sigName;
             document.querySelectorAll('.tc-btn').forEach(btn => {
@@ -686,7 +809,6 @@
             renderWarning();
         }
 
-        // 7. 寒冷等級切換
         function selectColdLevel(level) {
             curCold = level;
             document.querySelectorAll('.cold-btn').forEach(btn => {
@@ -699,7 +821,6 @@
             renderWarning();
         }
 
-        // 風速判定強度
         function handleWindChange() {
             const wind = parseFloat(document.getElementById('tcWind').value);
             const tag = document.getElementById('tcIntensityTag');
@@ -816,7 +937,8 @@
             return str;
         }
 
-        // 核心渲染邏輯
+        // ================= 核心渲染邏輯 =================
+
         function renderWarning() {
             const dateStr = document.getElementById('inputDate').value || 'YYYY-MM-DD';
             const timeStr = document.getElementById('inputTime').value || 'HH:MM';
@@ -831,74 +953,44 @@
             let bodyLead = '';
             let defText = '';
             let detailText = '';
-            let previewStyle = '';
-            let badgeText = '';
 
-            if (curCat === 'heat') {
-                badgeText = '酷熱警報';
-                previewStyle = 'bg-amber-950/20 border-amber-500/50 text-amber-300';
-                
-                title = `【#${curHeat}警報】`;
-                bodyLead = curMode === 'new' ? `${curHeat}警報於本地時間${m}月${d}日${h}時${min}分發出。` : `${curHeat}警報，現正生效。`;
+            if (curCat === 'cyclone') {
+                title = `【#${curCyclone}】`;
+                bodyLead = curMode === 'new' ? `${curCyclone}於本地時間${m}月${d}日${h}時${min}分發出。` : `${curCyclone}，現正生效。`;
+                defText = getCycloneDef(curCyclone);
 
-                const t = document.getElementById('heatTemp').value.trim();
-                const pt = document.getElementById('heatPartTemp').value.trim();
-                let segs = [];
-                if (t) segs.push(`最高氣溫約${t}度`);
-                if (pt) segs.push(`部分地區約${pt}度`);
-                const tDesc = segs.length > 0 ? `，${segs.join('，')}。` : '。';
+                const name = document.getElementById('tcName').value.trim();
+                const wind = document.getElementById('tcWind').value.trim();
+                const intensity = getIntensityObj(wind);
+                const intName = intensity ? intensity.name : '';
+                const tcTitle = (name || intName) ? `${intName}${name}` : '熱帶氣旋';
 
-                const weatherDesc = `預料本澳今日天氣${curHeat}${tDesc}`;
-                const officialAdvice = HEAT_OFFICIAL_ADVICE[curHeat] || '';
+                const lat1 = parseFloat(document.getElementById('tcCurLat').value);
+                const lon1 = parseFloat(document.getElementById('tcCurLon').value);
+                const lat2 = parseFloat(document.getElementById('tcFcLat').value);
+                const lon2 = parseFloat(document.getElementById('tcFcLon').value);
 
-                defText = `${weatherDesc}\n\n${officialAdvice}`;
+                const hasCur = !isNaN(lat1) && !isNaN(lon1);
+                const hasFc = hasCur && !isNaN(lat2) && !isNaN(lon2);
 
-            } else if (curCat === 'rain') {
-                badgeText = '降雨警報';
-                previewStyle = 'bg-blue-950/20 border-blue-500/50 text-blue-300';
+                if (hasCur) {
+                    const dist = calcDistance(MACAU_LAT, MACAU_LON, lat1, lon1);
+                    const dir = calcBearing16(MACAU_LAT, MACAU_LON, lat1, lon1);
+                    const period = getTimePeriodWord(h);
 
-                const rawExpectedTime = document.getElementById('rainPreExpectedTime').value;
-                const formattedTime = formatExpectedTimeText(rawExpectedTime);
-
-                if (curRain === 'rain_heavy_warn') {
-                    title = `【#大雨警報】`;
-                    bodyLead = curMode === 'new' ? `大雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `大雨警報，現正生效。`;
-                    defText = `預料每小時雨量將會達到20毫米。市民應留在室內安全地方，注意天氣狀況。`;
-                } else if (curRain === 'rain_storm_warn') {
-                    title = `【#暴雨警報】`;
-                    bodyLead = curMode === 'new' ? `暴雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `暴雨警報，現正生效。`;
-                    defText = `預料雨勢將會增強，每小時雨量將會達到50毫米，部分低漥地區將出現水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
-                } else if (curRain === 'rain_super_warn') {
-                    title = `【#大暴雨警報】`;
-                    bodyLead = curMode === 'new' ? `大暴雨報告於本地時間${m}月${d}日${h}時${min}分發出。` : `大暴雨報告，現正生效。`;
-                    defText = `預料雨勢將會維持，每小時雨量將會達到或接近100毫米，低漥地區將出現較嚴重水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
-                } else if (curRain === 'rain_heavy_pre') {
-                    title = `【大雨預警】`;
-                    bodyLead = ``;
-                    const triggerText = formattedTime 
-                        ? `本台將於${formattedTime}或之前發出大雨警報。` 
-                        : `改發大雨警報之可能性存在。`;
-                    defText = `受一強雷雨區影響，預計本澳未來一兩小時雨勢將會增強。${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
-                } else if (curRain === 'rain_storm_pre') {
-                    title = `【暴雨預警】`;
-                    bodyLead = ``;
-                    const triggerText = formattedTime 
-                        ? `本台將於${formattedTime}或之前發出暴雨警報。` 
-                        : `改發暴雨報告之可能性存在。`;
-                    defText = `受到一道強雷雨區影響，預計本澳未來一小時雨勢會進一步加強，${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
-                } else if (curRain === 'rain_super_pre') {
-                    title = `【大暴雨預警】`;
-                    bodyLead = ``;
-                    const triggerText = formattedTime 
-                        ? `本台將於${formattedTime}或之前發出大暴雨警報。` 
-                        : `改發大暴雨警報之可能性存在。`;
-                    defText = `預計本澳短期內雨勢會進一步加強，${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
+                    detailText = `${period}，${tcTitle}集結在本澳${dir}約${dist}公里，即在北緯${lat1.toFixed(1)}度，東經${lon1.toFixed(1)}度附近`;
+                    if (wind) detailText += `，其中心附近最高持續風速約為每小時${wind}公里`;
+                    if (hasFc) {
+                        const mDist = calcDistance(lat1, lon1, lat2, lon2);
+                        const mSpeed = Math.round(mDist / 24);
+                        const mDir = calcBearing16(lat1, lon1, lat2, lon2);
+                        detailText += `，向${mDir}移動，時速約${mSpeed}公里。`;
+                    } else {
+                        detailText += `。`;
+                    }
                 }
 
             } else if (curCat === 'surge') {
-                badgeText = '風暴潮';
-                previewStyle = 'bg-teal-950/20 border-teal-500/50 text-teal-300';
-                
                 let sName = '風暴潮觀察警報';
                 if (curSurge === 'advisory') sName = '風暴潮戒備警報';
                 if (curSurge === 'warning') sName = '風暴潮危險警報';
@@ -947,47 +1039,62 @@
                     detailText = `${relDay}（${tDateStr}）${tTimeStr}潮汐高度本為${tideVal.toFixed(1)}米。${hRangeStr}時，在風暴潮疊加天文潮下，水位增幅約${rLow.toFixed(1)}至${rHigh.toFixed(1)}米，海水高度將會達到海圖基準面以上${seaLow}至${seaHigh}米，低窪地區可能出現${floodDepth}米水浸。`;
                 }
 
-            } else if (curCat === 'cyclone') {
-                badgeText = '熱帶氣旋';
-                previewStyle = 'bg-cyan-950/20 border-cyan-500/50 text-cyan-300';
-                title = `【#${curCyclone}】`;
-                bodyLead = curMode === 'new' ? `${curCyclone}於本地時間${m}月${d}日${h}時${min}分發出。` : `${curCyclone}，現正生效。`;
-                defText = getCycloneDef(curCyclone);
+            } else if (curCat === 'rain') {
+                const rawExpectedTime = document.getElementById('rainPreExpectedTime').value;
+                const formattedTime = formatExpectedTimeText(rawExpectedTime);
 
-                const name = document.getElementById('tcName').value.trim();
-                const wind = document.getElementById('tcWind').value.trim();
-                const intensity = getIntensityObj(wind);
-                const intName = intensity ? intensity.name : '';
-                const tcTitle = (name || intName) ? `${intName}${name}` : '熱帶氣旋';
-
-                const lat1 = parseFloat(document.getElementById('tcCurLat').value);
-                const lon1 = parseFloat(document.getElementById('tcCurLon').value);
-                const lat2 = parseFloat(document.getElementById('tcFcLat').value);
-                const lon2 = parseFloat(document.getElementById('tcFcLon').value);
-
-                const hasCur = !isNaN(lat1) && !isNaN(lon1);
-                const hasFc = hasCur && !isNaN(lat2) && !isNaN(lon2);
-
-                if (hasCur) {
-                    const dist = calcDistance(MACAU_LAT, MACAU_LON, lat1, lon1);
-                    const dir = calcBearing16(MACAU_LAT, MACAU_LON, lat1, lon1);
-                    const period = getTimePeriodWord(h);
-
-                    detailText = `${period}，${tcTitle}集結在本澳${dir}約${dist}公里，即在北緯${lat1.toFixed(1)}度，東經${lon1.toFixed(1)}度附近`;
-                    if (wind) detailText += `，其中心附近最高持續風速約為每小時${wind}公里`;
-                    if (hasFc) {
-                        const mDist = calcDistance(lat1, lon1, lat2, lon2);
-                        const mSpeed = Math.round(mDist / 24);
-                        const mDir = calcBearing16(lat1, lon1, lat2, lon2);
-                        detailText += `，向${mDir}移動，時速約${mSpeed}公里。`;
-                    } else {
-                        detailText += `。`;
-                    }
+                if (curRain === 'rain_heavy_warn') {
+                    title = `【#大雨警報】`;
+                    bodyLead = curMode === 'new' ? `大雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `大雨警報，現正生效。`;
+                    defText = `預料每小時雨量將會達到20毫米。市民應留在室內安全地方，注意天氣狀況。`;
+                } else if (curRain === 'rain_storm_warn') {
+                    title = `【#暴雨警報】`;
+                    bodyLead = curMode === 'new' ? `暴雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `暴雨警報，現正生效。`;
+                    defText = `預料雨勢將會增強，每小時雨量將會達到50毫米，部分低漥地區將出現水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
+                } else if (curRain === 'rain_super_warn') {
+                    title = `【#大暴雨警報】`;
+                    bodyLead = curMode === 'new' ? `大暴雨報告於本地時間${m}月${d}日${h}時${min}分發出。` : `大暴雨報告，現正生效。`;
+                    defText = `預料雨勢將會維持，每小時雨量將會達到或接近100毫米，低漥地區將出現較嚴重水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
+                } else if (curRain === 'rain_heavy_pre') {
+                    title = `【大雨預警】`;
+                    bodyLead = ``;
+                    const triggerText = formattedTime 
+                        ? `本台將於${formattedTime}或之前發出大雨警報。` 
+                        : `改發大雨警報之可能性存在。`;
+                    defText = `受一強雷雨區影響，預計本澳未來一兩小時雨勢將會增強。${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
+                } else if (curRain === 'rain_storm_pre') {
+                    title = `【暴雨預警】`;
+                    bodyLead = ``;
+                    const triggerText = formattedTime 
+                        ? `本台將於${formattedTime}或之前發出暴雨警報。` 
+                        : `改發暴雨報告之可能性存在。`;
+                    defText = `受到一道強雷雨區影響，預計本澳未來一小時雨勢會進一步加強，${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
+                } else if (curRain === 'rain_super_pre') {
+                    title = `【大暴雨預警】`;
+                    bodyLead = ``;
+                    const triggerText = formattedTime 
+                        ? `本台將於${formattedTime}或之前發出大暴雨警報。` 
+                        : `改發大暴雨警報之可能性存在。`;
+                    defText = `預計本澳短期內雨勢會進一步加強，${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
                 }
 
+            } else if (curCat === 'heat') {
+                title = `【#${curHeat}警報】`;
+                bodyLead = curMode === 'new' ? `${curHeat}警報於本地時間${m}月${d}日${h}時${min}分發出。` : `${curHeat}警報，現正生效。`;
+
+                const t = document.getElementById('heatTemp').value.trim();
+                const pt = document.getElementById('heatPartTemp').value.trim();
+                let segs = [];
+                if (t) segs.push(`最高氣溫約${t}度`);
+                if (pt) segs.push(`部分地區約${pt}度`);
+                const tDesc = segs.length > 0 ? `，${segs.join('，')}。` : '。';
+
+                const weatherDesc = `預料本澳今日天氣${curHeat}${tDesc}`;
+                const officialAdvice = HEAT_OFFICIAL_ADVICE[curHeat] || '';
+
+                defText = `${weatherDesc}\n\n${officialAdvice}`;
+
             } else if (curCat === 'cold') {
-                badgeText = '寒冷警報';
-                previewStyle = 'bg-indigo-950/20 border-indigo-500/50 text-indigo-300';
                 title = `【#寒冷警報】`;
                 bodyLead = curMode === 'new' ? `寒冷警報於本地時間${m}月${d}日${h}時${min}分發出。` : `寒冷警報，現正生效。`;
 
@@ -1001,40 +1108,13 @@
                 defText = `受強烈冬季季候風影響，預料本澳天氣${curCold}${tDesc}市民應注意保暖，慎防感冒。`;
             }
 
-            // 純文字輸出組合
+            // 純文字輸出組合 (嚴格規範格式)
             let pureText = `${title}\n${dateStr}  ${timeStr} MST\n\n`;
             if (bodyLead) pureText += `${bodyLead}${defText}`;
             else pureText += `${defText}`;
             if (detailText) pureText += `\n${detailText}`;
 
             document.getElementById('outputText').value = pureText.trim();
-
-            // 渲染預覽視窗
-            const badge = document.getElementById('badgeCat');
-            badge.innerText = badgeText;
-
-            const card = document.getElementById('previewCard');
-            card.className = `flex-1 min-h-[240px] rounded-lg p-4 ${previewStyle} border-2 shadow flex flex-col justify-between`;
-            
-            const formattedDefHtml = defText.replace(/\n\n/g, '</p><p class="text-slate-200 mt-2">').replace(/\n/g, '<br>');
-
-            card.innerHTML = `
-                <div class="space-y-2.5">
-                    <div class="flex items-center justify-between border-b border-white/10 pb-2">
-                        <span class="font-bold text-sm sm:text-base text-white tracking-wide">${title}</span>
-                        <span class="text-xs font-mono bg-white/10 px-2 py-0.5 rounded text-slate-200">${dateStr} ${timeStr} MST</span>
-                    </div>
-                    <div class="text-xs sm:text-sm leading-relaxed space-y-1.5">
-                        ${bodyLead ? `<p class="font-bold text-amber-300">${bodyLead}</p>` : ''}
-                        <p class="text-slate-200">${formattedDefHtml}</p>
-                        ${detailText ? `<p class="text-slate-100 font-mono bg-black/40 p-2.5 rounded border border-white/10 mt-2">${detailText}</p>` : ''}
-                    </div>
-                </div>
-                <div class="pt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>澳門氣象警報格式</span>
-                    <span class="font-mono">MST (UTC+8)</span>
-                </div>
-            `;
         }
 
         // 當前表單參數快照物件 (用於儲存至 GitHub)
@@ -1128,7 +1208,6 @@
             }
         }
 
-        // 從 GitHub 讀取所有警報紀錄
         async function fetchGithubRecords(showNotification = true) {
             const token = localStorage.getItem('gh_token');
             const repo = localStorage.getItem('gh_repo');
@@ -1185,7 +1264,6 @@
             }
         }
 
-        // 渲染 GitHub 紀錄列表
         function renderGithubRecordsList() {
             const listEl = document.getElementById('ghRecordList');
             const countBadge = document.getElementById('ghCountBadge');
@@ -1230,7 +1308,6 @@
             lucide.createIcons();
         }
 
-        // 將當前編輯器中的警報上傳新增到 GitHub
         async function uploadCurrentToGithub() {
             const token = localStorage.getItem('gh_token');
             const repo = localStorage.getItem('gh_repo');
@@ -1243,16 +1320,14 @@
             }
 
             const newSnapshot = captureCurrentSnapshot();
-            newSnapshot.id = 'warn_' + Date.now(); // 保證唯一
+            newSnapshot.id = 'warn_' + Date.now();
             
             showToast("正在上傳至 GitHub...");
 
-            // 加入至陣列最前端
             const updatedList = [newSnapshot, ...githubRecordsCache];
             await commitListToGithub(updatedList, `新增警報紀錄 [${newSnapshot.date} ${newSnapshot.time}]`);
         }
 
-        // 載入指定紀錄回編輯面板
         function loadRecordToEditor(index) {
             const rec = githubRecordsCache[index];
             if (!rec) return;
@@ -1261,15 +1336,12 @@
             document.getElementById('editingBanner').classList.remove('hidden');
             document.getElementById('editingRecordTitle').innerText = `${rec.category || '警報'} (${rec.date} ${rec.time})`;
 
-            // 恢復基礎時間與模式
             if (rec.mode) selectIssueMode(rec.mode);
             if (rec.date) document.getElementById('inputDate').value = rec.date;
             if (rec.time) document.getElementById('inputTime').value = rec.time;
 
-            // 恢復大類別
             if (rec.category) selectCategory(rec.category);
 
-            // 恢復詳細各模組參數
             const p = rec.params || {};
             if (rec.category === 'heat') {
                 if (p.curHeat) selectHeatLevel(p.curHeat);
@@ -1308,14 +1380,12 @@
             showToast("歷史紀錄已成功載入至左側編輯面板！");
         }
 
-        // 取消編輯模式
         function cancelEditingMode() {
             editingRecordId = null;
             document.getElementById('editingBanner').classList.add('hidden');
             showToast("已退出歷史紀錄編輯狀態。");
         }
 
-        // 將編輯後內容覆蓋更新回 GitHub 原紀錄
         async function saveEditedRecordBackToGithub() {
             if (!editingRecordId) return;
 
@@ -1328,7 +1398,7 @@
 
             showToast("正在更新 GitHub 紀錄...");
             const updatedRecord = captureCurrentSnapshot();
-            updatedRecord.id = editingRecordId; // 保留原始 ID
+            updatedRecord.id = editingRecordId;
             updatedRecord.updatedAt = new Date().toISOString();
 
             const cloneList = [...githubRecordsCache];
@@ -1340,13 +1410,11 @@
             }
         }
 
-        // 刪除 GitHub 上指定的紀錄
         async function deleteRecordFromGithub(index) {
             const rec = githubRecordsCache[index];
             if (!rec) return;
 
             const confirmMsg = `確定要從 GitHub 刪除這筆紀錄嗎？\n\n${rec.date} ${rec.time} - ${rec.category || '警報'}`;
-            // Custom modal confirm or soft check
             if (!confirm(confirmMsg)) return;
 
             showToast("正在刪除紀錄...");
@@ -1354,7 +1422,6 @@
             await commitListToGithub(filtered, `刪除警報紀錄 [${rec.date} ${rec.time}]`);
         }
 
-        // 提交整份 JSON 陣列至 GitHub Contents API (UTF-8 安全)
         async function commitListToGithub(newList, commitMessage) {
             const token = localStorage.getItem('gh_token');
             const repo = localStorage.getItem('gh_repo');
@@ -1369,7 +1436,6 @@
             const url = `https://api.github.com/repos/${repo}/contents/${path}`;
 
             try {
-                // 如果先前沒有 SHA，先嘗試取得最新的 SHA
                 if (!githubFileSha) {
                     const checkRes = await fetch(url, {
                         headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
@@ -1380,7 +1446,6 @@
                     }
                 }
 
-                // 採用 encodeURIComponent -> unescape -> btoa 保證繁體中文字符不亂碼
                 const jsonString = JSON.stringify(newList, null, 2);
                 const encodedContent = btoa(unescape(encodeURIComponent(jsonString)));
 
@@ -1418,7 +1483,6 @@
             }
         }
 
-        // 彈出全文詳情視窗
         function viewRecordDetail(index) {
             const rec = githubRecordsCache[index];
             if (!rec) return;
@@ -1446,7 +1510,6 @@
             showToast("已複製警報詳情內容！");
         }
 
-        // 匯出全部為 JSON 備份檔
         function exportRecordsJson() {
             const dataStr = JSON.stringify(githubRecordsCache, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
@@ -1538,14 +1601,17 @@
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             syncCurrentTime();
-            selectCategory('heat');
-            selectHeatLevel('酷熱');
-            selectSurgeSignal('watch');
+            selectCategory('cyclone'); // 預設氣旋
             selectCycloneSignal('戒備警報');
+            selectSurgeSignal('watch');
             selectRainSignal('rain_heavy_warn');
+            selectHeatLevel('酷熱');
             selectColdLevel('寒冷');
 
             updateGhIndicator();
+
+            // 預先嘗試載入本機或遠端 TCdata
+            loadAllTCDataCsv();
 
             if (window.innerWidth < 1024) {
                 switchTab('edit');
