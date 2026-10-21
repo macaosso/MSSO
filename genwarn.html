@@ -42,6 +42,12 @@
         .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: #0e121b; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #222b3d; border-radius: 4px; }
+        
+        /* 拖曳順序樣式 */
+        tr.drag-over { border-top: 2px solid #22d3ee !important; background-color: rgba(34, 211, 238, 0.08) !important; }
+        tr.dragging { opacity: 0.35; background-color: #1e293b !important; }
+        .drag-handle { cursor: grab; touch-action: none; }
+        .drag-handle:active { cursor: grabbing; }
     </style>
 </head>
 <body class="bg-dark-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-500 selection:text-black">
@@ -109,7 +115,8 @@
                     <i data-lucide="chevron-down" id="activeDetailChevron" class="w-3.5 h-3.5 transition"></i>
                 </button>
             </div>
-            <div id="activeWarningDetailContent" class="hidden max-w-7xl mx-auto mt-2 space-y-2"></div>
+            <!-- 修正後的結構化排版內文容器 -->
+            <div id="activeWarningDetailContent" class="hidden max-w-7xl mx-auto mt-2 space-y-2.5"></div>
         </div>
 
         <!-- 手機端小螢幕切換 Tab -->
@@ -546,7 +553,7 @@
                         <i data-lucide="list-checks" class="w-5 h-5 text-amber-400"></i>
                         即時天氣提示管理 (nowcast.csv)
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">點選開關直接啟用/停用，輸入框高度隨字數自適應展開，支援顯示天氣圖示</p>
+                    <p class="text-xs text-slate-400 mt-0.5">點選開關直接啟用/停用，輸入框高度隨字數自適應展開，支援多個天氣圖示展示</p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <button type="button" onclick="fetchNowcastCsv()" class="flex items-center gap-1.5 bg-dark-800 hover:bg-dark-700 text-slate-200 border border-dark-700 px-3 py-2 rounded-xl text-xs transition">
@@ -582,7 +589,7 @@
         </div>
     </div>
 
-    <!-- ==================== 頁面三：熱帶氣旋路徑 TCdata (3獨立表：Past, Current, Forecast) (VIEW 3) ==================== -->
+    <!-- ==================== 頁面三：熱帶氣旋路徑 TCdata (單一表格 + 拖曳排序 + 自適應寬度) (VIEW 3) ==================== -->
     <div id="view-tcdata" class="app-view flex-1 p-3 sm:p-5 hidden">
         <div class="max-w-6xl mx-auto space-y-4">
             <div class="bg-dark-900 border border-dark-700 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -591,7 +598,7 @@
                         <i data-lucide="compass" class="w-5 h-5 text-cyan-400"></i>
                         熱帶氣旋數據集管理 (TCdata)
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">獨立劃分 Past（過去）、Current（目前）與 Forecast（預報）三張專屬表格，輕鬆更新無負擔</p>
+                    <p class="text-xs text-slate-400 mt-0.5">單一統合表格整合所有路徑點，可直接拖曳整列調整順序，輸入框寬度隨字數自適應展開</p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="loadSelectedTcCsvData()" class="flex items-center gap-1.5 bg-dark-800 hover:bg-dark-700 text-slate-200 border border-dark-700 px-3 py-2 rounded-xl text-xs transition">
@@ -618,90 +625,40 @@
                     <span class="font-bold text-cyan-400 font-mono" id="tcCurrentEditingFileName">TCdata/A.csv</span>
                 </div>
                 <div class="text-slate-400 font-mono text-[11px]">
-                    標準順序：<span class="text-amber-400">category,time,name,lat,lon,wind</span>
+                    CSV 欄位標準：<span class="text-amber-400 font-bold">category,time,name,lat,lon,wind</span>
                 </div>
             </div>
 
-            <!-- 表格 1: CURRENT 目前觀測點 (重要核心) -->
-            <div class="border border-amber-500/40 rounded-2xl bg-dark-900 p-3 sm:p-4 shadow-xl space-y-3">
-                <div class="flex items-center justify-between border-b border-dark-700 pb-2">
-                    <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                        1. 目前觀測定位 (Current Position)
-                    </span>
-                    <button type="button" onclick="addTcTableRow('current')" class="text-[11px] bg-dark-800 hover:bg-dark-700 border border-amber-500/30 text-amber-300 px-2.5 py-1 rounded-lg flex items-center gap-1 transition">
-                        <i data-lucide="plus" class="w-3 h-3"></i><span>新增 Current 列</span>
-                    </button>
-                </div>
-                <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full text-left text-xs text-slate-200 min-w-[560px]">
-                        <thead class="bg-dark-950 text-slate-400 border-b border-dark-700 font-mono text-[11px]">
-                            <tr>
-                                <th class="p-2 w-24">時間 (time)</th>
-                                <th class="p-2 w-28">氣旋名稱</th>
-                                <th class="p-2 w-24">緯度 (°N)</th>
-                                <th class="p-2 w-24">經度 (°E)</th>
-                                <th class="p-2 w-24">風速 (km/h)</th>
-                                <th class="p-2 w-20 text-center">調整 / 刪除</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tcTableBody-current" class="divide-y divide-dark-700/60 font-mono"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 表格 2: FORECAST 預報時段點 (24H, 48H, 72H...) -->
-            <div class="border border-cyan-500/40 rounded-2xl bg-dark-900 p-3 sm:p-4 shadow-xl space-y-3">
+            <!-- 單一統合表格區 -->
+            <div class="border border-cyan-500/30 rounded-2xl bg-dark-900 p-3 sm:p-4 shadow-xl space-y-3">
                 <div class="flex items-center justify-between border-b border-dark-700 pb-2">
                     <span class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
-                        <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
-                        2. 未來預報路徑 (Forecast: 24H, 48H, 72H...)
+                        <i data-lucide="grip-vertical" class="w-4 h-4 text-cyan-400"></i>
+                        路徑序列點列表 (支援直覺拖曳整列調整順序)
                     </span>
-                    <button type="button" onclick="addTcTableRow('forecast')" class="text-[11px] bg-dark-800 hover:bg-dark-700 border border-cyan-500/30 text-cyan-300 px-2.5 py-1 rounded-lg flex items-center gap-1 transition">
-                        <i data-lucide="plus" class="w-3 h-3"></i><span>新增 Forecast 列</span>
+                    <button type="button" onclick="addTcTableRow('24H')" class="text-[11px] bg-dark-800 hover:bg-dark-700 border border-cyan-500/30 text-cyan-300 px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i><span>新增路徑列</span>
                     </button>
                 </div>
                 <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full text-left text-xs text-slate-200 min-w-[560px]">
+                    <table class="w-full text-left text-xs text-slate-200">
                         <thead class="bg-dark-950 text-slate-400 border-b border-dark-700 font-mono text-[11px]">
                             <tr>
-                                <th class="p-2 w-24">預報時段 (time)</th>
-                                <th class="p-2 w-28">氣旋名稱</th>
-                                <th class="p-2 w-24">緯度 (°N)</th>
-                                <th class="p-2 w-24">經度 (°E)</th>
-                                <th class="p-2 w-24">風速 (km/h)</th>
-                                <th class="p-2 w-20 text-center">順序 / 刪除</th>
+                                <th class="p-2 w-10 text-center">拖曳</th>
+                                <th class="p-2">時段 / 分類 (category: past/current/24H/48H...)</th>
+                                <th class="p-2">標記時間 (time)</th>
+                                <th class="p-2">氣旋名稱 (name)</th>
+                                <th class="p-2">緯度 (lat °N)</th>
+                                <th class="p-2">經度 (lon °E)</th>
+                                <th class="p-2">風速 (wind km/h)</th>
+                                <th class="p-2 w-16 text-center">刪除</th>
                             </tr>
                         </thead>
-                        <tbody id="tcTableBody-forecast" class="divide-y divide-dark-700/60 font-mono"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 表格 3: PAST 過去路徑與歷史點 -->
-            <div class="border border-purple-500/40 rounded-2xl bg-dark-900 p-3 sm:p-4 shadow-xl space-y-3">
-                <div class="flex items-center justify-between border-b border-dark-700 pb-2">
-                    <span class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
-                        <i data-lucide="history" class="w-3.5 h-3.5"></i>
-                        3. 過去路徑觀測 (Past History)
-                    </span>
-                    <button type="button" onclick="addTcTableRow('past')" class="text-[11px] bg-dark-800 hover:bg-dark-700 border border-purple-500/30 text-purple-300 px-2.5 py-1 rounded-lg flex items-center gap-1 transition">
-                        <i data-lucide="plus" class="w-3 h-3"></i><span>新增 Past 列</span>
-                    </button>
-                </div>
-                <div class="overflow-x-auto custom-scroll">
-                    <table class="w-full text-left text-xs text-slate-200 min-w-[560px]">
-                        <thead class="bg-dark-950 text-slate-400 border-b border-dark-700 font-mono text-[11px]">
+                        <tbody id="tcUnifiedTableBody" class="divide-y divide-dark-700/60 font-mono">
                             <tr>
-                                <th class="p-2 w-24">過去時間 (time)</th>
-                                <th class="p-2 w-28">氣旋名稱</th>
-                                <th class="p-2 w-24">緯度 (°N)</th>
-                                <th class="p-2 w-24">經度 (°E)</th>
-                                <th class="p-2 w-24">風速 (km/h)</th>
-                                <th class="p-2 w-20 text-center">順序 / 刪除</th>
+                                <td colspan="8" class="p-8 text-center text-slate-500">正在讀取 TCdata...</td>
                             </tr>
-                        </thead>
-                        <tbody id="tcTableBody-past" class="divide-y divide-dark-700/60 font-mono"></tbody>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -836,7 +793,8 @@
             'F': { stormName: '氣旋 F', sha: null }
         };
         let currentEditingTcFile = 'A';
-        let currentTcRows = []; // 結構: { category: 'past'|'current'|'forecast', time, name, lat, lon, wind }
+        let currentTcRows = []; // 結構: { category, time, name, lat, lon, wind }
+        let dragSourceIndex = null;
 
         // Nowcast 狀態管理 (預設直接切到 E 極端天氣，移除「全部」)
         let nowcastFileSha = null;
@@ -1073,7 +1031,7 @@ false,I,暴雨`;
             }
         }
 
-        // ================= TCDATA 3獨立表管理模組 (Past / Current / Forecast) =================
+        // ================= TCDATA (單一表格整合 + 拖曳排序 + 自適應欄寬) =================
 
         async function fetchSingleCsvText(filename) {
             const path = `TCdata/${filename}.csv`;
@@ -1112,7 +1070,7 @@ false,I,暴雨`;
                 const text = await fetchSingleCsvText(letter);
                 if (text) {
                     const parsed = parseTcRowsFromCsv(text);
-                    const currentItem = parsed.find(r => r.category === 'current' || r.time.toLowerCase() === 'current') || parsed[0];
+                    const currentItem = parsed.find(r => r.category.toLowerCase() === 'current' || r.time.toLowerCase() === 'current') || parsed[0];
                     if (currentItem && currentItem.name) {
                         tcFilesMeta[letter].stormName = currentItem.name;
                     }
@@ -1142,8 +1100,8 @@ false,I,暴雨`;
             if (!text) return;
             const rows = parseTcRowsFromCsv(text);
 
-            const currentRow = rows.find(r => r.category === 'current' || r.time.toLowerCase() === 'current');
-            const fc24Row = rows.find(r => r.time.toUpperCase() === '24H' || r.time.includes('24'));
+            const currentRow = rows.find(r => r.category.toLowerCase() === 'current' || r.time.toLowerCase() === 'current');
+            const fc24Row = rows.find(r => r.category.toUpperCase() === '24H' || r.time.toUpperCase() === '24H');
 
             if (currentRow) {
                 document.getElementById('tcName').value = currentRow.name || tcFilesMeta[letter].stormName;
@@ -1162,6 +1120,7 @@ false,I,暴雨`;
         }
 
         // 解析 6 欄位標準結構：category,time,name,lat,lon,wind
+        // category 預報點直接標記為 24H, 48H, 72H 等
         function parseTcRowsFromCsv(csvText) {
             const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
             if (lines.length < 2) return [];
@@ -1174,7 +1133,7 @@ false,I,暴雨`;
                 const vals = lines[i].split(',').map(v => v.trim());
                 if (hasCatHeader) {
                     result.push({
-                        category: (vals[0] || 'forecast').toLowerCase(),
+                        category: vals[0] || '24H',
                         time: vals[1] || '',
                         name: vals[2] || '',
                         lat: vals[3] || '',
@@ -1183,9 +1142,8 @@ false,I,暴雨`;
                     });
                 } else {
                     const timeVal = vals[0] || '';
-                    let cat = 'forecast';
+                    let cat = timeVal; // 若是 24H 則直接作為 category
                     if (timeVal.toLowerCase() === 'current') cat = 'current';
-                    else if (timeVal.toLowerCase().includes('past') || timeVal.startsWith('-')) cat = 'past';
 
                     result.push({
                         category: cat,
@@ -1234,67 +1192,94 @@ false,I,暴雨`;
             const letter = currentEditingTcFile;
             let csvText = await fetchSingleCsvText(letter);
             if (!csvText) {
-                csvText = `category,time,name,lat,lon,wind\ncurrent,current,${tcFilesMeta[letter].stormName},20.5,115.2,85\nforecast,24H,${tcFilesMeta[letter].stormName},22.0,113.8,105`;
+                csvText = `category,time,name,lat,lon,wind\ncurrent,current,${tcFilesMeta[letter].stormName},20.5,115.2,85\n24H,24H,${tcFilesMeta[letter].stormName},22.0,113.8,105`;
             }
 
             currentTcRows = parseTcRowsFromCsv(csvText);
-            renderTcSeparatedTables();
+            renderTcUnifiedTable();
         }
 
-        // 獨立渲染三張表：current, forecast, past
-        function renderTcSeparatedTables() {
-            renderTcTableSection('current', 'tcTableBody-current');
-            renderTcTableSection('forecast', 'tcTableBody-forecast');
-            renderTcTableSection('past', 'tcTableBody-past');
-            lucide.createIcons();
-        }
-
-        function renderTcTableSection(cat, tbodyId) {
-            const tbody = document.getElementById(tbodyId);
+        // 渲染單一統合表格 (支援拖曳調動順序，輸入框依內容長度自適應寬度)
+        function renderTcUnifiedTable() {
+            const tbody = document.getElementById('tcUnifiedTableBody');
             if (!tbody) return;
 
-            const sectionRows = currentTcRows.map((r, globalIdx) => ({ ...r, globalIdx })).filter(r => r.category === cat);
-
-            if (sectionRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500 text-xs">此分區目前無資料。可點擊右上角新增。</td></tr>`;
+            if (currentTcRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">此檔案尚無數據。請點選「新增路徑列」添加。</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = sectionRows.map((r, sIdx) => {
-                const idx = r.globalIdx;
+            tbody.innerHTML = currentTcRows.map((r, idx) => {
+                const isCurrent = (r.category.toLowerCase() === 'current' || r.time.toLowerCase() === 'current');
+                const rowBadgeClass = isCurrent ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-dark-900 border-dark-700 text-slate-200';
+
                 return `
-                    <tr class="hover:bg-dark-850 transition">
-                        <td class="p-1.5">
-                            <input type="text" value="${r.time}" oninput="updateTcRow(${idx}, 'time', this.value)" placeholder="${cat === 'current' ? 'current' : '24H'}" class="w-full bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                    <tr draggable="true" 
+                        ondragstart="onTcRowDragStart(event, ${idx})" 
+                        ondragover="onTcRowDragOver(event, ${idx})" 
+                        ondragleave="onTcRowDragLeave(event)" 
+                        ondrop="onTcRowDrop(event, ${idx})"
+                        class="hover:bg-dark-850 transition border-b border-dark-700/60 ${rowBadgeClass}">
+                        <td class="p-2 text-center drag-handle text-slate-500 hover:text-cyan-400">
+                            <i data-lucide="grip-vertical" class="w-4 h-4 mx-auto"></i>
                         </td>
-                        <td class="p-1.5">
-                            <input type="text" value="${r.name}" oninput="updateTcRow(${idx}, 'name', this.value)" placeholder="氣旋名" class="w-full bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-sans">
+                        <td class="p-2">
+                            <input type="text" value="${r.category}" size="${Math.max(6, (r.category||'').length + 2)}" oninput="updateTcRow(${idx}, 'category', this.value); this.size = Math.max(6, this.value.length + 2);" placeholder="24H / current" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-bold">
                         </td>
-                        <td class="p-1.5">
-                            <input type="number" step="0.1" value="${r.lat}" oninput="updateTcRow(${idx}, 'lat', this.value)" placeholder="緯度" class="w-full bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                        <td class="p-2">
+                            <input type="text" value="${r.time}" size="${Math.max(6, (r.time||'').length + 2)}" oninput="updateTcRow(${idx}, 'time', this.value); this.size = Math.max(6, this.value.length + 2);" placeholder="時間標記" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
                         </td>
-                        <td class="p-1.5">
-                            <input type="number" step="0.1" value="${r.lon}" oninput="updateTcRow(${idx}, 'lon', this.value)" placeholder="經度" class="w-full bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                        <td class="p-2">
+                            <input type="text" value="${r.name}" size="${Math.max(8, (r.name||'').length + 2)}" oninput="updateTcRow(${idx}, 'name', this.value); this.size = Math.max(8, this.value.length + 2);" placeholder="氣旋名稱" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-sans">
                         </td>
-                        <td class="p-1.5">
-                            <input type="number" value="${r.wind}" oninput="updateTcRow(${idx}, 'wind', this.value)" placeholder="風速" class="w-full bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                        <td class="p-2">
+                            <input type="number" step="0.1" value="${r.lat}" size="6" oninput="updateTcRow(${idx}, 'lat', this.value)" placeholder="緯度" class="w-20 bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
                         </td>
-                        <td class="p-1.5 text-center">
-                            <div class="flex items-center justify-center gap-1">
-                                <button type="button" onclick="moveTcRowInSection('${cat}', ${sIdx}, -1)" title="上移" class="p-1 rounded bg-dark-800 hover:bg-dark-700 text-slate-300 transition ${sIdx === 0 ? 'opacity-30 pointer-events-none' : ''}">
-                                    <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
-                                </button>
-                                <button type="button" onclick="moveTcRowInSection('${cat}', ${sIdx}, 1)" title="下移" class="p-1 rounded bg-dark-800 hover:bg-dark-700 text-slate-300 transition ${sIdx === sectionRows.length - 1 ? 'opacity-30 pointer-events-none' : ''}">
-                                    <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
-                                </button>
-                                <button type="button" onclick="deleteTcRow(${idx})" title="刪除" class="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition ml-1">
-                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                </button>
-                            </div>
+                        <td class="p-2">
+                            <input type="number" step="0.1" value="${r.lon}" size="6" oninput="updateTcRow(${idx}, 'lon', this.value)" placeholder="經度" class="w-20 bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                        </td>
+                        <td class="p-2">
+                            <input type="number" value="${r.wind}" size="5" oninput="updateTcRow(${idx}, 'wind', this.value)" placeholder="風速" class="w-20 bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                        </td>
+                        <td class="p-2 text-center">
+                            <button type="button" onclick="deleteTcRow(${idx})" title="刪除" class="p-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
                         </td>
                     </tr>
                 `;
             }).join('');
+
+            lucide.createIcons();
+        }
+
+        // ================= 拖曳事件處理 (HTML5 Drag & Drop) =================
+        function onTcRowDragStart(e, idx) {
+            dragSourceIndex = idx;
+            e.currentTarget.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function onTcRowDragOver(e, idx) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const row = e.currentTarget;
+            row.classList.add('drag-over');
+        }
+
+        function onTcRowDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function onTcRowDrop(e, targetIdx) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            if (dragSourceIndex === null || dragSourceIndex === targetIdx) return;
+
+            const movedItem = currentTcRows.splice(dragSourceIndex, 1)[0];
+            currentTcRows.splice(targetIdx, 0, movedItem);
+            dragSourceIndex = null;
+            renderTcUnifiedTable();
         }
 
         function updateTcRow(idx, field, val) {
@@ -1306,32 +1291,15 @@ false,I,暴雨`;
             }
         }
 
-        // 分區內移動順序
-        function moveTcRowInSection(cat, sIdx, dir) {
-            const sectionIndices = currentTcRows.map((r, i) => r.category === cat ? i : -1).filter(i => i !== -1);
-            const currentGlobalIdx = sectionIndices[sIdx];
-            const targetGlobalIdx = sectionIndices[sIdx + dir];
-            if (targetGlobalIdx === undefined) return;
-
-            const temp = currentTcRows[currentGlobalIdx];
-            currentTcRows[currentGlobalIdx] = currentTcRows[targetGlobalIdx];
-            currentTcRows[targetGlobalIdx] = temp;
-            renderTcSeparatedTables();
-        }
-
-        function addTcTableRow(cat) {
+        function addTcTableRow(cat = '24H') {
             const stormName = tcFilesMeta[currentEditingTcFile].stormName || '';
-            let defaultTime = '24H';
-            if (cat === 'current') defaultTime = 'current';
-            else if (cat === 'past') defaultTime = '-6H';
-
-            currentTcRows.push({ category: cat, time: defaultTime, name: stormName, lat: '', lon: '', wind: '' });
-            renderTcSeparatedTables();
+            currentTcRows.push({ category: cat, time: cat, name: stormName, lat: '', lon: '', wind: '' });
+            renderTcUnifiedTable();
         }
 
         function deleteTcRow(idx) {
             currentTcRows.splice(idx, 1);
-            renderTcSeparatedTables();
+            renderTcUnifiedTable();
         }
 
         async function saveTcCsvToGithub() {
@@ -1388,7 +1356,7 @@ false,I,暴雨`;
             }
         }
 
-        // ================= NOWCAST.CSV 管理 (字數自適應高 + 圖示展示) =================
+        // ================= NOWCAST.CSV 管理 (多圖示展示 + 固定文案 + 自適應高度) =================
 
         function parseNowcastCsv(text) {
             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -1464,23 +1432,35 @@ false,I,暴雨`;
             renderNowcastCards();
         }
 
-        // 取得圖示 HTML
-        function getWeatherIconHtml(keyword) {
-            const item = CONDITION_ICON_MAP[keyword.trim()];
-            if (!item) return '';
+        // 放大並支援多個圖示解析
+        function getWeatherIconHtml(content) {
+            if (!content) return '';
+            const tokens = content.split(/[\s,+/、]+/).filter(Boolean);
+            const matchedIcons = [];
 
-            let dayUrl = typeof item === 'object' ? item.day : item;
-            let nightUrl = typeof item === 'object' ? item.night : null;
+            tokens.forEach(tok => {
+                const item = CONDITION_ICON_MAP[tok.trim()];
+                if (item) {
+                    let dayUrl = typeof item === 'object' ? item.day : item;
+                    let nightUrl = typeof item === 'object' ? item.night : null;
+                    matchedIcons.push({ tok, dayUrl, nightUrl });
+                }
+            });
+
+            if (matchedIcons.length === 0) return '';
 
             return `
-                <div class="flex items-center gap-1.5 p-1 bg-dark-950 border border-dark-700 rounded-lg shrink-0">
-                    <img src="${dayUrl}" alt="${keyword} 日間" class="w-6 h-6 object-contain" onerror="this.style.display='none'">
-                    ${nightUrl ? `<img src="${nightUrl}" alt="${keyword} 夜間" class="w-6 h-6 object-contain" onerror="this.style.display='none'">` : ''}
+                <div class="flex items-center gap-2 p-1.5 bg-dark-950 border border-dark-700 rounded-xl shrink-0 flex-wrap">
+                    ${matchedIcons.map(icon => `
+                        <div class="flex items-center gap-1.5" title="${icon.tok}">
+                            <img src="${icon.dayUrl}" alt="${icon.tok} 日間" class="w-10 h-10 object-contain drop-shadow" onerror="this.style.display='none'">
+                            ${icon.nightUrl ? `<img src="${icon.nightUrl}" alt="${icon.tok} 夜間" class="w-10 h-10 object-contain drop-shadow" onerror="this.style.display='none'">` : ''}
+                        </div>
+                    `).join('')}
                 </div>
             `;
         }
 
-        // 自動調整 textarea 高度
         function autoResizeTextarea(el) {
             el.style.height = 'auto';
             el.style.height = (el.scrollHeight + 2) + 'px';
@@ -1488,7 +1468,7 @@ false,I,暴雨`;
 
         function renderNowcastCards() {
             const container = document.getElementById('nowcastCardsContainer');
-            // 嚴格篩選當前分類，不再顯示分類名
+            // 只篩選屬於當前分類之項目，不再重複印出分類名稱
             const filtered = nowcastRows.map((r, originalIdx) => ({ ...r, originalIdx }))
                 .filter(r => r.class === nowcastFilterClass);
 
@@ -1514,22 +1494,29 @@ false,I,暴雨`;
                             </label>
                         </div>
 
-                        <!-- 內容輸入區 (高度自適應字數，不固定高度) -->
-                        <div class="flex-1 w-full flex items-center gap-2.5">
+                        <!-- 內容輸入區 (字數自適應展開高，I 類別文案固定不被修改) -->
+                        <div class="flex-1 w-full flex items-center gap-3">
                             ${iconPreview}
-                            <textarea oninput="updateNowcastContent(${idx}, this.value); autoResizeTextarea(this);" rows="1" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-2 text-xs sm:text-sm text-slate-100 outline-none resize-none leading-relaxed overflow-hidden">${r.content}</textarea>
+                            ${isIconCategory ? `
+                                <div class="w-full bg-dark-950/60 border border-dark-700/80 rounded-lg p-2.5 text-xs sm:text-sm text-amber-300 font-bold select-none">
+                                    ${r.content}
+                                </div>
+                            ` : `
+                                <textarea oninput="updateNowcastContent(${idx}, this.value); autoResizeTextarea(this);" rows="1" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-2 text-xs sm:text-sm text-slate-100 outline-none resize-none leading-relaxed overflow-hidden">${r.content}</textarea>
+                            `}
                         </div>
 
-                        <!-- 刪除按鈕 -->
-                        <button type="button" onclick="deleteNowcastRow(${idx})" title="刪除項目" class="self-end sm:self-center p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition shrink-0">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+                        <!-- 刪除按鈕 (I 類別固定不可刪除) -->
+                        ${isIconCategory ? '' : `
+                            <button type="button" onclick="deleteNowcastRow(${idx})" title="刪除項目" class="self-end sm:self-center p-2 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition shrink-0">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        `}
                     </div>
                 `;
             }).join('');
 
             lucide.createIcons();
-            // 渲染後自動自適應所有文字框高度
             container.querySelectorAll('textarea').forEach(el => autoResizeTextarea(el));
         }
 
@@ -1547,7 +1534,7 @@ false,I,暴雨`;
             nowcastRows.unshift({
                 enabled: true,
                 class: nowcastFilterClass,
-                content: nowcastFilterClass === 'I' ? '天晴' : '請輸入提示內容...'
+                content: '請輸入提示內容...'
             });
             renderNowcastCards();
             showToast("已新增項目至此分類頂部！");
@@ -1609,85 +1596,8 @@ false,I,暴雨`;
             }
         }
 
-        // ================= 輔助與警報發布功能 =================
+        // ================= 頂部「現正生效警報」狀態看板排版修正 =================
 
-        function syncCurrentTime() {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const hh = String(now.getHours()).padStart(2, '0');
-            const mm = String(now.getMinutes()).padStart(2, '0');
-
-            document.getElementById('inputDate').value = `${y}-${m}-${d}`;
-            document.getElementById('inputTime').value = `${hh}:${mm}`;
-            if (!document.getElementById('surgeTideDate').value) {
-                document.getElementById('surgeTideDate').value = `${y}-${m}-${d}`;
-            }
-            renderWarning();
-        }
-
-        function switchTab(tab) {
-            if (window.innerWidth >= 1024) return;
-            const pEdit = document.getElementById('panelEdit');
-            const pPrev = document.getElementById('panelPreview');
-            const bEdit = document.getElementById('tabBtnEdit');
-            const bPrev = document.getElementById('tabBtnPreview');
-
-            if (tab === 'edit') {
-                pEdit.classList.remove('hidden');
-                pPrev.classList.add('hidden');
-                bEdit.className = "py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40";
-                bPrev.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 border border-transparent";
-            } else {
-                pEdit.classList.add('hidden');
-                pPrev.classList.remove('hidden');
-                bPrev.className = "py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40";
-                bEdit.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 border border-transparent";
-            }
-        }
-
-        window.addEventListener('resize', () => {
-            const pEdit = document.getElementById('panelEdit');
-            const pPrev = document.getElementById('panelPreview');
-            if (window.innerWidth >= 1024) {
-                pEdit.classList.remove('hidden');
-                pPrev.classList.remove('hidden');
-            } else {
-                switchTab('edit');
-            }
-        });
-
-        // 頁面初始化
-        window.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            syncCurrentTime();
-            selectCategory('cyclone');
-            selectCycloneSignal('戒備警報');
-            selectSurgeSignal('watch');
-            selectRainSignal('rain_heavy_warn');
-            selectHeatLevel('酷熱');
-            selectColdLevel('寒冷');
-            selectNoticeType('heat_alert');
-
-            updateGhIndicator();
-            loadAllTCDataCsv();
-
-            if (window.innerWidth >= 1024) {
-                document.getElementById('panelEdit').classList.remove('hidden');
-                document.getElementById('panelPreview').classList.remove('hidden');
-            } else {
-                switchTab('edit');
-            }
-
-            if (localStorage.getItem('gh_token') && localStorage.getItem('gh_repo')) {
-                fetchGithubRecords(false);
-            } else {
-                updateActiveWarningsBanner();
-            }
-        });
-
-        // 警報純文字輸出與其他輔助邏輯
         function getWarningColorStyle(sigTitle) {
             const t = sigTitle || '';
             if (t.includes('注意警報')) return { badge: 'bg-slate-500/20 text-slate-300 border-slate-500/40', dot: 'bg-slate-400', card: 'border-slate-500/30' };
@@ -1754,13 +1664,22 @@ false,I,暴雨`;
             pingDot.className = `animate-ping absolute inline-flex h-full w-full rounded-full ${topStyle.dot} opacity-75`;
             mainDot.className = `relative inline-flex rounded-full h-2.5 w-2.5 ${topStyle.dot}`;
 
+            // 修正內文排版：結構化區塊呈現，清晰換行
             detailBox.innerHTML = finalActiveWarnings.map(r => {
                 const titleLine = (r.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '');
                 const cStyle = getWarningColorStyle(titleLine);
+                const lines = (r.formattedText || '').split(/\r?\n/).filter(Boolean);
+                const headerLine = lines[0] || '';
+                const timeLine = lines[1] || `${r.date} ${r.time} MST`;
+                const contentLines = lines.slice(2).join('\n\n');
+
                 return `
-                    <div class="p-3 rounded-xl bg-dark-950 border ${cStyle.card} text-xs font-mono text-slate-200 leading-relaxed whitespace-pre-wrap">
-                        <div class="font-bold text-amber-300 pb-1 mb-1 border-b border-dark-700">${titleLine} - 發布於 ${r.date} ${r.time} MST</div>
-                        ${r.formattedText}
+                    <div class="p-3.5 rounded-xl bg-dark-950 border ${cStyle.card} text-xs font-sans text-slate-200 leading-relaxed shadow-lg">
+                        <div class="flex items-center justify-between pb-2 mb-2 border-b border-dark-700">
+                            <span class="font-bold text-amber-300 text-sm tracking-wide">${headerLine}</span>
+                            <span class="text-[11px] font-mono text-slate-400 bg-dark-900 px-2 py-0.5 rounded border border-dark-700">${timeLine}</span>
+                        </div>
+                        <div class="whitespace-pre-wrap leading-relaxed text-slate-300 font-mono text-xs pt-1">${contentLines}</div>
                     </div>
                 `;
             }).join('');
@@ -1781,6 +1700,8 @@ false,I,暴雨`;
                 chevron.style.transform = 'rotate(180deg)';
             }
         }
+
+        // ================= 警報邏輯運算與解算 =================
 
         function handleWindChange() {
             const wind = parseFloat(document.getElementById('tcWind').value);
