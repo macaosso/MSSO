@@ -396,9 +396,24 @@
                 </div>
             </div>
 
+            <!-- 第一頁底部：存入目前警報按鈕 (每次僅存當前這筆) -->
+            <div class="bg-dark-900 border border-teal-500/30 rounded-xl p-4 shadow-sm space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                    <span class="flex items-center gap-1.5 text-teal-400 font-semibold">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        <span>GitHub 資料庫存入</span>
+                    </span>
+                    <span class="text-[11px] font-mono text-slate-400">每次單筆儲存</span>
+                </div>
+                <button type="button" id="btnSaveBottom" onclick="uploadCurrentToGithub()" class="w-full py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 active:scale-[0.99] text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20">
+                    <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+                    <span>存入目前警報 (僅儲存當前設定)</span>
+                </button>
+            </div>
+
         </div>
 
-        <!-- 右側輸出區 (已修正：電腦端 lg 尺寸下永久顯示，絕不被隱藏) -->
+        <!-- 右側輸出區 (電腦端 lg 尺寸下永久顯示，絕不被隱藏) -->
         <div id="panelPreview" class="lg:col-span-5 space-y-4 flex flex-col">
             
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm flex-1 flex flex-col space-y-3">
@@ -544,7 +559,6 @@
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
 
-        // 當前介面狀態 (預設氣旋)
         let curCat = 'cyclone';
         let curMode = 'new'; // 'new' | 'current' | 'cancel'
         let curSurge = 'watch';
@@ -554,15 +568,12 @@
         let curHeat = '酷熱';
         let curCold = '寒冷';
 
-        // GitHub 紀錄庫快取與編輯識別
         let githubRecordsCache = [];
         let githubFileSha = null;
         let editingRecordId = null;
 
-        // 存儲解析後的 TC CSV 數據集合
         let parsedTcDatasets = {};
 
-        // 澳門熱帶氣旋強度對照表
         const TC_INTENSITIES = [
             { code: 'Ex',   name: '溫帶氣旋',     max: -1,   text: '-',          color: '#64748b' },
             { code: 'LPA',  name: '低壓區',       max: 40,   text: '≤ 40 km/h',  color: '#64748b' },
@@ -574,7 +585,6 @@
             { code: 'SuTY', name: '超強颱風',     max: 9999, text: '≥ 185 km/h', color: '#9333ea' }
         ];
 
-        // 酷熱警報三大等級官方文案配置
         const HEAT_OFFICIAL_ADVICE = {
             '酷熱': `長時間暴露在陽光下或進行體力活動可能導致中暑、肌肉抽筋和熱衰竭。建議市民減少劇烈戶外活動、穿著輕便及淺色的衣物、補充足夠水分。`,
             '非常酷熱': `極可能發生中暑、熱痙攣和熱衰竭。長時間暴露在陽光下或進行體力活動有可能發生嚴重中暑。建議市民避免戶外劇烈活動、穿著輕便及淺色的衣物、補充足夠水分，特別關注易受影響的族群。`,
@@ -594,7 +604,6 @@
             const pingDot = document.getElementById('activePingDot');
             const mainDot = document.getElementById('activeMainDot');
 
-            // 尋找快取紀錄中最新生效的紀錄 (排除取消紀錄)
             const activeRecord = githubRecordsCache.find(r => r.mode !== 'cancel' && r.formattedText);
 
             if (activeRecord) {
@@ -1023,7 +1032,6 @@
             let defText = '';
             let detailText = '';
 
-            // 判斷發布開頭句子：發出 / 延長生效 / 取消
             function getLeadText(targetTitle) {
                 if (curMode === 'new') {
                     return `${targetTitle}於本地時間${m}月${d}日${h}時${min}分發出。`;
@@ -1039,7 +1047,6 @@
                 title = `【#${curCyclone}】`;
                 bodyLead = getLeadText(curCyclone);
                 
-                // 取消時不需要冗長預測說明，僅發送取消宣告
                 if (curMode !== 'cancel') {
                     defText = getCycloneDef(curCyclone);
 
@@ -1214,6 +1221,7 @@
             document.getElementById('outputText').value = pureText.trim();
         }
 
+        // 精準封裝「單一」當前警報物件
         function captureCurrentSnapshot() {
             return {
                 id: editingRecordId || ('warn_' + Date.now()),
@@ -1418,7 +1426,7 @@
             lucide.createIcons();
         }
 
-        // 上傳當前警報 (若為取消模式，自動刪除同警報之所有歷史紀錄)
+        // 存入目前警報 (每次精確僅存單一筆設定)
         async function uploadCurrentToGithub() {
             const token = localStorage.getItem('gh_token');
             const repo = localStorage.getItem('gh_repo');
@@ -1429,29 +1437,38 @@
                 return;
             }
 
-            const newSnapshot = captureCurrentSnapshot();
-            newSnapshot.id = 'warn_' + Date.now();
-            
-            showToast("正在處理 GitHub 資料庫...");
+            const btnBottom = document.getElementById('btnSaveBottom');
+            const originalHtml = btnBottom.innerHTML;
+            btnBottom.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>正在存入資料庫...</span>`;
+            lucide.createIcons();
 
-            let updatedList = [...githubRecordsCache];
+            try {
+                const newSnapshot = captureCurrentSnapshot();
+                // 每次點擊均賦予全新唯一的 ID，確保只儲存單一筆
+                newSnapshot.id = 'warn_' + Date.now();
+                
+                let updatedList = [...githubRecordsCache];
 
-            // 若選擇了「取消」發布模式，將 GitHub 中同類別/相同警報的紀錄全部刪除
-            if (newSnapshot.mode === 'cancel') {
-                const targetKey = newSnapshot.signalKey;
-                const removedCount = updatedList.filter(r => (r.signalKey || r.category) === targetKey).length;
-                updatedList = updatedList.filter(r => (r.signalKey || r.category) !== targetKey);
-                showToast(`已自動清理 ${removedCount} 筆相關既有警報紀錄！`);
-            } else {
-                // 一般發出或更新，加入至頂端
-                updatedList = [newSnapshot, ...updatedList];
+                // 若為取消模式，自動清理 GitHub 中同一警報之舊資料
+                if (newSnapshot.mode === 'cancel') {
+                    const targetKey = newSnapshot.signalKey;
+                    const removedCount = updatedList.filter(r => (r.signalKey || r.category) === targetKey).length;
+                    updatedList = updatedList.filter(r => (r.signalKey || r.category) !== targetKey);
+                    showToast(`已取消並自動清理 ${removedCount} 筆舊警報紀錄！`);
+                } else {
+                    // 單筆存入：僅將當前警報推入頂部
+                    updatedList = [newSnapshot, ...updatedList];
+                }
+
+                const commitMsg = newSnapshot.mode === 'cancel'
+                    ? `取消警報並清理舊紀錄 [${newSnapshot.category}]`
+                    : `新增警報紀錄 [${newSnapshot.date} ${newSnapshot.time}]`;
+
+                await commitListToGithub(updatedList, commitMsg);
+            } finally {
+                btnBottom.innerHTML = originalHtml;
+                lucide.createIcons();
             }
-
-            const commitMsg = newSnapshot.mode === 'cancel'
-                ? `取消警報並清理舊紀錄 [${newSnapshot.category}]`
-                : `新增警報紀錄 [${newSnapshot.date} ${newSnapshot.time}]`;
-
-            await commitListToGithub(updatedList, commitMsg);
         }
 
         function loadRecordToEditor(index) {
@@ -1529,7 +1546,6 @@
 
             let cloneList = [...githubRecordsCache];
 
-            // 若修改為取消模式，同樣清理其餘舊紀錄
             if (updatedRecord.mode === 'cancel') {
                 const targetKey = updatedRecord.signalKey;
                 cloneList = cloneList.filter(r => (r.signalKey || r.category) !== targetKey);
@@ -1698,7 +1714,6 @@
             }
         }
 
-        // 監聽視窗縮放，確保電腦端（>= 1024px）兩欄永遠保持可見
         window.addEventListener('resize', () => {
             const pEdit = document.getElementById('panelEdit');
             const pPrev = document.getElementById('panelPreview');
@@ -1760,7 +1775,6 @@
             updateGhIndicator();
             loadAllTCDataCsv();
 
-            // 若在電腦寬螢幕，確保雙欄永久顯示；在手機寬度下預設切至編輯 Tab
             if (window.innerWidth >= 1024) {
                 document.getElementById('panelEdit').classList.remove('hidden');
                 document.getElementById('panelPreview').classList.remove('hidden');
@@ -1768,7 +1782,6 @@
                 switchTab('edit');
             }
 
-            // 初始化檢查並讀取 GitHub 生效狀態
             if (localStorage.getItem('gh_token') && localStorage.getItem('gh_repo')) {
                 fetchGithubRecords(false);
             } else {
