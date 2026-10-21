@@ -638,7 +638,7 @@
                         <i data-lucide="list-checks" class="w-5 h-5 text-amber-400"></i>
                         即時天氣提示管理 (nowcast.csv)
                     </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">點選開關直接啟用/停用，輸入框高度隨字數自適應展開，支援同行多圖示展示與雙圖示選擇</p>
+                    <p class="text-xs text-slate-400 mt-0.5">點選開關直接啟用/停用，輸入框高度隨字數自適應展開，單一天氣圖示展示</p>
                 </div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <button type="button" onclick="fetchNowcastCsv()" class="flex items-center gap-1.5 bg-dark-800 hover:bg-dark-700 text-slate-200 border border-dark-700 px-3 py-2 rounded-xl text-xs transition">
@@ -656,7 +656,7 @@
                 </div>
             </div>
 
-            <!-- 分類快捷篩選 (無「全部」選項，預設停在 E 極端天氣) -->
+            <!-- 分類快捷篩選 -->
             <div class="flex items-center gap-1.5 overflow-x-auto custom-scroll pb-1 bg-dark-900 p-2 rounded-xl border border-dark-700 text-xs">
                 <span class="text-slate-400 font-semibold px-2 shrink-0">分類：</span>
                 <button type="button" onclick="filterNowcastTable('E')" id="flt-E" class="nowcast-flt-btn shrink-0 px-3 py-1 rounded-lg bg-amber-500 text-black font-bold">E 極端天氣</button>
@@ -730,7 +730,7 @@
                         <thead class="bg-dark-950 text-slate-400 border-b border-dark-700 font-mono text-[11px]">
                             <tr>
                                 <th class="p-2 w-10 text-center">拖曳</th>
-                                <th class="p-2">時段 / 分類 (category: past/current/24H/48H...)</th>
+                                <th class="p-2">時段 / 分類 (category)</th>
                                 <th class="p-2">標記時間 (time)</th>
                                 <th class="p-2">氣旋名稱 (name)</th>
                                 <th class="p-2">緯度 (lat °N)</th>
@@ -907,33 +907,8 @@
 
         const WEATHER_ICON_OPTIONS = Object.keys(CONDITION_ICON_MAP);
 
-        const DEFAULT_NOWCAST_CSV = `enabled,class,content
-false,E,由於現時影響本澳的強雷雨區強度較強，澳門將有機會出現冰雹及暴雨等強對流天氣，請市民密切留意天氣變化。
-false,E,天氣穩定。
-false,S,「沙德爾」有機會在明日移入南海，不排除再次發展，路徑存在較大變數。本台會視乎其未來動向，若其強度維持，本台會評估今明兩日發出熱帶氣旋警報。請市民密切留意最新天氣訊息。
-false,S,一股弱冷空氣將會在今晚抵達本澳，受其相關的一道冷鋒影響，本澳晚上驟雨增多及有雷暴。
-false,W,過去二十四小時，本澳部份地區累積雨量已接近80毫米，由於預計明日初時仍然有驟雨及雷暴，有機會引致泥土鬆軟，有山泥傾瀉風險，市民外出時應注意天氣及路面狀況。
-false,W,受一股弱冷空氣影響，明日早上巿區最低氣溫約22度左右，日間氣溫回升，日夜溫差較大。
-false,W,受一股偏東氣流影響，未來一兩日本澳大致多雲，有一兩陣驟雨，風勢較大。同時正值天文大潮，內港低窪地區未來數日晚間及凌晨可能出現輕微水浸。(2026-10-14 20:00 MST)
-false,R,預料本澳未來兩小時可能受雷雨區影響，請市民留意最新天氣資訊。
-false,R,預料本澳未來一兩小時可能受雷雨區影響，請市民留意最新天氣資訊。
-false,R,預料本澳短時間內將受雷雨區影響，請市民留意最新天氣資訊。
-false,R,氹仔正受強雷雨區影響，該區現時正出現大雨，預料雨勢將會維持。請市民留意最新天氣資訊。
-false,T,23
-false,I,天晴
-false,I,大致天晴
-false,I,天色明朗
-false,I,短暫時間多雲
-false,I,部份時間多雲
-false,I,多雲
-false,I,密雲
-false,I,霧
-false,I,煙霞
-false,I,微雨
-false,I,驟雨
-false,I,雷暴
-false,I,雷雨
-false,I,暴雨`;
+        // 移除所有預設內容，只留下標題列 (純依靠 CSV 抓取)
+        const DEFAULT_NOWCAST_CSV = `enabled,class,content\n`;
 
         // ================= 安全執行 Lucide 圖標 =================
         function safeCreateLucideIcons() {
@@ -1108,7 +1083,8 @@ false,I,暴雨`;
             const letter = currentEditingTcFile;
             let csvText = await fetchSingleCsvText(letter);
             if (!csvText) {
-                csvText = `category,time,name,lat,lon,wind\ncurrent,current,${tcFilesMeta[letter].stormName},20.5,115.2,85\n24H,24H,${tcFilesMeta[letter].stormName},22.0,113.8,105`;
+                // 如果找不到，僅建立標題列，無任何預設內容
+                csvText = `category,time,name,lat,lon,wind\n`;
             }
 
             currentTcRows = parseTcRowsFromCsv(csvText);
@@ -1121,7 +1097,7 @@ false,I,暴雨`;
             if (!tbody) return;
 
             if (currentTcRows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">此檔案尚無數據。請點選「新增路徑列」添加。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">此檔案尚無數據。請點選「新增路徑列」自行建立資料。</td></tr>`;
                 return;
             }
 
@@ -1274,7 +1250,7 @@ false,I,暴雨`;
         }
         window.saveTcCsvToGithub = saveTcCsvToGithub;
 
-        // ================= NOWCAST.CSV 管理 (多圖示展示 + 雙圖示選擇) =================
+        // ================= NOWCAST.CSV 管理 (單一圖示展示) =================
 
         function parseNowcastCsv(text) {
             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -1335,7 +1311,6 @@ false,I,暴雨`;
 
             if (!csvText) {
                 csvText = DEFAULT_NOWCAST_CSV;
-                showToast("未檢測到遠端 nowcast.csv，已載入預設資料庫。");
             }
 
             window.nowcastRows = parseNowcastCsv(csvText);
@@ -1389,19 +1364,9 @@ false,I,暴雨`;
             el.style.height = (el.scrollHeight + 2) + 'px';
         }
 
-        function updateNowcastIconTokens(idx, slot, value) {
-            const currentContent = window.nowcastRows[idx].content || '';
-            const tokens = currentContent.split(/[\s,+/、]+/).filter(Boolean);
-            if (slot === 0) {
-                tokens[0] = value;
-            } else if (slot === 1) {
-                if (value) {
-                    tokens[1] = value;
-                } else {
-                    tokens.splice(1, 1);
-                }
-            }
-            window.nowcastRows[idx].content = tokens.filter(Boolean).join(' ');
+        // 修改為單一選擇
+        function updateNowcastIconTokens(idx, value) {
+            window.nowcastRows[idx].content = value;
             renderNowcastCards();
         }
         window.updateNowcastIconTokens = updateNowcastIconTokens;
@@ -1414,7 +1379,7 @@ false,I,暴雨`;
                 .filter(r => r.class === nowcastFilterClass);
 
             if (filtered.length === 0) {
-                container.innerHTML = `<div class="p-8 text-center text-slate-500 bg-dark-900 rounded-xl border border-dark-700">此分類目前無項目。點擊「新增項目」添加。</div>`;
+                container.innerHTML = `<div class="p-8 text-center text-slate-500 bg-dark-900 rounded-xl border border-dark-700">此分類目前無項目。點擊「新增項目」添加資料。</div>`;
                 return;
             }
 
@@ -1426,23 +1391,14 @@ false,I,暴雨`;
 
                 let iconSelectControls = '';
                 if (isIconCategory) {
-                    const tokens = r.content.split(/[\s,+/、]+/).filter(Boolean);
-                    const icon1 = tokens[0] || '天晴';
-                    const icon2 = tokens[1] || '';
+                    const currentIcon = r.content.trim() || '天晴';
 
                     iconSelectControls = `
                         <div class="flex items-center gap-2 flex-wrap">
                             <div class="flex items-center gap-1 bg-dark-950 border border-dark-700 px-2 py-1 rounded-lg">
-                                <span class="text-[11px] text-slate-400">圖示 1:</span>
-                                <select onchange="updateNowcastIconTokens(${idx}, 0, this.value)" class="bg-transparent text-amber-300 font-bold text-xs outline-none cursor-pointer">
-                                    ${WEATHER_ICON_OPTIONS.map(opt => `<option value="${opt}" class="bg-dark-900 text-slate-100" ${opt === icon1 ? 'selected' : ''}>${opt}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="flex items-center gap-1 bg-dark-950 border border-dark-700 px-2 py-1 rounded-lg">
-                                <span class="text-[11px] text-slate-400">圖示 2 (選填):</span>
-                                <select onchange="updateNowcastIconTokens(${idx}, 1, this.value)" class="bg-transparent text-cyan-300 font-bold text-xs outline-none cursor-pointer">
-                                    <option value="" class="bg-dark-900 text-slate-400">(無第二圖示)</option>
-                                    ${WEATHER_ICON_OPTIONS.map(opt => `<option value="${opt}" class="bg-dark-900 text-slate-100" ${opt === icon2 ? 'selected' : ''}>${opt}</option>`).join('')}
+                                <span class="text-[11px] text-slate-400">天氣圖示:</span>
+                                <select onchange="updateNowcastIconTokens(${idx}, this.value)" class="bg-transparent text-amber-300 font-bold text-xs outline-none cursor-pointer">
+                                    ${WEATHER_ICON_OPTIONS.map(opt => `<option value="${opt}" class="bg-dark-900 text-slate-100" ${opt === currentIcon ? 'selected' : ''}>${opt}</option>`).join('')}
                                 </select>
                             </div>
                         </div>
@@ -1463,7 +1419,6 @@ false,I,暴雨`;
                             ${iconPreview}${isIconCategory ? `
                                 <div class="flex flex-col gap-1.5 flex-1">
                                     ${iconSelectControls}
-                                    <div class="text-[11px] text-slate-400 font-mono mt-0.5">預覽組合：<span class="text-amber-300 font-bold">${r.content}</span></div>
                                 </div>
                             ` : `
                                 <textarea oninput="updateNowcastContent(${idx}, this.value); autoResizeTextarea(this);" rows="1" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-2 text-xs sm:text-sm text-slate-100 outline-none resize-none leading-relaxed overflow-hidden">${r.content}</textarea>
@@ -2495,24 +2450,61 @@ false,I,暴雨`;
         
         function selectCategory(cat) {
             curCat = cat;
+            
+            // 處理所有子模塊區塊的隱藏與顯示
             ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'].forEach(c => {
                 const mod = document.getElementById('module-' + c);
                 if (mod) mod.classList.add('hidden');
+                
+                const btn = document.getElementById('cat-' + c);
+                if (btn) btn.className = `cat-pill py-2 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center`;
             });
+            
             const activeMod = document.getElementById('module-' + cat);
             if (activeMod) activeMod.classList.remove('hidden');
+            
+            // 定義高亮色彩
+            const catClasses = {
+                'cyclone': 'border-cyan-500 bg-cyan-500/15 text-cyan-300 shadow',
+                'surge': 'border-teal-500 bg-teal-500/15 text-teal-300 shadow',
+                'rain': 'border-blue-500 bg-blue-500/15 text-blue-300 shadow',
+                'heat': 'border-amber-500 bg-amber-500/15 text-amber-300 shadow',
+                'cold': 'border-indigo-500 bg-indigo-500/15 text-indigo-300 shadow',
+                'notice': 'border-emerald-500 bg-emerald-500/15 text-emerald-300 shadow'
+            };
+            
+            const activeBtn = document.getElementById('cat-' + cat);
+            if (activeBtn) activeBtn.className = `cat-pill py-2 px-1 rounded-lg border ${catClasses[cat]} text-xs font-semibold transition text-center flex flex-col items-center justify-center`;
+            
             renderWarning();
         }
         window.selectCategory = selectCategory;
         
         function selectIssueMode(mode) {
             curMode = mode;
+            const btnNew = document.getElementById('btnModeNew');
+            const btnCur = document.getElementById('btnModeCur');
+            const btnCancel = document.getElementById('btnModeCancel');
+            
+            const baseClass = "py-2 px-2 rounded-lg text-xs font-bold transition border";
+            const inactiveClass = "border-dark-700 bg-dark-800 text-slate-400 hover:text-white";
+            
+            if (btnNew) btnNew.className = `${baseClass} ${mode === 'new' ? 'border-amber-500 bg-amber-500 text-black shadow' : inactiveClass}`;
+            if (btnCur) btnCur.className = `${baseClass} ${mode === 'current' ? 'border-amber-500 bg-amber-500 text-black shadow' : inactiveClass}`;
+            if (btnCancel) btnCancel.className = `${baseClass} ${mode === 'cancel' ? 'border-rose-500 bg-rose-500 text-white shadow' : inactiveClass}`;
+            
             renderWarning();
         }
         window.selectIssueMode = selectIssueMode;
         
         function selectCycloneSignal(sig) {
             curCyclone = sig;
+            document.querySelectorAll('.tc-btn').forEach(btn => {
+                btn.className = "tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center";
+            });
+            const activeBtn = document.getElementById('btn-tc-' + sig);
+            if (activeBtn) activeBtn.className = "tc-btn p-2 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-bold transition text-center shadow";
+            
             const cautionBox = document.getElementById('cautionRangeBox');
             if (cautionBox) {
                 if (sig === '注意警報') cautionBox.classList.remove('hidden');
@@ -2524,12 +2516,23 @@ false,I,暴雨`;
         
         function selectCautionRange(range) {
             curCautionRange = range;
+            const btn1200 = document.getElementById('btn-c1200');
+            const btn800 = document.getElementById('btn-c800');
+            const baseClass = "py-1.5 px-2 rounded border text-xs font-bold";
+            if (btn1200) btn1200.className = `${baseClass} ${range === '1200' ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-dark-700 bg-dark-800 text-slate-400'}`;
+            if (btn800) btn800.className = `${baseClass} ${range === '800' ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-dark-700 bg-dark-800 text-slate-400'}`;
             renderWarning();
         }
         window.selectCautionRange = selectCautionRange;
         
         function selectRainSignal(sig) {
             curRain = sig;
+            document.querySelectorAll('.rain-btn').forEach(btn => {
+                btn.className = "rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition";
+            });
+            const activeBtn = document.getElementById('btn-rain-' + sig);
+            if (activeBtn) activeBtn.className = "rain-btn p-2.5 rounded-lg border border-blue-500 bg-blue-500/15 text-blue-300 text-left text-xs font-bold transition shadow";
+            
             const preBox = document.getElementById('rainPreTimeBox');
             if (preBox) {
                 if (sig.includes('_pre')) preBox.classList.remove('hidden');
@@ -2541,24 +2544,49 @@ false,I,暴雨`;
         
         function selectSurgeSignal(sig) {
             curSurge = sig;
+            document.querySelectorAll('.surge-btn').forEach(btn => {
+                btn.classList.remove('border-teal-500', 'bg-teal-500/15', 'text-teal-300', 'shadow');
+                btn.classList.add('border-dark-700', 'bg-dark-800', 'text-slate-300');
+            });
+            const activeBtn = document.getElementById('btn-surge-' + sig);
+            if (activeBtn) {
+                activeBtn.classList.remove('border-dark-700', 'bg-dark-800', 'text-slate-300');
+                activeBtn.classList.add('border-teal-500', 'bg-teal-500/15', 'text-teal-300', 'shadow');
+            }
             renderWarning();
         }
         window.selectSurgeSignal = selectSurgeSignal;
         
         function selectHeatLevel(lvl) {
             curHeat = lvl;
+            document.querySelectorAll('.heat-btn').forEach(btn => {
+                btn.className = "heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition";
+            });
+            const activeBtn = document.getElementById('btn-heat-' + lvl);
+            if (activeBtn) activeBtn.className = "heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow";
             renderWarning();
         }
         window.selectHeatLevel = selectHeatLevel;
         
         function selectColdLevel(lvl) {
             curCold = lvl;
+            document.querySelectorAll('.cold-btn').forEach(btn => {
+                btn.className = "cold-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition";
+            });
+            const activeBtn = document.getElementById('btn-cold-' + lvl);
+            if (activeBtn) activeBtn.className = "cold-btn p-2.5 rounded-lg border border-indigo-500 bg-indigo-500/15 text-indigo-300 text-center text-xs font-bold transition shadow";
             renderWarning();
         }
         window.selectColdLevel = selectColdLevel;
         
         function selectNoticeType(type) {
             curNotice = type;
+            document.querySelectorAll('.not-btn').forEach(btn => {
+                btn.className = "not-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-left";
+            });
+            const activeBtn = document.getElementById('btn-not-' + type);
+            if (activeBtn) activeBtn.className = "not-btn p-2 rounded-lg border border-emerald-500 bg-emerald-500/15 text-emerald-300 text-xs font-bold transition text-left shadow";
+            
             document.querySelectorAll('.notice-subopt').forEach(el => el.classList.add('hidden'));
             const optBox = document.getElementById('opt-' + type);
             if (optBox) optBox.classList.remove('hidden');
@@ -2578,7 +2606,10 @@ false,I,暴雨`;
             updateThemeButton();
 
             syncCurrentTime();
+            
+            // 預設選擇初始化，並觸發視覺樣式套用
             selectCategory('cyclone');
+            selectIssueMode('new');
             selectCycloneSignal('戒備警報');
             selectSurgeSignal('watch');
             selectRainSignal('rain_heavy_warn');
