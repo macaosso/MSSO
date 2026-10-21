@@ -71,26 +71,32 @@
         </div>
     </header>
 
-    <!-- 頂部「現正生效警報」狀態看板 -->
+    <!-- 頂部「現正生效警報」狀態看板（支援多項不同種類共存） -->
     <div id="activeWarningsHeader" class="border-b border-dark-700 bg-dark-900/90 px-4 py-2.5">
-        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <span class="flex h-2.5 w-2.5 relative">
-                    <span id="activePingDot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span id="activeMainDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <span class="text-xs font-semibold text-slate-300 tracking-wide uppercase">警報生效狀態：</span>
-                <span id="activeWarningBadge" class="text-xs font-bold text-emerald-400 font-mono">目前沒有生效中的警報信號</span>
+        <div class="max-w-7xl mx-auto flex flex-col gap-2">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div class="flex items-center flex-wrap gap-2">
+                    <span class="flex h-2.5 w-2.5 relative shrink-0">
+                        <span id="activePingDot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span id="activeMainDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-xs font-semibold text-slate-300 tracking-wide uppercase shrink-0">警報生效狀態：</span>
+                    <div id="activeBadgesContainer" class="flex items-center flex-wrap gap-1.5">
+                        <span id="activeWarningBadge" class="text-xs font-bold text-emerald-400 font-mono">目前沒有生效中的警報信號</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 self-end sm:self-auto">
+                    <button type="button" id="btnToggleActiveDetail" onclick="toggleActiveWarningDetail()" class="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 transition hidden">
+                        <span id="activeDetailToggleText">查看生效內文</span>
+                        <i data-lucide="chevron-down" id="activeDetailChevron" class="w-3.5 h-3.5 transition"></i>
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                <button type="button" id="btnToggleActiveDetail" onclick="toggleActiveWarningDetail()" class="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 transition hidden">
-                    <span id="activeDetailToggleText">查看生效內文</span>
-                    <i data-lucide="chevron-down" id="activeDetailChevron" class="w-3.5 h-3.5 transition"></i>
-                </button>
+            <!-- 展開的生效內容多警報卡片 -->
+            <div id="activeWarningDetailContent" class="hidden grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-2">
+                <!-- 動態注入多個生效中警報內文 -->
             </div>
         </div>
-        <!-- 展開的生效內容卡片 -->
-        <div id="activeWarningDetailContent" class="hidden max-w-7xl mx-auto mt-2 p-3 rounded-xl bg-dark-950 border border-amber-500/30 text-xs font-mono text-slate-200 leading-relaxed whitespace-pre-wrap"></div>
     </div>
 
     <!-- 手機端頂部模式切換 (僅在小螢幕 lg 以下顯示) -->
@@ -595,45 +601,140 @@
 長者、孕婦、嬰兒及小童、慢性病如心臟病或高血壓患者，以及過胖人士均較易中暑，應及時觀察是否出現中暑徵兆。在極為酷熱天氣下，更應時常留意身體健康狀況，確保有充分休息，保持體溫正常，避免身體過份受熱。`
         };
 
-        // ================= 頂部「現正生效警報」橫幅更新模組 =================
+        // ================= 頂部「現正生效警報」橫幅更新模組（支援多項不同種類共存） =================
+
+        // 判定警報是否為降雨「正式警報」或「預警」槽位
+        function getRainSlot(rec) {
+            const text = rec.formattedText || '';
+            const tpl = rec.params?.curRain || '';
+            if (tpl.includes('pre') || text.includes('預警')) {
+                return 'rain_pre'; // 預警
+            }
+            return 'rain_warn'; // 正式警報
+        }
+
+        // 取得警報的分類 slot
+        function getWarningSlot(rec) {
+            const cat = rec.category || 'general';
+            if (cat === 'rain') {
+                return getRainSlot(rec);
+            }
+            return cat; // cyclone, surge, heat, cold
+        }
+
+        function calculateActiveWarnings() {
+            // 從快取紀錄中（由新到舊遍歷）解析所有生效中警報
+            const activeSlots = {}; // slot -> record
+
+            for (const r of githubRecordsCache) {
+                if (!r || !r.formattedText) continue;
+                const slot = getWarningSlot(r);
+
+                // 如果該 slot 尚未被賦值
+                if (!activeSlots[slot]) {
+                    if (r.mode !== 'cancel') {
+                        activeSlots[slot] = r;
+                    } else {
+                        // 若最新的一筆是取消，則表示該 slot 已被取消
+                        activeSlots[slot] = '__CANCELED__';
+                    }
+                }
+            }
+
+            // 提取生效中紀錄
+            const list = [];
+            for (const key of Object.keys(activeSlots)) {
+                if (activeSlots[key] && activeSlots[key] !== '__CANCELED__') {
+                    list.push(activeSlots[key]);
+                }
+            }
+
+            // 針對降雨特例檢查合法性:
+            // 允許: 大雨警報 + 暴雨預警; 暴雨警報 + 大暴雨預警
+            const rainWarnRec = list.find(r => getWarningSlot(r) === 'rain_warn');
+            const rainPreRec = list.find(r => getWarningSlot(r) === 'rain_pre');
+
+            if (rainWarnRec && rainPreRec) {
+                const wText = rainWarnRec.formattedText || '';
+                const pText = rainPreRec.formattedText || '';
+                const isHeavyWarn = wText.includes('大雨警報');
+                const isStormWarn = wText.includes('暴雨警報');
+                const isStormPre = pText.includes('暴雨預警');
+                const isSuperPre = pText.includes('大暴雨預警');
+
+                const allowedCombo1 = isHeavyWarn && isStormPre; // 大雨警報 + 暴雨預警
+                const allowedCombo2 = isStormWarn && isSuperPre; // 暴雨警報 + 大暴雨預警
+
+                if (!allowedCombo1 && !allowedCombo2) {
+                    // 若不是這兩組特例組合，預警與警報不可同時共存，保留較新的一筆
+                    const idxWarn = githubRecordsCache.indexOf(rainWarnRec);
+                    const idxPre = githubRecordsCache.indexOf(rainPreRec);
+                    if (idxWarn < idxPre) {
+                        // rainWarnRec 較新，移除預警
+                        const pIdx = list.indexOf(rainPreRec);
+                        if (pIdx !== -1) list.splice(pIdx, 1);
+                    } else {
+                        // rainPreRec 較新，移除警報
+                        const wIdx = list.indexOf(rainWarnRec);
+                        if (wIdx !== -1) list.splice(wIdx, 1);
+                    }
+                }
+            }
+
+            return list;
+        }
 
         function updateActiveWarningsBanner() {
-            const badge = document.getElementById('activeWarningBadge');
+            const badgesContainer = document.getElementById('activeBadgesContainer');
             const toggleBtn = document.getElementById('btnToggleActiveDetail');
-            const contentBox = document.getElementById('activeWarningDetailContent');
+            const detailContainer = document.getElementById('activeWarningDetailContent');
             const pingDot = document.getElementById('activePingDot');
             const mainDot = document.getElementById('activeMainDot');
 
-            const activeRecord = githubRecordsCache.find(r => r.mode !== 'cancel' && r.formattedText);
+            const activeList = calculateActiveWarnings();
 
-            if (activeRecord) {
-                const titleLine = (activeRecord.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '');
-                badge.innerText = `${titleLine} (生效中 - ${activeRecord.date}${activeRecord.time} MST)`;
-                badge.className = "text-xs font-bold text-amber-400 font-mono";
-
+            if (activeList.length > 0) {
                 pingDot.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75";
                 mainDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500";
 
-                contentBox.innerText = activeRecord.formattedText;
+                // 生成多個警報標籤
+                badgesContainer.innerHTML = activeList.map(rec => {
+                    const firstLine = (rec.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '');
+                    return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold font-mono bg-amber-500/15 text-amber-300 border border-amber-500/40">
+                        ${firstLine}
+                    </span>`;
+                }).join('');
+
+                // 注入各個生效中警報的內容卡片
+                detailContainer.innerHTML = activeList.map((rec, idx) => {
+                    const titleLine = (rec.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '');
+                    return `<div class="p-3 rounded-xl bg-dark-950 border border-amber-500/30 text-xs font-mono text-slate-200 leading-relaxed">
+                        <div class="flex items-center justify-between border-b border-dark-700 pb-1.5 mb-2 text-amber-400 font-bold">
+                            <span>#${idx + 1} ${titleLine}</span>
+                            <span class="text-[10px] text-slate-400 font-normal">${rec.date} ${rec.time} MST</span>
+                        </div>
+                        <div class="whitespace-pre-wrap">${rec.formattedText}</div>
+                    </div>`;
+                }).join('');
+
                 toggleBtn.classList.remove('hidden');
             } else {
-                badge.innerText = "目前沒有生效中的警報信號";
-                badge.className = "text-xs font-bold text-emerald-400 font-mono";
-
                 pingDot.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
                 mainDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500";
 
-                contentBox.classList.add('hidden');
+                badgesContainer.innerHTML = `<span id="activeWarningBadge" class="text-xs font-bold text-emerald-400 font-mono">目前沒有生效中的警報信號</span>`;
+                detailContainer.innerHTML = '';
+                detailContainer.classList.add('hidden');
                 toggleBtn.classList.add('hidden');
             }
         }
 
         function toggleActiveWarningDetail() {
-            const contentBox = document.getElementById('activeWarningDetailContent');
+            const detailContainer = document.getElementById('activeWarningDetailContent');
             const chevron = document.getElementById('activeDetailChevron');
             const toggleText = document.getElementById('activeDetailToggleText');
 
-            const isHidden = contentBox.classList.toggle('hidden');
+            const isHidden = detailContainer.classList.toggle('hidden');
             if (isHidden) {
                 toggleText.innerText = '查看生效內文';
                 chevron.style.transform = 'rotate(0deg)';
@@ -1264,7 +1365,9 @@
         function getCurSignalKey() {
             if (curCat === 'cyclone') return 'cyclone';
             if (curCat === 'surge') return 'surge';
-            if (curCat === 'rain') return 'rain';
+            if (curCat === 'rain') {
+                return curRain.includes('pre') ? 'rain_pre' : 'rain_warn';
+            }
             if (curCat === 'heat') return 'heat';
             if (curCat === 'cold') return 'cold';
             return 'general';
@@ -1444,19 +1547,20 @@
 
             try {
                 const newSnapshot = captureCurrentSnapshot();
-                // 每次點擊均賦予全新唯一的 ID，確保只儲存單一筆
                 newSnapshot.id = 'warn_' + Date.now();
                 
                 let updatedList = [...githubRecordsCache];
+                const targetSlot = getWarningSlot(newSnapshot);
 
-                // 若為取消模式，自動清理 GitHub 中同一警報之舊資料
                 if (newSnapshot.mode === 'cancel') {
-                    const targetKey = newSnapshot.signalKey;
-                    const removedCount = updatedList.filter(r => (r.signalKey || r.category) === targetKey).length;
-                    updatedList = updatedList.filter(r => (r.signalKey || r.category) !== targetKey);
+                    // 若為取消模式，自動清理 GitHub 中同一警報 slot 之舊資料
+                    const removedCount = updatedList.filter(r => getWarningSlot(r) === targetSlot).length;
+                    updatedList = updatedList.filter(r => getWarningSlot(r) !== targetSlot);
                     showToast(`已取消並自動清理 ${removedCount} 筆舊警報紀錄！`);
                 } else {
-                    // 單筆存入：僅將當前警報推入頂部
+                    // 若發出新警報，先清理同一個 slot 的舊警報（例如舊風球信號換新風球信號）
+                    // 降雨警報與預警因為 slot 分離（rain_warn 與 rain_pre），兩者可共存
+                    updatedList = updatedList.filter(r => getWarningSlot(r) !== targetSlot);
                     updatedList = [newSnapshot, ...updatedList];
                 }
 
@@ -1545,10 +1649,10 @@
             updatedRecord.updatedAt = new Date().toISOString();
 
             let cloneList = [...githubRecordsCache];
+            const targetSlot = getWarningSlot(updatedRecord);
 
             if (updatedRecord.mode === 'cancel') {
-                const targetKey = updatedRecord.signalKey;
-                cloneList = cloneList.filter(r => (r.signalKey || r.category) !== targetKey);
+                cloneList = cloneList.filter(r => getWarningSlot(r) !== targetSlot);
             } else {
                 cloneList[idx] = updatedRecord;
             }
@@ -1692,7 +1796,6 @@
             renderWarning();
         }
 
-        // 手機端 Tab 切換 (僅在寬度 < 1024px 時生效，桌面端永遠雙欄並排)
         function switchTab(tab) {
             if (window.innerWidth >= 1024) return;
 
