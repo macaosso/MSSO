@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>氣象警報內容發布生成器</title>
+    <title>氣象警報內容發布與 GitHub 管理系統</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -19,6 +19,7 @@
                         dark: {
                             950: '#07090e',
                             900: '#0e121b',
+                            850: '#121722',
                             800: '#161c28',
                             700: '#222b3d',
                             600: '#2f3b52',
@@ -36,8 +37,12 @@
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         input, textarea, button { font-size: 14px; }
         @media (max-width: 640px) {
-            input, textarea { font-size: 16px !important; } /* 防止 iOS Safari 自動放大 */
+            input, textarea { font-size: 16px !important; }
         }
+        /* Custom scrollbar for record list */
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #0e121b; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #222b3d; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-dark-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-500 selection:text-black">
@@ -50,7 +55,7 @@
             </div>
             <div>
                 <h1 class="font-bold text-sm sm:text-base text-white">氣象警報生成器</h1>
-                <p class="text-[10px] text-slate-400 font-mono">MACAU MST (UTC+8)</p>
+                <p class="text-[10px] text-slate-400 font-mono">MACAU MST (UTC+8) &bull; GITHUB SYNC</p>
             </div>
         </div>
 
@@ -59,9 +64,10 @@
                 <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
                 <span>校正現時</span>
             </button>
-            <button type="button" onclick="toggleGithubModal(true)" class="flex items-center gap-1 text-xs bg-dark-800 hover:bg-dark-700 border border-dark-700 px-2.5 py-1.5 rounded-lg text-slate-200 transition">
+            <button type="button" onclick="toggleGithubModal(true)" class="flex items-center gap-1.5 text-xs bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 px-3 py-1.5 rounded-lg text-teal-300 transition">
                 <i data-lucide="github" class="w-3.5 h-3.5 text-teal-400"></i>
-                <span class="hidden sm:inline">GitHub</span>
+                <span class="font-medium">GitHub 紀錄庫</span>
+                <span id="navGhIndicator" class="w-2 h-2 rounded-full bg-slate-500"></span>
             </button>
         </div>
     </header>
@@ -82,6 +88,18 @@
         <!-- 左側配置區 (7 欄位) -->
         <div id="panelEdit" class="lg:col-span-7 space-y-4">
             
+            <!-- 編輯模式狀態條 (當正在編輯舊紀錄時顯示) -->
+            <div id="editingBanner" class="hidden bg-amber-500/10 border border-amber-500/40 rounded-xl p-3 flex items-center justify-between">
+                <div class="flex items-center space-x-2 text-xs text-amber-300">
+                    <i data-lucide="edit-3" class="w-4 h-4 text-amber-400"></i>
+                    <span>正在編輯歷史紀錄：<strong id="editingRecordTitle" class="font-mono">#ID</strong></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="cancelEditingMode()" class="text-xs bg-dark-800 hover:bg-dark-700 text-slate-300 px-2.5 py-1 rounded-lg border border-dark-600 transition">取消載入</button>
+                    <button type="button" onclick="saveEditedRecordBackToGithub()" class="text-xs bg-amber-500 hover:bg-amber-400 text-black font-semibold px-2.5 py-1 rounded-lg transition shadow">更新至 GitHub</button>
+                </div>
+            </div>
+
             <!-- 1. 警報主類別 (平鋪按鈕) -->
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-2">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">選擇警報類別</span>
@@ -109,7 +127,7 @@
                 </div>
             </div>
 
-            <!-- 2. 發布狀態 (新/舊) 與 時間 (修正重疊問題) -->
+            <!-- 2. 發布狀態 (新/舊) 與 時間 (獨立 Responsive 排版防重疊) -->
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">發布模式與時間 (MST)</span>
                 
@@ -122,7 +140,6 @@
                     </button>
                 </div>
 
-                <!-- 專屬獨立區塊，在手機上自動單欄以防重疊，在平版/桌機並排 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                     <div class="flex flex-col">
                         <label class="text-[11px] text-slate-400 mb-1.5 font-medium">發布日期 (YYYY-MM-DD)</label>
@@ -135,7 +152,7 @@
                 </div>
             </div>
 
-            <!-- 3. 酷熱警報模組 (置前展示) -->
+            <!-- 3. 酷熱警報模組 -->
             <div id="module-heat" class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">酷熱警報等級</span>
                 
@@ -182,7 +199,6 @@
                     </button>
                 </div>
 
-                <!-- 三大預警統一支援指定發出時間輸入框 -->
                 <div id="rainPreTimeBox" class="hidden bg-dark-950 border border-blue-500/30 rounded-lg p-3 space-y-1.5">
                     <div class="flex items-center justify-between">
                         <label class="text-[11px] text-blue-300 font-medium" id="rainPreTimeLabel">預警指定發出時間 (HH:MM)</label>
@@ -367,9 +383,16 @@
                 </div>
             </div>
 
-            <!-- 純文字輸出與複製操作 -->
+            <!-- 純文字輸出與操作 -->
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm space-y-3">
-                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">純文字輸出 (相容剪貼簿)</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">純文字輸出 (剪貼簿格式)</span>
+                    <button type="button" onclick="uploadCurrentToGithub()" class="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1">
+                        <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
+                        <span>存入 GitHub</span>
+                    </button>
+                </div>
+                
                 <textarea id="outputText" readonly rows="9" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-3 text-xs sm:text-sm font-mono text-slate-200 outline-none resize-none leading-relaxed select-all"></textarea>
                 
                 <div class="grid grid-cols-2 gap-2">
@@ -388,44 +411,106 @@
 
     </main>
 
-    <!-- GitHub 設定彈窗 -->
-    <div id="modalGithub" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-        <div class="bg-dark-900 border border-dark-700 w-full max-w-md rounded-xl p-5 shadow-2xl space-y-4">
+    <!-- GitHub 設定與歷史紀錄管理 Modal -->
+    <div id="modalGithub" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-5 hidden">
+        <div class="bg-dark-900 border border-dark-700 w-full max-w-2xl rounded-2xl p-4 sm:p-6 shadow-2xl flex flex-col max-h-[92vh] space-y-4">
+            
+            <!-- Modal 頂部標題 -->
             <div class="flex items-center justify-between border-b border-dark-700 pb-3">
-                <h3 class="font-bold text-sm text-white flex items-center gap-2">
-                    <i data-lucide="github" class="w-4 h-4 text-teal-400"></i>
-                    GitHub 儲存設定
-                </h3>
-                <button type="button" onclick="toggleGithubModal(false)" class="text-slate-400 hover:text-white">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="github" class="w-5 h-5 text-teal-400"></i>
+                    <h3 class="font-bold text-sm sm:text-base text-white">GitHub 雲端警報資料庫</h3>
+                    <span id="ghCountBadge" class="text-[11px] font-mono bg-teal-500/20 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full hidden">0 筆紀錄</span>
+                </div>
+                <button type="button" onclick="toggleGithubModal(false)" class="text-slate-400 hover:text-white transition">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-400 mb-1">Personal Access Token (repo 權限)</label>
-                    <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 font-mono text-slate-100 outline-none">
+            <!-- 連線配置區塊 (可折疊/展開) -->
+            <div class="bg-dark-950 border border-dark-700 rounded-xl p-3.5 space-y-2.5 text-xs">
+                <div class="flex items-center justify-between">
+                    <span class="font-semibold text-slate-300">儲存庫連線配置</span>
+                    <button type="button" onclick="toggleConnectionFields()" id="btnToggleConn" class="text-xs text-amber-400 hover:underline">展開/折疊設定</button>
                 </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">儲存庫 (如: username/meteo-data)</label>
-                    <input type="text" id="ghRepo" placeholder="username/meteo-data" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 font-mono text-slate-100 outline-none">
-                </div>
-                <div>
-                    <label class="block text-slate-400 mb-1">檔案路徑</label>
-                    <input type="text" id="ghPath" value="meteo_warnings.json" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 font-mono text-slate-100 outline-none">
+
+                <div id="connectionFields" class="space-y-2.5">
+                    <div>
+                        <label class="block text-slate-400 mb-1">Personal Access Token (需具備 repo 或 public_repo 權限)</label>
+                        <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-1.5 font-mono text-slate-100 outline-none">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-slate-400 mb-1">儲存庫 (擁有者/倉庫名)</label>
+                            <input type="text" id="ghRepo" placeholder="如: myname/meteo-data" class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-1.5 font-mono text-slate-100 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-slate-400 mb-1">檔案路徑 (JSON)</label>
+                            <input type="text" id="ghPath" value="meteo_warnings.json" class="w-full bg-dark-900 border border-dark-700 rounded-lg px-3 py-1.5 font-mono text-slate-100 outline-none">
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between pt-1">
+                        <span id="ghStatus" class="text-[11px] text-slate-400 font-mono">未登入</span>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="saveGithubConfig(true)" class="bg-dark-800 hover:bg-dark-700 border border-dark-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs transition">
+                                測試連線並讀取
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex items-center justify-between pt-2 border-t border-dark-700">
-                <span class="text-[11px] text-slate-400" id="ghStatus">尚未上傳</span>
-                <div class="flex gap-2">
-                    <button type="button" onclick="uploadToGithub()" class="bg-teal-600 hover:bg-teal-500 text-white font-semibold px-3 py-2 rounded-lg text-xs transition">
-                        上傳當前警報
+            <!-- 操作動作欄 -->
+            <div class="flex items-center justify-between text-xs pt-1">
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="fetchGithubRecords()" class="flex items-center gap-1.5 bg-dark-800 hover:bg-dark-700 text-slate-200 border border-dark-700 px-3 py-2 rounded-xl transition">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-teal-400"></i>
+                        <span>重新整理</span>
                     </button>
-                    <button type="button" onclick="toggleGithubModal(false)" class="bg-dark-800 text-slate-300 px-3 py-2 rounded-lg text-xs">
-                        關閉
+                    <button type="button" onclick="uploadCurrentToGithub()" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold px-3 py-2 rounded-xl transition shadow">
+                        <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                        <span>存入目前警報</span>
                     </button>
                 </div>
+                <button type="button" onclick="exportRecordsJson()" class="text-slate-400 hover:text-slate-200">
+                    匯出本機備份
+                </button>
+            </div>
+
+            <!-- 紀錄清單檢視區 (Scrollable Table / Cards) -->
+            <div class="flex-1 overflow-y-auto custom-scroll border border-dark-700 rounded-xl bg-dark-950/60 p-2 space-y-2 min-h-[180px]">
+                <div id="ghRecordList" class="space-y-2">
+                    <div class="py-12 text-center text-slate-500 text-xs">
+                        請先設定 Token 與 Repo 並點擊「測試連線並讀取」載入紀錄。
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部操作列 -->
+            <div class="flex justify-end pt-1 border-t border-dark-700">
+                <button type="button" onclick="toggleGithubModal(false)" class="bg-dark-800 text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs transition">
+                    關閉視窗
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看完整警報文本 Modal -->
+    <div id="modalViewRecord" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[60] flex items-center justify-center p-4 hidden">
+        <div class="bg-dark-900 border border-dark-700 w-full max-w-lg rounded-2xl p-5 shadow-2xl space-y-3.5">
+            <div class="flex items-center justify-between border-b border-dark-700 pb-2.5">
+                <h4 class="font-bold text-sm text-white flex items-center gap-1.5">
+                    <i data-lucide="file-text" class="w-4 h-4 text-amber-400"></i>
+                    <span id="viewModalTitle">警報歷史詳情</span>
+                </h4>
+                <button type="button" onclick="closeViewModal()" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <textarea id="viewModalBody" readonly rows="10" class="w-full bg-dark-950 border border-dark-700 rounded-xl p-3 text-xs font-mono text-slate-200 outline-none leading-relaxed select-all resize-none"></textarea>
+            <div class="flex justify-between items-center text-xs">
+                <button type="button" onclick="copyViewModalContent()" class="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-3 py-1.5 rounded-lg transition">複製內容</button>
+                <button type="button" onclick="closeViewModal()" class="bg-dark-800 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg transition">關閉</button>
             </div>
         </div>
     </div>
@@ -433,7 +518,7 @@
     <!-- Toast 提示 -->
     <div id="toast" class="fixed bottom-6 right-6 bg-dark-800 border border-amber-500/60 text-slate-100 px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2 transform translate-y-24 opacity-0 transition-all duration-300 z-50">
         <i data-lucide="check-circle" class="w-4 h-4 text-amber-400"></i>
-        <span id="toastMsg" class="text-xs font-medium">複製成功！</span>
+        <span id="toastMsg" class="text-xs font-medium">操作成功！</span>
     </div>
 
     <!-- JavaScript 核心邏輯 -->
@@ -441,7 +526,7 @@
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
 
-        // 當前狀態 (預設為酷熱警報，方便即時檢驗最新官方文本)
+        // 當前介面狀態
         let curCat = 'heat';
         let curMode = 'new';
         let curSurge = 'watch';
@@ -450,6 +535,11 @@
         let curRain = 'rain_heavy_warn';
         let curHeat = '酷熱';
         let curCold = '寒冷';
+
+        // GitHub 紀錄庫快取與編輯識別
+        let githubRecordsCache = [];
+        let githubFileSha = null;
+        let editingRecordId = null; // 當正在編輯某筆紀錄時，記錄該筆 ID
 
         // 澳門熱帶氣旋強度對照表
         const TC_INTENSITIES = [
@@ -647,7 +737,6 @@
             return TC_INTENSITIES[7];
         }
 
-        // 時段文字轉換
         function getTimePeriodWord(hh) {
             const h = parseInt(hh, 10);
             if (isNaN(h)) return '';
@@ -660,7 +749,6 @@
             return `${h}時`;
         }
 
-        // 球面距離與方位
         function calcDistance(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -718,9 +806,8 @@
             return '';
         }
 
-        // 時間格式化輔助函數（支援 HH:MM 或 HH時MM分 轉換為 xx時xx分）
         function formatExpectedTimeText(rawInput) {
-            const str = rawInput.trim();
+            const str = (rawInput || '').trim();
             if (!str) return '';
             if (str.includes(':')) {
                 const parts = str.split(':');
@@ -918,7 +1005,7 @@
                 defText = `受強烈冬季季候風影響，預料本澳天氣${curCold}${tDesc}市民應注意保暖，慎防感冒。`;
             }
 
-            // 純文字組合
+            // 純文字輸出組合
             let pureText = `${title}\n${dateStr}  ${timeStr} MST\n\n`;
             if (bodyLead) pureText += `${bodyLead}${defText}`;
             else pureText += `${defText}`;
@@ -933,7 +1020,6 @@
             const card = document.getElementById('previewCard');
             card.className = `flex-1 min-h-[240px] rounded-lg p-4 ${previewStyle} border-2 shadow flex flex-col justify-between`;
             
-            // 轉換內文換行呈現
             const formattedDefHtml = defText.replace(/\n\n/g, '</p><p class="text-slate-200 mt-2">').replace(/\n/g, '<br>');
 
             card.innerHTML = `
@@ -955,7 +1041,432 @@
             `;
         }
 
-        // 時間校正
+        // 當前表單參數快照物件 (用於儲存至 GitHub)
+        function captureCurrentSnapshot() {
+            return {
+                id: editingRecordId || ('warn_' + Date.now()),
+                createdAt: new Date().toISOString(),
+                category: curCat,
+                mode: curMode,
+                date: document.getElementById('inputDate').value,
+                time: document.getElementById('inputTime').value,
+                formattedText: document.getElementById('outputText').value,
+                params: {
+                    curHeat,
+                    heatTemp: document.getElementById('heatTemp').value,
+                    heatPartTemp: document.getElementById('heatPartTemp').value,
+                    curRain,
+                    rainPreExpectedTime: document.getElementById('rainPreExpectedTime').value,
+                    curSurge,
+                    surgeTideDate: document.getElementById('surgeTideDate').value,
+                    surgeTideTime: document.getElementById('surgeTideTime').value,
+                    surgeTideH: document.getElementById('surgeTideH').value,
+                    surgeRangeL: document.getElementById('surgeRangeL').value,
+                    surgeRangeH: document.getElementById('surgeRangeH').value,
+                    surgeHourS: document.getElementById('surgeHourS').value,
+                    surgeHourE: document.getElementById('surgeHourE').value,
+                    curCyclone,
+                    curCautionRange,
+                    tcName: document.getElementById('tcName').value,
+                    tcWind: document.getElementById('tcWind').value,
+                    tcCurLat: document.getElementById('tcCurLat').value,
+                    tcCurLon: document.getElementById('tcCurLon').value,
+                    tcFcLat: document.getElementById('tcFcLat').value,
+                    tcFcLon: document.getElementById('tcFcLon').value,
+                    curCold,
+                    coldTemp: document.getElementById('coldTemp').value,
+                    coldPartTemp: document.getElementById('coldPartTemp').value
+                }
+            };
+        }
+
+        // ================= GITHUB 雲端儲存庫管理系統 =================
+
+        function toggleGithubModal(show) {
+            const modal = document.getElementById('modalGithub');
+            modal.classList.toggle('hidden', !show);
+            if (show) {
+                document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
+                document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
+                document.getElementById('ghPath').value = localStorage.getItem('gh_path') || 'meteo_warnings.json';
+                updateGhIndicator();
+                if (localStorage.getItem('gh_token') && localStorage.getItem('gh_repo')) {
+                    fetchGithubRecords(false);
+                }
+            }
+        }
+
+        function toggleConnectionFields() {
+            const fields = document.getElementById('connectionFields');
+            fields.classList.toggle('hidden');
+        }
+
+        function updateGhIndicator() {
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+            const dot = document.getElementById('navGhIndicator');
+            if (token && repo) {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-slate-500";
+            }
+        }
+
+        function saveGithubConfig(triggerFetch = true) {
+            const token = document.getElementById('ghToken').value.trim();
+            const repo = document.getElementById('ghRepo').value.trim();
+            const path = document.getElementById('ghPath').value.trim() || 'meteo_warnings.json';
+
+            if (!token || !repo) {
+                showToast("請輸入完整的 GitHub Token 與 Repo！");
+                return;
+            }
+
+            localStorage.setItem('gh_token', token);
+            localStorage.setItem('gh_repo', repo);
+            localStorage.setItem('gh_path', path);
+            updateGhIndicator();
+
+            if (triggerFetch) {
+                fetchGithubRecords(true);
+            }
+        }
+
+        // 從 GitHub 讀取所有警報紀錄
+        async function fetchGithubRecords(showNotification = true) {
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+            const path = localStorage.getItem('gh_path') || 'meteo_warnings.json';
+            const statusEl = document.getElementById('ghStatus');
+            const listEl = document.getElementById('ghRecordList');
+
+            if (!token || !repo) {
+                statusEl.innerText = '請先填寫連線設定。';
+                return;
+            }
+
+            statusEl.innerText = '正在連線 GitHub...';
+            listEl.innerHTML = `<div class="py-12 text-center text-teal-400 text-xs flex items-center justify-center gap-2"><i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>讀取資料庫中...</span></div>`;
+            lucide.createIcons();
+
+            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+
+            try {
+                const res = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+
+                if (res.status === 200) {
+                    const data = await res.json();
+                    githubFileSha = data.sha;
+                    const decoded = decodeURIComponent(escape(atob(data.content)));
+                    try {
+                        githubRecordsCache = JSON.parse(decoded);
+                        if (!Array.isArray(githubRecordsCache)) githubRecordsCache = [githubRecordsCache];
+                    } catch (e) {
+                        githubRecordsCache = [];
+                    }
+                    statusEl.innerText = `已連線（共 ${githubRecordsCache.length} 筆）`;
+                    renderGithubRecordsList();
+                    if (showNotification) showToast("已成功同步 GitHub 紀錄！");
+                } else if (res.status === 404) {
+                    githubFileSha = null;
+                    githubRecordsCache = [];
+                    statusEl.innerText = '檔案尚未建立（存入首筆警報時將自動初始化）';
+                    renderGithubRecordsList();
+                    if (showNotification) showToast("倉庫中尚未建立此 JSON，隨時可上傳首筆紀錄。");
+                } else {
+                    const err = await res.json();
+                    statusEl.innerText = '連線失敗: ' + (err.message || '請確認權限');
+                    listEl.innerHTML = `<div class="py-8 text-center text-red-400 text-xs">連線失敗：${err.message || '權限或倉庫名稱錯誤'}</div>`;
+                }
+            } catch (err) {
+                statusEl.innerText = '網路或連線錯誤：' + err.message;
+                listEl.innerHTML = `<div class="py-8 text-center text-red-400 text-xs">連線異常：${err.message}</div>`;
+            }
+        }
+
+        // 渲染 GitHub 紀錄列表
+        function renderGithubRecordsList() {
+            const listEl = document.getElementById('ghRecordList');
+            const countBadge = document.getElementById('ghCountBadge');
+            countBadge.innerText = `${githubRecordsCache.length} 筆紀錄`;
+            countBadge.classList.remove('hidden');
+
+            if (githubRecordsCache.length === 0) {
+                listEl.innerHTML = `<div class="py-12 text-center text-slate-500 text-xs">目前暫無警報紀錄。可點選「存入目前警報」新增第一筆。</div>`;
+                return;
+            }
+
+            listEl.innerHTML = githubRecordsCache.map((rec, idx) => {
+                const firstLine = (rec.formattedText || '').split('\n')[0] || '【#氣象警報】';
+                const timeLine = `${rec.date || ''} ${rec.time || ''} MST`;
+                const isEditing = (rec.id === editingRecordId);
+
+                return `
+                    <div class="p-3 bg-dark-900 border ${isEditing ? 'border-amber-500 bg-amber-500/5' : 'border-dark-700'} hover:border-teal-500/50 rounded-xl transition flex items-center justify-between gap-3">
+                        <div class="overflow-hidden flex-1 min-w-0 cursor-pointer" onclick="viewRecordDetail(${idx})">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-xs text-white truncate">${firstLine}</span>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-dark-800 text-slate-300 border border-dark-700 shrink-0">${timeLine}</span>
+                                ${isEditing ? '<span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono shrink-0">編輯中</span>' : ''}
+                            </div>
+                            <p class="text-[11px] text-slate-400 truncate mt-1">${(rec.formattedText || '').replace(/\n+/g, ' ')}</p>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button type="button" onclick="viewRecordDetail(${idx})" title="查看全文" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-dark-800 transition">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" onclick="loadRecordToEditor(${idx})" title="載入編輯" class="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition">
+                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" onclick="deleteRecordFromGithub(${idx})" title="刪除紀錄" class="p-1.5 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // 將當前編輯器中的警報上傳新增到 GitHub
+        async function uploadCurrentToGithub() {
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+            const path = localStorage.getItem('gh_path') || 'meteo_warnings.json';
+
+            if (!token || !repo) {
+                toggleGithubModal(true);
+                showToast("請先輸入並儲存 GitHub Token 與 Repo！");
+                return;
+            }
+
+            const newSnapshot = captureCurrentSnapshot();
+            newSnapshot.id = 'warn_' + Date.now(); // 保證唯一
+            
+            showToast("正在上傳至 GitHub...");
+
+            // 加入至陣列最前端
+            const updatedList = [newSnapshot, ...githubRecordsCache];
+            await commitListToGithub(updatedList, `新增警報紀錄 [${newSnapshot.date} ${newSnapshot.time}]`);
+        }
+
+        // 載入指定紀錄回編輯面板
+        function loadRecordToEditor(index) {
+            const rec = githubRecordsCache[index];
+            if (!rec) return;
+
+            editingRecordId = rec.id;
+            document.getElementById('editingBanner').classList.remove('hidden');
+            document.getElementById('editingRecordTitle').innerText = `${rec.category || '警報'} (${rec.date} ${rec.time})`;
+
+            // 恢復基礎時間與模式
+            if (rec.mode) selectIssueMode(rec.mode);
+            if (rec.date) document.getElementById('inputDate').value = rec.date;
+            if (rec.time) document.getElementById('inputTime').value = rec.time;
+
+            // 恢復大類別
+            if (rec.category) selectCategory(rec.category);
+
+            // 恢復詳細各模組參數
+            const p = rec.params || {};
+            if (rec.category === 'heat') {
+                if (p.curHeat) selectHeatLevel(p.curHeat);
+                document.getElementById('heatTemp').value = p.heatTemp || '';
+                document.getElementById('heatPartTemp').value = p.heatPartTemp || '';
+            } else if (rec.category === 'rain') {
+                if (p.curRain) selectRainSignal(p.curRain);
+                document.getElementById('rainPreExpectedTime').value = p.rainPreExpectedTime || '';
+            } else if (rec.category === 'surge') {
+                if (p.curSurge) selectSurgeSignal(p.curSurge);
+                document.getElementById('surgeTideDate').value = p.surgeTideDate || '';
+                document.getElementById('surgeTideTime').value = p.surgeTideTime || '';
+                document.getElementById('surgeTideH').value = p.surgeTideH || '';
+                document.getElementById('surgeRangeL').value = p.surgeRangeL || '';
+                document.getElementById('surgeRangeH').value = p.surgeRangeH || '';
+                document.getElementById('surgeHourS').value = p.surgeHourS || '';
+                document.getElementById('surgeHourE').value = p.surgeHourE || '';
+            } else if (rec.category === 'cyclone') {
+                if (p.curCyclone) selectCycloneSignal(p.curCyclone);
+                if (p.curCautionRange) selectCautionRange(p.curCautionRange);
+                document.getElementById('tcName').value = p.tcName || '';
+                document.getElementById('tcWind').value = p.tcWind || '';
+                document.getElementById('tcCurLat').value = p.tcCurLat || '';
+                document.getElementById('tcCurLon').value = p.tcCurLon || '';
+                document.getElementById('tcFcLat').value = p.tcFcLat || '';
+                document.getElementById('tcFcLon').value = p.tcFcLon || '';
+                handleWindChange();
+            } else if (rec.category === 'cold') {
+                if (p.curCold) selectColdLevel(p.curCold);
+                document.getElementById('coldTemp').value = p.coldTemp || '';
+                document.getElementById('coldPartTemp').value = p.coldPartTemp || '';
+            }
+
+            renderWarning();
+            toggleGithubModal(false);
+            showToast("歷史紀錄已成功載入至左側編輯面板！");
+        }
+
+        // 取消編輯模式
+        function cancelEditingMode() {
+            editingRecordId = null;
+            document.getElementById('editingBanner').classList.add('hidden');
+            showToast("已退出歷史紀錄編輯狀態。");
+        }
+
+        // 將編輯後內容覆蓋更新回 GitHub 原紀錄
+        async function saveEditedRecordBackToGithub() {
+            if (!editingRecordId) return;
+
+            const idx = githubRecordsCache.findIndex(r => r.id === editingRecordId);
+            if (idx === -1) {
+                showToast("找不到原始紀錄，將改為新增一筆。");
+                uploadCurrentToGithub();
+                return;
+            }
+
+            showToast("正在更新 GitHub 紀錄...");
+            const updatedRecord = captureCurrentSnapshot();
+            updatedRecord.id = editingRecordId; // 保留原始 ID
+            updatedRecord.updatedAt = new Date().toISOString();
+
+            const cloneList = [...githubRecordsCache];
+            cloneList[idx] = updatedRecord;
+
+            const success = await commitListToGithub(cloneList, `更新警報紀錄 [${updatedRecord.date} ${updatedRecord.time}]`);
+            if (success) {
+                cancelEditingMode();
+            }
+        }
+
+        // 刪除 GitHub 上指定的紀錄
+        async function deleteRecordFromGithub(index) {
+            const rec = githubRecordsCache[index];
+            if (!rec) return;
+
+            const confirmMsg = `確定要從 GitHub 刪除這筆紀錄嗎？\n\n${rec.date} ${rec.time} - ${rec.category || '警報'}`;
+            // Custom modal confirm or soft check
+            if (!confirm(confirmMsg)) return;
+
+            showToast("正在刪除紀錄...");
+            const filtered = githubRecordsCache.filter((_, i) => i !== index);
+            await commitListToGithub(filtered, `刪除警報紀錄 [${rec.date} ${rec.time}]`);
+        }
+
+        // 提交整份 JSON 陣列至 GitHub Contents API (UTF-8 安全)
+        async function commitListToGithub(newList, commitMessage) {
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+            const path = localStorage.getItem('gh_path') || 'meteo_warnings.json';
+            const statusEl = document.getElementById('ghStatus');
+
+            if (!token || !repo) {
+                showToast("請先完成 GitHub 連線配置！");
+                return false;
+            }
+
+            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+
+            try {
+                // 如果先前沒有 SHA，先嘗試取得最新的 SHA
+                if (!githubFileSha) {
+                    const checkRes = await fetch(url, {
+                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+                    });
+                    if (checkRes.status === 200) {
+                        const checkData = await checkRes.json();
+                        githubFileSha = checkData.sha;
+                    }
+                }
+
+                // 採用 encodeURIComponent -> unescape -> btoa 保證繁體中文字符不亂碼
+                const jsonString = JSON.stringify(newList, null, 2);
+                const encodedContent = btoa(unescape(encodeURIComponent(jsonString)));
+
+                const putRes = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: commitMessage,
+                        content: encodedContent,
+                        sha: githubFileSha || undefined
+                    })
+                });
+
+                if (putRes.ok) {
+                    const putData = await putRes.json();
+                    githubFileSha = putData.content?.sha || githubFileSha;
+                    githubRecordsCache = newList;
+                    statusEl.innerText = `同步成功（共 ${githubRecordsCache.length} 筆）`;
+                    renderGithubRecordsList();
+                    showToast("GitHub 資料庫同步成功！");
+                    return true;
+                } else {
+                    const err = await putRes.json();
+                    statusEl.innerText = '儲存失敗：' + (err.message || '請確認權限');
+                    showToast(`上傳失敗：${err.message || '權限受阻'}`);
+                    return false;
+                }
+            } catch (err) {
+                statusEl.innerText = '網路異常：' + err.message;
+                showToast("連線至 GitHub 發生錯誤。");
+                return false;
+            }
+        }
+
+        // 彈出全文詳情視窗
+        function viewRecordDetail(index) {
+            const rec = githubRecordsCache[index];
+            if (!rec) return;
+
+            document.getElementById('viewModalTitle').innerText = `${rec.category || '警報'}（${rec.date} ${rec.time} MST）`;
+            document.getElementById('viewModalBody').value = rec.formattedText || '';
+            document.getElementById('modalViewRecord').classList.remove('hidden');
+        }
+
+        function closeViewModal() {
+            document.getElementById('modalViewRecord').classList.add('hidden');
+        }
+
+        function copyViewModalContent() {
+            const body = document.getElementById('viewModalBody').value;
+            if (!body) return;
+            const el = document.createElement('textarea');
+            el.value = body;
+            el.style.position = 'fixed';
+            el.style.opacity = '0';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            showToast("已複製警報詳情內容！");
+        }
+
+        // 匯出全部為 JSON 備份檔
+        function exportRecordsJson() {
+            const dataStr = JSON.stringify(githubRecordsCache, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `meteo_backup_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("已匯出本機 JSON 備份檔！");
+        }
+
+        // ================= 工具與輔助函數 =================
+
         function syncCurrentTime() {
             const now = new Date();
             const y = now.getFullYear();
@@ -972,7 +1483,6 @@
             renderWarning();
         }
 
-        // 手機 Tab 切換
         function switchTab(tab) {
             const pEdit = document.getElementById('panelEdit');
             const pPrev = document.getElementById('panelPreview');
@@ -992,7 +1502,6 @@
             }
         }
 
-        // 複製純文字
         function copyWarningText() {
             const val = document.getElementById('outputText').value;
             if (!val) return;
@@ -1007,7 +1516,6 @@
             showToast("已成功複製警報文字！");
         }
 
-        // 下載 .TXT
         function downloadWarningText() {
             const val = document.getElementById('outputText').value;
             if (!val) return;
@@ -1023,91 +1531,6 @@
             showToast("已下載 .txt 檔案！");
         }
 
-        // GitHub 控制
-        function toggleGithubModal(show) {
-            const modal = document.getElementById('modalGithub');
-            modal.classList.toggle('hidden', !show);
-            if (show) {
-                document.getElementById('ghToken').value = localStorage.getItem('gh_token') || '';
-                document.getElementById('ghRepo').value = localStorage.getItem('gh_repo') || '';
-                document.getElementById('ghPath').value = localStorage.getItem('gh_path') || 'meteo_warnings.json';
-            }
-        }
-
-        async function uploadToGithub() {
-            const token = document.getElementById('ghToken').value.trim();
-            const repo = document.getElementById('ghRepo').value.trim();
-            const path = document.getElementById('ghPath').value.trim();
-            const status = document.getElementById('ghStatus');
-
-            if (!token || !repo || !path) {
-                alert('請完整輸入 GitHub Token、儲存庫與路徑！');
-                return;
-            }
-
-            localStorage.setItem('gh_token', token);
-            localStorage.setItem('gh_repo', repo);
-            localStorage.setItem('gh_path', path);
-
-            status.innerText = '連線傳輸中...';
-
-            const record = {
-                timestamp: new Date().toISOString(),
-                category: curCat,
-                mode: curMode,
-                date: document.getElementById('inputDate').value,
-                time: document.getElementById('inputTime').value,
-                content: document.getElementById('outputText').value
-            };
-
-            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
-
-            try {
-                let sha = null;
-                let list = [];
-
-                const getRes = await fetch(url, {
-                    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
-                });
-
-                if (getRes.status === 200) {
-                    const data = await getRes.json();
-                    sha = data.sha;
-                    try {
-                        list = JSON.parse(decodeURIComponent(escape(atob(data.content))));
-                        if (!Array.isArray(list)) list = [list];
-                    } catch (e) {
-                        list = [];
-                    }
-                }
-
-                list.unshift(record);
-                const updatedContent = btoa(unescape(encodeURIComponent(JSON.stringify(list, null, 2))));
-
-                const putRes = await fetch(url, {
-                    method: 'PUT',
-                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: `Update meteo warning [${record.date} ${record.time}]`,
-                        content: updatedContent,
-                        sha: sha || undefined
-                    })
-                });
-
-                if (putRes.ok) {
-                    status.innerText = '同步完成！';
-                    showToast('紀錄已同步至 GitHub！');
-                    setTimeout(() => toggleGithubModal(false), 1200);
-                } else {
-                    const err = await putRes.json();
-                    status.innerText = '失敗：' + (err.message || '權限受阻');
-                }
-            } catch (err) {
-                status.innerText = '連線異常：' + err.message;
-            }
-        }
-
-        // Toast 彈出
         function showToast(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toastMsg').innerText = msg;
@@ -1119,12 +1542,14 @@
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             syncCurrentTime();
-            selectCategory('heat'); // 預設酷熱
+            selectCategory('heat');
             selectHeatLevel('酷熱');
             selectSurgeSignal('watch');
             selectCycloneSignal('戒備警報');
             selectRainSignal('rain_heavy_warn');
             selectColdLevel('寒冷');
+
+            updateGhIndicator();
 
             if (window.innerWidth < 1024) {
                 switchTab('edit');
