@@ -3,250 +3,1176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>颱風動態 - 氣象署風格</title>
-    <!-- Tailwind CSS -->
+    <title>熱帶氣旋專區 - 澳門民間氣象台 MSSO</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS (layout/spacing only) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <!-- FontAwesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     <style>
-        body { 
-            background-color: #f6e8e9; 
-            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif; 
+        /* ============ Design tokens ============ */
+        :root, html:not(.dark) {
+            --bg-page:#edebe2; --bg:#f4f2ea; --bg-2:#eae8dc;
+            --line:#d6d3c4; --line-strong:#bfbcab;
+            --text:#1a1e20; --muted:#5c6663; --faint:#8b948f;
+            --accent:#0b9a6b; --cream:#181d20; --cream-text:#f1eee2;
+            --c-red-rgb:190,40,45; --c-orange-rgb:200,90,20; --c-amber-rgb:190,140,10;
+            --c-yellow-rgb:150,140,20; --c-green-rgb:11,154,107; --c-sky-rgb:20,120,180;
+            --c-blue-rgb:30,90,190; --c-indigo-rgb:80,70,200; --c-purple-rgb:140,70,210;
+            --c-rose-rgb:210,40,90; --c-cyan-rgb:10,140,160; --c-slate-rgb:90,100,105;
+            --track-color:#d6d3c4; --needle-color:#1a1e20; --text-3:#8b948f;
         }
-        .card { 
-            background: white; 
-            border-radius: 1rem; 
-            border: 2px solid #e2d5d6; 
+        html.dark {
+            --bg-page:#0b1013; --bg:#0e1418; --bg-2:#121a1f;
+            --line:#1f282e; --line-strong:#2b373e;
+            --text:#e6e9e9; --muted:#93a0a6; --faint:#5f6b72;
+            --accent:#3fd9a4; --cream:#e7e2d2; --cream-text:#12181b;
+            --c-red-rgb:255,107,107; --c-orange-rgb:255,150,90; --c-amber-rgb:255,200,87;
+            --c-yellow-rgb:230,225,130; --c-green-rgb:63,217,164; --c-sky-rgb:96,185,235;
+            --c-blue-rgb:96,155,235; --c-indigo-rgb:130,140,250; --c-purple-rgb:180,150,255;
+            --c-rose-rgb:255,110,150; --c-cyan-rgb:105,225,240; --c-slate-rgb:150,165,170;
+            --track-color:#1f282e; --needle-color:#e6e9e9; --text-3:#5f6b72;
         }
-        .text-cwa-red { color: #cc292b; }
-        .bg-cwa-red { background-color: #cc292b; }
-        .text-cwa-dark { color: #1a202c; }
-        .badge-red { 
-            background-color: #cc292b; 
-            color: white; 
-            padding: 2px 8px; 
-            border-radius: 4px; 
-            font-weight: bold; 
-            font-size: 0.875rem; 
+
+        body {
+            font-family:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace;
+            -webkit-font-smoothing:antialiased;
+            background:var(--bg-page); color:var(--text);
         }
-        .badge-light-red { 
-            background-color: #fde8e8; 
-            color: #cc292b; 
-            padding: 4px 12px; 
-            border-radius: 9999px; 
-            font-weight: bold; 
-            font-size: 0.875rem; 
-            border: 1px solid #f8b4b4; 
+
+        /* ============ Scrollbar ============ */
+        ::-webkit-scrollbar { width:8px; height:8px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--line-strong); }
+        ::-webkit-scrollbar-thumb:hover { background:var(--faint); }
+
+        /* ============ Text helpers ============ */
+        .micro { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+        .dim { color:var(--faint); }
+        .mut { color:var(--muted); }
+        .accent { color:var(--accent); }
+        .num { font-variant-numeric:tabular-nums; }
+
+        @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+
+        /* ============ Panels ============ */
+        .panel { background:var(--bg); border:1px solid var(--line); }
+        .panel-head {
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:14px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap;
         }
-        .badge-gray { 
-            background-color: #e5e7eb; 
-            color: #4b5563; 
-            padding: 4px 12px; 
-            border-radius: 9999px; 
-            font-size: 0.875rem; 
-            font-weight: 500; 
+        .panel-title { font-size:13px; font-weight:700; letter-spacing:.03em; display:flex; align-items:center; gap:9px; }
+        .panel-num { color:var(--accent); font-weight:800; }
+        .panel-body { padding:16px; }
+
+        /* ============ Brand ============ */
+        .brand-mark {
+            width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--accent);
+            position:relative; flex-shrink:0; font-size:20px;
+        }
+        .dot { width:6px; height:6px; border-radius:50%; background:var(--accent); display:inline-block; }
+        .pulse-dot { position:relative; }
+        .pulse-dot::after {
+            content:''; position:absolute; inset:0; border-radius:50%;
+            background:var(--accent); animation:pulseRing 2s infinite ease-in-out;
+        }
+        @keyframes pulseRing { 0%{transform:scale(1);opacity:.7;} 100%{transform:scale(2.6);opacity:0;} }
+
+        /* ============ Buttons ============ */
+        .icon-btn {
+            width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted);
+            cursor:pointer; transition:.15s; font-size:15px;
+        }
+        .icon-btn:hover { color:var(--text); border-color:var(--accent); }
+        .icon-btn:active { transform:translateY(1px); }
+        .ic-moon { display:inline; } .ic-sun { display:none; }
+        html.dark .ic-moon { display:none; } html.dark .ic-sun { display:inline; }
+
+        .btn {
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--text);
+            font-size:12px; font-weight:700; padding:10px 18px; cursor:pointer; transition:.15s;
+            display:inline-flex; align-items:center; justify-content:center; gap:8px; text-decoration:none;
+        }
+        .btn:hover { border-color:var(--accent); color:var(--accent); }
+        .btn:active { transform:translateY(1px); }
+        .btn-primary { background:var(--cream); color:var(--cream-text); border-color:var(--cream); }
+        .btn-primary:hover { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+
+        /* ============ Chips (storm tabs / track buttons) ============ */
+        .chip {
+            padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+            border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted); transition:.15s;
+        }
+        .chip:hover { color:var(--text); border-color:var(--faint); }
+        .chip-active { background:var(--accent); border-color:var(--accent); color:var(--cream-text); }
+        .chip-active:hover { color:var(--cream-text); border-color:var(--accent); }
+
+        /* ============ Badges & tags ============ */
+        .badge {
+            display:inline-flex; align-items:center; gap:4px; padding:2px 7px; font-size:10px; font-weight:700;
+            color:rgb(var(--bc-rgb,150,165,170)); background:rgba(var(--bc-rgb,150,165,170),.13);
+            border:1px solid rgba(var(--bc-rgb,150,165,170),.3);
+        }
+        .b-sky{--bc-rgb:var(--c-sky-rgb);} .b-rose{--bc-rgb:var(--c-rose-rgb);} .b-slate{--bc-rgb:var(--c-slate-rgb);}
+        .tag { display:inline-block; padding:2px 8px; font-size:11px; font-weight:700; }
+
+        /* ============ Data table ============ */
+        .data-table { width:100%; text-align:left; font-size:11px; border-collapse:collapse; }
+        .data-table thead th {
+            padding:9px 12px; border-bottom:1px solid var(--line-strong);
+            font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700;
+        }
+        .data-table tbody td { padding:10px 12px; border-bottom:1px solid var(--line); color:var(--text); }
+        .data-table tbody tr:hover { background:rgba(var(--c-green-rgb),.05); }
+
+        /* ============ KV table (storm info) ============ */
+        .kv-table { width:100%; text-align:left; border-collapse:collapse; font-size:11px; }
+        .kv-table td { padding:7px 0; border-bottom:1px solid var(--line); }
+        .kv-table tr:last-child td { border-bottom:none; }
+        .kv-table td:first-child { color:var(--muted); }
+        .kv-table td:last-child { color:var(--text); font-weight:600; text-align:right; }
+
+        /* ============ Bulletin / info box ============ */
+        .info-box {
+            background:var(--bg-2); border:1px solid var(--line); padding:12px;
+            font-size:12px; line-height:1.7; color:var(--text);
+        }
+
+        /* ============ Storm mini cards ============ */
+        .storm-mini {
+            position:relative; border:1px solid var(--line); background:var(--bg-2);
+            padding:14px 14px 14px 16px; margin-bottom:12px; overflow:hidden;
+        }
+        .storm-mini:last-child { margin-bottom:0; }
+        .storm-mini::before {
+            content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--sc,var(--accent));
+        }
+
+        /* ============ Legend ============ */
+        .legend-item { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); }
+        .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+
+        /* ============ Map / track image ============ */
+        .map-frame { background:#0b1013; border:1px solid var(--line-strong); }
+
+        /* ============ Wind gauge ============ */
+        .gauge { position:relative; width:100%; max-width:280px; aspect-ratio:200/128; margin:0 auto; }
+        .gauge svg { width:100%; height:100%; overflow:visible; display:block; }
+        .g-track { fill:none; stroke:var(--track-color); stroke-width:13; stroke-linecap:round; }
+        .g-band { fill:none; stroke-width:4; opacity:0.85; stroke-linecap:round; }
+        .g-prog { fill:none; stroke-width:13; stroke-linecap:round; stroke-dasharray:100; stroke-dashoffset:100; transition:stroke 0.5s ease; }
+        .g-needle { transform-origin:100px 100px; transform:rotate(0deg); }
+        .g-needle line { stroke:var(--needle-color); stroke-width:3.5; stroke-linecap:round; }
+        .g-tick { font-size:7.5px; fill:var(--text-3); font-weight:700; font-family:inherit; }
+        .gauge-val { position:absolute; left:0; right:0; bottom:-2px; text-align:center; line-height:1; }
+        .gauge-val b { font-size:2.8em; font-weight:800; letter-spacing:.05em; color:var(--text); }
+        .gauge-val small { display:block; font-size:.72em; font-weight:700; color:var(--muted); margin-top:6px; letter-spacing:.1em; }
+
+        /* ===== 底部導航 ===== */
+        .bottom-fixed-bar { background: var(--bg); border-top: 1px solid var(--line); }
+        .bottom-bar-btn {
+            position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 8px 14px 6px; color: var(--faint);
+            font-size: 10px; letter-spacing: .14em; font-weight: 600; text-decoration: none;
+            transition: color .15s ease;
+        }
+        .bottom-bar-btn:hover { color: var(--muted); }
+        .bottom-bar-btn.active { color: var(--accent); }
+        .bottom-bar-btn.active::after {
+            content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 18px; height: 2px; background: var(--accent);
         }
     </style>
+    <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
+    <script>
+        const currentHour = new Date().getHours();
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        } else {
+            if (currentHour >= 8 && currentHour < 20) {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+        }
+    </script>
 </head>
-<body class="p-4 md:p-8 flex justify-center">
-    <div class="max-w-6xl w-full">
-        <!-- Top Badges -->
-        <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-            <div class="badge-light-red flex items-center gap-2">
-                <div class="w-2 h-2 rounded-full bg-cwa-red"></div>
-                <span id="header-analysis-time">做好防颱準備 | 颱風分析載入中...</span>
-            </div>
-            <div class="badge-gray" id="header-publish-time">
-                發布時間載入中...
-            </div>
-        </div>
+<body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-28">
 
-        <!-- Title -->
-        <h1 class="text-4xl md:text-5xl font-black text-cwa-dark mb-6 tracking-wide" id="typhoon-title">
-            載入中...
-        </h1>
+    <!-- 容器 -->
+    <div class="w-full max-w-7xl space-y-6 flex-grow">
 
-        <!-- 4 Info Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <!-- Card 1 -->
-            <div class="card p-4 flex flex-col justify-between">
-                <div class="flex items-center gap-2 text-gray-600 text-sm font-bold mb-2">
-                    <i class="fa-solid fa-wind text-cwa-red"></i> 近中心最大風速
+        <!-- 標頭 -->
+        <header class="panel flex justify-between items-center p-5 md:p-6">
+            <div class="flex items-center gap-4">
+                <div class="brand-mark">
+                    <i class="fa-solid fa-hurricane"></i>
+                    <span class="pulse-dot dot absolute -top-1 -right-1" style="width:6px;height:6px;"></span>
                 </div>
-                <div class="flex items-end gap-2">
-                    <span class="text-3xl font-black text-black" id="max-wind">--</span>
-                    <span class="text-lg font-bold mb-1">m/s</span>
-                    <span class="badge-red mb-1 ml-auto" id="typhoon-category">--</span>
-                </div>
-                <div class="text-xs text-cwa-red font-bold mt-1 uppercase tracking-wider">Max Sustained Wind</div>
-            </div>
-            <!-- Card 2 -->
-            <div class="card p-4 flex flex-col justify-between">
-                <div class="flex items-center gap-2 text-gray-600 text-sm font-bold mb-2">
-                    <i class="fa-solid fa-gauge-high text-cwa-red"></i> 移動速度
-                </div>
-                <div class="flex items-end gap-2">
-                    <span class="text-3xl font-black text-black" id="move-speed">--</span>
-                    <span class="text-lg font-bold mb-1">km/h</span>
-                    <span class="badge-red mb-1 ml-auto bg-opacity-80" id="move-dir">--</span>
-                </div>
-                <div class="text-xs text-cwa-red font-bold mt-1 uppercase tracking-wider">Movement Speed</div>
-            </div>
-            <!-- Card 3 -->
-            <div class="card p-4 flex flex-col justify-between">
-                <div class="flex justify-between items-center text-gray-600 text-sm font-bold mb-2">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-circle-notch text-cwa-red"></i> 暴風圈 <span class="text-cwa-red">7級</span> | <span class="text-gray-800">10級</span>
+                <div>
+                    <h1 class="text-lg md:text-2xl font-extrabold tracking-tight flex items-center gap-2 flex-wrap">
+                        熱帶氣旋專區
+                        <span class="badge b-sky">v1.1.4</span>
+                    </h1>
+                    <div class="mt-1.5 space-y-0.5">
+                        <div id="current-datetime" class="num text-xs md:text-sm font-bold accent">載入中...</div>
+                        <div id="lunar-date" class="text-[11px] mut">農曆計算中...</div>
                     </div>
                 </div>
-                <div class="flex items-end gap-2">
-                    <span class="text-3xl font-black text-black" id="radius-7">--</span><span class="text-sm font-bold mb-1">km</span>
-                    <span class="text-xl font-black text-gray-400 mx-1">|</span>
-                    <span class="text-3xl font-black text-black" id="radius-10">--</span><span class="text-sm font-bold mb-1">km</span>
-                </div>
-                <div class="text-xs text-cwa-red font-bold mt-1 uppercase tracking-wider">Wind Radii</div>
             </div>
-            <!-- Card 4 -->
-            <div class="card p-4 flex flex-col justify-between">
-                <div class="flex items-center gap-2 text-gray-600 text-sm font-bold mb-2">
-                    <i class="fa-solid fa-arrow-down-up-across-line text-cwa-red"></i> 中心氣壓
-                </div>
-                <div class="flex items-end gap-2">
-                    <span class="text-3xl font-black text-black" id="pressure">--</span>
-                    <span class="text-lg font-bold mb-1">hPa</span>
-                </div>
-                <div class="text-xs text-cwa-red font-bold mt-1 uppercase tracking-wider">Central Pressure</div>
+            <div class="flex items-center gap-3">
+                <!-- 主題切換按鈕 -->
+                <button id="theme-toggle" class="icon-btn" title="切換主題">
+                    <i class="fa-solid fa-moon ic-moon"></i>
+                    <i class="fa-solid fa-sun ic-sun accent"></i>
+                </button>
             </div>
-        </div>
+        </header>
 
-        <!-- Map Container -->
-        <div class="card p-2 md:p-4 border-cwa-red bg-[#fdfafb]" style="border-color: #f1c7c8;">
-            <div class="bg-gray-100 rounded-lg w-full aspect-[4/3] flex items-center justify-center relative overflow-hidden border border-gray-200" id="tcMapContainer">
-                 <!-- CWA Track Image (Using official source image as background placeholder if available) -->
-                 <div class="text-gray-400 text-center z-10 absolute flex flex-col items-center">
-                    <i class="fa-solid fa-map-location-dot text-4xl mb-2"></i>
-                    <p>路徑圖載入區 (Map Container)</p>
-                 </div>
-                 <!-- Example CWA static warning map layer -->
-                 <img id="tcTrackImageViewer" src="https://www.cwa.gov.tw/Data/typhoon/TY_WARN/B20.png" class="w-full h-full object-contain relative z-20 opacity-0 transition-opacity duration-500" onload="this.style.opacity=1;" onerror="this.style.opacity=0;">
-            </div>
-            <div class="flex justify-between items-center mt-3 px-2 text-sm text-gray-600 font-bold">
-                <div class="flex items-center gap-4">
-                    <span class="flex items-center gap-1"><div class="w-4 h-1 bg-[#00a0e9]"></div> 過去路徑</span>
-                    <span class="flex items-center gap-1"><div class="w-4 h-1 border-t-2 border-dashed border-[#ea5514]"></div> 預報路徑</span>
-                    <span class="flex items-center gap-1"><div class="w-4 h-1 bg-cwa-red"></div> 暴風圈</span>
-                </div>
-                <div class="text-xs text-gray-400">海岸線 GSHHG / 臺灣本機圖資</div>
-            </div>
-        </div>
+        <!-- 頁面主要內容包裝 -->
+        <div class="page-wrapper space-y-6" id="dashboard-content">
 
-        <!-- Footer -->
-        <div class="mt-4 flex flex-col sm:flex-row justify-between items-center bg-gray-100 rounded-lg p-3 text-sm font-bold text-gray-700 border border-gray-200">
-            <div class="flex items-center gap-2 text-cwa-red">
-                <i class="fa-solid fa-bell"></i> 停班停課最新通知 Taiwan Alerts | 資料來源：中央氣象署 CWA
+            <!-- GIS 入口 -->
+            <div class="panel panel-body" id="gisEntryCard">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="brand-mark">
+                            <i class="fa-solid fa-hurricane" style="display:inline-block; animation:spin-reverse 8s linear infinite;"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-bold" style="color:var(--text);">熱帶氣旋GIS路徑圖</h2>
+                            <p class="text-[11px] mut mt-0.5">提供互動式地理資訊系統（GIS）熱帶氣旋路徑追蹤與強度分析</p>
+                        </div>
+                    </div>
+                    <a href="tcgis.html" class="btn btn-primary shrink-0"><i class="fa-solid fa-map-location-dot"></i> 查看GIS路徑圖</a>
+                </div>
             </div>
-            <div class="flex gap-4 mt-2 sm:mt-0 text-xs text-gray-500">
-                <span>☎ 119 消防報案</span>
-                <span>1999 縣市專線</span>
-                <span>1911 台電搶修</span>
-                <span>1968 路況查詢</span>
+
+            <!-- 即時活躍系統與風速儀表盤專區 -->
+            <div class="panel" id="activeSystemGaugeCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">01</span> / 即時活躍系統與風速儀表盤</span>
+                    <!-- 多氣旋切換按鈕列 -->
+                    <div id="gaugeStormTabs" class="flex flex-wrap items-center gap-1.5">
+                        <!-- 動態生成 -->
+                    </div>
+                </div>
+
+                <div class="panel-body grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    <!-- 左側：活躍氣旋詳細資訊與表格 -->
+                    <div id="gaugeStormInfo" class="space-y-4">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span id="gaugeStormBadge" class="tag text-white" style="background-color:#0284c7;">載入中</span>
+                            <span id="gaugeStormTimePill" class="badge b-rose">
+                                <span class="dot pulse-dot" style="background:rgb(var(--c-rose-rgb));"></span>
+                                <span id="gaugeStormTimePillText">-</span>
+                            </span>
+                        </div>
+                        <div>
+                            <h2 id="gaugeStormName" class="text-2xl md:text-3xl font-extrabold tracking-tight" style="color:var(--text);">載入中...</h2>
+                        </div>
+
+                        <!-- 實況詳細數據表格 -->
+                        <table class="kv-table num">
+                            <tbody>
+                                <tr><td>實況時間</td><td id="gaugeStormTime">-</td></tr>
+                                <tr><td>最大風速</td><td id="gaugeStormWind">-</td></tr>
+                                <tr><td>中心位置</td><td id="gaugeStormPos">-</td></tr>
+                                <tr><td>移動方向</td><td id="gaugeStormMove">-</td></tr>
+                                <tr><td>距離澳門</td><td id="gaugeStormDist">-</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- 熱帶氣旋報文 -->
+                        <div>
+                            <div class="micro mb-1.5 flex items-center gap-1.5">
+                                <i class="fa-solid fa-file-lines accent"></i> 熱帶氣旋報文
+                            </div>
+                            <div class="info-box" id="gaugeStormBulletin">請稍候...</div>
+                        </div>
+                    </div>
+
+                    <!-- 右側：風速儀表盤圖表 -->
+                    <div class="flex flex-col items-center justify-center panel p-6 relative overflow-hidden" style="background:var(--bg-2);">
+                        <div class="gauge" id="windGaugeContainer" data-speed="0"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 熱帶氣旋警報預測表格專區 -->
+            <div class="panel" id="tcForecastTableCard">
+                <div class="panel-head">
+                    <span id="tableMainTitle" class="panel-title"><span class="panel-num">02</span> / 熱帶氣旋警報預測</span>
+                    <span id="tableUpdateTime" class="num text-[11px] accent font-bold">-</span>
+                </div>
+                <div id="tableContent" class="panel-body overflow-x-auto">
+                    <!-- 動態生成表格內容 -->
+                </div>
+            </div>
+
+            <!-- 熱帶氣旋警報 -->
+            <div class="panel" id="tcNewsCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">03</span> / 熱帶氣旋警報</span>
+                </div>
+                <div class="panel-body">
+                    <div id="tcNewsContent" class="text-sm space-y-2" style="color:var(--text);">載入中...</div>
+                </div>
+            </div>
+
+            <!-- 熱帶氣旋資訊 -->
+            <div class="panel" id="tcCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">04</span> / 熱帶氣旋資訊</span>
+                </div>
+                <div class="panel-body">
+                    <div id="tcContent" class="text-sm space-y-2" style="color:var(--text);">載入中...</div>
+                </div>
+            </div>
+
+            <!-- 熱帶氣旋路徑圖與即時數據專區 -->
+            <div class="panel" id="tcTrackCard">
+                <div class="panel-head">
+                    <span class="panel-title"><span class="panel-num">05</span> / 熱帶氣旋路徑圖</span>
+                    <!-- 動態切換按鈕列 -->
+                    <div class="flex flex-wrap items-center gap-1.5" id="trackImageButtons">
+                        <button onclick="switchTrackImage('output/TC/all.png', this)" class="chip chip-active">全部熱帶氣旋</button>
+                    </div>
+                </div>
+
+                <div class="panel-body">
+                    <!-- 圖片與表格並排容器 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        <!-- 路徑圖顯示容器 (佔 2 欄) -->
+                        <div id="tcMapContainer" class="lg:col-span-2 w-full flex justify-center map-frame overflow-hidden p-2">
+                            <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain">
+                        </div>
+
+                        <!-- 即時數據表格面板 (佔 1 欄) -->
+                        <div id="tcDetailPanel" class="lg:col-span-1 panel p-4 space-y-4" style="background:var(--bg-2);">
+                            <div class="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                                <h3 class="panel-title text-xs"><i class="fa-solid fa-circle-info accent"></i> 活躍氣旋即時數據</h3>
+                                <span id="tcDetailBadge" class="badge b-sky">即時讀取</span>
+                            </div>
+                            <div id="tcDetailContent" class="text-xs space-y-4" style="color:var(--text);">
+                                <p class="dim text-center py-6">正在讀取熱帶氣旋數據...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 風速分級圖例 -->
+                    <div class="flex flex-wrap items-center justify-center gap-3.5 pt-5 mt-6 border-t border-[var(--line)]">
+                        <span class="legend-item"><span class="legend-dot" style="background:#64748b;"></span>溫帶氣旋</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#94a3b8;"></span>低壓區</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#38bdf8;"></span>熱帶低氣壓</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#34d399;"></span>熱帶風暴</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span>強烈熱帶風暴</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#fb923c;"></span>颱風</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#f87171;"></span>強颱風</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:#c084fc;"></span>超強颱風</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- 頁尾免責聲明與版權 -->
+    <footer class="w-full max-w-7xl mt-10 pt-6 border-t border-[var(--line)] text-center text-[11px] mut space-y-1.5 pb-20">
+        <p><strong class="font-bold" style="color:var(--text);">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
+        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+    </footer>
+
+    <!-- 底部固定導航欄 -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50">
+        <div class="max-w-3xl mx-auto flex justify-around items-center px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+            <a href="https://macaosso.github.io/MSSO/index.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span>天氣實況</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/tc.html" class="bottom-bar-btn active">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span>熱帶氣旋</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/forecast.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span>天氣預報</span>
+            </a>
+            <a href="https://macaosso.github.io/MSSO/AQImap.html" class="bottom-bar-btn">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span>空氣質素</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- 引入獨立的 tc.js 邏輯 -->
+    <script src="tc.js"></script>
     <script>
-        // API Endpoints provided
-        const api001 = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-001?Authorization=CWA-5BC093E1-CF2B-4662-BF0B-E0DDBF851A8B&format=JSON";
-        const api005 = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=CWA-5BC093E1-CF2B-4662-BF0B-E0DDBF851A8B&format=JSON";
 
-        // Category mapping
-        function getCategoryString(maxWind) {
-            if (maxWind >= 51.0) return "強烈颱風";
-            if (maxWind >= 32.7) return "中度颱風";
-            if (maxWind >= 17.2) return "輕度颱風";
-            return "熱帶性低氣壓";
-        }
+        // 渲染熱帶氣旋警報預測表格
+        function renderTcForecastTable(data) {
+            const cardEl = document.getElementById('tcForecastTableCard');
+            const titleEl = document.getElementById('tableMainTitle');
+            const timeEl = document.getElementById('tableUpdateTime');
+            const contentEl = document.getElementById('tableContent');
 
-        // Direction mapping
-        const dirMap = {
-            "N": "北", "NNE": "北北東", "NE": "東北", "ENE": "東北東",
-            "E": "東", "ESE": "東南東", "SE": "東南", "SSE": "南南東",
-            "S": "南", "SSW": "南南西", "SW": "西南", "WSW": "西南西",
-            "W": "西", "WNW": "西北西", "NW": "西北", "NNW": "北北西"
-        };
+            if (!data || !data.tableRows || data.tableRows.length === 0) {
+                if (cardEl) cardEl.style.display = 'none';
+                return;
+            }
 
-        async function fetchTyphoonData() {
-            try {
-                const res = await fetch(api005);
-                const data = await res.json();
-                
-                if (data && data.success === "true" && data.records && data.records.tropicalCyclones) {
-                    const tcList = data.records.tropicalCyclones.tropicalCyclone || [];
-                    
-                    if (tcList.length > 0) {
-                        const tc = tcList[0]; 
-                        const cwaName = tc.cwaTyphoonName || "未知";
-                        const engName = tc.typhoonName || "UNKNOWN";
-                        
-                        const fixes = tc.analysisData?.fix || [];
-                        if (fixes.length > 0) {
-                            const current = fixes[fixes.length - 1]; // Get latest analysis
-                            
-                            document.getElementById("typhoon-title").textContent = \`No. \${cwaName}颱風 (\${engName})\`;
-                            
-                            const dt = new Date(current.DateTime || current.initTime);
-                            const publishDt = new Date(); 
-                            
-                            document.getElementById("header-analysis-time").textContent = \`做好防颱準備 | 颱風・\${dt.getMonth()+1}/\${dt.getDate()} \${dt.getHours().toString().padStart(2,'0')}:\${dt.getMinutes().toString().padStart(2,'0')} 分析\`;
-                            
-                            const formatTime = (d) => \`\${d.getFullYear()}/\${(d.getMonth()+1).toString().padStart(2,'0')}/\${d.getDate().toString().padStart(2,'0')} \${d.getHours().toString().padStart(2,'0')}:\${d.getMinutes().toString().padStart(2,'0')}\`;
-                            document.getElementById("header-publish-time").textContent = \`\${formatTime(publishDt)} 發布\`;
+            // 只過濾出 probability 不為空的行
+            const validRows = data.tableRows.filter(row => row.probability && row.probability.trim() !== '');
 
-                            const maxWind = current.MaxWindSpeed || current.maxWindSpeed || 0;
-                            document.getElementById("max-wind").textContent = maxWind;
-                            document.getElementById("typhoon-category").textContent = getCategoryString(Number(maxWind));
+            // 若全部行的 probability 都為空，隱藏整個表格區塊
+            if (validRows.length === 0) {
+                if (cardEl) cardEl.style.display = 'none';
+                return;
+            }
 
-                            document.getElementById("move-speed").textContent = current.MovingSpeed || current.movingSpeed || "--";
-                            const dir = current.MovingDirection || current.movingDirection || "";
-                            document.getElementById("move-dir").textContent = dirMap[dir] || dir || "--";
+            if (cardEl) cardEl.style.display = 'block';
+            if (titleEl && data.mainTitle) {
+                titleEl.innerHTML = `<span class="panel-num">02</span> / ${data.mainTitle}`;
+            }
+            if (timeEl && data.updateTimeText) {
+                timeEl.textContent = data.updateTimeText;
+            }
 
-                            const r15 = current.Circle15ms?.Radius || current.radiusOf15m || "--";
-                            const r25 = current.Circle25ms?.Radius || current.radiusOf25m || "--";
-                            document.getElementById("radius-7").textContent = r15;
-                            document.getElementById("radius-10").textContent = r25;
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>警報信號</th>
+                            <th>預測生效時間</th>
+                            <th>發佈機率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
 
-                            document.getElementById("pressure").textContent = current.Pressure || current.centralPressure || "--";
-                            return; // Success exit
-                        }
-                    }
-                }
-                // Fallback if data is empty or malformed
-                fillFallbackData();
-            } catch (err) {
-                console.warn("API Fetch Error, falling back to static data", err);
-                fillFallbackData();
+            validRows.forEach(row => {
+                const prob = row.probability.trim();
+                const period = row.period ? row.period.trim() : '-';
+
+                let probBadge = `<span class="badge b-sky">${prob}</span>`;
+
+                html += `
+                    <tr>
+                        <td class="font-bold">${row.signal}</td>
+                        <td class="num mut">${period !== '' ? period : '-'}</td>
+                        <td>${probBadge}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            if (contentEl) {
+                contentEl.innerHTML = html;
             }
         }
 
-        // Fallback populator based on user JSON example
-        function fillFallbackData() {
-            document.getElementById("header-analysis-time").textContent = "做好防颱準備 | 第29號颱風・10/20 08:00 分析";
-            document.getElementById("header-publish-time").textContent = "2026/10/20 08:30 發布";
-            document.getElementById("typhoon-title").textContent = "No.2629 薔琵颱風 (CHAMPI)";
-            
-            document.getElementById("max-wind").textContent = "55";
-            document.getElementById("typhoon-category").textContent = "強烈颱風";
-            
-            document.getElementById("move-speed").textContent = "21";
-            document.getElementById("move-dir").textContent = "西北西";
-            
-            document.getElementById("radius-7").textContent = "250";
-            document.getElementById("radius-10").textContent = "120";
-            
-            document.getElementById("pressure").textContent = "910";
+        // 儀表盤幾何與分級設定
+        const SITE = {
+            scaleMax: 250,
+            bands: [
+                ['gray', 0, 40, '#94a3b8'],          // 0-40: 質感銀灰
+                ['blue', 41, 62, '#38bdf8'],         // 41-62: 清新天藍
+                ['green', 63, 87, '#34d399'],        // 63-87: 柔和翠綠
+                ['yellow', 88, 117, '#fbbf24'],      // 88-117: 警示琥珀黃
+                ['orange', 118, 149, '#fb923c'],     // 118-149: 暖調橙色
+                ['red', 150, 184, '#f87171'],        // 150-184: 醒目亮紅
+                ['purple', 185, 219, '#c084fc'],     // 185-219: 優雅亮紫
+                ['dark-purple', 220, 250, '#7e22ce'] // 220+: 深邃暗紫
+            ]
+        };
+
+        const G = {
+            r: 78,
+            rb: 90
+        };
+
+        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+            const angleInRadians = (angleInDegrees - 180) * Math.PI / 180.0;
+            return {
+                x: centerX + (radius * Math.cos(angleInRadians)),
+                y: centerY + (radius * Math.sin(angleInRadians))
+            };
         }
 
-        fetchTyphoonData();
+        function gArc(startAngle, endAngle, radius) {
+            const start = polarToCartesian(100, 100, radius, startAngle);
+            const end = polarToCartesian(100, 100, radius, endAngle);
+            const arcSweep = endAngle - startAngle <= 180 ? "0" : "1";
+            return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${arcSweep} 1 ${end.x} ${end.y}`;
+        }
+
+        function gPoint(angle, radius) {
+            const pt = polarToCartesian(100, 100, radius, angle);
+            return [pt.x, pt.y];
+        }
+
+        function getBandColor(speed) {
+            for (const [c, lo, hi, col] of SITE.bands) {
+                if (speed >= lo && speed <= hi) {
+                    return col;
+                }
+            }
+            return speed > 250 ? '#7e22ce' : '#94a3b8';
+        }
+
+        function renderGaugeHTML(el, speed) {
+            const bands = SITE.bands.map(([c, lo, hi, col]) => {
+                const startAngle = (lo / SITE.scaleMax) * 180;
+                const endAngle = (hi / SITE.scaleMax) * 180;
+                return `<path class="g-band" d="${gArc(startAngle + 0.6, endAngle - 0.6, G.rb)}" stroke="${col}"/>`;
+            }).join('');
+
+            const ticks = [63, 118, 185, 220].map(v => {
+                const angle = (v / SITE.scaleMax) * 180;
+                const [x, y] = gPoint(angle, 108);
+                return `<text class="g-tick" x="${x.toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="middle">${v}</text>`;
+            }).join('');
+
+            el.innerHTML = `
+                <svg viewBox="0 -12 200 128" aria-hidden="true">
+                    ${bands}
+                    <path class="g-track" d="${gArc(0, 180, G.r)}"/>
+                    <path class="g-prog" d="${gArc(0, 180, G.r)}" pathLength="100"/>
+                    ${ticks}
+                    <g class="g-needle" style="transform: rotate(0deg);"><line x1="${100 - 60}" y1="100" x2="${100 - 96}" y2="100"/></g>
+                </svg>
+                <div class="gauge-val">
+                    <b><span data-count="${speed}">0</span></b>
+                    <small>KM/H</small>
+                </div>
+            `;
+            el.setAttribute('role', 'img');
+            el.setAttribute('aria-label', `${speed} km/h`);
+            el.dataset.speed = speed;
+
+            animateGauge(el);
+        }
+
+        function animateGauge(el) {
+            const speed = parseFloat(el.dataset.speed);
+            if (isNaN(speed)) return;
+
+            const targetFrac = Math.min(speed, SITE.scaleMax) / SITE.scaleMax;
+            const prog = el.querySelector('.g-prog');
+            const needle = el.querySelector('.g-needle');
+            const numEl = el.querySelector('[data-count]');
+            const intensityColor = getBandColor(speed);
+
+            if (prog) {
+                prog.style.stroke = intensityColor;
+                prog.style.filter = `drop-shadow(0 0 6px ${intensityColor}88)`;
+            }
+
+            const duration = 1500;
+            const startTime = performance.now();
+
+            function updateAnimation(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const easeProgress = 1 - Math.pow(1 - progress, 4);
+
+                const currentFrac = targetFrac * easeProgress;
+                const currentVal = speed * easeProgress;
+
+                if (prog) {
+                    prog.style.strokeDashoffset = (100 - currentFrac * 100).toFixed(2);
+                }
+                if (needle) {
+                    needle.style.transform = `rotate(${(currentFrac * 180).toFixed(2)}deg)`;
+                }
+                if (numEl) {
+                    numEl.textContent = Math.round(currentVal);
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(updateAnimation);
+                }
+            }
+
+            requestAnimationFrame(updateAnimation);
+        }
+
+        const intensityNameMap = {
+            "Ex": "溫帶氣旋",
+            "LPA": "低壓區",
+            "TD": "熱帶低氣壓",
+            "TS": "熱帶風暴",
+            "STS": "強烈熱帶風暴",
+            "TY": "颱風",
+            "STY": "強颱風",
+            "SuTY": "超強颱風"
+        };
+
+        const distanceDirections = {
+            "N": "以北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
+            "E": "以東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
+            "S": "以南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
+            "W": "以西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
+        };
+
+        const movementDirections = {
+            "N": "北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
+            "E": "東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
+            "S": "南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
+            "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
+        };
+
+        let allActiveStorms = {};
+        let activeStormKey = null;
+        let activeTrackImagePath = 'output/TC/all.png';
+
+        function updateWindGauge(stormData) {
+            const badgeEl = document.getElementById('gaugeStormBadge');
+            const nameEl = document.getElementById('gaugeStormName');
+            const timePillTextEl = document.getElementById('gaugeStormTimePillText');
+            const timeEl = document.getElementById('gaugeStormTime');
+            const windEl = document.getElementById('gaugeStormWind');
+            const posEl = document.getElementById('gaugeStormPos');
+            const moveEl = document.getElementById('gaugeStormMove');
+            const distEl = document.getElementById('gaugeStormDist');
+            const bulletinEl = document.getElementById('gaugeStormBulletin');
+            const cardEl = document.getElementById('activeSystemGaugeCard');
+            const gaugeContainer = document.getElementById('windGaugeContainer');
+
+            if (!stormData) {
+                if (cardEl) cardEl.style.display = 'none';
+                return;
+            }
+
+            if (cardEl) cardEl.style.display = 'block';
+
+            if (badgeEl) {
+                badgeEl.textContent = stormData.intensityObj.name || '熱帶氣旋';
+                badgeEl.style.backgroundColor = stormData.intensityObj.color || '#0284c7';
+                badgeEl.style.color = '#ffffff';
+            }
+
+            if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
+
+            if (timePillTextEl) {
+                timePillTextEl.textContent = stormData.time || '-';
+            }
+
+            if (timeEl) timeEl.textContent = stormData.time || '-';
+            if (windEl) windEl.textContent = stormData.wind || '-';
+            if (posEl) posEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
+            if (moveEl) moveEl.textContent = stormData.movement || '-';
+            if (distEl) distEl.textContent = stormData.distToMacau || '-';
+
+            if (bulletinEl) {
+                bulletinEl.textContent = generateTyphoonBulletin(stormData);
+            }
+
+            let windKmh = 0;
+            if (typeof stormData.wind === 'string' && stormData.wind.includes('km/h')) {
+                windKmh = parseFloat(stormData.wind.replace(' km/h', '')) || 0;
+            } else {
+                windKmh = parseFloat(stormData.wind) || 0;
+            }
+            if (isNaN(windKmh)) windKmh = 0;
+
+            if (gaugeContainer) {
+                renderGaugeHTML(gaugeContainer, windKmh);
+            }
+        }
+
+        function switchGaugeStorm(stormKey, btnElement) {
+            activeStormKey = stormKey;
+            const stormData = allActiveStorms[stormKey];
+            if (stormData) {
+                updateWindGauge(stormData);
+            }
+            const buttons = document.querySelectorAll('#gaugeStormTabs button');
+            buttons.forEach(btn => btn.classList.remove('chip-active'));
+            if (btnElement) {
+                btnElement.classList.add('chip-active');
+            }
+        }
+
+        function formatChineseTime(timeStr) {
+            if (!timeStr) return '';
+            const parts = timeStr.split(' ');
+            if (parts.length < 2) return '';
+            const timePart = parts[1];
+            const hour = parseInt(timePart.split(':')[0], 10);
+            if (isNaN(hour)) return '';
+
+            if (hour >= 0 && hour <= 5) return `凌晨${hour}時`;
+            if (hour >= 6 && hour <= 11) return `早上${hour}時`;
+            if (hour === 12) return `正午12時`;
+            if (hour >= 13 && hour <= 18) return `下午${hour - 12}時`;
+            if (hour >= 19 && hour <= 23) return `晚上${hour - 12}時`;
+            return '';
+        }
+
+        function generateTyphoonBulletin(stormData) {
+            if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
+            const chineseTime = formatChineseTime(stormData.time);
+            const timePrefix = chineseTime ? `${chineseTime}，` : '';
+            const distParts = stormData.distToMacau.split(' ');
+            const engDir = distParts[0];
+            const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
+            const dirChinese = distanceDirections[engDir] || engDir;
+
+            let windClause = "";
+            if (!stormData.isEx && stormData.wind && stormData.wind !== '-') {
+                const windKmh = stormData.wind.replace(' km/h', '');
+                windClause = `，其中心附近最高持續風速約為每小時${windKmh}公里`;
+            }
+
+            let movementClause = "";
+            if (stormData.movement && stormData.movement !== '-' && stormData.movement !== '靜止') {
+                const movParts = stormData.movement.split(' ');
+                const movEngDir = movParts[0];
+                const movSpeed = movParts[1] ? movParts[1].replace('km/h', '').trim() : '';
+                const movDirChinese = movementDirections[movEngDir] || movEngDir;
+                if (movDirChinese && movSpeed) {
+                    movementClause = `，向${movDirChinese}移動，時速${movSpeed}公里`;
+                }
+            }
+            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近${windClause}${movementClause}。`;
+        }
+
+        function getIntensity(windInput, isEx) {
+            if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
+                return { code: "Ex", name: "溫帶氣旋", color: "#64748b" };
+            }
+            const windKmh = parseFloat(windInput) || 0;
+            if (typeof TC_INTENSITY_TABLE !== 'undefined') {
+                for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
+                    let item = TC_INTENSITY_TABLE[i];
+                    if (windKmh <= item.max_wind) return item;
+                }
+                return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
+            }
+            return { code: "TS", name: "熱帶風暴", color: "#34d399" };
+        }
+
+        const MACAU_COORDS = [113.5685, 22.1595];
+
+        function getDistanceAndDirectionToMacau(tLon, tLat) {
+            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) return "未知距離";
+            const R = 6371;
+            const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
+            const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            let dist = Math.round(R * c / 10) * 10;
+
+            const lat1Rad = MACAU_COORDS[1] * Math.PI / 180;
+            const lat2Rad = tLat * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+
+            const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+            const index = Math.round((brng % 360) / 22.5) % 16;
+            return `${directions[index]} ${dist} km`;
+        }
+
+        function getDirection(lon1, lat1, lon2, lat2) {
+            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) return "靜止";
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+            const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+            return directions[Math.round((brng % 360) / 22.5) % 16];
+        }
+
+        function calculateMovementStr(forecastPoints) {
+            if (!forecastPoints || forecastPoints.length < 2) return '-';
+            let p0 = forecastPoints[0];
+            let p1 = null;
+            for (let i = 1; i < forecastPoints.length; i++) {
+                if (forecastPoints[i].hour > 0) {
+                    p1 = forecastPoints[i];
+                    break;
+                }
+            }
+            if (!p1) p1 = forecastPoints[1];
+            const hour = p1.hour > 0 ? p1.hour : 3;
+            const direction = getDirection(p0.lon, p0.lat, p1.lon, p1.lat);
+            const R = 6371;
+            const dLat = (p1.lat - p0.lat) * Math.PI / 180;
+            const dLon = (p1.lon - p0.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(p0.lat * Math.PI / 180) * Math.cos(p1.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const speed = Math.round(dist / hour);
+            return `${direction} ${speed} km/h`;
+        }
+
+        function parseCSVToTyphoon(csvText, letter) {
+            const lines = csvText.split('\n');
+            let currentMeta = null;
+            let rows = [];
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line.startsWith('#') || line.toLowerCase().startsWith('category')) continue;
+                const cols = line.split(',').map(c => c.trim());
+                if (cols.length < 6) continue;
+
+                const rawCategory = cols[0];
+                const time = cols[1];
+                const rowName = cols[2];
+                const lat = parseFloat(cols[3]);
+                const lon = parseFloat(cols[4]);
+                const rawWind = cols[5];
+
+                if (isNaN(lat) || isNaN(lon)) continue;
+
+                let isEx = false;
+                let windVal = 0;
+                if (rawWind && rawWind.toUpperCase() === 'EX') {
+                    isEx = true;
+                } else {
+                    windVal = parseFloat(rawWind) || 0;
+                }
+
+                if (rawCategory.toLowerCase() === 'current' || rawCategory === '0h' || rawCategory === '0') {
+                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx, rawWind, rawCategory };
+                }
+
+                rows.push({ category: rawCategory, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
+            }
+
+            if (rows.length === 0) return null;
+
+            if (!currentMeta) {
+                const anchor = rows.find(r => r.category.toLowerCase() === '0h' || r.category.toLowerCase() === 'current' || r.category === '0') || rows[0];
+                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx, rawWind: anchor.rawWind, rawCategory: anchor.category };
+            }
+
+            const name = currentMeta.name;
+            const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
+
+            let categoryDesc = intensityObj.name;
+            if (intensityNameMap[currentMeta.rawCategory]) {
+                categoryDesc = intensityNameMap[currentMeta.rawCategory];
+            } else if (intensityNameMap[currentMeta.rawWind]) {
+                categoryDesc = intensityNameMap[currentMeta.rawWind];
+            } else if (intensityNameMap[currentMeta.category]) {
+                categoryDesc = intensityNameMap[currentMeta.category];
+            }
+
+            let forecastPoints = [];
+            let tempForecastRows = rows.filter(r => r.category.toLowerCase() === 'current' || r.category.toLowerCase() === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
+            if (tempForecastRows.length === 0) tempForecastRows = rows;
+
+            tempForecastRows.forEach(fr => {
+                let hour = 0;
+                if (fr.category.toLowerCase() !== 'current' && fr.category.toLowerCase() !== '0h' && fr.category !== '0') {
+                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
+                }
+                forecastPoints.push({ lon: fr.lon, lat: fr.lat, hour: hour });
+            });
+
+            const movementStr = calculateMovementStr(forecastPoints);
+            const windDisplay = currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`;
+            const distToMacau = getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat);
+
+            return {
+                name,
+                category: categoryDesc,
+                intensityObj,
+                intensityCode: intensityObj.code,
+                wind: windDisplay,
+                time: currentMeta.time,
+                movement: movementStr,
+                lat: currentMeta.lat,
+                lon: currentMeta.lon,
+                distToMacau
+            };
+        }
+
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                }
+            });
+        }
+
+        function switchTrackImage(imagePath, btnElement) {
+            activeTrackImagePath = imagePath;
+            const imgEl = document.getElementById('tcTrackImageViewer');
+            const mapContainer = document.getElementById('tcMapContainer');
+
+            if (mapContainer && !document.getElementById('tcTrackImageViewer')) {
+                mapContainer.innerHTML = `<img id="tcTrackImageViewer" src="${imagePath}?_t=${Date.now()}" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain">`;
+            } else if (imgEl) {
+                imgEl.src = imagePath + '?_t=' + Date.now();
+            }
+
+            const buttons = document.querySelectorAll('#trackImageButtons button');
+            buttons.forEach(btn => btn.classList.remove('chip-active'));
+            if (btnElement) {
+                btnElement.classList.add('chip-active');
+            }
+        }
+
+        function refreshTrackImageViewer() {
+            const imgEl = document.getElementById('tcTrackImageViewer');
+            if (imgEl) {
+                imgEl.src = activeTrackImagePath + '?_t=' + Date.now();
+            }
+        }
+
+        function generateStormCardHtml(stormData) {
+            return `
+                <div class="storm-mini" style="--sc:${stormData.intensityObj.color};">
+                    <div class="flex justify-between items-center mb-2.5">
+                        <span class="text-sm font-bold" style="color:var(--text);">${stormData.name}</span>
+                        <span class="tag" style="background-color:${stormData.intensityObj.color}1a; border:1px solid ${stormData.intensityObj.color}55; color:${stormData.intensityObj.color};">${stormData.category}</span>
+                    </div>
+                    <table class="kv-table num">
+                        <tbody>
+                            <tr><td>實況時間</td><td>${stormData.time || '-'}</td></tr>
+                            <tr><td>最大風速</td><td>${stormData.wind}</td></tr>
+                            <tr><td>中心位置</td><td>${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td></tr>
+                            <tr><td>移動方向</td><td>${stormData.movement}</td></tr>
+                            <tr><td>距離澳門</td><td>${stormData.distToMacau}</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-3 pt-3 border-t border-[var(--line)]">
+                        <div class="micro mb-1.5 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-lines accent"></i> 熱帶氣旋報文
+                        </div>
+                        <div class="info-box" style="padding:10px;">
+                            ${generateTyphoonBulletin(stormData)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function initTrackButtonsAndLoadAllData() {
+            const container = document.getElementById('trackImageButtons');
+            const gaugeTabsContainer = document.getElementById('gaugeStormTabs');
+            const detailPanelContent = document.getElementById('tcDetailContent');
+            const gaugeCard = document.getElementById('activeSystemGaugeCard');
+            const trackCard = document.getElementById('tcTrackCard');
+            if (!container) return;
+
+            const previousStormKey = activeStormKey;
+            const files = ['A', 'B', 'C', 'D', 'E', 'F'];
+            let allCyclonesHtml = '';
+            let activeCount = 0;
+            allActiveStorms = {};
+
+            // 重新建立軌跡切換按鈕
+            container.innerHTML = '';
+            const allBtn = document.createElement('button');
+            allBtn.className = (activeTrackImagePath === 'output/TC/all.png') ? "chip chip-active" : "chip";
+            allBtn.textContent = "全部熱帶氣旋";
+            allBtn.onclick = function() { switchTrackImage('output/TC/all.png', this); };
+            container.appendChild(allBtn);
+
+            if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
+
+            for (const f of files) {
+                const csvPath = `TCdata/${f}.csv`;
+                const imgPath = `output/TC/${f}.png`;
+
+                try {
+                    // 加入 no-store 與時間戳記防止快取舊 CSV
+                    const response = await fetch(`${csvPath}?_t=${Date.now()}`, { cache: 'no-store' });
+                    if (!response.ok) continue;
+                    const text = await response.text();
+                    if (!text || text.trim() === '') continue;
+
+                    const stormData = parseCSVToTyphoon(text, f);
+                    if (!stormData) continue;
+
+                    activeCount++;
+                    allActiveStorms[f] = stormData;
+
+                    // 路徑圖按鈕
+                    const btn = document.createElement('button');
+                    btn.className = (activeTrackImagePath === imgPath) ? "chip chip-active" : "chip";
+                    btn.textContent = stormData.name;
+                    btn.onclick = function() { switchTrackImage(imgPath, this); };
+                    container.appendChild(btn);
+
+                    // 儀表盤頁籤按鈕
+                    if (gaugeTabsContainer) {
+                        const gaugeBtn = document.createElement('button');
+                        gaugeBtn.className = "chip";
+                        gaugeBtn.textContent = stormData.name;
+                        gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
+                        gaugeTabsContainer.appendChild(gaugeBtn);
+                    }
+
+                    allCyclonesHtml += generateStormCardHtml(stormData);
+
+                } catch (err) {
+                    console.log(`TCdata/${f}.csv 無內容或讀取失敗`);
+                }
+            }
+
+            // 確定目前儀表盤活頁卡 Selected Key
+            const activeKeys = Object.keys(allActiveStorms);
+            if (activeKeys.length > 0) {
+                if (!activeKeys.includes(previousStormKey)) {
+                    activeStormKey = activeKeys[0];
+                } else {
+                    activeStormKey = previousStormKey;
+                }
+            } else {
+                activeStormKey = null;
+            }
+
+            // 更新儀表盤按鈕狀態與數值
+            if (gaugeTabsContainer) {
+                gaugeTabsContainer.style.display = activeCount === 0 ? 'none' : 'flex';
+                const gaugeButtons = gaugeTabsContainer.querySelectorAll('button');
+                activeKeys.forEach((key, idx) => {
+                    if (gaugeButtons[idx]) {
+                        if (key === activeStormKey) {
+                            gaugeButtons[idx].classList.add('chip-active');
+                        } else {
+                            gaugeButtons[idx].classList.remove('chip-active');
+                        }
+                    }
+                });
+            }
+
+            if (activeStormKey && allActiveStorms[activeStormKey]) {
+                updateWindGauge(allActiveStorms[activeStormKey]);
+            }
+
+            if (container) {
+                container.style.display = activeCount === 0 ? 'none' : 'flex';
+            }
+
+            if (activeCount === 0) {
+                if (gaugeCard) gaugeCard.style.display = 'none';
+                if (trackCard) trackCard.style.display = 'none';
+            } else {
+                if (detailPanelContent) detailPanelContent.innerHTML = allCyclonesHtml;
+                if (gaugeCard) gaugeCard.style.display = 'block';
+                if (trackCard) trackCard.style.display = 'block';
+            }
+
+            refreshTrackImageViewer();
+            checkAllPngAndHandleMessage();
+        }
+
+        function checkAllPngAndHandleMessage() {
+            const mapContainer = document.getElementById('tcMapContainer');
+            const allImg = new Image();
+            allImg.onerror = function() {
+                if (mapContainer) {
+                    mapContainer.innerHTML = '<div class="dim py-12 text-center text-sm">現時沒有熱帶氣旋路徑圖</div>';
+                }
+            };
+            allImg.src = 'output/TC/all.png?_t=' + Date.now();
+        }
+
+        function toTraditionalLunar(text) {
+            if (!text) return '';
+            const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
+            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
+        }
+
+        function updateDateTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const weekday = weekdays[now.getDay()];
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+
+            document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
+
+            const lunarEl = document.getElementById('lunar-date');
+            if (lunarEl && typeof Solar !== 'undefined') {
+                try {
+                    const solar = Solar.fromDate(now);
+                    const lunar = solar.getLunar();
+                    lunarEl.textContent = `${lunar.getYearInGanZhi()}${toTraditionalLunar(lunar.getYearShengXiao())}年${toTraditionalLunar(lunar.getMonthInChinese())}月${toTraditionalLunar(lunar.getDayInChinese())}日`;
+                } catch (e) {
+                    lunarEl.textContent = '';
+                }
+            }
+        }
+
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const tcCard = document.getElementById('tcCard');
+            if (typeof tcText === 'undefined' || !tcText || tcText.trim() === '') {
+                if (tcCard) tcCard.style.display = 'none';
+            } else {
+                if (tcCard) tcCard.style.display = 'block';
+                const tcContentEl = document.getElementById('tcContent');
+                if (tcContentEl) tcContentEl.innerHTML = formatTextToHtml(tcText);
+            }
+
+            const tcNewsCard = document.getElementById('tcNewsCard');
+            const tcNewsContentEl = document.getElementById('tcNewsContent');
+            if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
+                if (tcNewsCard) tcNewsCard.style.display = 'none';
+            } else {
+                if (tcNewsCard) tcNewsCard.style.display = 'block';
+                if (tcNewsContentEl) tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
+            }
+
+            // 渲染熱帶氣旋預測警報表格
+            if (typeof TC_WARNING_DATA !== 'undefined' && typeof renderTcForecastTable === 'function') {
+                renderTcForecastTable(TC_WARNING_DATA);
+            }
+
+            // 初次載入數據
+            initTrackButtonsAndLoadAllData();
+
+            // 設定自動定時重新載入數據 (每 60 秒自動更新)
+            setInterval(initTrackButtonsAndLoadAllData, 60000);
+        });
     </script>
 </body>
 </html>
