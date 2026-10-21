@@ -5,1041 +5,638 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>熱帶氣旋專區 - 澳門民間氣象台 MSSO</title>
 
-    <!-- Google Fonts: Plus Jakarta Sans for modern UI, JetBrains Mono for data -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                    }
-                }
-            }
-        }
-    </script>
+    
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Lunar Calendar Script -->
-    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     
+    <!-- 自動農曆計算套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+
     <style>
-        /* ============ Modern Design Tokens ============ */
-        :root, html:not(.dark) {
-            --bg-page: #f4f4f5; 
-            --bg: #ffffff; 
-            --bg-2: #f8fafc;
-            --line: #e2e8f0; 
-            --line-strong: #cbd5e1;
-            --text: #0f172a; 
-            --muted: #64748b; 
-            --faint: #94a3b8;
-            --accent: #0ea5e9; 
-            --accent-glow: rgba(14, 165, 233, 0.4);
-            --cream: #1e293b; 
-            --cream-text: #f8fafc;
-            --track-color: #f1f5f9; 
-            --needle-color: #0f172a; 
-            --text-3: #94a3b8;
-        }
-        html.dark {
-            --bg-page: #020617; 
-            --bg: #0f172a; 
-            --bg-2: #1e293b;
-            --line: #334155; 
-            --line-strong: #475569;
-            --text: #f8fafc; 
-            --muted: #94a3b8; 
-            --faint: #64748b;
-            --accent: #38bdf8; 
-            --accent-glow: rgba(56, 189, 248, 0.3);
-            --cream: #f8fafc; 
-            --cream-text: #0f172a;
-            --track-color: #1e293b; 
-            --needle-color: #f8fafc; 
-            --text-3: #64748b;
+        :root {
+            --bg-page: #f4f6f9;
+            --text-main: #1a1e20;
+            --accent-red: #cc1e1e;
+            --accent-red-light: #fce8e8;
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
-            background: var(--bg-page); 
-            color: var(--text);
-            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* ============ Scrollbar ============ */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+        /* Hazard Stripe Top Border */
+        .hazard-stripe {
+            height: 16px;
+            width: 100%;
+            background: repeating-linear-gradient(
+                -45deg,
+                #cc1e1e,
+                #cc1e1e 24px,
+                #1e1e1e 24px,
+                #1e1e1e 48px
+            );
+        }
 
-        /* ============ Utility Classes ============ */
-        .micro { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-        .dim { color: var(--faint); }
-        .mut { color: var(--muted); }
-        .accent { color: var(--accent); }
-        .num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
-        .glass { background: var(--bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        /* Subtle background swirls */
+        .bg-swirls {
+            position: absolute;
+            top: -10%;
+            right: -10%;
+            width: 120%;
+            height: 120%;
+            z-index: -1;
+            pointer-events: none;
+            background-image: 
+                radial-gradient(circle at 80% 20%, rgba(210, 40, 45, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 10% 80%, rgba(210, 40, 45, 0.02) 0%, transparent 40%);
+        }
+
+        .bg-swirls::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                url('data:image/svg+xml;utf8,<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg"><path d="M 0,200 Q 100,100 200,200 T 400,200" fill="none" stroke="rgba(200,0,0,0.03)" stroke-width="1"/></svg>');
+            background-size: 400px 400px;
+        }
+
+        /* Custom Card Styling */
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            border-top: 1px solid #fce8e8;
+            border-bottom: 3px solid #e2e8f0;
+            border-left: 1px solid #f1f5f9;
+            border-right: 1px solid #f1f5f9;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
         
-        @keyframes spin-slow { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-        @keyframes pulseRing { 0%{transform:scale(0.8);opacity:.8;} 100%{transform:scale(2.5);opacity:0;} }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: rgba(220, 38, 38, 0.1);
+        }
 
-        /* ============ Modern Panels ============ */
-        .panel { 
-            background: var(--bg); 
-            border: 1px solid var(--line); 
-            border-radius: 1.25rem; /* 20px */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.025);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        .red-badge {
+            background-color: #d82b32;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* Map Container */
+        .map-container {
+            background-color: #f1f5f8;
+            border: 2px solid #e11d48;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            background-image: 
+                linear-gradient(rgba(225, 29, 72, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(225, 29, 72, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
             overflow: hidden;
         }
-        .panel:hover {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
-        }
-        .panel-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 12px;
-            padding: 16px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
-            background: var(--bg-2);
-        }
-        .panel-title { font-size: 14px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
-        .panel-num { color: var(--accent); font-weight: 800; background: var(--accent-glow); padding: 2px 8px; border-radius: 6px; font-size: 12px;}
-        .panel-body { padding: 20px; }
 
-        /* ============ Buttons & Interactive ============ */
-        .icon-btn {
-            width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; background: var(--bg-2); color: var(--muted); border: 1px solid var(--line);
-            cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-size: 16px;
+        .map-overlay-swirl {
+            position: absolute; top: 0; right: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; opacity: 0.2;
         }
-        .icon-btn:hover { color: var(--accent); border-color: var(--accent); transform: scale(1.05); box-shadow: 0 0 15px var(--accent-glow); }
-        .icon-btn:active { transform: scale(0.95); }
-        .ic-moon { display: inline; } .ic-sun { display: none; }
-        html.dark .ic-moon { display: none; } html.dark .ic-sun { display: inline; }
 
-        .btn {
-            border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--text);
-            font-size: 13px; font-weight: 700; padding: 10px 20px; border-radius: 10px; cursor: pointer; 
-            transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
-        }
-        .btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
-        .btn:active { transform: scale(0.98); }
-        
-        .btn-primary { 
-            background: linear-gradient(135deg, var(--accent) 0%, #2563eb 100%); 
-            color: #fff; border: none; box-shadow: 0 4px 10px var(--accent-glow);
-        }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 15px var(--accent-glow); color:#fff; border:none; background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 100%);}
-
-        /* ============ Chips / Tabs ============ */
+        /* Chips for Storm Selection */
         .chip {
-            padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
-            border-radius: 20px; border: 1px solid var(--line); background: var(--bg-2); color: var(--muted); transition: all 0.2s;
+            padding: 6px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+            border: 1px solid #cbd5e1; background: white; color: #64748b; border-radius: 9999px; transition: .15s;
         }
-        .chip:hover { color: var(--text); border-color: var(--faint); transform: translateY(-1px); }
-        .chip-active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 4px 10px var(--accent-glow); }
-        .chip-active:hover { color: #fff; border-color: var(--accent); }
+        .chip:hover { border-color: #94a3b8; color: #1e293b; }
+        .chip-active { background: #d82b32; border-color: #d82b32; color: white; }
+        .chip-active:hover { color: white; }
 
-        /* ============ Badges & Status ============ */
-        .badge {
-            display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700;
-            border-radius: 8px; text-transform: uppercase; letter-spacing: 0.05em;
-        }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; position: relative; }
-        .status-dot::after {
-            content: ''; position: absolute; inset: -2px; border-radius: 50%;
-            background: inherit; animation: pulseRing 2s infinite cubic-bezier(0.4, 0, 0.6, 1); opacity: 0.5;
-        }
-
-        /* ============ Tables ============ */
-        .data-table { width: 100%; text-align: left; font-size: 13px; border-collapse: separate; border-spacing: 0; }
+        /* Data Tables */
+        .data-table { width: 100%; text-align: left; font-size: 13px; border-collapse: collapse; }
         .data-table thead th {
-            padding: 12px 16px; border-bottom: 2px solid var(--line); background: var(--bg-2);
-            font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 700;
+            padding: 12px 16px; border-bottom: 2px solid #e2e8f0; background: #f8fafc;
+            font-size: 12px; letter-spacing: .05em; color: #475569; font-weight: 700;
         }
-        .data-table thead th:first-child { border-top-left-radius: 12px; }
-        .data-table thead th:last-child { border-top-right-radius: 12px; }
-        .data-table tbody td { padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--text); transition: background 0.2s; }
-        .data-table tbody tr:last-child td { border-bottom: none; }
-        .data-table tbody tr:hover td { background: var(--bg-2); }
+        .data-table tbody td { padding: 14px 16px; border-bottom: 1px solid #e2e8f0; }
 
-        .kv-table { width: 100%; text-align: left; border-collapse: collapse; font-size: 13px; }
-        .kv-table td { padding: 10px 0; border-bottom: 1px dashed var(--line); }
-        .kv-table tr:last-child td { border-bottom: none; }
-        .kv-table td:first-child { color: var(--muted); font-weight: 500; }
-        .kv-table td:last-child { color: var(--text); font-weight: 700; text-align: right; }
+        /* General Panel */
+        .panel { background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 
-        /* ============ Info Box ============ */
-        .info-box {
-            background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
-            font-size: 14px; line-height: 1.8; color: var(--text); position: relative;
+        /* Bottom Nav */
+        .bottom-fixed-bar { background: white; border-top: 1px solid #e2e8f0; box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.05); }
+        .bottom-bar-btn {
+            position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+            padding: 8px 14px 6px; color: #94a3b8; font-size: 10px; font-weight: 700; text-decoration: none; transition: .15s;
         }
-
-        /* ============ Map Frame & Fullscreen ============ */
-        .map-frame { 
-            background: #020617; border-radius: 16px; border: 1px solid var(--line-strong); 
-            position: relative; overflow: hidden; transition: all 0.3s ease;
-        }
-        .map-frame.fullscreen {
-            position: fixed; inset: 0; z-index: 9999; border-radius: 0; 
-            display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.95);
-        }
-        .map-frame.fullscreen img { max-height: 95vh; width: auto; object-fit: contain; }
-        .fs-btn { position: absolute; top: 12px; right: 12px; z-index: 10; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 8px; width: 36px; height: 36px; cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s; }
-        .fs-btn:hover { background: var(--accent); transform: scale(1.05); }
-
-        /* ============ Gauge SVG Enhancements ============ */
-        .gauge { position: relative; width: 100%; max-width: 300px; aspect-ratio: 200/128; margin: 0 auto; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.05)); }
-        .gauge svg { width: 100%; height: 100%; overflow: visible; display: block; }
-        .g-track { fill: none; stroke: var(--track-color); stroke-width: 14; stroke-linecap: round; }
-        .g-band { fill: none; stroke-width: 5; opacity: 0.9; stroke-linecap: round; }
-        .g-prog { fill: none; stroke-width: 14; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke 0.5s ease; }
-        .g-needle { transform-origin: 100px 100px; transform: rotate(0deg); }
-        .g-needle polygon { fill: var(--needle-color); }
-        .g-needle circle { fill: var(--needle-color); }
-        .g-tick { font-size: 8px; fill: var(--muted); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-        .gauge-val { position: absolute; left: 0; right: 0; bottom: -10px; text-align: center; line-height: 1; }
-        .gauge-val b { font-size: 3.5rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.02em; color: var(--text); text-shadow: 0 4px 10px var(--accent-glow); }
-        .gauge-val small { display: block; font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-top: 4px; letter-spacing: 0.15em; }
-
-        /* ===== Modern Floating Bottom Nav ===== */
-        .bottom-dock {
-            position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-            background: rgba(var(--bg-rgb, 255,255,255), 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--line); border-radius: 100px; padding: 6px 12px;
-            display: flex; gap: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); z-index: 50;
-        }
-        html.dark .bottom-dock { --bg-rgb: 15,23,42; background: rgba(15,23,42, 0.75); border-color: rgba(255,255,255,0.1); }
-        
-        .dock-item {
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            width: 64px; height: 56px; border-radius: 16px; color: var(--faint);
-            font-size: 10px; font-weight: 700; text-decoration: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            gap: 4px;
-        }
-        .dock-item i { font-size: 18px; transition: transform 0.3s; }
-        .dock-item:hover { color: var(--text); background: var(--bg-2); }
-        .dock-item:hover i { transform: translateY(-2px); }
-        .dock-item.active { color: var(--accent); background: var(--accent-glow); }
-        .dock-item.active i { transform: translateY(-2px); filter: drop-shadow(0 2px 4px var(--accent-glow)); }
-
-        /* Storm mini card updates */
-        .storm-mini {
-            border-radius: 12px; border: 1px solid var(--line); background: var(--bg-2);
-            padding: 16px; margin-bottom: 16px; position: relative; overflow: hidden;
-        }
-        .storm-mini::before {
-            content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--sc, var(--accent));
-        }
+        .bottom-bar-btn:hover { color: #475569; }
+        .bottom-bar-btn.active { color: #d82b32; }
     </style>
-    <script>
-        const currentHour = new Date().getHours();
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme) {
-            if (savedTheme === 'dark') document.documentElement.classList.add('dark');
-            else document.documentElement.classList.remove('dark');
-        } else {
-            if (currentHour >= 8 && currentHour < 20) document.documentElement.classList.remove('dark');
-            else document.documentElement.classList.add('dark');
-        }
-    </script>
 </head>
-<body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-6 pb-32">
+<body class="relative pb-24">
 
-    <!-- Header (Sticky & Glass) -->
-    <header class="w-full max-w-7xl glass sticky top-4 z-40 rounded-2xl border border-[var(--line)] shadow-sm px-5 py-4 mb-8 flex justify-between items-center transition-all">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30 shrink-0">
-                <i class="fa-solid fa-hurricane text-2xl" style="animation: spin-slow 10s linear infinite;"></i>
+    <!-- Hazard Top Stripe -->
+    <div class="hazard-stripe"></div>
+
+    <!-- Background texture -->
+    <div class="bg-swirls"></div>
+
+    <main class="max-w-[1400px] mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+        
+        <!-- Header Section -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <!-- Left Pill -->
+            <div class="inline-flex items-center gap-2 bg-[#fce8e8] border border-red-200 text-[#c81e1e] px-4 py-1.5 rounded-full font-bold text-sm shadow-sm">
+                <div class="w-2.5 h-2.5 bg-red-600 rounded-full animate-pulse"></div>
+                <span>做好防颱準備 | 澳門民間氣象台</span>
+                <span class="text-red-300 mx-1">|</span>
+                <span id="header-time-pill">載入中...</span>
             </div>
-            <div>
-                <h1 class="text-xl md:text-2xl font-extrabold tracking-tight flex items-center gap-3">
-                    熱帶氣旋專區
-                    <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold uppercase tracking-wider">
-                        <span class="status-dot bg-red-500"></span> LIVE
-                    </div>
-                </h1>
-                <div class="mt-1 flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                    <div id="current-datetime" class="num text-sm font-bold text-[var(--accent)]">載入中...</div>
-                    <div class="hidden sm:block w-1 h-1 rounded-full bg-[var(--line-strong)]"></div>
-                    <div id="lunar-date" class="text-xs text-[var(--muted)] font-medium">農曆計算中...</div>
-                </div>
-            </div>
-        </div>
-        <button id="theme-toggle" class="icon-btn" title="切換主題">
-            <i class="fa-solid fa-moon ic-moon"></i>
-            <i class="fa-solid fa-sun ic-sun"></i>
-        </button>
-    </header>
-
-    <!-- Main Container -->
-    <div class="w-full max-w-7xl space-y-8 flex-grow">
-
-        <!-- GIS Feature Banner -->
-        <div class="panel overflow-hidden relative group" id="gisEntryCard">
-            <!-- Background Decoration -->
-            <div class="absolute inset-0 bg-gradient-to-r from-blue-900/90 to-slate-900 z-0"></div>
-            <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl group-hover:bg-blue-400/30 transition-all duration-500 z-0"></div>
             
-            <div class="relative z-10 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div class="flex items-center gap-5 text-white">
-                    <div class="w-14 h-14 rounded-full bg-white/10 border border-white/20 flex items-center justify-center backdrop-blur-sm">
-                        <i class="fa-solid fa-earth-asia text-2xl text-blue-300"></i>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-bold text-white tracking-wide">互動式 GIS 路徑圖</h2>
-                        <p class="text-sm text-blue-100/70 mt-1 font-medium">提供高精度地理資訊系統的氣旋路徑追蹤與強度分析</p>
-                    </div>
-                </div>
-                <a href="tcgis.html" class="btn btn-primary shrink-0 px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-map-location-dot"></i> 開啟 GIS 系統
-                </a>
+            <!-- Right Pill -->
+            <div class="bg-[#e2e8f0] text-slate-600 px-4 py-1.5 rounded-full font-bold text-sm tracking-wide shadow-sm border border-gray-200 flex flex-col items-end">
+                <span id="current-datetime">載入中...</span>
             </div>
+        </header>
+
+        <!-- Active Storm Controls -->
+        <div id="gaugeStormTabs" class="flex flex-wrap items-center gap-2 mb-2 hidden">
+            <!-- Dynamically populated chips -->
         </div>
 
-        <!-- Dashboard Widgets -->
-        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8" id="dashboard-content">
+        <!-- Main Title -->
+        <div class="mb-4">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-[#1a1e20] flex items-baseline flex-wrap gap-x-4 gap-y-2">
+                <span id="storm-category-title" class="text-2xl md:text-3xl text-slate-500 font-bold"></span>
+                <span id="storm-name">載入中...</span>
+            </h1>
+        </div>
+
+        <!-- 4 Stats Cards Container -->
+        <div id="activeSystemGaugeCard" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
             
-            <!-- Left Column: Active Systems & Gauge -->
-            <div class="xl:col-span-2 space-y-8">
-                
-                <div class="panel" id="activeSystemGaugeCard">
-                    <div class="panel-head">
-                        <span class="panel-title"><span class="panel-num">01</span> 即時活躍系統與風速</span>
-                        <div id="gaugeStormTabs" class="flex flex-wrap items-center gap-2">
-                            <!-- Dynamic Tabs -->
-                        </div>
+            <!-- Card 1: Max Sustained Wind -->
+            <div class="stat-card p-5">
+                <div class="flex items-center gap-2 text-slate-800 font-bold text-sm mb-2">
+                    <div class="w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[10px]">
+                        <i class="fa-solid fa-wind"></i>
                     </div>
-
-                    <div class="panel-body grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                        
-                        <!-- Right Side (Visual First on Desktop): Gauge -->
-                        <div class="md:order-last flex flex-col items-center justify-center bg-[var(--bg-2)] rounded-2xl p-6 border border-[var(--line)]">
-                            <div class="gauge" id="windGaugeContainer" data-speed="0"></div>
-                        </div>
-
-                        <!-- Left Side: Data & Bulletin -->
-                        <div id="gaugeStormInfo" class="space-y-6 md:order-first">
-                            <div class="space-y-2">
-                                <div class="flex items-center gap-3 flex-wrap">
-                                    <span id="gaugeStormBadge" class="badge text-white" style="background-color:#0284c7;">載入中</span>
-                                    <span id="gaugeStormTimePill" class="text-xs font-bold text-red-500 bg-red-500/10 px-2.5 py-1 rounded-md border border-red-500/20 flex items-center gap-2">
-                                        <span class="status-dot bg-red-500"></span>
-                                        <span class="num" id="gaugeStormTimePillText">-</span>
-                                    </span>
-                                </div>
-                                <h2 id="gaugeStormName" class="text-3xl md:text-4xl font-extrabold tracking-tight">載入中...</h2>
-                            </div>
-
-                            <table class="kv-table num bg-[var(--bg-2)] p-4 rounded-xl border border-[var(--line)] block w-full">
-                                <tbody class="block w-full">
-                                    <tr class="flex justify-between w-full px-4 pt-2"><td>實況時間</td><td id="gaugeStormTime">-</td></tr>
-                                    <tr class="flex justify-between w-full px-4"><td>最大風速</td><td id="gaugeStormWind" class="text-[var(--accent)]">-</td></tr>
-                                    <tr class="flex justify-between w-full px-4"><td>中心位置</td><td id="gaugeStormPos">-</td></tr>
-                                    <tr class="flex justify-between w-full px-4"><td>移動方向</td><td id="gaugeStormMove">-</td></tr>
-                                    <tr class="flex justify-between w-full px-4 pb-2 border-b-0"><td>距離澳門</td><td id="gaugeStormDist">-</td></tr>
-                                </tbody>
-                            </table>
-
-                            <div class="relative">
-                                <div class="flex justify-between items-center mb-2">
-                                    <div class="micro flex items-center gap-2">
-                                        <i class="fa-solid fa-file-lines text-[var(--accent)]"></i> 熱帶氣旋報文
-                                    </div>
-                                    <!-- NEW: Copy Button -->
-                                    <button onclick="copyBulletin()" class="text-xs font-bold text-[var(--muted)] hover:text-[var(--accent)] transition-colors flex items-center gap-1 bg-[var(--bg-2)] px-2 py-1 rounded border border-[var(--line)]">
-                                        <i class="fa-regular fa-copy"></i> 複製
-                                    </button>
-                                </div>
-                                <div class="info-box shadow-inner" id="gaugeStormBulletin">請稍候...</div>
-                            </div>
-                        </div>
-                    </div>
+                    近中心最大風速
                 </div>
-
-                <!-- Track Map Area -->
-                <div class="panel" id="tcTrackCard">
-                    <div class="panel-head">
-                        <span class="panel-title"><span class="panel-num">02</span> 熱帶氣旋路徑圖</span>
-                        <div class="flex flex-wrap items-center gap-2" id="trackImageButtons">
-                            <button onclick="switchTrackImage('output/TC/all.png', this)" class="chip chip-active">全部氣旋</button>
-                        </div>
-                    </div>
-
-                    <div class="panel-body space-y-6">
-                        <div id="tcMapContainer" class="map-frame w-full flex justify-center group relative">
-                            <!-- NEW: Fullscreen toggle -->
-                            <button onclick="toggleFullscreenMap()" class="fs-btn opacity-0 group-hover:opacity-100 focus:opacity-100" title="全螢幕檢視">
-                                <i class="fa-solid fa-expand"></i>
-                            </button>
-                            <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain max-h-[600px]">
-                        </div>
-
-                        <!-- Legend -->
-                        <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 p-4 bg-[var(--bg-2)] rounded-xl border border-[var(--line)]">
-                            <span class="text-xs font-bold text-[var(--muted)] mr-2 uppercase tracking-widest"><i class="fa-solid fa-layer-group"></i> 圖例</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#64748b;"></span>溫帶氣旋</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#94a3b8;"></span>低壓區</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#38bdf8;"></span>熱帶低氣壓</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#34d399;"></span>熱帶風暴</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#fbbf24;"></span>強烈熱帶風暴</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#fb923c;"></span>颱風</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#f87171;"></span>強颱風</span>
-                            <span class="flex items-center gap-2 text-xs font-semibold"><span class="w-2.5 h-2.5 rounded-full" style="background:#c084fc;"></span>超強颱風</span>
-                        </div>
-                    </div>
+                <div class="flex items-baseline gap-2 mb-1">
+                    <span id="stat-wind-val" class="text-4xl lg:text-5xl font-black tracking-tighter">-</span>
+                    <span id="stat-wind-unit" class="text-lg font-bold">m/s</span>
+                    <span id="stat-wind-badge" class="red-badge ml-2 tracking-widest hidden"></span>
                 </div>
-
+                <div class="text-[11px] text-red-400 font-bold uppercase tracking-wider mt-1">Max Sustained Wind</div>
             </div>
 
-            <!-- Right Column: Sidebar Data -->
-            <div class="xl:col-span-1 space-y-8">
-                
-                <!-- Forecast Table -->
-                <div class="panel" id="tcForecastTableCard">
-                    <div class="panel-head flex-col items-start gap-2">
-                        <span id="tableMainTitle" class="panel-title"><span class="panel-num">03</span> 預測機率表</span>
-                        <span id="tableUpdateTime" class="num text-xs bg-[var(--bg-2)] border border-[var(--line)] px-2 py-1 rounded text-[var(--muted)]">-</span>
+            <!-- Card 2: Movement Speed -->
+            <div class="stat-card p-5">
+                <div class="flex items-center gap-2 text-slate-800 font-bold text-sm mb-2">
+                    <div class="w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[10px]">
+                        <i class="fa-solid fa-gauge-high"></i>
                     </div>
-                    <div id="tableContent" class="overflow-x-auto">
-                        <!-- Dynamic Table -->
+                    移動速度
+                </div>
+                <div class="flex items-baseline gap-2 mb-1">
+                    <span id="stat-move-val" class="text-4xl lg:text-5xl font-black tracking-tighter">-</span>
+                    <span id="stat-move-unit" class="text-lg font-bold">km/h</span>
+                    <span id="stat-move-badge" class="red-badge ml-2 tracking-widest bg-red-500 hidden"></span>
+                </div>
+                <div class="text-[11px] text-red-400 font-bold uppercase tracking-wider mt-1">Movement Speed</div>
+            </div>
+
+            <!-- Card 3: Distance to Macau (Replaces Wind Radii) -->
+            <div class="stat-card p-5">
+                <div class="flex items-center gap-2 text-slate-800 font-bold text-sm mb-2">
+                    <div class="w-5 h-5 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-[10px]">
+                        <i class="fa-solid fa-location-crosshairs"></i>
                     </div>
+                    距離澳門
                 </div>
+                <div class="flex items-baseline gap-2 mb-1">
+                    <span id="stat-dist-val" class="text-4xl lg:text-5xl font-black tracking-tighter">-</span>
+                    <span id="stat-dist-unit" class="text-lg font-bold">km</span>
+                    <span id="stat-dist-badge" class="red-badge ml-2 tracking-widest bg-slate-600 hidden"></span>
+                </div>
+                <div class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mt-1">Distance to Macau</div>
+            </div>
 
-                <!-- Instant Data Summary -->
-                <div class="panel" id="tcDetailPanel">
-                    <div class="panel-head bg-transparent border-b-0 pb-0">
-                        <span class="panel-title text-sm"><i class="fa-solid fa-list text-[var(--accent)]"></i> 實況列表</span>
-                        <span class="badge bg-blue-500/10 text-blue-500 border border-blue-500/20">即時讀取</span>
+            <!-- Card 4: Central Position -->
+            <div class="stat-card p-5">
+                <div class="flex items-center gap-2 text-slate-800 font-bold text-sm mb-2">
+                    <div class="w-5 h-5 bg-gray-200 text-gray-600 rounded-full flex items-center justify-center text-[10px]">
+                        <i class="fa-solid fa-compress"></i>
                     </div>
-                    <div class="panel-body" id="tcDetailContent">
-                        <p class="dim text-center py-6 text-sm font-medium">正在讀取熱帶氣旋數據...</p>
-                    </div>
+                    中心位置
                 </div>
-
-                <!-- News & Info -->
-                <div class="panel" id="tcNewsCard">
-                    <div class="panel-head"><span class="panel-title"><span class="panel-num">04</span> 氣象警報</span></div>
-                    <div class="panel-body info-box border-none m-4 mt-0 bg-red-500/5 text-red-600 dark:text-red-400 font-medium" id="tcNewsContent">載入中...</div>
+                <div class="flex items-baseline gap-2 mb-1">
+                    <span id="stat-pos-lat" class="text-3xl lg:text-4xl font-black tracking-tighter">-</span><span class="text-sm font-bold mr-2">°N</span>
+                    <span id="stat-pos-lon" class="text-3xl lg:text-4xl font-black tracking-tighter">-</span><span class="text-sm font-bold">°E</span>
                 </div>
+                <div class="text-[11px] text-gray-400 font-bold uppercase tracking-wider mt-1">Central Position</div>
+            </div>
 
-                <div class="panel" id="tcCard">
-                    <div class="panel-head"><span class="panel-title"><span class="panel-num">05</span> 氣旋資訊</span></div>
-                    <div class="panel-body text-sm leading-relaxed" id="tcContent">載入中...</div>
+            <!-- Bulletin Box Full Width -->
+            <div class="col-span-1 sm:col-span-2 lg:col-span-4 bg-white rounded-xl border border-[#e2e8f0] p-4 shadow-sm flex gap-3 items-start">
+                <i class="fa-solid fa-bullhorn text-red-500 mt-1"></i>
+                <div id="gaugeStormBulletin" class="text-sm text-slate-700 leading-relaxed font-medium">
+                    請稍候，正在讀取氣旋報文...
                 </div>
-
             </div>
         </div>
-    </div>
 
-    <!-- Footer -->
-    <footer class="w-full max-w-7xl mt-12 pt-8 border-t border-[var(--line)] text-center text-xs font-medium text-[var(--muted)] space-y-2 pb-8">
-        <p><strong class="font-bold text-[var(--text)]"><i class="fa-solid fa-triangle-exclamation text-amber-500"></i> 免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
-        <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
-    </footer>
+        <!-- GIS Link -->
+        <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-slate-800">熱帶氣旋 GIS 路徑圖</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">提供互動式地理資訊系統（GIS）路徑追蹤與強度分析</p>
+                </div>
+            </div>
+            <a href="tcgis.html" class="bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold py-2 px-5 rounded-full transition-colors shrink-0">
+                查看 GIS
+            </a>
+        </div>
 
-    <!-- Floating Dock (Redesigned Nav) -->
-    <nav class="bottom-dock">
-        <a href="https://macaosso.github.io/MSSO/index.html" class="dock-item">
-            <i class="fa-solid fa-cloud"></i>
-            <span>天氣實況</span>
-        </a>
-        <a href="https://macaosso.github.io/MSSO/tc.html" class="dock-item active">
-            <i class="fa-solid fa-hurricane text-xl"></i>
-            <span>氣旋專區</span>
-        </a>
-        <a href="https://macaosso.github.io/MSSO/forecast.html" class="dock-item">
-            <i class="fa-solid fa-chart-line"></i>
-            <span>天氣預報</span>
-        </a>
-        <a href="https://macaosso.github.io/MSSO/AQImap.html" class="dock-item">
-            <i class="fa-solid fa-wind"></i>
-            <span>空氣質素</span>
-        </a>
+        <!-- Track Selection & Map Area -->
+        <div id="tcTrackCard" class="space-y-4 hidden">
+            <div class="flex flex-wrap items-center gap-2" id="trackImageButtons">
+                <button onclick="switchTrackImage('output/TC/all.png', this)" class="chip chip-active">全部熱帶氣旋</button>
+            </div>
+
+            <div class="map-container relative w-full h-[400px] md:h-[600px] lg:h-[700px] flex items-center justify-center bg-white">
+                
+                <!-- Map Top Left Pill -->
+                <div class="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-sm font-bold text-sm text-slate-800">
+                    颱風路徑與預報 <span id="map-storm-name" class="text-red-600"></span>
+                </div>
+
+                <!-- Red decorative swirl overlay -->
+                <div class="map-overlay-swirl">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full">
+                        <path d="M 100,0 Q 50,20 80,100" stroke="#dc2626" stroke-width="0.5" fill="none"/>
+                        <path d="M 80,0 Q 30,30 60,100" stroke="#dc2626" stroke-width="0.5" fill="none"/>
+                        <circle cx="90" cy="10" r="50" stroke="#dc2626" stroke-width="0.2" fill="none"/>
+                    </svg>
+                </div>
+
+                <!-- Actual Track Image Viewer -->
+                <img id="tcTrackImageViewer" src="output/TC/all.png" alt="熱帶氣旋路徑圖" class="max-w-full max-h-full object-contain relative z-0" onerror="this.src='https://placehold.co/800x600/f1f5f8/94a3b8?text=暫無路徑圖資料';">
+                
+                <!-- Map Bottom Legend -->
+                <div class="absolute bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 py-3 px-4 md:px-6 flex flex-wrap justify-between items-center text-[11px] md:text-[13px] font-bold text-slate-700 shadow-sm gap-2 z-10">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#64748b]"></span>溫帶氣旋</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#94a3b8]"></span>低壓區</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#38bdf8]"></span>熱帶低氣壓</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#34d399]"></span>熱帶風暴</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#fbbf24]"></span>強烈熱帶風暴</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#fb923c]"></span>颱風</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#f87171]"></span>強颱風</div>
+                        <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full inline-block bg-[#c084fc]"></span>超強颱風</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Forecast Table -->
+        <div class="panel hidden" id="tcForecastTableCard">
+            <div class="px-5 py-4 border-b border-gray-200 flex justify-between items-center bg-white rounded-t-xl">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-table-list text-red-500"></i> 熱帶氣旋警報預測
+                </h3>
+                <span id="tableUpdateTime" class="text-xs font-bold text-slate-500"></span>
+            </div>
+            <div id="tableContent" class="overflow-x-auto bg-white rounded-b-xl"></div>
+        </div>
+
+        <!-- News / Info Sections -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="panel hidden" id="tcNewsCard">
+                <div class="px-5 py-4 border-b border-gray-200 bg-white rounded-t-xl">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-newspaper text-red-500"></i> 熱帶氣旋警報
+                    </h3>
+                </div>
+                <div class="p-5 text-sm text-slate-700 leading-relaxed bg-white rounded-b-xl" id="tcNewsContent">載入中...</div>
+            </div>
+
+            <div class="panel hidden" id="tcCard">
+                <div class="px-5 py-4 border-b border-gray-200 bg-white rounded-t-xl">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-red-500"></i> 熱帶氣旋資訊
+                    </h3>
+                </div>
+                <div class="p-5 text-sm text-slate-700 leading-relaxed bg-white rounded-b-xl" id="tcContent">載入中...</div>
+            </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <footer class="mt-8 pt-6 border-t border-gray-300 text-center text-xs text-slate-500 space-y-1">
+            <p><strong class="font-bold text-slate-700">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。</p>
+            <p>Copyright &copy; 2026 澳門民間氣象台 MSSO. All rights reserved.</p>
+        </footer>
+
+    </main>
+
+    <!-- Bottom Nav Bar -->
+    <nav class="bottom-fixed-bar fixed bottom-0 left-0 right-0 z-50 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        <div class="max-w-3xl mx-auto flex justify-around items-center px-2 py-1">
+            <a href="#" class="bottom-bar-btn">
+                <i class="fa-solid fa-cloud text-lg"></i>
+                <span>天氣實況</span>
+            </a>
+            <a href="#" class="bottom-bar-btn active">
+                <i class="fa-solid fa-hurricane text-lg"></i>
+                <span>熱帶氣旋</span>
+            </a>
+            <a href="#" class="bottom-bar-btn">
+                <i class="fa-solid fa-chart-line text-lg"></i>
+                <span>天氣預報</span>
+            </a>
+            <a href="#" class="bottom-bar-btn">
+                <i class="fa-solid fa-wind text-lg"></i>
+                <span>空氣質素</span>
+            </a>
+        </div>
     </nav>
 
-    <!-- Original External Scripts -->
-    <script src="tc.js"></script>
+    <!-- Core JavaScript Logic from tc.html -->
     <script>
-        /* ============ UI Interaction Functions ============ */
-        
-        // Fullscreen Toggle for Map
-        let isMapFullscreen = false;
-        function toggleFullscreenMap() {
-            const container = document.getElementById('tcMapContainer');
-            const icon = document.querySelector('.fs-btn i');
-            isMapFullscreen = !isMapFullscreen;
-            
-            if(isMapFullscreen) {
-                container.classList.add('fullscreen');
-                icon.classList.replace('fa-expand', 'fa-compress');
-                document.body.style.overflow = 'hidden';
-            } else {
-                container.classList.remove('fullscreen');
-                icon.classList.replace('fa-compress', 'fa-expand');
-                document.body.style.overflow = '';
-            }
-        }
-
-        // Copy Bulletin Text
-        function copyBulletin() {
-            const text = document.getElementById('gaugeStormBulletin').innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = document.querySelector('button[onclick="copyBulletin()"]');
-                const originalHtml = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-check text-green-500"></i> 已複製';
-                setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
-            });
-        }
-
-        /* ============ Core Logic (Maintained from Source) ============ */
-        function renderTcForecastTable(data) {
-            const cardEl = document.getElementById('tcForecastTableCard');
-            const titleEl = document.getElementById('tableMainTitle');
-            const timeEl = document.getElementById('tableUpdateTime');
-            const contentEl = document.getElementById('tableContent');
-
-            if (!data || !data.tableRows || data.tableRows.length === 0) {
-                if (cardEl) cardEl.style.display = 'none';
-                return;
-            }
-
-            const validRows = data.tableRows.filter(row => row.probability && row.probability.trim() !== '');
-
-            if (validRows.length === 0) {
-                if (cardEl) cardEl.style.display = 'none';
-                return;
-            }
-
-            if (cardEl) cardEl.style.display = 'block';
-            if (titleEl && data.mainTitle) {
-                titleEl.innerHTML = `<span class="panel-num">03</span> ${data.mainTitle}`;
-            }
-            if (timeEl && data.updateTimeText) {
-                timeEl.innerHTML = `<i class="fa-regular fa-clock"></i> ${data.updateTimeText}`;
-            }
-
-            let html = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>警報信號</th>
-                            <th>預測生效時間</th>
-                            <th class="text-right">發佈機率</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            validRows.forEach(row => {
-                const prob = row.probability.trim();
-                const period = row.period ? row.period.trim() : '-';
-                // Style coloring based on probability (simple mock logic)
-                let badgeColor = prob.includes('高') ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
-                                 prob.includes('中') ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
-                                 'bg-blue-500/10 text-blue-500 border-blue-500/20';
-
-                let probBadge = `<span class="badge border ${badgeColor}">${prob}</span>`;
-
-                html += `
-                    <tr>
-                        <td class="font-bold text-sm">
-                            <i class="fa-solid fa-triangle-exclamation opacity-50 mr-1 text-[var(--accent)]"></i> ${row.signal}
-                        </td>
-                        <td class="num font-medium text-[var(--muted)]">${period !== '' ? period : '-'}</td>
-                        <td class="text-right">${probBadge}</td>
-                    </tr>
-                `;
-            });
-            html += `</tbody></table>`;
-            if (contentEl) contentEl.innerHTML = html;
-        }
-
-        // Modern Gauge Settings
-        const SITE = {
-            scaleMax: 250,
-            bands: [
-                ['gray', 0, 40, '#94a3b8'],          
-                ['blue', 41, 62, '#38bdf8'],         
-                ['green', 63, 87, '#34d399'],        
-                ['yellow', 88, 117, '#fbbf24'],      
-                ['orange', 118, 149, '#fb923c'],     
-                ['red', 150, 184, '#f87171'],        
-                ['purple', 185, 219, '#c084fc'],     
-                ['dark-purple', 220, 250, '#7e22ce'] 
-            ]
-        };
-
-        const G = { r: 76, rb: 90 };
-
-        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
-            const angleInRadians = (angleInDegrees - 180) * Math.PI / 180.0;
-            return {
-                x: centerX + (radius * Math.cos(angleInRadians)),
-                y: centerY + (radius * Math.sin(angleInRadians))
-            };
-        }
-
-        function gArc(startAngle, endAngle, radius) {
-            const start = polarToCartesian(100, 100, radius, startAngle);
-            const end = polarToCartesian(100, 100, radius, endAngle);
-            const arcSweep = endAngle - startAngle <= 180 ? "0" : "1";
-            return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${arcSweep} 1 ${end.x} ${end.y}`;
-        }
-
-        function gPoint(angle, radius) {
-            const pt = polarToCartesian(100, 100, radius, angle);
-            return [pt.x, pt.y];
-        }
-
-        function getBandColor(speed) {
-            for (const [c, lo, hi, col] of SITE.bands) {
-                if (speed >= lo && speed <= hi) return col;
-            }
-            return speed > 250 ? '#7e22ce' : '#94a3b8';
-        }
-
-        function renderGaugeHTML(el, speed) {
-            const bands = SITE.bands.map(([c, lo, hi, col]) => {
-                const startAngle = (lo / SITE.scaleMax) * 180;
-                const endAngle = (hi / SITE.scaleMax) * 180;
-                return `<path class="g-band" d="${gArc(startAngle + 0.8, endAngle - 0.8, G.rb)}" stroke="${col}"/>`;
-            }).join('');
-
-            const ticks = [63, 118, 185, 220].map(v => {
-                const angle = (v / SITE.scaleMax) * 180;
-                const [x, y] = gPoint(angle, 108);
-                return `<text class="g-tick" x="${x.toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="middle">${v}</text>`;
-            }).join('');
-
-            // Sleek Pointer Needle Design
-            el.innerHTML = `
-                <svg viewBox="0 -15 200 135" aria-hidden="true">
-                    ${bands}
-                    <path class="g-track" d="${gArc(0, 180, G.r)}"/>
-                    <path class="g-prog" d="${gArc(0, 180, G.r)}" pathLength="100"/>
-                    ${ticks}
-                    <g class="g-needle" style="transform: rotate(0deg);">
-                        <polygon points="100,100 20,98 10,100 20,102" />
-                        <circle cx="100" cy="100" r="6" />
-                    </g>
-                </svg>
-                <div class="gauge-val">
-                    <b><span data-count="${speed}">0</span></b>
-                    <small>KM/H</small>
-                </div>
-            `;
-            el.setAttribute('role', 'img');
-            el.setAttribute('aria-label', `${speed} km/h`);
-            el.dataset.speed = speed;
-
-            animateGauge(el);
-        }
-
-        function animateGauge(el) {
-            const speed = parseFloat(el.dataset.speed);
-            if (isNaN(speed)) return;
-
-            const targetFrac = Math.min(speed, SITE.scaleMax) / SITE.scaleMax;
-            const prog = el.querySelector('.g-prog');
-            const needle = el.querySelector('.g-needle');
-            const numEl = el.querySelector('[data-count]');
-            const intensityColor = getBandColor(speed);
-
-            if (prog) {
-                prog.style.stroke = intensityColor;
-                prog.style.filter = `drop-shadow(0 0 8px ${intensityColor}99)`;
-            }
-
-            const duration = 1800; // Smoother longer animation
-            const startTime = performance.now();
-
-            function updateAnimation(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                // Ease out Expo
-                const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-
-                const currentFrac = targetFrac * easeProgress;
-                const currentVal = speed * easeProgress;
-
-                if (prog) prog.style.strokeDashoffset = (100 - currentFrac * 100).toFixed(2);
-                if (needle) needle.style.transform = `rotate(${(currentFrac * 180).toFixed(2)}deg)`;
-                if (numEl) numEl.textContent = Math.round(currentVal);
-
-                if (progress < 1) requestAnimationFrame(updateAnimation);
-            }
-            requestAnimationFrame(updateAnimation);
-        }
-
+        // Data formats
         const intensityNameMap = {
             "Ex": "溫帶氣旋", "LPA": "低壓區", "TD": "熱帶低氣壓", "TS": "熱帶風暴",
             "STS": "強烈熱帶風暴", "TY": "颱風", "STY": "強颱風", "SuTY": "超強颱風"
         };
-
+        const TC_INTENSITY_TABLE = [
+            { max_wind: 40, code: "LPA", name: "低壓區", color: "#94a3b8" },
+            { max_wind: 62, code: "TD", name: "熱帶低氣壓", color: "#38bdf8" },
+            { max_wind: 87, code: "TS", name: "熱帶風暴", color: "#34d399" },
+            { max_wind: 117, code: "STS", name: "強烈熱帶風暴", color: "#fbbf24" },
+            { max_wind: 149, code: "TY", name: "颱風", color: "#fb923c" },
+            { max_wind: 184, code: "STY", name: "強颱風", color: "#f87171" },
+            { max_wind: 999, code: "SuTY", name: "超強颱風", color: "#c084fc" }
+        ];
         const distanceDirections = {
             "N": "以北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
             "E": "以東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
             "S": "以南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
             "W": "以西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
         };
-
         const movementDirections = {
-            "N": "北", "NNE": "東北偏北", "NE": "東北", "ENE": "東北偏東",
-            "E": "東", "ESE": "東南偏東", "SE": "東南", "SSE": "東南偏南",
-            "S": "南", "SSW": "西南偏南", "SW": "西南", "WSW": "西南偏西",
-            "W": "西", "WNW": "西北偏西", "NW": "西北", "NNW": "西北偏北"
+            "N": "北", "NNE": "北北東", "NE": "東北", "ENE": "東北東",
+            "E": "東", "ESE": "東南東", "SE": "東南", "SSE": "南南東",
+            "S": "南", "SSW": "南南西", "SW": "西南", "WSW": "西南西",
+            "W": "西", "WNW": "西北西", "NW": "西北", "NNW": "北北西"
         };
+        const MACAU_COORDS = [113.5685, 22.1595];
 
         let allActiveStorms = {};
         let activeStormKey = null;
         let activeTrackImagePath = 'output/TC/all.png';
 
-        function updateWindGauge(stormData) {
-            const badgeEl = document.getElementById('gaugeStormBadge');
-            const nameEl = document.getElementById('gaugeStormName');
-            const timePillTextEl = document.getElementById('gaugeStormTimePillText');
-            const timeEl = document.getElementById('gaugeStormTime');
-            const windEl = document.getElementById('gaugeStormWind');
-            const posEl = document.getElementById('gaugeStormPos');
-            const moveEl = document.getElementById('gaugeStormMove');
-            const distEl = document.getElementById('gaugeStormDist');
-            const bulletinEl = document.getElementById('gaugeStormBulletin');
-            const cardEl = document.getElementById('activeSystemGaugeCard');
-            const gaugeContainer = document.getElementById('windGaugeContainer');
-
-            if (!stormData) {
-                if (cardEl) cardEl.style.display = 'none';
-                return;
-            }
-
-            if (cardEl) cardEl.style.display = 'block';
-
-            if (badgeEl) {
-                badgeEl.textContent = stormData.intensityObj.name || '熱帶氣旋';
-                badgeEl.style.backgroundColor = stormData.intensityObj.color + '22'; // Tinted bg
-                badgeEl.style.borderColor = stormData.intensityObj.color + '55';
-                badgeEl.style.color = stormData.intensityObj.color;
-            }
-
-            if (nameEl) nameEl.textContent = stormData.name || '未知氣旋';
-            if (timePillTextEl) timePillTextEl.textContent = stormData.time || '-';
-            if (timeEl) timeEl.innerHTML = `<span class="font-bold">${stormData.time || '-'}</span>`;
-            if (windEl) windEl.innerHTML = `<span class="font-extrabold text-lg">${stormData.wind || '-'}</span>`;
-            if (posEl) posEl.textContent = `${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E`;
-            if (moveEl) moveEl.textContent = stormData.movement || '-';
-            if (distEl) distEl.innerHTML = `<span class="font-bold">${stormData.distToMacau || '-'}</span>`;
-
-            if (bulletinEl) bulletinEl.textContent = generateTyphoonBulletin(stormData);
-
-            let windKmh = 0;
-            if (typeof stormData.wind === 'string' && stormData.wind.includes('km/h')) {
-                windKmh = parseFloat(stormData.wind.replace(' km/h', '')) || 0;
-            } else {
-                windKmh = parseFloat(stormData.wind) || 0;
-            }
-            if (isNaN(windKmh)) windKmh = 0;
-
-            if (gaugeContainer) renderGaugeHTML(gaugeContainer, windKmh);
-        }
-
-        function switchGaugeStorm(stormKey, btnElement) {
-            activeStormKey = stormKey;
-            const stormData = allActiveStorms[stormKey];
-            if (stormData) updateWindGauge(stormData);
-            
-            const buttons = document.querySelectorAll('#gaugeStormTabs button');
-            buttons.forEach(btn => btn.classList.remove('chip-active'));
-            if (btnElement) btnElement.classList.add('chip-active');
-        }
-
-        function formatChineseTime(timeStr) {
-            if (!timeStr) return '';
-            const parts = timeStr.split(' ');
-            if (parts.length < 2) return '';
-            const timePart = parts[1];
-            const hour = parseInt(timePart.split(':')[0], 10);
-            if (isNaN(hour)) return '';
-
-            if (hour >= 0 && hour <= 5) return `凌晨${hour}時`;
-            if (hour >= 6 && hour <= 11) return `早上${hour}時`;
-            if (hour === 12) return `正午12時`;
-            if (hour >= 13 && hour <= 18) return `下午${hour - 12}時`;
-            if (hour >= 19 && hour <= 23) return `晚上${hour - 12}時`;
-            return '';
-        }
-
-        function generateTyphoonBulletin(stormData) {
-            if (!stormData) return "現時沒有活躍的熱帶氣旋資料。";
-            const chineseTime = formatChineseTime(stormData.time);
-            const timePrefix = chineseTime ? `${chineseTime}，` : '';
-            const distParts = stormData.distToMacau.split(' ');
-            const engDir = distParts[0];
-            const distance = distParts[1] ? distParts[1].replace(' km', '') : '';
-            const dirChinese = distanceDirections[engDir] || engDir;
-
-            let windClause = "";
-            if (!stormData.isEx && stormData.wind && stormData.wind !== '-') {
-                const windKmh = stormData.wind.replace(' km/h', '');
-                windClause = `，其中心附近最高持續風速約為每小時${windKmh}公里`;
-            }
-
-            let movementClause = "";
-            if (stormData.movement && stormData.movement !== '-' && stormData.movement !== '靜止') {
-                const movParts = stormData.movement.split(' ');
-                const movEngDir = movParts[0];
-                const movSpeed = movParts[1] ? movParts[1].replace('km/h', '').trim() : '';
-                const movDirChinese = movementDirections[movEngDir] || movEngDir;
-                if (movDirChinese && movSpeed) {
-                    movementClause = `，向${movDirChinese}移動，時速${movSpeed}公里`;
-                }
-            }
-            return `${timePrefix}${stormData.category} ${stormData.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${stormData.lat.toFixed(1)}度，東經${stormData.lon.toFixed(1)}度附近${windClause}${movementClause}。`;
-        }
-
+        // Helper Functions
         function getIntensity(windInput, isEx) {
-            if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) {
-                return { code: "Ex", name: "溫帶氣旋", color: "#64748b" };
-            }
+            if (isEx || (typeof windInput === 'string' && windInput.toUpperCase() === 'EX')) return { code: "Ex", name: "溫帶氣旋", color: "#64748b" };
             const windKmh = parseFloat(windInput) || 0;
-            if (typeof TC_INTENSITY_TABLE !== 'undefined') {
-                for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
-                    let item = TC_INTENSITY_TABLE[i];
-                    if (windKmh <= item.max_wind) return item;
-                }
-                return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
+            for (let i = 1; i < TC_INTENSITY_TABLE.length; i++) {
+                if (windKmh <= TC_INTENSITY_TABLE[i].max_wind) return TC_INTENSITY_TABLE[i];
             }
-            return { code: "TS", name: "熱帶風暴", color: "#34d399" };
+            return TC_INTENSITY_TABLE[TC_INTENSITY_TABLE.length - 1];
         }
-
-        const MACAU_COORDS = [113.5685, 22.1595];
 
         function getDistanceAndDirectionToMacau(tLon, tLat) {
-            if (tLon === undefined || tLat === undefined || isNaN(tLon) || isNaN(tLat)) return "未知距離";
+            if (!tLon || !tLat || isNaN(tLon) || isNaN(tLat)) return "未知距離";
             const R = 6371;
             const dLat = (tLat - MACAU_COORDS[1]) * Math.PI / 180;
             const dLon = (tLon - MACAU_COORDS[0]) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(MACAU_COORDS[1] * Math.PI / 180) * Math.cos(tLat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             let dist = Math.round(R * c / 10) * 10;
-
+            
             const lat1Rad = MACAU_COORDS[1] * Math.PI / 180;
             const lat2Rad = tLat * Math.PI / 180;
             const y = Math.sin(dLon) * Math.cos(lat2Rad);
             const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
             let brng = Math.atan2(y, x) * 180 / Math.PI;
-            brng = (brng + 360) % 360;
-
             const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-            const index = Math.round((brng % 360) / 22.5) % 16;
-            return `${directions[index]} ${dist} km`;
+            return `${directions[Math.round(((brng + 360) % 360) / 22.5) % 16]} ${dist} km`;
         }
 
         function getDirection(lon1, lat1, lon2, lat2) {
-            if (lon1 === undefined || lat1 === undefined || lon2 === undefined || lat2 === undefined) return "靜止";
+            if (!lon1 || !lat1 || !lon2 || !lat2) return "靜止";
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const lat1Rad = lat1 * Math.PI / 180;
-            const lat2Rad = lat2 * Math.PI / 180;
-            const y = Math.sin(dLon) * Math.cos(lat2Rad);
-            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-            let brng = Math.atan2(y, x) * 180 / Math.PI;
-            brng = (brng + 360) % 360;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) - Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
             const directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-            return directions[Math.round((brng % 360) / 22.5) % 16];
+            return directions[Math.round(((Math.atan2(y, x) * 180 / Math.PI + 360) % 360) / 22.5) % 16];
         }
 
-        function calculateMovementStr(forecastPoints) {
-            if (!forecastPoints || forecastPoints.length < 2) return '-';
-            let p0 = forecastPoints[0];
-            let p1 = null;
-            for (let i = 1; i < forecastPoints.length; i++) {
-                if (forecastPoints[i].hour > 0) {
-                    p1 = forecastPoints[i];
-                    break;
-                }
-            }
-            if (!p1) p1 = forecastPoints[1];
+        function calculateMovementStr(pts) {
+            if (!pts || pts.length < 2) return '-';
+            let p0 = pts[0], p1 = pts.find((p, i) => i > 0 && p.hour > 0) || pts[1];
             const hour = p1.hour > 0 ? p1.hour : 3;
-            const direction = getDirection(p0.lon, p0.lat, p1.lon, p1.lat);
-            const R = 6371;
-            const dLat = (p1.lat - p0.lat) * Math.PI / 180;
-            const dLon = (p1.lon - p0.lon) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(p0.lat * Math.PI / 180) * Math.cos(p1.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const speed = Math.round(dist / hour);
-            return `${direction} ${speed} km/h`;
+            const dir = getDirection(p0.lon, p0.lat, p1.lon, p1.lat);
+            const a = Math.pow(Math.sin((p1.lat - p0.lat)*Math.PI/360), 2) + Math.cos(p0.lat*Math.PI/180) * Math.cos(p1.lat*Math.PI/180) * Math.pow(Math.sin((p1.lon - p0.lon)*Math.PI/360), 2);
+            return `${dir} ${Math.round(6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) / hour)} km/h`;
+        }
+
+        function formatChineseTime(timeStr) {
+            if (!timeStr) return '';
+            const p = timeStr.split(' '); if (p.length < 2) return '';
+            const h = parseInt(p[1].split(':')[0], 10);
+            if (isNaN(h)) return '';
+            if (h <= 5) return `凌晨${h}時`; if (h <= 11) return `早上${h}時`;
+            if (h === 12) return `正午12時`; if (h <= 18) return `下午${h - 12}時`;
+            return `晚上${h - 12}時`;
+        }
+
+        function generateTyphoonBulletin(s) {
+            if (!s) return "現時沒有活躍的熱帶氣旋資料。";
+            const timePrefix = (t => t ? `${t}，` : '')(formatChineseTime(s.time));
+            const [engDir, distRaw] = s.distToMacau.split(' ');
+            const distance = distRaw ? distRaw.replace('km','') : '';
+            const dirChinese = distanceDirections[engDir] || engDir;
+            const windKmh = s.wind.replace(' km/h', '');
+            const windClause = (!s.isEx && s.wind !== '-') ? `，其中心附近最高持續風速約為每小時${windKmh}公里` : "";
+            
+            let movClause = "";
+            if (s.movement && s.movement !== '-' && s.movement !== '靜止') {
+                const [movEngDir, movSpeed] = s.movement.split(' ');
+                const speed = movSpeed ? movSpeed.replace('km/h','').trim() : '';
+                if (movementDirections[movEngDir] && speed) movClause = `，向${movementDirections[movEngDir]}移動，時速${speed}公里`;
+            }
+            return `${timePrefix}${s.category} ${s.name} 集結在澳門${dirChinese}約${distance}公里，即在北緯${s.lat.toFixed(1)}度，東經${s.lon.toFixed(1)}度附近${windClause}${movClause}。`;
         }
 
         function parseCSVToTyphoon(csvText, letter) {
             const lines = csvText.split('\n');
-            let currentMeta = null;
-            let rows = [];
-
+            let rows = [], currentMeta = null;
             for (let line of lines) {
                 line = line.trim();
                 if (!line || line.startsWith('#') || line.toLowerCase().startsWith('category')) continue;
                 const cols = line.split(',').map(c => c.trim());
                 if (cols.length < 6) continue;
-
-                const rawCategory = cols[0];
-                const time = cols[1];
-                const rowName = cols[2];
-                const lat = parseFloat(cols[3]);
-                const lon = parseFloat(cols[4]);
-                const rawWind = cols[5];
-
+                const [rawCategory, time, rowName, rawLat, rawLon, rawWind] = cols;
+                const lat = parseFloat(rawLat), lon = parseFloat(rawLon);
                 if (isNaN(lat) || isNaN(lon)) continue;
-
-                let isEx = false;
-                let windVal = 0;
-                if (rawWind && rawWind.toUpperCase() === 'EX') isEx = true;
-                else windVal = parseFloat(rawWind) || 0;
-
-                if (rawCategory.toLowerCase() === 'current' || rawCategory === '0h' || rawCategory === '0') {
-                    currentMeta = { name: rowName || `Typhoon ${letter.toUpperCase()}`, time, lat, lon, wind: windVal, isEx, rawWind, rawCategory };
+                
+                const isEx = (rawWind && rawWind.toUpperCase() === 'EX');
+                const windVal = isEx ? 0 : (parseFloat(rawWind) || 0);
+                
+                if (['current', '0h', '0'].includes(rawCategory.toLowerCase())) {
+                    currentMeta = { name: rowName || `Typhoon ${letter}`, time, lat, lon, wind: windVal, isEx, rawCategory };
                 }
-
-                rows.push({ category: rawCategory, time, name: rowName, lat, lon, wind: windVal, isEx, rawWind });
+                rows.push({ category: rawCategory, time, name: rowName, lat, lon, wind: windVal, isEx });
             }
-
             if (rows.length === 0) return null;
-
+            
             if (!currentMeta) {
-                const anchor = rows.find(r => r.category.toLowerCase() === '0h' || r.category.toLowerCase() === 'current' || r.category === '0') || rows[0];
-                currentMeta = { name: anchor.name || `Typhoon ${letter.toUpperCase()}`, time: anchor.time, lat: anchor.lat, lon: anchor.lon, wind: anchor.wind, isEx: anchor.isEx, rawWind: anchor.rawWind, rawCategory: anchor.category };
+                const anchor = rows.find(r => ['0h','current','0'].includes(r.category.toLowerCase())) || rows[0];
+                currentMeta = { ...anchor, name: anchor.name || `Typhoon ${letter}`, rawCategory: anchor.category };
             }
 
-            const name = currentMeta.name;
             const intensityObj = getIntensity(currentMeta.wind, currentMeta.isEx);
-
-            let categoryDesc = intensityObj.name;
-            if (intensityNameMap[currentMeta.rawCategory]) categoryDesc = intensityNameMap[currentMeta.rawCategory];
-            else if (intensityNameMap[currentMeta.rawWind]) categoryDesc = intensityNameMap[currentMeta.rawWind];
-            else if (intensityNameMap[currentMeta.category]) categoryDesc = intensityNameMap[currentMeta.category];
-
-            let forecastPoints = [];
-            let tempForecastRows = rows.filter(r => r.category.toLowerCase() === 'current' || r.category.toLowerCase() === '0h' || r.category === '0' || r.category.toLowerCase().includes('h'));
-            if (tempForecastRows.length === 0) tempForecastRows = rows;
-
-            tempForecastRows.forEach(fr => {
-                let hour = 0;
-                if (fr.category.toLowerCase() !== 'current' && fr.category.toLowerCase() !== '0h' && fr.category !== '0') {
-                    hour = parseInt(fr.category.replace('h', '').replace('H', '')) || 0;
-                }
-                forecastPoints.push({ lon: fr.lon, lat: fr.lat, hour: hour });
-            });
-
-            const movementStr = calculateMovementStr(forecastPoints);
-            const windDisplay = currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`;
-            const distToMacau = getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat);
+            let catDesc = intensityNameMap[currentMeta.rawCategory] || intensityObj.name;
+            
+            let fPts = (rows.filter(r => ['current','0h','0'].includes(r.category.toLowerCase()) || r.category.toLowerCase().includes('h')).length ? rows.filter(r => ['current','0h','0'].includes(r.category.toLowerCase()) || r.category.toLowerCase().includes('h')) : rows).map(fr => ({
+                lon: fr.lon, lat: fr.lat, hour: parseInt(fr.category.replace(/h/i,'')) || 0
+            }));
 
             return {
-                name, category: categoryDesc, intensityObj, intensityCode: intensityObj.code,
-                wind: windDisplay, time: currentMeta.time, movement: movementStr, lat: currentMeta.lat,
-                lon: currentMeta.lon, distToMacau
+                name: currentMeta.name, category: catDesc, intensityObj,
+                wind: currentMeta.isEx ? '-' : `${currentMeta.wind} km/h`,
+                time: currentMeta.time, lat: currentMeta.lat, lon: currentMeta.lon,
+                movement: calculateMovementStr(fPts),
+                distToMacau: getDistanceAndDirectionToMacau(currentMeta.lon, currentMeta.lat)
             };
         }
 
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        if (themeToggleBtn) {
-            themeToggleBtn.addEventListener('click', () => {
-                if (document.documentElement.classList.contains('dark')) {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('theme', 'dark');
-                }
-            });
+        // Core UI Update Function
+        function updateWindGauge(stormData) {
+            if (!stormData) {
+                document.getElementById('activeSystemGaugeCard').classList.add('hidden');
+                return;
+            }
+            document.getElementById('activeSystemGaugeCard').classList.remove('hidden');
+
+            // Header & Title updates
+            document.getElementById('header-time-pill').textContent = `${stormData.time} 分析`;
+            document.getElementById('storm-name').textContent = stormData.name;
+            document.getElementById('storm-category-title').textContent = stormData.category;
+            
+            const mapNameEl = document.getElementById('map-storm-name');
+            if(mapNameEl) mapNameEl.textContent = `・${stormData.name}`;
+
+            // Card 1: Wind (Convert km/h to m/s roughly)
+            let windKmh = parseFloat(stormData.wind) || 0;
+            let windMs = Math.round(windKmh * 1000 / 3600);
+            document.getElementById('stat-wind-val').textContent = windMs > 0 ? windMs : '-';
+            const windBadge = document.getElementById('stat-wind-badge');
+            windBadge.textContent = stormData.category;
+            windBadge.style.backgroundColor = stormData.intensityObj.color;
+            windBadge.classList.remove('hidden');
+            windBadge.style.display = 'inline-block';
+
+            // Card 2: Movement
+            let movParts = (stormData.movement || '-').split(' ');
+            if (movParts.length < 2 || movParts[0] === '靜止') {
+                document.getElementById('stat-move-val').textContent = '-';
+                document.getElementById('stat-move-badge').classList.add('hidden');
+                document.getElementById('stat-move-badge').style.display = 'none';
+            } else {
+                document.getElementById('stat-move-val').textContent = parseInt(movParts[1]) || 0;
+                const moveBadge = document.getElementById('stat-move-badge');
+                moveBadge.textContent = movementDirections[movParts[0]] || movParts[0];
+                moveBadge.classList.remove('hidden');
+                moveBadge.style.display = 'inline-block';
+            }
+
+            // Card 3: Distance
+            let distParts = (stormData.distToMacau || '-').split(' ');
+            if (distParts.length < 2 || distParts[0] === '未知距離') {
+                document.getElementById('stat-dist-val').textContent = '-';
+                document.getElementById('stat-dist-badge').classList.add('hidden');
+                document.getElementById('stat-dist-badge').style.display = 'none';
+            } else {
+                document.getElementById('stat-dist-val').textContent = parseInt(distParts[1]) || 0;
+                const distBadge = document.getElementById('stat-dist-badge');
+                distBadge.textContent = distanceDirections[distParts[0]] || distParts[0];
+                distBadge.classList.remove('hidden');
+                distBadge.style.display = 'inline-block';
+            }
+
+            // Card 4: Position
+            document.getElementById('stat-pos-lat').textContent = stormData.lat.toFixed(1);
+            document.getElementById('stat-pos-lon').textContent = stormData.lon.toFixed(1);
+
+            // Bulletin Update
+            const bulletinEl = document.getElementById('gaugeStormBulletin');
+            if (bulletinEl) bulletinEl.textContent = generateTyphoonBulletin(stormData);
+        }
+
+        // Tab Switching
+        function switchGaugeStorm(stormKey, btnElement) {
+            activeStormKey = stormKey;
+            if (allActiveStorms[stormKey]) updateWindGauge(allActiveStorms[stormKey]);
+            document.querySelectorAll('#gaugeStormTabs button').forEach(btn => btn.classList.remove('chip-active'));
+            if (btnElement) btnElement.classList.add('chip-active');
         }
 
         function switchTrackImage(imagePath, btnElement) {
             activeTrackImagePath = imagePath;
             const imgEl = document.getElementById('tcTrackImageViewer');
-            const mapContainer = document.getElementById('tcMapContainer');
-
-            if (mapContainer && !document.getElementById('tcTrackImageViewer')) {
-                // Re-inject image and fullscreen button if it was completely cleared
-                mapContainer.innerHTML = `
-                    <button onclick="toggleFullscreenMap()" class="fs-btn opacity-0 group-hover:opacity-100 focus:opacity-100" title="全螢幕檢視"><i class="fa-solid fa-expand"></i></button>
-                    <img id="tcTrackImageViewer" src="${imagePath}?_t=${Date.now()}" alt="熱帶氣旋路徑圖" class="w-full h-auto object-contain max-h-[600px]">`;
-            } else if (imgEl) {
-                imgEl.src = imagePath + '?_t=' + Date.now();
-            }
-
-            const buttons = document.querySelectorAll('#trackImageButtons button');
-            buttons.forEach(btn => btn.classList.remove('chip-active'));
+            if (imgEl) imgEl.src = imagePath + '?_t=' + Date.now();
+            
+            document.querySelectorAll('#trackImageButtons button').forEach(btn => btn.classList.remove('chip-active'));
             if (btnElement) btnElement.classList.add('chip-active');
         }
 
-        function refreshTrackImageViewer() {
-            const imgEl = document.getElementById('tcTrackImageViewer');
-            if (imgEl) imgEl.src = activeTrackImagePath + '?_t=' + Date.now();
-        }
-
-        function generateStormCardHtml(stormData) {
-            return `
-                <div class="storm-mini shadow-sm" style="--sc:${stormData.intensityObj.color};">
-                    <div class="flex justify-between items-center mb-3">
-                        <span class="text-base font-bold flex items-center gap-2">
-                            <i class="fa-solid fa-hurricane" style="color:${stormData.intensityObj.color};"></i>
-                            ${stormData.name}
-                        </span>
-                        <span class="text-xs font-bold px-2 py-1 rounded-md" style="background-color:${stormData.intensityObj.color}1a; border:1px solid ${stormData.intensityObj.color}55; color:${stormData.intensityObj.color};">${stormData.category}</span>
-                    </div>
-                    <table class="kv-table num mb-3">
-                        <tbody>
-                            <tr class="flex justify-between w-full"><td>最大風速</td><td class="font-bold">${stormData.wind}</td></tr>
-                            <tr class="flex justify-between w-full"><td>中心位置</td><td class="font-bold">${stormData.lat.toFixed(1)}°N, ${stormData.lon.toFixed(1)}°E</td></tr>
-                            <tr class="flex justify-between w-full"><td>移動方向</td><td class="font-bold">${stormData.movement}</td></tr>
-                            <tr class="flex justify-between w-full border-b-0"><td>距離澳門</td><td class="font-bold text-[var(--accent)]">${stormData.distToMacau}</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-
+        // Main Initialization
         async function initTrackButtonsAndLoadAllData() {
-            const container = document.getElementById('trackImageButtons');
+            const trackContainer = document.getElementById('trackImageButtons');
             const gaugeTabsContainer = document.getElementById('gaugeStormTabs');
-            const detailPanelContent = document.getElementById('tcDetailContent');
-            const gaugeCard = document.getElementById('activeSystemGaugeCard');
-            const trackCard = document.getElementById('tcTrackCard');
-            if (!container) return;
-
-            const previousStormKey = activeStormKey;
-            const files = ['A', 'B', 'C', 'D', 'E', 'F'];
-            let allCyclonesHtml = '';
+            
             let activeCount = 0;
             allActiveStorms = {};
+            const previousStormKey = activeStormKey;
 
-            container.innerHTML = '';
-            const allBtn = document.createElement('button');
-            allBtn.className = (activeTrackImagePath === 'output/TC/all.png') ? "chip chip-active" : "chip";
-            allBtn.textContent = "全部熱帶氣旋";
-            allBtn.onclick = function() { switchTrackImage('output/TC/all.png', this); };
-            container.appendChild(allBtn);
-
+            if (trackContainer) {
+                trackContainer.innerHTML = '';
+                const allBtn = document.createElement('button');
+                allBtn.className = (activeTrackImagePath === 'output/TC/all.png') ? "chip chip-active" : "chip";
+                allBtn.textContent = "全部熱帶氣旋";
+                allBtn.onclick = function() { switchTrackImage('output/TC/all.png', this); };
+                trackContainer.appendChild(allBtn);
+            }
             if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
 
-            for (const f of files) {
-                const csvPath = `TCdata/${f}.csv`;
-                const imgPath = `output/TC/${f}.png`;
-
+            for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
                 try {
-                    const response = await fetch(`${csvPath}?_t=${Date.now()}`, { cache: 'no-store' });
-                    if (!response.ok) continue;
-                    const text = await response.text();
-                    if (!text || text.trim() === '') continue;
+                    const res = await fetch(`TCdata/${f}.csv?_t=${Date.now()}`, { cache: 'no-store' });
+                    if (!res.ok) continue;
+                    const text = await res.text();
+                    if (!text || !text.trim()) continue;
 
                     const stormData = parseCSVToTyphoon(text, f);
                     if (!stormData) continue;
@@ -1047,131 +644,95 @@
                     activeCount++;
                     allActiveStorms[f] = stormData;
 
-                    const btn = document.createElement('button');
-                    btn.className = (activeTrackImagePath === imgPath) ? "chip chip-active" : "chip";
-                    btn.textContent = stormData.name;
-                    btn.onclick = function() { switchTrackImage(imgPath, this); };
-                    container.appendChild(btn);
+                    if (trackContainer) {
+                        const btn = document.createElement('button');
+                        btn.className = (activeTrackImagePath === `output/TC/${f}.png`) ? "chip chip-active" : "chip";
+                        btn.textContent = stormData.name;
+                        btn.onclick = function() { switchTrackImage(`output/TC/${f}.png`, this); };
+                        trackContainer.appendChild(btn);
+                    }
 
                     if (gaugeTabsContainer) {
                         const gaugeBtn = document.createElement('button');
                         gaugeBtn.className = "chip";
-                        gaugeBtn.innerHTML = `<i class="fa-solid fa-wind mr-1 opacity-50"></i> ${stormData.name}`;
+                        gaugeBtn.textContent = stormData.name;
                         gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
                         gaugeTabsContainer.appendChild(gaugeBtn);
                     }
-
-                    allCyclonesHtml += generateStormCardHtml(stormData);
-
-                } catch (err) {
-                    console.log(`TCdata/${f}.csv 無內容或讀取失敗`);
-                }
+                } catch (e) {}
             }
 
             const activeKeys = Object.keys(allActiveStorms);
-            if (activeKeys.length > 0) {
-                if (!activeKeys.includes(previousStormKey)) activeStormKey = activeKeys[0];
-                else activeStormKey = previousStormKey;
-            } else {
-                activeStormKey = null;
-            }
+            activeStormKey = activeKeys.length > 0 ? (activeKeys.includes(previousStormKey) ? previousStormKey : activeKeys[0]) : null;
 
             if (gaugeTabsContainer) {
-                gaugeTabsContainer.style.display = activeCount === 0 ? 'none' : 'flex';
-                const gaugeButtons = gaugeTabsContainer.querySelectorAll('button');
+                gaugeTabsContainer.classList.toggle('hidden', activeCount === 0);
                 activeKeys.forEach((key, idx) => {
-                    if (gaugeButtons[idx]) {
-                        if (key === activeStormKey) gaugeButtons[idx].classList.add('chip-active');
-                        else gaugeButtons[idx].classList.remove('chip-active');
-                    }
+                    const b = gaugeTabsContainer.children[idx];
+                    if(b) b.classList.toggle('chip-active', key === activeStormKey);
                 });
             }
 
-            if (activeStormKey && allActiveStorms[activeStormKey]) {
-                updateWindGauge(allActiveStorms[activeStormKey]);
-            }
-
-            if (container) container.style.display = activeCount === 0 ? 'none' : 'flex';
-
             if (activeCount === 0) {
-                if (gaugeCard) gaugeCard.style.display = 'none';
-                if (trackCard) trackCard.style.display = 'none';
-                if (detailPanelContent) detailPanelContent.innerHTML = '<p class="dim text-center py-6 text-sm font-medium"><i class="fa-solid fa-check-circle text-green-500 mr-2 text-lg align-middle"></i>目前沒有活躍的熱帶氣旋</p>';
+                document.getElementById('activeSystemGaugeCard').classList.add('hidden');
+                document.getElementById('tcTrackCard').classList.add('hidden');
+                document.getElementById('storm-name').textContent = "無活躍氣旋";
+                document.getElementById('storm-category-title').textContent = "";
+                document.getElementById('header-time-pill').textContent = "-";
             } else {
-                if (detailPanelContent) detailPanelContent.innerHTML = allCyclonesHtml;
-                if (gaugeCard) gaugeCard.style.display = 'block';
-                if (trackCard) trackCard.style.display = 'block';
+                document.getElementById('tcTrackCard').classList.remove('hidden');
+                if (activeStormKey) updateWindGauge(allActiveStorms[activeStormKey]);
             }
-
-            refreshTrackImageViewer();
-            checkAllPngAndHandleMessage();
+            
+            const imgEl = document.getElementById('tcTrackImageViewer');
+            if (imgEl) imgEl.src = activeTrackImagePath + '?_t=' + Date.now();
         }
 
-        function checkAllPngAndHandleMessage() {
-            const mapContainer = document.getElementById('tcMapContainer');
-            const allImg = new Image();
-            allImg.onerror = function() {
-                if (mapContainer) {
-                    mapContainer.innerHTML = '<div class="dim py-12 text-center text-sm"><i class="fa-regular fa-image mb-2 text-2xl"></i><br>現時沒有熱帶氣旋路徑圖</div>';
-                }
-            };
-            allImg.src = 'output/TC/all.png?_t=' + Date.now();
-        }
-
-        function toTraditionalLunar(text) {
-            if (!text) return '';
-            const map = { '龙': '龍', '腊': '臘', '闰': '閏', '惊': '驚', '体': '體', '万': '萬', '时': '時', '后': '後', '发': '發', '马': '馬', '鸡': '雞', '猪': '豬' };
-            return text.replace(/[龙腊闰惊体万时后发马鸡猪]/g, match => map[match] || match);
-        }
-
+        // Time Updates
         function updateDateTime() {
             const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-            const weekday = weekdays[now.getDay()];
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-
-            document.getElementById('current-datetime').textContent = `${year}年${month}月${day}日 (${weekday}) ${hours}:${minutes}`;
-
-            const lunarEl = document.getElementById('lunar-date');
-            if (lunarEl && typeof Solar !== 'undefined') {
-                try {
-                    const solar = Solar.fromDate(now);
-                    const lunar = solar.getLunar();
-                    lunarEl.textContent = `${lunar.getYearInGanZhi()}${toTraditionalLunar(lunar.getYearShengXiao())}年${toTraditionalLunar(lunar.getMonthInChinese())}月${toTraditionalLunar(lunar.getDayInChinese())}日`;
-                } catch (e) {
-                    lunarEl.textContent = '';
-                }
-            }
+            document.getElementById('current-datetime').innerHTML = 
+                `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} <span class="text-xs font-normal text-slate-400 mt-0.5">系統自動發布</span>`;
         }
 
-        updateDateTime();
-        setInterval(updateDateTime, 1000);
+        // Forecast Table Logic Mapping
+        function renderTcForecastTable(data) {
+            const cardEl = document.getElementById('tcForecastTableCard');
+            if (!data || !data.tableRows || data.tableRows.length === 0) return cardEl && cardEl.classList.add('hidden');
+            const validRows = data.tableRows.filter(r => r.probability && r.probability.trim() !== '');
+            if (validRows.length === 0) return cardEl && cardEl.classList.add('hidden');
 
+            if (cardEl) cardEl.classList.remove('hidden');
+            if (data.updateTimeText) document.getElementById('tableUpdateTime').textContent = data.updateTimeText;
+
+            let html = `<table class="data-table"><thead><tr><th>警報信號</th><th>預測生效時間</th><th>發佈機率</th></tr></thead><tbody>`;
+            validRows.forEach(r => {
+                html += `<tr><td class="font-bold text-slate-800">${r.signal}</td><td class="text-slate-500">${r.period || '-'}</td>
+                         <td><span class="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-md text-xs font-bold border border-blue-200">${r.probability.trim()}</span></td></tr>`;
+            });
+            document.getElementById('tableContent').innerHTML = html + `</tbody></table>`;
+        }
+
+        function formatTextToHtml(text) {
+            return text.replace(/\n/g, '<br/>');
+        }
+
+        // Initialization
         window.addEventListener('DOMContentLoaded', () => {
-            const tcCard = document.getElementById('tcCard');
-            if (typeof tcText === 'undefined' || !tcText || tcText.trim() === '') {
-                if (tcCard) tcCard.style.display = 'none';
-            } else {
-                if (tcCard) tcCard.style.display = 'block';
-                const tcContentEl = document.getElementById('tcContent');
-                if (tcContentEl && typeof formatTextToHtml === 'function') tcContentEl.innerHTML = formatTextToHtml(tcText);
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // Dummy table data hook-in (if provided externally via TC_WARNING_DATA)
+            if (typeof TC_WARNING_DATA !== 'undefined') renderTcForecastTable(TC_WARNING_DATA);
+            
+            // Text boxes (if variables exist)
+            if (typeof tcWarnings !== 'undefined' && tcWarnings.trim()) {
+                document.getElementById('tcNewsCard').classList.remove('hidden');
+                document.getElementById('tcNewsContent').innerHTML = formatTextToHtml(tcWarnings);
             }
-
-            const tcNewsCard = document.getElementById('tcNewsCard');
-            const tcNewsContentEl = document.getElementById('tcNewsContent');
-            if (typeof tcWarnings === 'undefined' || !tcWarnings || tcWarnings.trim() === '') {
-                if (tcNewsCard) tcNewsCard.style.display = 'none';
-            } else {
-                if (tcNewsCard) tcNewsCard.style.display = 'block';
-                if (tcNewsContentEl && typeof formatTextToHtml === 'function') tcNewsContentEl.innerHTML = formatTextToHtml(tcWarnings);
-            }
-
-            if (typeof TC_WARNING_DATA !== 'undefined' && typeof renderTcForecastTable === 'function') {
-                renderTcForecastTable(TC_WARNING_DATA);
+            if (typeof tcText !== 'undefined' && tcText.trim()) {
+                document.getElementById('tcCard').classList.remove('hidden');
+                document.getElementById('tcContent').innerHTML = formatTextToHtml(tcText);
             }
 
             initTrackButtonsAndLoadAllData();
