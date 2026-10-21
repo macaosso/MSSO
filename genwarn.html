@@ -36,13 +36,13 @@
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         input, textarea, button { font-size: 14px; }
         @media (max-width: 640px) {
-            input, textarea { font-size: 16px !important; } /* 防止 iOS 自動縮放 */
+            input, textarea { font-size: 16px !important; } /* 防止 iOS Safari 自動放大 */
         }
     </style>
 </head>
 <body class="bg-dark-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-500 selection:text-black">
 
-    <!-- 頂部精簡導航 -->
+    <!-- 頂部導航 -->
     <header class="border-b border-dark-700 bg-dark-900/95 sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
         <div class="flex items-center space-x-2">
             <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -66,8 +66,8 @@
         </div>
     </header>
 
-    <!-- 手機端頂部模式切換 (直覺單手操作) -->
-    <div class="lg:hidden grid grid-cols-2 bg-dark-900 border-b border-dark-700 sticky top-[57px] z-40 p-1.5 gap-1.5">
+    <!-- 手機端頂部模式切換 -->
+    <div class="lg:hidden grid grid-cols-2 bg-dark-900 border-b border-dark-700 sticky top-[57px] z-40 p-1.5 gap-2">
         <button type="button" id="tabBtnEdit" onclick="switchTab('edit')" class="py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40">
             1. 設定參數
         </button>
@@ -86,30 +86,30 @@
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-2">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">選擇警報類別</span>
                 <div class="grid grid-cols-5 gap-1.5 sm:gap-2">
-                    <button type="button" onclick="selectCategory('surge')" id="cat-surge" class="cat-pill py-2.5 px-1 rounded-lg border text-xs font-semibold transition text-center flex flex-col items-center justify-center">
+                    <button type="button" onclick="selectCategory('surge')" id="cat-surge" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="waves" class="w-4 h-4 mb-1"></i>
                         <span>風暴潮</span>
                     </button>
-                    <button type="button" onclick="selectCategory('cyclone')" id="cat-cyclone" class="cat-pill py-2.5 px-1 rounded-lg border text-xs font-semibold transition text-center flex flex-col items-center justify-center">
+                    <button type="button" onclick="selectCategory('cyclone')" id="cat-cyclone" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="wind" class="w-4 h-4 mb-1"></i>
                         <span>氣旋</span>
                     </button>
-                    <button type="button" onclick="selectCategory('rain')" id="cat-rain" class="cat-pill py-2.5 px-1 rounded-lg border text-xs font-semibold transition text-center flex flex-col items-center justify-center">
+                    <button type="button" onclick="selectCategory('rain')" id="cat-rain" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="cloud-rain" class="w-4 h-4 mb-1"></i>
                         <span>降雨</span>
                     </button>
-                    <button type="button" onclick="selectCategory('heat')" id="cat-heat" class="cat-pill py-2.5 px-1 rounded-lg border text-xs font-semibold transition text-center flex flex-col items-center justify-center">
+                    <button type="button" onclick="selectCategory('heat')" id="cat-heat" class="cat-pill py-2.5 px-1 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow">
                         <i data-lucide="sun" class="w-4 h-4 mb-1"></i>
                         <span>酷熱</span>
                     </button>
-                    <button type="button" onclick="selectCategory('cold')" id="cat-cold" class="cat-pill py-2.5 px-1 rounded-lg border text-xs font-semibold transition text-center flex flex-col items-center justify-center">
+                    <button type="button" onclick="selectCategory('cold')" id="cat-cold" class="cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center">
                         <i data-lucide="snowflake" class="w-4 h-4 mb-1"></i>
                         <span>寒冷</span>
                     </button>
                 </div>
             </div>
 
-            <!-- 2. 發布狀態 (新/舊) 與 時間 -->
+            <!-- 2. 發布狀態 (新/舊) 與 時間 (修正重疊問題) -->
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">發布模式與時間 (MST)</span>
                 
@@ -122,32 +122,94 @@
                     </button>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 pt-1">
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">日期 (YYYY-MM-DD)</label>
+                <!-- 專屬獨立區塊，在手機上自動單欄以防重疊，在平版/桌機並排 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div class="flex flex-col">
+                        <label class="text-[11px] text-slate-400 mb-1.5 font-medium">發布日期 (YYYY-MM-DD)</label>
                         <input type="date" id="inputDate" oninput="renderWarning()" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-slate-100 outline-none font-mono">
                     </div>
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">時間 (HH:MM)</label>
-                        <input type="text" id="inputTime" oninput="renderWarning()" placeholder="HH:MM" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-slate-100 outline-none font-mono">
+                    <div class="flex flex-col">
+                        <label class="text-[11px] text-slate-400 mb-1.5 font-medium">發布時間 (HH:MM)</label>
+                        <input type="text" id="inputTime" oninput="renderWarning()" placeholder="08:20" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-3 py-2 text-sm text-slate-100 outline-none font-mono">
                     </div>
                 </div>
             </div>
 
-            <!-- 3. 風暴潮模組 (全平鋪按鈕) -->
-            <div id="module-surge" class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
+            <!-- 3. 酷熱警報模組 (置前展示) -->
+            <div id="module-heat" class="bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
+                <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">酷熱警報等級</span>
+                
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="selectHeatLevel('酷熱')" id="btn-heat-酷熱" class="heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow">酷熱</button>
+                    <button type="button" onclick="selectHeatLevel('非常酷熱')" id="btn-heat-非常酷熱" class="heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">非常酷熱</button>
+                    <button type="button" onclick="selectHeatLevel('極為酷熱')" id="btn-heat-極為酷熱" class="heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">極為酷熱</button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div class="flex flex-col">
+                        <label class="text-[11px] text-slate-400 mb-1">預計最高氣溫 (°C)</label>
+                        <input type="text" id="heatTemp" oninput="renderWarning()" placeholder="如 34 或 33 - 34" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[11px] text-slate-400 mb-1">部分地區氣溫 (°C)</label>
+                        <input type="text" id="heatPartTemp" oninput="renderWarning()" placeholder="如 35 - 36" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 降雨警報模組 -->
+            <div id="module-rain" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
+                <span class="text-xs font-semibold text-blue-400 uppercase tracking-wider">降雨警報 / 預警模板</span>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <button type="button" onclick="selectRainSignal('rain_heavy_warn')" id="btn-rain-rain_heavy_warn" class="rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition">
+                        【#大雨警報】
+                    </button>
+                    <button type="button" onclick="selectRainSignal('rain_storm_warn')" id="btn-rain-rain_storm_warn" class="rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition">
+                        【#暴雨警報】
+                    </button>
+                    <button type="button" onclick="selectRainSignal('rain_super_warn')" id="btn-rain-rain_super_warn" class="rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition">
+                        【#大暴雨警報】
+                    </button>
+                    <button type="button" onclick="selectRainSignal('rain_heavy_pre')" id="btn-rain-rain_heavy_pre" class="rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition">
+                        【大雨預警】
+                    </button>
+                    <button type="button" onclick="selectRainSignal('rain_storm_pre')" id="btn-rain-rain_storm_pre" class="rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition">
+                        【暴雨預警】
+                    </button>
+                    <button type="button" onclick="selectRainSignal('rain_super_pre')" id="btn-rain-rain_super_pre" class="rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition">
+                        【大暴雨預警】
+                    </button>
+                </div>
+
+                <!-- 三大預警統一支援指定發出時間輸入框 -->
+                <div id="rainPreTimeBox" class="hidden bg-dark-950 border border-blue-500/30 rounded-lg p-3 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <label class="text-[11px] text-blue-300 font-medium" id="rainPreTimeLabel">預警指定發出時間 (HH:MM)</label>
+                        <span class="text-[10px] text-slate-400 font-mono">留空則顯示可能性</span>
+                    </div>
+                    <input type="text" id="rainPreExpectedTime" oninput="renderWarning()" placeholder="留空 或 輸入如 01:30" class="w-full bg-dark-900 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
+                    <p class="text-[11px] text-slate-400">
+                        • 填寫（如 01:30）：<span class="text-blue-300 font-mono">本台將於01時30分或之前發出xx警報。</span><br>
+                        • 留空：<span class="text-slate-300 font-mono">改發xx警報之可能性存在。</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- 5. 風暴潮模組 -->
+            <div id="module-surge" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-teal-400 uppercase tracking-wider">風暴潮級別</span>
                 
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="selectSurgeSignal('watch')" id="btn-surge-watch" class="surge-btn p-2.5 rounded-lg border text-left text-xs transition flex flex-col justify-between">
+                    <button type="button" onclick="selectSurgeSignal('watch')" id="btn-surge-watch" class="surge-btn p-2.5 rounded-lg border border-teal-500 bg-teal-500/15 text-teal-300 text-left text-xs transition flex flex-col justify-between shadow">
                         <span class="font-bold">風暴潮觀察</span>
                         <span class="text-[10px] opacity-70">3.3 ~ 3.6m</span>
                     </button>
-                    <button type="button" onclick="selectSurgeSignal('advisory')" id="btn-surge-advisory" class="surge-btn p-2.5 rounded-lg border text-left text-xs transition flex flex-col justify-between">
+                    <button type="button" onclick="selectSurgeSignal('advisory')" id="btn-surge-advisory" class="surge-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs transition flex flex-col justify-between">
                         <span class="font-bold">風暴潮戒備</span>
                         <span class="text-[10px] opacity-70">3.6 ~ 4.3m</span>
                     </button>
-                    <button type="button" onclick="selectSurgeSignal('warning')" id="btn-surge-warning" class="surge-btn p-2.5 rounded-lg border text-left text-xs transition flex flex-col justify-between">
+                    <button type="button" onclick="selectSurgeSignal('warning')" id="btn-surge-warning" class="surge-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs transition flex flex-col justify-between">
                         <span class="font-bold">風暴潮危險</span>
                         <span class="text-[10px] opacity-70">≥ 4.3m</span>
                     </button>
@@ -159,7 +221,7 @@
                         <span class="text-[10px] font-mono text-teal-400" id="surgeDayBadge">比對為：今日</span>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">潮汐日期</label>
                             <input type="date" id="surgeTideDate" oninput="renderWarning()" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
@@ -198,24 +260,22 @@
                 </div>
             </div>
 
-            <!-- 4. 熱帶氣旋模組 (全平鋪按鈕) -->
+            <!-- 6. 熱帶氣旋模組 -->
             <div id="module-cyclone" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">熱帶氣旋警報信號</span>
 
-                <!-- 信號按鈕矩陣 (不堆疊、自動排版) -->
                 <div class="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                    <button type="button" onclick="selectCycloneSignal('注意警報')" id="btn-tc-注意警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">注意警報</button>
-                    <button type="button" onclick="selectCycloneSignal('戒備警報')" id="btn-tc-戒備警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">戒備警報</button>
-                    <button type="button" onclick="selectCycloneSignal('強風警報')" id="btn-tc-強風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">強風警報</button>
-                    <button type="button" onclick="selectCycloneSignal('東北烈風警報')" id="btn-tc-東北烈風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">東北烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('東南烈風警報')" id="btn-tc-東南烈風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">東南烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('西北烈風警報')" id="btn-tc-西北烈風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">西北烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('西南烈風警報')" id="btn-tc-西南烈風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">西南烈風</button>
-                    <button type="button" onclick="selectCycloneSignal('暴風警報')" id="btn-tc-暴風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center">暴風警報</button>
-                    <button type="button" onclick="selectCycloneSignal('𩗗風警報')" id="btn-tc-𩗗風警報" class="tc-btn p-2 rounded-lg border text-xs font-bold transition text-center col-span-1 sm:col-span-2">𩗗風警報</button>
+                    <button type="button" onclick="selectCycloneSignal('注意警報')" id="btn-tc-注意警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">注意警報</button>
+                    <button type="button" onclick="selectCycloneSignal('戒備警報')" id="btn-tc-戒備警報" class="tc-btn p-2 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-bold transition text-center shadow">戒備警報</button>
+                    <button type="button" onclick="selectCycloneSignal('強風警報')" id="btn-tc-強風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">強風警報</button>
+                    <button type="button" onclick="selectCycloneSignal('東北烈風警報')" id="btn-tc-東北烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">東北烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('東南烈風警報')" id="btn-tc-東南烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">東南烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('西北烈風警報')" id="btn-tc-西北烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">西北烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('西南烈風警報')" id="btn-tc-西南烈風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">西南烈風</button>
+                    <button type="button" onclick="selectCycloneSignal('暴風警報')" id="btn-tc-暴風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center">暴風警報</button>
+                    <button type="button" onclick="selectCycloneSignal('𩗗風警報')" id="btn-tc-𩗗風警報" class="tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center col-span-1 sm:col-span-2">𩗗風警報</button>
                 </div>
 
-                <!-- 注意警報範圍 (僅在注意警報時顯示) -->
                 <div id="cautionRangeBox" class="hidden bg-dark-950 border border-amber-500/30 rounded-lg p-2.5 space-y-1.5">
                     <span class="text-xs text-amber-300 font-semibold block">注意警報範圍：</span>
                     <div class="grid grid-cols-2 gap-2">
@@ -224,7 +284,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                     <div>
                         <label class="block text-[11px] text-slate-400 mb-1">氣旋名稱</label>
                         <input type="text" id="tcName" oninput="renderWarning()" placeholder="如 萬宜" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none">
@@ -235,13 +295,11 @@
                     </div>
                 </div>
 
-                <!-- 自動強度等級反算標籤 -->
                 <div class="flex items-center justify-between bg-dark-950 border border-dark-700 px-3 py-2 rounded-lg text-xs">
                     <span class="text-slate-400">判定強度：</span>
                     <span id="tcIntensityTag" class="font-bold text-slate-300 font-mono">未輸入風速</span>
                 </div>
 
-                <!-- 座標輸入 -->
                 <div class="grid grid-cols-2 gap-2 pt-1 border-t border-dark-700/80">
                     <div>
                         <label class="block text-[11px] text-slate-400 mb-1">中心緯度 (°N)</label>
@@ -265,70 +323,17 @@
                 </div>
             </div>
 
-            <!-- 5. 降雨警報模組 (全平鋪按鈕) -->
-            <div id="module-rain" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
-                <span class="text-xs font-semibold text-blue-400 uppercase tracking-wider">降雨警報 / 預警模板</span>
-
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    <button type="button" onclick="selectRainSignal('rain_heavy_warn')" id="btn-rain-rain_heavy_warn" class="rain-btn p-2.5 rounded-lg border text-left text-xs font-bold transition">
-                        【#大雨警報】
-                    </button>
-                    <button type="button" onclick="selectRainSignal('rain_storm_warn')" id="btn-rain-rain_storm_warn" class="rain-btn p-2.5 rounded-lg border text-left text-xs font-bold transition">
-                        【#暴雨警報】
-                    </button>
-                    <button type="button" onclick="selectRainSignal('rain_super_warn')" id="btn-rain-rain_super_warn" class="rain-btn p-2.5 rounded-lg border text-left text-xs font-bold transition">
-                        【#大暴雨警報】
-                    </button>
-                    <button type="button" onclick="selectRainSignal('rain_heavy_pre')" id="btn-rain-rain_heavy_pre" class="rain-btn p-2.5 rounded-lg border text-left text-xs font-bold transition">
-                        【大雨預警】
-                    </button>
-                    <button type="button" onclick="selectRainSignal('rain_storm_pre')" id="btn-rain-rain_storm_pre" class="rain-btn p-2.5 rounded-lg border text-left text-xs font-bold transition">
-                        【暴雨預警】
-                    </button>
-                    <button type="button" onclick="selectRainSignal('rain_super_pre')" id="btn-rain-rain_super_pre" class="rain-btn p-2.5 rounded-lg border text-left text-xs font-bold transition">
-                        【大暴雨預警】
-                    </button>
-                </div>
-
-                <div id="rainPreTimeBox" class="hidden bg-dark-950 border border-blue-500/30 rounded-lg p-2.5">
-                    <label class="block text-[11px] text-blue-300 mb-1">大雨預警指定發出時間</label>
-                    <input type="text" id="rainPreExpectedTime" oninput="renderWarning()" placeholder="如 01時30分" class="w-full bg-dark-900 border border-dark-700 rounded px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                </div>
-            </div>
-
-            <!-- 6. 酷熱警報模組 (全平鋪按鈕) -->
-            <div id="module-heat" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
-                <span class="text-xs font-semibold text-amber-400 uppercase tracking-wider">酷熱警報等級</span>
-                
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="selectHeatLevel('酷熱')" id="btn-heat-酷熱" class="heat-btn p-2.5 rounded-lg border text-center text-xs font-bold transition">酷熱</button>
-                    <button type="button" onclick="selectHeatLevel('非常酷熱')" id="btn-heat-非常酷熱" class="heat-btn p-2.5 rounded-lg border text-center text-xs font-bold transition">非常酷熱</button>
-                    <button type="button" onclick="selectHeatLevel('極為酷熱')" id="btn-heat-極為酷熱" class="heat-btn p-2.5 rounded-lg border text-center text-xs font-bold transition">極為酷熱</button>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2 pt-1">
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">預計最高氣溫 (°C)</label>
-                        <input type="text" id="heatTemp" oninput="renderWarning()" placeholder="如 34 或 33 - 34" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">部分地區氣溫 (°C)</label>
-                        <input type="text" id="heatPartTemp" oninput="renderWarning()" placeholder="如 35 - 36" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 7. 寒冷警報模組 (全平鋪按鈕) -->
+            <!-- 7. 寒冷警報模組 -->
             <div id="module-cold" class="hidden bg-dark-900 border border-dark-700 rounded-xl p-3.5 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">寒冷警報等級</span>
                 
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="selectColdLevel('寒冷')" id="btn-cold-寒冷" class="cold-btn p-2.5 rounded-lg border text-center text-xs font-bold transition">寒冷</button>
-                    <button type="button" onclick="selectColdLevel('非常寒冷')" id="btn-cold-非常寒冷" class="cold-btn p-2.5 rounded-lg border text-center text-xs font-bold transition">非常寒冷</button>
-                    <button type="button" onclick="selectColdLevel('極為寒冷')" id="btn-cold-極為寒冷" class="cold-btn p-2.5 rounded-lg border text-center text-xs font-bold transition">極為寒冷</button>
+                    <button type="button" onclick="selectColdLevel('寒冷')" id="btn-cold-寒冷" class="cold-btn p-2.5 rounded-lg border border-indigo-500 bg-indigo-500/15 text-indigo-300 text-center text-xs font-bold transition shadow">寒冷</button>
+                    <button type="button" onclick="selectColdLevel('非常寒冷')" id="btn-cold-非常寒冷" class="cold-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">非常寒冷</button>
+                    <button type="button" onclick="selectColdLevel('極為寒冷')" id="btn-cold-極為寒冷" class="cold-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition">極為寒冷</button>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                     <div>
                         <label class="block text-[11px] text-slate-400 mb-1">預計最低氣溫 (°C)</label>
                         <input type="text" id="coldTemp" oninput="renderWarning()" placeholder="如 10 或 9 - 10" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 outline-none font-mono">
@@ -349,15 +354,15 @@
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm flex-1 flex flex-col">
                 <div class="flex items-center justify-between mb-3">
                     <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                         發布視覺預覽
                     </span>
-                    <span id="badgeCat" class="text-[11px] font-mono px-2 py-0.5 rounded border bg-teal-500/10 text-teal-300 border-teal-500/30">
-                        風暴潮
+                    <span id="badgeCat" class="text-[11px] font-mono px-2 py-0.5 rounded border bg-amber-500/10 text-amber-300 border-amber-500/30">
+                        酷熱警報
                     </span>
                 </div>
 
-                <div id="previewCard" class="flex-1 min-h-[220px] rounded-lg p-4 bg-teal-950/20 border-2 border-teal-500/40 text-slate-100 shadow flex flex-col justify-between">
+                <div id="previewCard" class="flex-1 min-h-[240px] rounded-lg p-4 bg-amber-950/20 border-2 border-amber-500/40 text-slate-100 shadow flex flex-col justify-between">
                     <!-- 動態渲染內容 -->
                 </div>
             </div>
@@ -365,7 +370,7 @@
             <!-- 純文字輸出與複製操作 -->
             <div class="bg-dark-900 border border-dark-700 rounded-xl p-4 shadow-sm space-y-3">
                 <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">純文字輸出 (相容剪貼簿)</span>
-                <textarea id="outputText" readonly rows="8" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-3 text-xs sm:text-sm font-mono text-slate-200 outline-none resize-none leading-relaxed select-all"></textarea>
+                <textarea id="outputText" readonly rows="9" class="w-full bg-dark-950 border border-dark-700 rounded-lg p-3 text-xs sm:text-sm font-mono text-slate-200 outline-none resize-none leading-relaxed select-all"></textarea>
                 
                 <div class="grid grid-cols-2 gap-2">
                     <button type="button" onclick="copyWarningText()" class="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-bold py-2.5 px-3 rounded-lg text-xs sm:text-sm transition">
@@ -431,13 +436,13 @@
         <span id="toastMsg" class="text-xs font-medium">複製成功！</span>
     </div>
 
-    <!-- JavaScript 核心 -->
+    <!-- JavaScript 核心邏輯 -->
     <script>
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
 
-        // 當前狀態
-        let curCat = 'surge';
+        // 當前狀態 (預設為酷熱警報，方便即時檢驗最新官方文本)
+        let curCat = 'heat';
         let curMode = 'new';
         let curSurge = 'watch';
         let curCyclone = '戒備警報';
@@ -458,11 +463,21 @@
             { code: 'SuTY', name: '超強颱風',     max: 9999, text: '≥ 185 km/h', color: '#9333ea' }
         ];
 
+        // 酷熱警報三大等級官方文案配置
+        const HEAT_OFFICIAL_ADVICE = {
+            '酷熱': `長時間暴露在陽光下或進行體力活動可能導致中暑、肌肉抽筋和熱衰竭。建議市民減少劇烈戶外活動、穿著輕便及淺色的衣物、補充足夠水分。`,
+            '非常酷熱': `極可能發生中暑、熱痙攣和熱衰竭。長時間暴露在陽光下或進行體力活動有可能發生嚴重中暑。建議市民避免戶外劇烈活動、穿著輕便及淺色的衣物、補充足夠水分，特別關注易受影響的族群。`,
+            '極為酷熱': `市民應在烈日當空之下避免進行戶外活動，避免長時間在陽光下曝曬，以免受太陽紫外線曬傷，且應盡量留在室內地方及多補充水份，慎防中暑及熱衰竭提防中暑。
+
+在戶外活動的人士，應留意身體健康狀況，帶備食水及防曬用品，並減少長時間在陽光下曝曬。市民亦應留意本台最新消息。
+
+長者、孕婦、嬰兒及小童、慢性病如心臟病或高血壓患者，以及過胖人士均較易中暑，應及時觀察是否出現中暑徵兆。在極為酷熱天氣下，更應時常留意身體健康狀況，確保有充分休息，保持體溫正常，避免身體過份受熱。`
+        };
+
         // 1. 類別切換
         function selectCategory(cat) {
             curCat = cat;
 
-            // 類別按鈕外觀重設
             document.querySelectorAll('.cat-pill').forEach(btn => {
                 btn.className = "cat-pill py-2.5 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center";
             });
@@ -476,7 +491,6 @@
                 else if (cat === 'cold') activeBtn.className = "cat-pill py-2.5 px-1 rounded-lg border border-indigo-500 bg-indigo-500/15 text-indigo-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
             }
 
-            // 模組顯示切換
             ['surge', 'cyclone', 'rain', 'heat', 'cold'].forEach(c => {
                 const el = document.getElementById(`module-${c}`);
                 if (el) el.classList.toggle('hidden', c !== cat);
@@ -501,7 +515,46 @@
             renderWarning();
         }
 
-        // 3. 風暴潮級別切換
+        // 3. 酷熱等級切換
+        function selectHeatLevel(level) {
+            curHeat = level;
+            document.querySelectorAll('.heat-btn').forEach(btn => {
+                btn.className = "heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition";
+            });
+            const active = document.getElementById(`btn-heat-${level}`);
+            if (active) {
+                active.className = "heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow";
+            }
+            renderWarning();
+        }
+
+        // 4. 降雨模板切換
+        function selectRainSignal(tplKey) {
+            curRain = tplKey;
+            document.querySelectorAll('.rain-btn').forEach(btn => {
+                btn.className = "rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition";
+            });
+            const active = document.getElementById(`btn-rain-${tplKey}`);
+            if (active) {
+                active.className = "rain-btn p-2.5 rounded-lg border border-blue-500 bg-blue-500/15 text-blue-300 text-left text-xs font-bold transition shadow";
+            }
+
+            const preBox = document.getElementById('rainPreTimeBox');
+            const preLabel = document.getElementById('rainPreTimeLabel');
+            if (preBox) {
+                const isPreWarning = ['rain_heavy_pre', 'rain_storm_pre', 'rain_super_pre'].includes(tplKey);
+                preBox.classList.toggle('hidden', !isPreWarning);
+                if (isPreWarning) {
+                    if (tplKey === 'rain_heavy_pre') preLabel.innerText = '大雨預警指定發出時間 (HH:MM)';
+                    else if (tplKey === 'rain_storm_pre') preLabel.innerText = '暴雨預警指定發出時間 (HH:MM)';
+                    else if (tplKey === 'rain_super_pre') preLabel.innerText = '大暴雨預警指定發出時間 (HH:MM)';
+                }
+            }
+
+            renderWarning();
+        }
+
+        // 5. 風暴潮級別切換
         function selectSurgeSignal(signalKey) {
             curSurge = signalKey;
             document.querySelectorAll('.surge-btn').forEach(btn => {
@@ -514,7 +567,7 @@
             renderWarning();
         }
 
-        // 4. 熱帶氣旋信號切換
+        // 6. 熱帶氣旋信號切換
         function selectCycloneSignal(sigName) {
             curCyclone = sigName;
             document.querySelectorAll('.tc-btn').forEach(btn => {
@@ -543,38 +596,6 @@
             } else {
                 b8.className = "py-1.5 px-2 rounded border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold";
                 b12.className = "py-1.5 px-2 rounded border border-dark-700 bg-dark-800 text-slate-400 text-xs font-bold";
-            }
-            renderWarning();
-        }
-
-        // 5. 降雨模板切換
-        function selectRainSignal(tplKey) {
-            curRain = tplKey;
-            document.querySelectorAll('.rain-btn').forEach(btn => {
-                btn.className = "rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition";
-            });
-            const active = document.getElementById(`btn-rain-${tplKey}`);
-            if (active) {
-                active.className = "rain-btn p-2.5 rounded-lg border border-blue-500 bg-blue-500/15 text-blue-300 text-left text-xs font-bold transition shadow";
-            }
-
-            const preBox = document.getElementById('rainPreTimeBox');
-            if (preBox) {
-                preBox.classList.toggle('hidden', tplKey !== 'rain_heavy_pre');
-            }
-
-            renderWarning();
-        }
-
-        // 6. 酷熱等級切換
-        function selectHeatLevel(level) {
-            curHeat = level;
-            document.querySelectorAll('.heat-btn').forEach(btn => {
-                btn.className = "heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition";
-            });
-            const active = document.getElementById(`btn-heat-${level}`);
-            if (active) {
-                active.className = "heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow";
             }
             renderWarning();
         }
@@ -672,7 +693,6 @@
             return '今日/明日';
         }
 
-        // 熱帶氣旋官方定義
         function getCycloneDef(signal) {
             if (signal === '注意警報') {
                 if (curCautionRange === '1200') {
@@ -698,6 +718,21 @@
             return '';
         }
 
+        // 時間格式化輔助函數（支援 HH:MM 或 HH時MM分 轉換為 xx時xx分）
+        function formatExpectedTimeText(rawInput) {
+            const str = rawInput.trim();
+            if (!str) return '';
+            if (str.includes(':')) {
+                const parts = str.split(':');
+                if (parts.length >= 2) {
+                    const h = parts[0].padStart(2, '0');
+                    const m = parts[1].padStart(2, '0');
+                    return `${h}時${m}分`;
+                }
+            }
+            return str;
+        }
+
         // 核心渲染邏輯
         function renderWarning() {
             const dateStr = document.getElementById('inputDate').value || 'YYYY-MM-DD';
@@ -716,7 +751,68 @@
             let previewStyle = '';
             let badgeText = '';
 
-            if (curCat === 'surge') {
+            if (curCat === 'heat') {
+                badgeText = '酷熱警報';
+                previewStyle = 'bg-amber-950/20 border-amber-500/50 text-amber-300';
+                
+                title = `【#${curHeat}警報】`;
+                bodyLead = curMode === 'new' ? `${curHeat}警報於本地時間${m}月${d}日${h}時${min}分發出。` : `${curHeat}警報，現正生效。`;
+
+                const t = document.getElementById('heatTemp').value.trim();
+                const pt = document.getElementById('heatPartTemp').value.trim();
+                let segs = [];
+                if (t) segs.push(`最高氣溫約${t}度`);
+                if (pt) segs.push(`部分地區約${pt}度`);
+                const tDesc = segs.length > 0 ? `，${segs.join('，')}。` : '。';
+
+                const weatherDesc = `預料本澳今日天氣${curHeat}${tDesc}`;
+                const officialAdvice = HEAT_OFFICIAL_ADVICE[curHeat] || '';
+
+                defText = `${weatherDesc}\n\n${officialAdvice}`;
+
+            } else if (curCat === 'rain') {
+                badgeText = '降雨警報';
+                previewStyle = 'bg-blue-950/20 border-blue-500/50 text-blue-300';
+
+                const rawExpectedTime = document.getElementById('rainPreExpectedTime').value;
+                const formattedTime = formatExpectedTimeText(rawExpectedTime);
+
+                if (curRain === 'rain_heavy_warn') {
+                    title = `【#大雨警報】`;
+                    bodyLead = curMode === 'new' ? `大雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `大雨警報，現正生效。`;
+                    defText = `預料每小時雨量將會達到20毫米。市民應留在室內安全地方，注意天氣狀況。`;
+                } else if (curRain === 'rain_storm_warn') {
+                    title = `【#暴雨警報】`;
+                    bodyLead = curMode === 'new' ? `暴雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `暴雨警報，現正生效。`;
+                    defText = `預料雨勢將會增強，每小時雨量將會達到50毫米，部分低漥地區將出現水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
+                } else if (curRain === 'rain_super_warn') {
+                    title = `【#大暴雨警報】`;
+                    bodyLead = curMode === 'new' ? `大暴雨報告於本地時間${m}月${d}日${h}時${min}分發出。` : `大暴雨報告，現正生效。`;
+                    defText = `預料雨勢將會維持，每小時雨量將會達到或接近100毫米，低漥地區將出現較嚴重水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
+                } else if (curRain === 'rain_heavy_pre') {
+                    title = `【大雨預警】`;
+                    bodyLead = ``;
+                    const triggerText = formattedTime 
+                        ? `本台將於${formattedTime}或之前發出大雨警報。` 
+                        : `改發大雨警報之可能性存在。`;
+                    defText = `受一強雷雨區影響，預計本澳未來一兩小時雨勢將會增強。${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
+                } else if (curRain === 'rain_storm_pre') {
+                    title = `【暴雨預警】`;
+                    bodyLead = ``;
+                    const triggerText = formattedTime 
+                        ? `本台將於${formattedTime}或之前發出暴雨警報。` 
+                        : `改發暴雨報告之可能性存在。`;
+                    defText = `受到一道強雷雨區影響，預計本澳未來一小時雨勢會進一步加強，${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
+                } else if (curRain === 'rain_super_pre') {
+                    title = `【大暴雨預警】`;
+                    bodyLead = ``;
+                    const triggerText = formattedTime 
+                        ? `本台將於${formattedTime}或之前發出大暴雨警報。` 
+                        : `改發大暴雨警報之可能性存在。`;
+                    defText = `預計本澳短期內雨勢會進一步加強，${triggerText}請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
+                }
+
+            } else if (curCat === 'surge') {
                 badgeText = '風暴潮';
                 previewStyle = 'bg-teal-950/20 border-teal-500/50 text-teal-300';
                 
@@ -735,7 +831,6 @@
                     defText = '表示預計預計風暴潮影響程度極端，澳門海水高度將會達到海圖基準面以上4.3米或更高，低窪地區有機會1.0米以上非常嚴重水浸。';
                 }
 
-                // 潮汐數值解算
                 const tideDate = document.getElementById('surgeTideDate').value;
                 const tideTime = document.getElementById('surgeTideTime').value.trim();
                 const tideVal = parseFloat(document.getElementById('surgeTideH').value);
@@ -807,52 +902,6 @@
                     }
                 }
 
-            } else if (curCat === 'rain') {
-                badgeText = '降雨警報';
-                previewStyle = 'bg-blue-950/20 border-blue-500/50 text-blue-300';
-
-                if (curRain === 'rain_heavy_warn') {
-                    title = `【#大雨警報】`;
-                    bodyLead = curMode === 'new' ? `大雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `大雨警報，現正生效。`;
-                    defText = `預料每小時雨量將會達到20毫米。市民應留在室內安全地方，注意天氣狀況。`;
-                } else if (curRain === 'rain_storm_warn') {
-                    title = `【#暴雨警報】`;
-                    bodyLead = curMode === 'new' ? `暴雨警報於本地時間${m}月${d}日${h}時${min}分發出。` : `暴雨警報，現正生效。`;
-                    defText = `預料雨勢將會增強，每小時雨量將會達到50毫米，部分低漥地區將出現水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
-                } else if (curRain === 'rain_super_warn') {
-                    title = `【#大暴雨警報】`;
-                    bodyLead = curMode === 'new' ? `大暴雨報告於本地時間${m}月${d}日${h}時${min}分發出。` : `大暴雨報告，現正生效。`;
-                    defText = `預料雨勢將會維持，每小時雨量將會達到或接近100毫米，低漥地區將出現較嚴重水浸。請市民留意最新天氣訊息，在安全地方暫避。`;
-                } else if (curRain === 'rain_super_pre') {
-                    title = `【大暴雨預警】`;
-                    bodyLead = ``;
-                    defText = `預計本澳短期內雨勢會進一步加強，改發大暴雨警報之可能性存在。請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
-                } else if (curRain === 'rain_storm_pre') {
-                    title = `【暴雨預警】`;
-                    bodyLead = ``;
-                    defText = `受到一道強雷雨區影響，預計本澳未來一小時雨勢會進一步加強，改發暴雨報告之可能性存在。請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
-                } else if (curRain === 'rain_heavy_pre') {
-                    title = `【大雨預警】`;
-                    const expTime = document.getElementById('rainPreExpectedTime').value.trim() || `${h}時${min}分`;
-                    bodyLead = `受一強雷雨區影響，預計本澳未來一兩小時雨勢將會增強。`;
-                    defText = `本台將於${expTime}或之前發出大雨警報。請市民密切留意最新天氣訊息，留在室內安全地方，並注意天氣狀況。`;
-                }
-
-            } else if (curCat === 'heat') {
-                badgeText = '酷熱警報';
-                previewStyle = 'bg-amber-950/20 border-amber-500/50 text-amber-300';
-                title = `【#酷熱警報】`;
-                bodyLead = curMode === 'new' ? `酷熱警報於本地時間${m}月${d}日${h}時${min}分發出。` : `酷熱警報，現正生效。`;
-
-                const t = document.getElementById('heatTemp').value.trim();
-                const pt = document.getElementById('heatPartTemp').value.trim();
-                let segs = [];
-                if (t) segs.push(`最高氣溫約${t}度`);
-                if (pt) segs.push(`部分地區約${pt}度`);
-                const tDesc = segs.length > 0 ? `，${segs.join('，')}。` : '。';
-
-                defText = `預料本澳今日天氣${curHeat}${tDesc}市民應減少長時間在陽光下曝曬，多補充水分，預防中暑。`;
-
             } else if (curCat === 'cold') {
                 badgeText = '寒冷警報';
                 previewStyle = 'bg-indigo-950/20 border-indigo-500/50 text-indigo-300';
@@ -882,7 +931,11 @@
             badge.innerText = badgeText;
 
             const card = document.getElementById('previewCard');
-            card.className = `flex-1 min-h-[220px] rounded-lg p-4 ${previewStyle} border-2 shadow flex flex-col justify-between`;
+            card.className = `flex-1 min-h-[240px] rounded-lg p-4 ${previewStyle} border-2 shadow flex flex-col justify-between`;
+            
+            // 轉換內文換行呈現
+            const formattedDefHtml = defText.replace(/\n\n/g, '</p><p class="text-slate-200 mt-2">').replace(/\n/g, '<br>');
+
             card.innerHTML = `
                 <div class="space-y-2.5">
                     <div class="flex items-center justify-between border-b border-white/10 pb-2">
@@ -891,7 +944,7 @@
                     </div>
                     <div class="text-xs sm:text-sm leading-relaxed space-y-1.5">
                         ${bodyLead ? `<p class="font-bold text-amber-300">${bodyLead}</p>` : ''}
-                        <p class="text-slate-200">${defText}</p>
+                        <p class="text-slate-200">${formattedDefHtml}</p>
                         ${detailText ? `<p class="text-slate-100 font-mono bg-black/40 p-2.5 rounded border border-white/10 mt-2">${detailText}</p>` : ''}
                     </div>
                 </div>
@@ -1066,11 +1119,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
             syncCurrentTime();
-            selectCategory('surge');
+            selectCategory('heat'); // 預設酷熱
+            selectHeatLevel('酷熱');
             selectSurgeSignal('watch');
             selectCycloneSignal('戒備警報');
             selectRainSignal('rain_heavy_warn');
-            selectHeatLevel('酷熱');
             selectColdLevel('寒冷');
 
             if (window.innerWidth < 1024) {
