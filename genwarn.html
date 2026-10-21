@@ -40,14 +40,99 @@
             input, select, textarea { font-size: 16px !important; }
         }
         .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #0e121b; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #222b3d; border-radius: 4px; }
         
+        /* 拖曳順序樣式 */
         tr.drag-over { border-top: 2px solid #22d3ee !important; background-color: rgba(34, 211, 238, 0.08) !important; }
         tr.dragging { opacity: 0.35; background-color: #1e293b !important; }
         .drag-handle { cursor: grab; touch-action: none; }
         .drag-handle:active { cursor: grabbing; }
+
+        /* 明亮模式過渡與基本微調 */
+        html:not(.dark) body {
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        html:not(.dark) .bg-dark-950 { background-color: #ffffff; color: #0f172a; }
+        html:not(.dark) .bg-dark-900 { background-color: #f1f5f9; color: #0f172a; }
+        html:not(.dark) .bg-dark-850 { background-color: #e2e8f0; color: #0f172a; }
+        html:not(.dark) .bg-dark-800 { background-color: #cbd5e1; color: #1e293b; }
+        html:not(.dark) .border-dark-700 { border-color: #cbd5e1; }
+        html:not(.dark) .border-dark-600 { border-color: #94a3b8; }
+        html:not(.dark) .text-slate-100 { color: #0f172a; }
+        html:not(.dark) .text-slate-200 { color: #1e293b; }
+        html:not(.dark) .text-slate-300 { color: #334155; }
+        html:not(.dark) .text-slate-400 { color: #64748b; }
     </style>
+
+    <!-- 關鍵：最優先宣告全域導航與切換函式，徹底根除 ReferenceError -->
+    <script>
+        function switchAppView(view) {
+            window.curAppView = view;
+            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.app-tab-btn').forEach(btn => {
+                btn.className = "app-tab-btn whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center gap-1.5 text-slate-400 hover:text-white bg-dark-800 border border-dark-700";
+            });
+
+            const activeBtn = document.getElementById('navTab-' + view);
+            const targetView = document.getElementById('view-' + view);
+            if (activeBtn) activeBtn.className = "app-tab-btn whitespace-nowrap py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center gap-1.5 bg-amber-500 text-black shadow";
+            if (targetView) targetView.classList.remove('hidden');
+
+            if (view === 'nowcast') {
+                if (window.nowcastRows && window.nowcastRows.length === 0 && typeof window.fetchNowcastCsv === 'function') {
+                    window.fetchNowcastCsv();
+                } else if (typeof window.renderNowcastCards === 'function') {
+                    window.renderNowcastCards();
+                }
+            } else if (view === 'tcdata') {
+                if (typeof window.renderTcStormTabs === 'function') window.renderTcStormTabs();
+                if (typeof window.loadSelectedTcCsvData === 'function') window.loadSelectedTcCsvData();
+            }
+        }
+        window.switchAppView = switchAppView;
+
+        function switchTab(tab) {
+            if (window.innerWidth >= 1024) return;
+            const pEdit = document.getElementById('panelEdit');
+            const pPrev = document.getElementById('panelPreview');
+            const bEdit = document.getElementById('tabBtnEdit');
+            const bPrev = document.getElementById('tabBtnPreview');
+
+            if (tab === 'edit') {
+                if (pEdit) pEdit.classList.remove('hidden');
+                if (pPrev) pPrev.classList.add('hidden');
+                if (bEdit) bEdit.className = "py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40";
+                if (bPrev) bPrev.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 border border-transparent";
+            } else {
+                if (pEdit) pEdit.classList.add('hidden');
+                if (pPrev) pPrev.classList.remove('hidden');
+                if (bPrev) bPrev.className = "py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40";
+                if (bEdit) bEdit.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 border border-transparent";
+            }
+        }
+        window.switchTab = switchTab;
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.classList.toggle('dark');
+            localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
+            updateThemeButton();
+        }
+        window.toggleTheme = toggleTheme;
+
+        function updateThemeButton() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) {
+                btn.innerHTML = isDark 
+                    ? `<svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg><span class="hidden sm:inline">淺色模式</span>`
+                    : `<svg class="w-3.5 h-3.5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><span class="hidden sm:inline">深色模式</span>`;
+            }
+        }
+        window.updateThemeButton = updateThemeButton;
+    </script>
 </head>
 <body class="bg-dark-950 text-slate-100 min-h-screen flex flex-col selection:bg-amber-500 selection:text-black">
 
@@ -64,6 +149,10 @@
         </div>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
+            <!-- 明暗背景切換按鈕 -->
+            <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="flex items-center gap-1 text-xs bg-dark-800 hover:bg-dark-700 border border-dark-700 px-2.5 py-1.5 rounded-xl text-slate-200 transition active:scale-95">
+                <!-- SVG 圖標由 updateThemeButton 動態注入 -->
+            </button>
             <button type="button" onclick="syncCurrentTime()" class="flex items-center gap-1 text-xs bg-dark-800 hover:bg-dark-700 border border-dark-700 px-2.5 py-1.5 rounded-xl text-slate-200 transition active:scale-95">
                 <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
                 <span class="hidden sm:inline">填入現時</span>
@@ -114,7 +203,6 @@
                     <i data-lucide="chevron-down" id="activeDetailChevron" class="w-3.5 h-3.5 transition"></i>
                 </button>
             </div>
-            <!-- 結構化排版內文容器 -->
             <div id="activeWarningDetailContent" class="hidden max-w-7xl mx-auto mt-2 space-y-2.5"></div>
         </div>
 
@@ -760,13 +848,13 @@
         <span id="toastMsg" class="text-xs font-medium">操作成功！</span>
     </div>
 
-    <!-- JavaScript 完整代碼 (所有全域調用函式置頂) -->
+    <!-- JavaScript 完整代碼 -->
     <script>
         // ================= 全域宣告與立即初始化 =================
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
 
-        let curAppView = 'warn';
+        window.curAppView = 'warn';
         let curCat = 'cyclone';
         let curMode = 'new';
         let curSurge = 'watch';
@@ -795,7 +883,7 @@
         let dragSourceIndex = null;
 
         let nowcastFileSha = null;
-        let nowcastRows = [];
+        window.nowcastRows = [];
         let nowcastFilterClass = 'E';
 
         const CONDITION_ICON_MAP = {
@@ -848,211 +936,6 @@ false,I,驟雨
 false,I,雷暴
 false,I,雷雨
 false,I,暴雨`;
-
-        // ================= 全域導航與控制函式 (提升至最前端) =================
-
-        function switchTab(tab) {
-            if (window.innerWidth >= 1024) return;
-            const pEdit = document.getElementById('panelEdit');
-            const pPrev = document.getElementById('panelPreview');
-            const bEdit = document.getElementById('tabBtnEdit');
-            const bPrev = document.getElementById('tabBtnPreview');
-
-            if (tab === 'edit') {
-                if (pEdit) pEdit.classList.remove('hidden');
-                if (pPrev) pPrev.classList.add('hidden');
-                if (bEdit) bEdit.className = "py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40";
-                if (bPrev) bPrev.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 border border-transparent";
-            } else {
-                if (pEdit) pEdit.classList.add('hidden');
-                if (pPrev) pPrev.classList.remove('hidden');
-                if (bPrev) bPrev.className = "py-2 text-xs font-semibold rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/40";
-                if (bEdit) bEdit.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 border border-transparent";
-            }
-        }
-        window.switchTab = switchTab;
-
-        function syncCurrentTime() {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const hh = String(now.getHours()).padStart(2, '0');
-            const mm = String(now.getMinutes()).padStart(2, '0');
-
-            const dateInput = document.getElementById('inputDate');
-            const timeInput = document.getElementById('inputTime');
-            if (dateInput) dateInput.value = `${y}-${m}-${d}`;
-            if (timeInput) timeInput.value = `${hh}:${mm}`;
-            
-            const tideDate = document.getElementById('surgeTideDate');
-            if (tideDate && !tideDate.value) {
-                tideDate.value = `${y}-${m}-${d}`;
-            }
-            renderWarning();
-        }
-        window.syncCurrentTime = syncCurrentTime;
-
-        function selectCategory(cat) {
-            curCat = cat;
-            document.querySelectorAll('.cat-pill').forEach(btn => {
-                btn.className = "cat-pill py-2 px-1 rounded-lg border border-dark-700 bg-dark-800 hover:bg-dark-700 text-slate-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center";
-            });
-
-            const activeBtn = document.getElementById(`cat-${cat}`);
-            if (activeBtn) {
-                if (cat === 'surge') activeBtn.className = "cat-pill py-2 px-1 rounded-lg border border-teal-500 bg-teal-500/15 text-teal-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
-                else if (cat === 'cyclone') activeBtn.className = "cat-pill py-2 px-1 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
-                else if (cat === 'rain') activeBtn.className = "cat-pill py-2 px-1 rounded-lg border border-blue-500 bg-blue-500/15 text-blue-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
-                else if (cat === 'heat') activeBtn.className = "cat-pill py-2 px-1 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
-                else if (cat === 'cold') activeBtn.className = "cat-pill py-2 px-1 rounded-lg border border-indigo-500 bg-indigo-500/15 text-indigo-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
-                else if (cat === 'notice') activeBtn.className = "cat-pill py-2 px-1 rounded-lg border border-emerald-500 bg-emerald-500/15 text-emerald-300 text-xs font-semibold transition text-center flex flex-col items-center justify-center shadow";
-            }
-
-            ['surge', 'cyclone', 'rain', 'heat', 'cold', 'notice'].forEach(c => {
-                const el = document.getElementById(`module-${c}`);
-                if (el) el.classList.toggle('hidden', c !== cat);
-            });
-
-            renderWarning();
-        }
-        window.selectCategory = selectCategory;
-
-        function selectCycloneSignal(sigName) {
-            curCyclone = sigName;
-            document.querySelectorAll('.tc-btn').forEach(btn => {
-                btn.className = "tc-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-center";
-            });
-            const active = document.getElementById(`btn-tc-${sigName}`);
-            if (active) {
-                active.className = "tc-btn p-2 rounded-lg border border-cyan-500 bg-cyan-500/15 text-cyan-300 text-xs font-bold transition text-center shadow";
-            }
-            const cautionBox = document.getElementById('cautionRangeBox');
-            if (cautionBox) cautionBox.classList.toggle('hidden', sigName !== '注意警報');
-            renderWarning();
-        }
-        window.selectCycloneSignal = selectCycloneSignal;
-
-        function selectCautionRange(range) {
-            curCautionRange = range;
-            const b12 = document.getElementById('btn-c1200');
-            const b8 = document.getElementById('btn-c800');
-            if (range === '1200') {
-                if (b12) b12.className = "py-1.5 px-2 rounded border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold";
-                if (b8) b8.className = "py-1.5 px-2 rounded border border-dark-700 bg-dark-800 text-slate-400 text-xs font-bold";
-            } else {
-                if (b8) b8.className = "py-1.5 px-2 rounded border border-amber-500 bg-amber-500/20 text-amber-300 text-xs font-bold";
-                if (b12) b12.className = "py-1.5 px-2 rounded border border-dark-700 bg-dark-800 text-slate-400 text-xs font-bold";
-            }
-            renderWarning();
-        }
-        window.selectCautionRange = selectCautionRange;
-
-        function selectSurgeSignal(signalKey) {
-            curSurge = signalKey;
-            document.querySelectorAll('.surge-btn').forEach(btn => {
-                btn.className = "surge-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs transition flex flex-col justify-between";
-            });
-            const active = document.getElementById(`btn-surge-${signalKey}`);
-            if (active) {
-                active.className = "surge-btn p-2.5 rounded-lg border border-teal-500 bg-teal-500/15 text-teal-300 text-left text-xs transition flex flex-col justify-between shadow";
-            }
-            renderWarning();
-        }
-        window.selectSurgeSignal = selectSurgeSignal;
-
-        function selectRainSignal(tplKey) {
-            curRain = tplKey;
-            document.querySelectorAll('.rain-btn').forEach(btn => {
-                btn.className = "rain-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-left text-xs font-bold transition";
-            });
-            const active = document.getElementById(`btn-rain-${tplKey}`);
-            if (active) {
-                active.className = "rain-btn p-2.5 rounded-lg border border-blue-500 bg-blue-500/15 text-blue-300 text-left text-xs font-bold transition shadow";
-            }
-
-            const preBox = document.getElementById('rainPreTimeBox');
-            const preLabel = document.getElementById('rainPreTimeLabel');
-            if (preBox) {
-                const isPreWarning = ['rain_heavy_pre', 'rain_storm_pre', 'rain_super_pre'].includes(tplKey);
-                preBox.classList.toggle('hidden', !isPreWarning);
-                if (isPreWarning) {
-                    if (tplKey === 'rain_heavy_pre') preLabel.innerText = '大雨預警指定發出時間 (HH:MM)';
-                    else if (tplKey === 'rain_storm_pre') preLabel.innerText = '暴雨預警指定發出時間 (HH:MM)';
-                    else if (tplKey === 'rain_super_pre') preLabel.innerText = '大暴雨預警指定發出時間 (HH:MM)';
-                }
-            }
-            renderWarning();
-        }
-        window.selectRainSignal = selectRainSignal;
-
-        function selectHeatLevel(level) {
-            curHeat = level;
-            document.querySelectorAll('.heat-btn').forEach(btn => {
-                btn.className = "heat-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition";
-            });
-            const active = document.getElementById(`btn-heat-${level}`);
-            if (active) {
-                active.className = "heat-btn p-2.5 rounded-lg border border-amber-500 bg-amber-500/15 text-amber-300 text-center text-xs font-bold transition shadow";
-            }
-            renderWarning();
-        }
-        window.selectHeatLevel = selectHeatLevel;
-
-        function selectColdLevel(level) {
-            curCold = level;
-            document.querySelectorAll('.cold-btn').forEach(btn => {
-                btn.className = "cold-btn p-2.5 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-center text-xs font-bold transition";
-            });
-            const active = document.getElementById(`btn-cold-${level}`);
-            if (active) {
-                active.className = "cold-btn p-2.5 rounded-lg border border-indigo-500 bg-indigo-500/15 text-indigo-300 text-center text-xs font-bold transition shadow";
-            }
-            renderWarning();
-        }
-        window.selectColdLevel = selectColdLevel;
-
-        function selectNoticeType(nType) {
-            curNotice = nType;
-            document.querySelectorAll('.not-btn').forEach(btn => {
-                btn.className = "not-btn p-2 rounded-lg border border-dark-700 bg-dark-800 text-slate-300 text-xs font-bold transition text-left";
-            });
-            const active = document.getElementById(`btn-not-${nType}`);
-            if (active) {
-                active.className = "not-btn p-2 rounded-lg border border-emerald-500 bg-emerald-500/15 text-emerald-300 text-xs font-bold transition text-left shadow";
-            }
-
-            document.querySelectorAll('.notice-subopt').forEach(el => el.classList.add('hidden'));
-            if (nType === 'heat_alert') document.getElementById('opt-heat_alert').classList.remove('hidden');
-            else if (nType === 'cold_alert') document.getElementById('opt-cold_alert').classList.remove('hidden');
-            else if (nType === 'fire') document.getElementById('opt-fire').classList.remove('hidden');
-            else if (nType === 'air') document.getElementById('opt-air').classList.remove('hidden');
-            else if (nType === 'rain_special') document.getElementById('opt-rain_special').classList.remove('hidden');
-
-            renderWarning();
-        }
-        window.selectNoticeType = selectNoticeType;
-
-        function selectIssueMode(mode) {
-            curMode = mode;
-            const btnNew = document.getElementById('btnModeNew');
-            const btnCur = document.getElementById('btnModeCur');
-            const btnCancel = document.getElementById('btnModeCancel');
-
-            if (btnNew) btnNew.className = "py-2 px-2 rounded-lg text-xs font-bold transition border border-dark-700 bg-dark-800 text-slate-400 hover:text-white";
-            if (btnCur) btnCur.className = "py-2 px-2 rounded-lg text-xs font-bold transition border border-dark-700 bg-dark-800 text-slate-400 hover:text-white";
-            if (btnCancel) btnCancel.className = "py-2 px-2 rounded-lg text-xs font-bold transition border border-dark-700 bg-dark-800 text-slate-400 hover:text-white";
-
-            if (mode === 'new' && btnNew) {
-                btnNew.className = "py-2 px-2 rounded-lg text-xs font-bold transition border border-amber-500 bg-amber-500 text-black shadow";
-            } else if (mode === 'current' && btnCur) {
-                btnCur.className = "py-2 px-2 rounded-lg text-xs font-bold transition border border-amber-500 bg-amber-500 text-black shadow";
-            } else if (mode === 'cancel' && btnCancel) {
-                btnCancel.className = "py-2 px-2 rounded-lg text-xs font-bold transition border border-rose-500 bg-rose-500 text-white shadow";
-            }
-            renderWarning();
-        }
-        window.selectIssueMode = selectIssueMode;
 
         // ================= 安全執行 Lucide 圖標 =================
         function safeCreateLucideIcons() {
@@ -1152,6 +1035,7 @@ false,I,暴雨`;
             renderWarning();
             showToast(`已載入「${tcFilesMeta[letter].stormName}」即時與預報數值！`);
         }
+        window.onSelectTcFromCsv = onSelectTcFromCsv;
 
         function parseTcRowsFromCsv(csvText) {
             const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -1212,6 +1096,7 @@ false,I,暴雨`;
                 `;
             }).join('');
         }
+        window.renderTcStormTabs = renderTcStormTabs;
 
         function switchTcFile(letter) {
             currentEditingTcFile = letter;
@@ -1219,6 +1104,7 @@ false,I,暴雨`;
             document.getElementById('tcCurrentEditingFileName').innerText = `TCdata/${letter}.csv（${tcFilesMeta[letter].stormName}）`;
             loadSelectedTcCsvData();
         }
+        window.switchTcFile = switchTcFile;
 
         async function loadSelectedTcCsvData() {
             const letter = currentEditingTcFile;
@@ -1230,6 +1116,7 @@ false,I,暴雨`;
             currentTcRows = parseTcRowsFromCsv(csvText);
             renderTcUnifiedTable();
         }
+        window.loadSelectedTcCsvData = loadSelectedTcCsvData;
 
         function renderTcUnifiedTable() {
             const tbody = document.getElementById('tcUnifiedTableBody');
@@ -1255,13 +1142,13 @@ false,I,暴雨`;
                             <i data-lucide="grip-vertical" class="w-4 h-4 mx-auto"></i>
                         </td>
                         <td class="p-2">
-                            <input type="text" value="${r.category}" size="${Math.max(6, (r.category||'').length + 2)}" oninput="updateTcRow(${idx}, 'category', this.value); this.size = Math.max(6, this.value.length + 2);" placeholder="24H / current" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-bold">
+                            <input type="text" value="${r.category}" size="${Math.max(6, (r.category\vert{}\vert{}'').length + 2)}" oninput="updateTcRow(${idx}, 'category', this.value); this.size = Math.max(6, this.value.length + 2);" placeholder="24H / current" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-bold">
                         </td>
                         <td class="p-2">
-                            <input type="text" value="${r.time}" size="${Math.max(6, (r.time||'').length + 2)}" oninput="updateTcRow(${idx}, 'time', this.value); this.size = Math.max(6, this.value.length + 2);" placeholder="時間標記" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
+                            <input type="text" value="${r.time}" size="${Math.max(6, (r.time\vert{}\vert{}'').length + 2)}" oninput="updateTcRow(${idx}, 'time', this.value); this.size = Math.max(6, this.value.length + 2);" placeholder="時間標記" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
                         </td>
                         <td class="p-2">
-                            <input type="text" value="${r.name}" size="${Math.max(8, (r.name||'').length + 2)}" oninput="updateTcRow(${idx}, 'name', this.value); this.size = Math.max(8, this.value.length + 2);" placeholder="氣旋名稱" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-sans">
+                            <input type="text" value="${r.name}" size="${Math.max(8, (r.name\vert{}\vert{}'').length + 2)}" oninput="updateTcRow(${idx}, 'name', this.value); this.size = Math.max(8, this.value.length + 2);" placeholder="氣旋名稱" class="bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none font-sans">
                         </td>
                         <td class="p-2">
                             <input type="number" step="0.1" value="${r.lat}" size="6" oninput="updateTcRow(${idx}, 'lat', this.value)" placeholder="緯度" class="w-20 bg-dark-950 border border-dark-700 rounded px-2 py-1 text-slate-100 outline-none">
@@ -1319,17 +1206,20 @@ false,I,暴雨`;
                 populateCycloneDropdown();
             }
         }
+        window.updateTcRow = updateTcRow;
 
         function addTcTableRow(cat = '24H') {
             const stormName = tcFilesMeta[currentEditingTcFile].stormName || '';
             currentTcRows.push({ category: cat, time: cat, name: stormName, lat: '', lon: '', wind: '' });
             renderTcUnifiedTable();
         }
+        window.addTcTableRow = addTcTableRow;
 
         function deleteTcRow(idx) {
             currentTcRows.splice(idx, 1);
             renderTcUnifiedTable();
         }
+        window.deleteTcRow = deleteTcRow;
 
         async function saveTcCsvToGithub() {
             const token = localStorage.getItem('gh_token');
@@ -1384,6 +1274,7 @@ false,I,暴雨`;
                 showToast("連線異常：" + err.message);
             }
         }
+        window.saveTcCsvToGithub = saveTcCsvToGithub;
 
         // ================= NOWCAST.CSV 管理 (多圖示展示 + 雙圖示選擇) =================
 
@@ -1449,9 +1340,10 @@ false,I,暴雨`;
                 showToast("未檢測到遠端 nowcast.csv，已載入預設資料庫。");
             }
 
-            nowcastRows = parseNowcastCsv(csvText);
+            window.nowcastRows = parseNowcastCsv(csvText);
             renderNowcastCards();
         }
+        window.fetchNowcastCsv = fetchNowcastCsv;
 
         function filterNowcastTable(cls) {
             nowcastFilterClass = cls;
@@ -1462,6 +1354,7 @@ false,I,暴雨`;
             if (active) active.className = "nowcast-flt-btn shrink-0 px-3 py-1 rounded-lg bg-amber-500 text-black font-bold";
             renderNowcastCards();
         }
+        window.filterNowcastTable = filterNowcastTable;
 
         function getWeatherIconHtml(content) {
             if (!content) return '';
@@ -1499,7 +1392,7 @@ false,I,暴雨`;
         }
 
         function updateNowcastIconTokens(idx, slot, value) {
-            const currentContent = nowcastRows[idx].content || '';
+            const currentContent = window.nowcastRows[idx].content || '';
             const tokens = currentContent.split(/[\s,+/、]+/).filter(Boolean);
             if (slot === 0) {
                 tokens[0] = value;
@@ -1510,15 +1403,16 @@ false,I,暴雨`;
                     tokens.splice(1, 1);
                 }
             }
-            nowcastRows[idx].content = tokens.filter(Boolean).join(' ');
+            window.nowcastRows[idx].content = tokens.filter(Boolean).join(' ');
             renderNowcastCards();
         }
+        window.updateNowcastIconTokens = updateNowcastIconTokens;
 
         function renderNowcastCards() {
             const container = document.getElementById('nowcastCardsContainer');
             if (!container) return;
 
-            const filtered = nowcastRows.map((r, originalIdx) => ({ ...r, originalIdx }))
+            const filtered = window.nowcastRows.map((r, originalIdx) => ({ ...r, originalIdx }))
                 .filter(r => r.class === nowcastFilterClass);
 
             if (filtered.length === 0) {
@@ -1568,8 +1462,7 @@ false,I,暴雨`;
                         </div>
 
                         <div class="flex-1 w-full flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                            ${iconPreview}
-                            ${isIconCategory ? `
+                            ${iconPreview}${isIconCategory ? `
                                 <div class="flex flex-col gap-1.5 flex-1">
                                     ${iconSelectControls}
                                     <div class="text-[11px] text-slate-400 font-mono mt-0.5">預覽組合：<span class="text-amber-300 font-bold">${r.content}</span></div>
@@ -1591,18 +1484,21 @@ false,I,暴雨`;
             safeCreateLucideIcons();
             container.querySelectorAll('textarea').forEach(el => autoResizeTextarea(el));
         }
+        window.renderNowcastCards = renderNowcastCards;
 
         function toggleNowcastItem(idx, val) {
-            nowcastRows[idx].enabled = val;
+            window.nowcastRows[idx].enabled = val;
             renderNowcastCards();
         }
+        window.toggleNowcastItem = toggleNowcastItem;
 
         function updateNowcastContent(idx, val) {
-            nowcastRows[idx].content = val.replace(/\r?\n/g, ' ');
+            window.nowcastRows[idx].content = val.replace(/\r?\n/g, ' ');
         }
+        window.updateNowcastContent = updateNowcastContent;
 
         function addNewNowcastRow() {
-            nowcastRows.unshift({
+            window.nowcastRows.unshift({
                 enabled: true,
                 class: nowcastFilterClass,
                 content: nowcastFilterClass === 'I' ? '天晴' : '請輸入提示內容...'
@@ -1610,12 +1506,14 @@ false,I,暴雨`;
             renderNowcastCards();
             showToast("已新增項目至此分類頂部！");
         }
+        window.addNewNowcastRow = addNewNowcastRow;
 
         function deleteNowcastRow(idx) {
-            nowcastRows.splice(idx, 1);
+            window.nowcastRows.splice(idx, 1);
             renderNowcastCards();
             showToast("已刪除該提示項目。");
         }
+        window.deleteNowcastRow = deleteNowcastRow;
 
         async function saveNowcastCsvToGithub() {
             const token = localStorage.getItem('gh_token');
@@ -1627,7 +1525,7 @@ false,I,暴雨`;
                 return;
             }
 
-            const updatedCsv = serializeNowcastCsv(nowcastRows);
+            const updatedCsv = serializeNowcastCsv(window.nowcastRows);
             const encoded = btoa(unescape(encodeURIComponent(updatedCsv)));
             const url = `https://api.github.com/repos/${repo}/contents/nowcast.csv`;
 
@@ -1666,6 +1564,7 @@ false,I,暴雨`;
                 showToast("連線 GitHub 異常：" + err.message);
             }
         }
+        window.saveNowcastCsvToGithub = saveNowcastCsvToGithub;
 
         // ================= 頂部生效警報橫幅更新 =================
 
@@ -1685,6 +1584,19 @@ false,I,暴雨`;
             '非常酷熱': `極可能發生中暑、熱痙攣和熱衰竭。長時間暴露在陽光下或進行體力活動有可能發生嚴重中暑。建議市民避免戶外劇烈活動、穿著輕便及淺色的衣物、補充足夠水分，特別關注易受影響的族群。`,
             '極為酷熱': `市民應在烈日當空之下避免進行戶外活動，避免長時間在陽光下曝曬，以免受太陽紫外線曬傷，且應盡量留在室內地方及多補充水份，慎防中暑及熱衰竭提防中暑。\n\n在戶外活動的人士，應留意身體健康狀況，帶備食水及防曬用品，並減少長時間在陽光下曝曬。市民亦應留意本台最新消息。\n\n長者、孕婦、嬰兒及小童、慢性病如心臟病或高血壓患者，以及過胖人士均較易中暑，應及時觀察是否出現中暑徵兆。在極為酷熱天氣下，更應時常留意身體健康狀況，確保有充分休息，保持體溫正常，避免身體過份受熱。`
         };
+
+        function getWarningColorStyle(sigTitle) {
+            const t = sigTitle || '';
+            if (t.includes('注意警報')) return { badge: 'bg-slate-500/20 text-slate-300 border-slate-500/40', dot: 'bg-slate-400', card: 'border-slate-500/30' };
+            if (t.includes('戒備警報') || t.includes('風暴潮觀察')) return { badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', dot: 'bg-emerald-400', card: 'border-emerald-500/30' };
+            if (t.includes('強風警報') || t.includes('大雨警報') || t === '寒冷' || t.includes('寒冷警報')) return { badge: 'bg-blue-500/20 text-blue-300 border-blue-500/40', dot: 'bg-blue-400', card: 'border-blue-500/30' };
+            if (t.includes('非常寒冷')) return { badge: 'bg-blue-900/40 text-blue-200 border-blue-600/50', dot: 'bg-blue-600', card: 'border-blue-600/40' };
+            if (t.includes('烈風') || t === '酷熱' || t.includes('酷熱警報')) return { badge: 'bg-amber-500/20 text-amber-300 border-amber-500/40', dot: 'bg-amber-400', card: 'border-amber-500/30' };
+            if (t.includes('暴風警報') || t.includes('風暴潮戒備') || t.includes('非常酷熱')) return { badge: 'bg-orange-500/20 text-orange-300 border-orange-500/40', dot: 'bg-orange-400', card: 'border-orange-500/30' };
+            if (t.includes('𩗗風警報') || t.includes('颶風警報') || t.includes('風暴潮危險') || t.includes('暴雨警報') || t.includes('極為酷熱')) return { badge: 'bg-rose-500/20 text-rose-300 border-rose-500/40', dot: 'bg-rose-400', card: 'border-rose-500/30' };
+            if (t.includes('大暴雨警報') || t.includes('極為寒冷')) return { badge: 'bg-purple-500/20 text-purple-300 border-purple-500/40', dot: 'bg-purple-400', card: 'border-purple-500/30' };
+            return { badge: 'bg-teal-500/20 text-teal-300 border-teal-500/40', dot: 'bg-teal-400', card: 'border-teal-500/30' };
+        }
 
         function updateActiveWarningsBanner() {
             const container = document.getElementById('activeBadgesContainer');
@@ -1715,7 +1627,7 @@ false,I,暴雨`;
                 container.innerHTML = finalActiveWarnings.map(r => {
                     const titleLine = (r.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '');
                     const cStyle = getWarningColorStyle(titleLine);
-                    return `<span class="text-xs font-bold font-mono px-2 py-0.5 rounded border ${cStyle.badge}">${titleLine} (${r.date} ${r.time} MST)</span>`;
+                    return `<span class="text-xs font-bold font-mono px-2 py-0.5 rounded border ${cStyle.badge}">${titleLine} (${r.date}${r.time} MST)</span>`;
                 }).join('');
             }
 
@@ -1730,7 +1642,7 @@ false,I,暴雨`;
                     const cStyle = getWarningColorStyle(titleLine);
                     const lines = (r.formattedText || '').split(/\r?\n/).filter(Boolean);
                     const headerLine = lines[0] || '';
-                    const timeLine = lines[1] || `${r.date} ${r.time} MST`;
+                    const timeLine = lines[1] || `${r.date}${r.time} MST`;
                     const contentLines = lines.slice(2).join('\n\n');
 
                     return `
@@ -1786,6 +1698,7 @@ false,I,暴雨`;
             }
             renderWarning();
         }
+        window.handleWindChange = handleWindChange;
 
         function getIntensityObj(windVal) {
             const wind = parseFloat(windVal);
@@ -2100,6 +2013,117 @@ false,I,暴雨`;
             const outEl = document.getElementById('outputText');
             if (outEl) outEl.value = pureText.trim();
         }
+        window.renderWarning = renderWarning;
+
+        function loadRecordToEditor(index) {
+            const rec = githubRecordsCache[index];
+            if (!rec) return;
+
+            editingRecordId = rec.id;
+            const banner = document.getElementById('editingBanner');
+            if (banner) banner.classList.remove('hidden');
+            const titleEl = document.getElementById('editingRecordTitle');
+            if (titleEl) titleEl.innerText = `${rec.category || '警報'} (${rec.date} ${rec.time})`;
+
+            if (rec.mode) selectIssueMode(rec.mode);
+            if (rec.date && document.getElementById('inputDate')) document.getElementById('inputDate').value = rec.date;
+            if (rec.time && document.getElementById('inputTime')) document.getElementById('inputTime').value = rec.time;
+
+            if (rec.category) selectCategory(rec.category);
+
+            const p = rec.params || {};
+            if (rec.category === 'heat') {
+                if (p.curHeat) selectHeatLevel(p.curHeat);
+                if (document.getElementById('heatTemp')) document.getElementById('heatTemp').value = p.heatTemp || '';
+                if (document.getElementById('heatPartTemp')) document.getElementById('heatPartTemp').value = p.heatPartTemp || '';
+            } else if (rec.category === 'rain') {
+                if (p.curRain) selectRainSignal(p.curRain);
+                if (document.getElementById('rainPreExpectedTime')) document.getElementById('rainPreExpectedTime').value = p.rainPreExpectedTime || '';
+            } else if (rec.category === 'surge') {
+                if (p.curSurge) selectSurgeSignal(p.curSurge);
+                if (document.getElementById('surgeTideDate')) document.getElementById('surgeTideDate').value = p.surgeTideDate || '';
+                if (document.getElementById('surgeTideTime')) document.getElementById('surgeTideTime').value = p.surgeTideTime || '';
+                if (document.getElementById('surgeTideH')) document.getElementById('surgeTideH').value = p.surgeTideH || '';
+                if (document.getElementById('surgeRangeL')) document.getElementById('surgeRangeL').value = p.surgeRangeL || '';
+                if (document.getElementById('surgeRangeH')) document.getElementById('surgeRangeH').value = p.surgeRangeH || '';
+                if (document.getElementById('surgeHourS')) document.getElementById('surgeHourS').value = p.surgeHourS || '';
+                if (document.getElementById('surgeHourE')) document.getElementById('surgeHourE').value = p.surgeHourE || '';
+            } else if (rec.category === 'cyclone') {
+                if (p.curCyclone) selectCycloneSignal(p.curCyclone);
+                if (p.curCautionRange) selectCautionRange(p.curCautionRange);
+                if (document.getElementById('tcName')) document.getElementById('tcName').value = p.tcName || '';
+                if (document.getElementById('tcWind')) document.getElementById('tcWind').value = p.tcWind || '';
+                if (document.getElementById('tcCurLat')) document.getElementById('tcCurLat').value = p.tcCurLat || '';
+                if (document.getElementById('tcCurLon')) document.getElementById('tcCurLon').value = p.tcCurLon || '';
+                if (document.getElementById('tcFcLat')) document.getElementById('tcFcLat').value = p.tcFcLat || '';
+                if (document.getElementById('tcFcLon')) document.getElementById('tcFcLon').value = p.tcFcLon || '';
+                handleWindChange();
+            } else if (rec.category === 'cold') {
+                if (p.curCold) selectColdLevel(p.curCold);
+                if (document.getElementById('coldTemp')) document.getElementById('coldTemp').value = p.coldTemp || '';
+                if (document.getElementById('coldPartTemp')) document.getElementById('coldPartTemp').value = p.coldPartTemp || '';
+            } else if (rec.category === 'notice') {
+                if (p.curNotice) selectNoticeType(p.curNotice);
+                if (p.notice_heat_period && document.getElementById('notice_heat_period')) document.getElementById('notice_heat_period').value = p.notice_heat_period;
+                if (p.cold_m1 && document.getElementById('cold_m1')) document.getElementById('cold_m1').value = p.cold_m1;
+                if (p.cold_l1 && document.getElementById('cold_l1')) document.getElementById('cold_l1').value = p.cold_l1;
+                if (p.cold_l2 && document.getElementById('cold_l2')) document.getElementById('cold_l2').value = p.cold_l2;
+                if (p.cold_l3 && document.getElementById('cold_l3')) document.getElementById('cold_l3').value = p.cold_l3;
+                if (p.notice_fire_time && document.getElementById('notice_fire_time')) document.getElementById('notice_fire_time').value = p.notice_fire_time;
+                if (p.notice_fire_level && document.getElementById('notice_fire_level')) document.getElementById('notice_fire_level').value = p.notice_fire_level;
+                if (p.notice_air_period && document.getElementById('notice_air_period')) document.getElementById('notice_air_period').value = p.notice_air_period;
+                if (p.notice_rain_level && document.getElementById('notice_rain_level')) document.getElementById('notice_rain_level').value = p.notice_rain_level;
+                if (p.rain_stat_time && document.getElementById('rain_stat_time')) document.getElementById('rain_stat_time').value = p.rain_stat_time;
+                if (p.rain_val_macau && document.getElementById('rain_val_macau')) document.getElementById('rain_val_macau').value = p.rain_val_macau;
+                if (p.rain_val_taipa && document.getElementById('rain_val_taipa')) document.getElementById('rain_val_taipa').value = p.rain_val_taipa;
+                if (p.rain_val_coloane && document.getElementById('rain_val_coloane')) document.getElementById('rain_val_coloane').value = p.rain_val_coloane;
+            }
+
+            renderWarning();
+            toggleGithubModal(false);
+            switchAppView('warn');
+            showToast("歷史紀錄已成功載入至編輯面板！");
+        }
+        window.loadRecordToEditor = loadRecordToEditor;
+
+        function cancelEditingMode() {
+            editingRecordId = null;
+            const banner = document.getElementById('editingBanner');
+            if (banner) banner.classList.add('hidden');
+            showToast("已退出歷史紀錄編輯狀態。");
+        }
+        window.cancelEditingMode = cancelEditingMode;
+
+        async function saveEditedRecordBackToGithub() {
+            if (!editingRecordId) return;
+
+            const idx = githubRecordsCache.findIndex(r => r.id === editingRecordId);
+            if (idx === -1) {
+                showToast("找不到原始紀錄，將改為新增一筆。");
+                uploadCurrentToGithub();
+                return;
+            }
+
+            showToast("正在更新 GitHub 紀錄...");
+            const updatedRecord = captureCurrentSnapshot();
+            updatedRecord.id = editingRecordId;
+            updatedRecord.updatedAt = new Date().toISOString();
+
+            let cloneList = [...githubRecordsCache];
+
+            if (updatedRecord.mode === 'cancel') {
+                const targetKey = updatedRecord.signalKey;
+                cloneList = cloneList.filter(r => (r.signalKey || r.category) !== targetKey);
+            } else {
+                cloneList[idx] = updatedRecord;
+            }
+
+            const success = await commitListToGithub(cloneList, `更新警報紀錄 [${updatedRecord.date} ${updatedRecord.time}]`);
+            if (success) {
+                cancelEditingMode();
+            }
+        }
+        window.saveEditedRecordBackToGithub = saveEditedRecordBackToGithub;
 
         function captureCurrentSnapshot() {
             return {
@@ -2110,7 +2134,47 @@ false,I,暴雨`;
                 signalKey: getCurSignalKey(),
                 date: document.getElementById('inputDate')?.value || '',
                 time: document.getElementById('inputTime')?.value || '',
-                formattedText: document.getElementById('outputText')?.value || ''
+                formattedText: document.getElementById('outputText')?.value || '',
+                params: {
+                    curHeat,
+                    heatTemp: document.getElementById('heatTemp')?.value || '',
+                    heatPartTemp: document.getElementById('heatPartTemp')?.value || '',
+                    curRain,
+                    rainPreExpectedTime: document.getElementById('rainPreExpectedTime')?.value || '',
+                    curSurge,
+                    surgeTideDate: document.getElementById('surgeTideDate')?.value || '',
+                    surgeTideTime: document.getElementById('surgeTideTime')?.value || '',
+                    surgeTideH: document.getElementById('surgeTideH')?.value || '',
+                    surgeRangeL: document.getElementById('surgeRangeL')?.value || '',
+                    surgeRangeH: document.getElementById('surgeRangeH')?.value || '',
+                    surgeHourS: document.getElementById('surgeHourS')?.value || '',
+                    surgeHourE: document.getElementById('surgeHourE')?.value || '',
+                    curCyclone,
+                    curCautionRange,
+                    tcName: document.getElementById('tcName')?.value || '',
+                    tcWind: document.getElementById('tcWind')?.value || '',
+                    tcCurLat: document.getElementById('tcCurLat')?.value || '',
+                    tcCurLon: document.getElementById('tcCurLon')?.value || '',
+                    tcFcLat: document.getElementById('tcFcLat')?.value || '',
+                    tcFcLon: document.getElementById('tcFcLon')?.value || '',
+                    curCold,
+                    coldTemp: document.getElementById('coldTemp')?.value || '',
+                    coldPartTemp: document.getElementById('coldPartTemp')?.value || '',
+                    curNotice,
+                    notice_heat_period: document.getElementById('notice_heat_period')?.value || '',
+                    cold_m1: document.getElementById('cold_m1')?.value || '',
+                    cold_l1: document.getElementById('cold_l1')?.value || '',
+                    cold_l2: document.getElementById('cold_l2')?.value || '',
+                    cold_l3: document.getElementById('cold_l3')?.value || '',
+                    notice_fire_time: document.getElementById('notice_fire_time')?.value || '',
+                    notice_fire_level: document.getElementById('notice_fire_level')?.value || '',
+                    notice_air_period: document.getElementById('notice_air_period')?.value || '',
+                    notice_rain_level: document.getElementById('notice_rain_level')?.value || '',
+                    rain_stat_time: document.getElementById('rain_stat_time')?.value || '',
+                    rain_val_macau: document.getElementById('rain_val_macau')?.value || '',
+                    rain_val_taipa: document.getElementById('rain_val_taipa')?.value || '',
+                    rain_val_coloane: document.getElementById('rain_val_coloane')?.value || ''
+                }
             };
         }
 
@@ -2163,6 +2227,7 @@ false,I,暴雨`;
                 safeCreateLucideIcons();
             }
         }
+        window.uploadCurrentToGithub = uploadCurrentToGithub;
 
         async function commitListToGithub(newList, commitMessage) {
             const token = localStorage.getItem('gh_token');
@@ -2228,10 +2293,12 @@ false,I,暴雨`;
                 }
             }
         }
+        window.toggleGithubModal = toggleGithubModal;
 
         function toggleConnectionFields() {
             document.getElementById('connectionFields')?.classList.toggle('hidden');
         }
+        window.toggleConnectionFields = toggleConnectionFields;
 
         function updateGhIndicator() {
             const token = localStorage.getItem('gh_token');
@@ -2256,6 +2323,7 @@ false,I,暴雨`;
             updateGhIndicator();
             if (triggerFetch) fetchGithubRecords(true);
         }
+        window.saveGithubConfig = saveGithubConfig;
 
         async function fetchGithubRecords(showNotification = true) {
             const token = localStorage.getItem('gh_token');
@@ -2292,6 +2360,7 @@ false,I,暴雨`;
                 if (statusEl) statusEl.innerText = '連線異常：' + err.message;
             }
         }
+        window.fetchGithubRecords = fetchGithubRecords;
 
         function renderGithubRecordsList() {
             const listEl = document.getElementById('ghRecordList');
@@ -2322,6 +2391,7 @@ false,I,暴雨`;
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
                             <button type="button" onclick="viewRecordDetail(${idx})" class="p-1.5 rounded-lg text-slate-400 hover:text-white"><i data-lucide="eye" class="w-4 h-4"></i></button>
+                            <button type="button" onclick="loadRecordToEditor(${idx})" class="p-1.5 rounded-lg text-amber-400 hover:text-amber-300"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
                             <button type="button" onclick="deleteRecordFromGithub(${idx})" class="p-1.5 rounded-lg text-red-400 hover:text-red-300"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                         </div>
                     </div>
@@ -2336,6 +2406,7 @@ false,I,暴雨`;
             const filtered = githubRecordsCache.filter((_, i) => i !== index);
             await commitListToGithub(filtered, `刪除警報紀錄 [${rec.date} ${rec.time}]`);
         }
+        window.deleteRecordFromGithub = deleteRecordFromGithub;
 
         function viewRecordDetail(index) {
             const rec = githubRecordsCache[index];
@@ -2344,22 +2415,26 @@ false,I,暴雨`;
             document.getElementById('viewModalBody').value = rec.formattedText || '';
             document.getElementById('modalViewRecord').classList.remove('hidden');
         }
+        window.viewRecordDetail = viewRecordDetail;
 
         function closeViewModal() {
             document.getElementById('modalViewRecord')?.classList.add('hidden');
         }
+        window.closeViewModal = closeViewModal;
 
         function copyViewModalContent() {
             const body = document.getElementById('viewModalBody')?.value;
             if (!body) return;
             navigator.clipboard.writeText(body).then(() => showToast("已複製警報詳情內容！"));
         }
+        window.copyViewModalContent = copyViewModalContent;
 
         function copyWarningText() {
             const val = document.getElementById('outputText')?.value;
             if (!val) return;
             navigator.clipboard.writeText(val).then(() => showToast("已成功複製警報文字！"));
         }
+        window.copyWarningText = copyWarningText;
 
         function downloadWarningText() {
             const val = document.getElementById('outputText')?.value;
@@ -2375,6 +2450,7 @@ false,I,暴雨`;
             URL.revokeObjectURL(url);
             showToast("已下載 .txt 檔案！");
         }
+        window.downloadWarningText = downloadWarningText;
 
         function exportRecordsJson() {
             const dataStr = JSON.stringify(githubRecordsCache, null, 2);
@@ -2389,6 +2465,7 @@ false,I,暴雨`;
             URL.revokeObjectURL(url);
             showToast("已匯出本機 JSON 備份檔！");
         }
+        window.exportRecordsJson = exportRecordsJson;
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -2397,9 +2474,19 @@ false,I,暴雨`;
             toast.classList.remove('translate-y-24', 'opacity-0');
             setTimeout(() => toast.classList.add('translate-y-24', 'opacity-0'), 2500);
         }
+        window.showToast = showToast;
 
         // ================= 視窗載入與事件初始化 =================
         window.addEventListener('DOMContentLoaded', () => {
+            // 讀取偏好明暗主題
+            const savedTheme = localStorage.getItem('theme_mode');
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+            }
+            updateThemeButton();
+
             syncCurrentTime();
             selectCategory('cyclone');
             selectCycloneSignal('戒備警報');
