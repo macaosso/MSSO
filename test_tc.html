@@ -643,10 +643,13 @@
         function renderEChartsMap(filterKey) {
             if (!eChartInstance || !worldGeoJsonData) return;
 
+            // 強制重算尺寸 (解決在 display:none 下初始化導致的縮小問題)
+            eChartInstance.resize();
+
             let series = [];
             const keysToRender = filterKey === 'all' ? Object.keys(allActiveStorms) : (allActiveStorms[filterKey] ? [filterKey] : []);
             
-            // 計算動態 Bounding Box (嚴格追蹤目前與預測路徑，上下左右 ±2 度)
+            // 計算動態 Bounding Box (嚴格追蹤預測路徑，上下左右 ±2 度)
             let minLon = 999, maxLon = -999, minLat = 999, maxLat = -999;
             let hasForecastData = false;
 
@@ -667,7 +670,7 @@
                 minLon -= 2; maxLon += 2;
                 minLat -= 2; maxLat += 2;
 
-                // 限制最終範圍不可超過絕對邊界
+                // 限制最終範圍不可超過絕對邊界 100~180E, 0~50N
                 minLon = Math.max(100, minLon);
                 maxLon = Math.min(180, maxLon);
                 minLat = Math.max(0, minLat);
@@ -738,7 +741,7 @@
                                 let points = poly[0].map(coord => api.coord(coord));
                                 return {
                                     type: 'polygon', shape: { points: points },
-                                    // 移除 lineDash 設定使邊界變為實線
+                                    // 移除 lineDash 使邊界變為實線
                                     style: api.style({ fill: 'rgba(167, 209, 195, 0.4)', stroke: 'rgba(84, 153, 131, 0.7)', lineWidth: 1.5 })
                                 };
                             }, data: [0], zlevel: 1
@@ -897,7 +900,11 @@
             } else {
                 document.getElementById('tcTrackCard').classList.remove('hidden');
                 if (activeStormKey) updateWindGauge(allActiveStorms[activeStormKey]);
-                renderEChartsMap(activeTrackMapKey);
+                
+                // 延遲一點點確保瀏覽器已經渲染出 DOM 的實際大小，解決首次載入地圖縮小的問題
+                setTimeout(() => {
+                    renderEChartsMap(activeTrackMapKey);
+                }, 50);
             }
         }
 
