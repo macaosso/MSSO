@@ -86,7 +86,7 @@
             border: 2px solid #e11d48; border-radius: 16px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             overflow: hidden; position: relative;
-            background-color: #e0f2fe; /* Light Blue Ocean Background */
+            background-color: #e0f2fe; /* 淡藍色海洋背景 */
         }
 
         .chip {
@@ -114,14 +114,13 @@
         .bottom-bar-btn:hover { color: #475569; }
         .bottom-bar-btn.active { color: #d82b32; }
 
-        /* Custom Tooltip Styling */
+        /* Custom Tooltip Styling (縮小版) */
         .tc-tooltip {
             font-family: 'JetBrains Mono', 'Noto Sans TC', sans-serif;
-            background: #fdfdf9; color: #2c2c2c; border: 1px solid #e2e8f0; border-radius: 8px;
-            padding: 12px 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); font-size: 13px; line-height: 1.8;
-            min-width: 220px;
+            background: #fdfdf9; color: #2c2c2c; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 8px 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); font-size: 11px; line-height: 1.5;
         }
-        .tc-tooltip-title { font-weight: 900; font-size: 16px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .tc-tooltip-title { font-weight: 900; font-size: 13px; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
     </style>
 </head>
 <body class="relative pb-24">
@@ -154,7 +153,6 @@
         </div>
 
         <div id="activeSystemGaugeCard" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 hidden">
-            
             <div class="stat-card p-3 sm:p-5">
                 <div class="flex items-center gap-1.5 sm:gap-2 text-slate-800 font-bold text-[11px] sm:text-sm mb-1 sm:mb-2">
                     <div class="w-4 h-4 sm:w-5 sm:h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[8px] sm:text-[10px]">
@@ -648,41 +646,32 @@
             let series = [];
             const keysToRender = filterKey === 'all' ? Object.keys(allActiveStorms) : (allActiveStorms[filterKey] ? [filterKey] : []);
             
-            // 計算動態 Bounding Box 以縮放至路徑
-            let minLon = 180, maxLon = 100, minLat = 50, maxLat = 0;
-            let hasData = false;
+            // 計算動態 Bounding Box (嚴格追蹤目前與預測路徑，上下左右 ±2 度)
+            let minLon = 999, maxLon = -999, minLat = 999, maxLat = -999;
+            let hasForecastData = false;
 
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 storm.rows.forEach(r => {
-                    if (r.lon < minLon) minLon = r.lon;
-                    if (r.lon > maxLon) maxLon = r.lon;
-                    if (r.lat < minLat) minLat = r.lat;
-                    if (r.lat > maxLat) maxLat = r.lat;
-                    hasData = true;
+                    if (r.isCurrent || r.isForecast) {
+                        if (r.lon < minLon) minLon = r.lon;
+                        if (r.lon > maxLon) maxLon = r.lon;
+                        if (r.lat < minLat) minLat = r.lat;
+                        if (r.lat > maxLat) maxLat = r.lat;
+                        hasForecastData = true;
+                    }
                 });
             });
 
-            if (hasData) {
-                // 將澳門包入顯示範圍
-                minLon = Math.min(minLon, MACAU_COORDS[0]);
-                maxLon = Math.max(maxLon, MACAU_COORDS[0]);
-                minLat = Math.min(minLat, MACAU_COORDS[1]);
-                maxLat = Math.max(maxLat, MACAU_COORDS[1]);
-
-                // 給予適當留白邊距
-                minLon -= 8; maxLon += 8;
-                minLat -= 8; maxLat += 8;
+            if (hasForecastData) {
+                minLon -= 2; maxLon += 2;
+                minLat -= 2; maxLat += 2;
 
                 // 限制最終範圍不可超過絕對邊界
                 minLon = Math.max(100, minLon);
                 maxLon = Math.min(180, maxLon);
                 minLat = Math.max(0, minLat);
                 maxLat = Math.min(50, maxLat);
-                
-                // 防呆：避免縮放過小
-                if(maxLon - minLon < 10) { maxLon = Math.min(180, maxLon + 5); minLon = Math.max(100, minLon - 5); }
-                if(maxLat - minLat < 10) { maxLat = Math.min(50, maxLat + 5); minLat = Math.max(0, minLat - 5); }
             } else {
                 minLon = 100; maxLon = 180; minLat = 0; maxLat = 50;
             }
@@ -732,7 +721,7 @@
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 
-                // 誤差圓錐 (Z-Level 1)
+                // 誤差圓錐 (實線邊界, Z-Level 1)
                 const coneData = makeSplitCone(storm.forecastPoints, storm.forecastCoords);
                 if (coneData.fullCone) {
                     let polygons = [];
@@ -749,7 +738,8 @@
                                 let points = poly[0].map(coord => api.coord(coord));
                                 return {
                                     type: 'polygon', shape: { points: points },
-                                    style: api.style({ fill: 'rgba(167, 209, 195, 0.4)', stroke: 'rgba(84, 153, 131, 0.7)', lineWidth: 1.5, lineDash: [5, 5] })
+                                    // 移除 lineDash 設定使邊界變為實線
+                                    style: api.style({ fill: 'rgba(167, 209, 195, 0.4)', stroke: 'rgba(84, 153, 131, 0.7)', lineWidth: 1.5 })
                                 };
                             }, data: [0], zlevel: 1
                         });
@@ -768,21 +758,20 @@
                     });
                 }
                 
-                // 未來預測路徑線 (Solid, Z-Level 3)
+                // 未來預測路徑線 (實心無透明度, 移至最前層級 Z-Level 5)
                 if(foreCoords.length > 0) {
                     series.push({
                         type: 'lines', coordinateSystem: 'geo', polyline: true,
                         data: [{ coords: getSmoothLine(foreCoords) }],
-                        lineStyle: { color: '#64748b', width: 2, type: 'dashed', opacity: 1 }, zlevel: 3
+                        lineStyle: { color: '#64748b', width: 2, type: 'dashed', opacity: 1 }, zlevel: 5
                     });
                 }
                 
-                // 節點：過去使用圓點，未來使用實心圖標 (Z-Level 5)
+                // 節點圖示 (實心無透明度, 移至最前層級 Z-Level 6)
                 const pointData = storm.rows.map(r => {
                     const intensity = getIntensity(r.wind, r.isEx);
                     let symbolType = 'circle';
                     let symbolSize = 6;
-                    let opacity = 1; // 全部強制不透明
 
                     if (r.isCurrent || r.isForecast) {
                         symbolType = `image://icon/tc_icon/${intensity.code}.png`;
@@ -798,7 +787,7 @@
                             color: intensity.color, 
                             borderColor: '#fff', 
                             borderWidth: r.isPast ? 1 : 0,
-                            opacity: opacity 
+                            opacity: 1 // 強制實心顯示
                         },
                         stormName: storm.name, category: r.category, isForecast: r.isForecast,
                         windDesc: r.isEx ? 'EX' : intensity.code, distMacau: r.macauData.text, movRaw: r.segmentMove
@@ -806,7 +795,7 @@
                 });
                 
                 series.push({
-                    type: 'scatter', coordinateSystem: 'geo', data: pointData, zlevel: 5
+                    type: 'scatter', coordinateSystem: 'geo', data: pointData, zlevel: 6
                 });
 
                 // 動畫光暈 (Z-Level 4)
@@ -830,7 +819,7 @@
                         
                         return `
                         <div class="tc-tooltip">
-                            <div class="tc-tooltip-title">${d.stormName} ${d.isForecast ? '<span style="color:#dc2626;font-size:12px;float:right;margin-top:2px;">(預測)</span>' : ''}</div>
+                            <div class="tc-tooltip-title">${d.stormName} ${d.isForecast ? '<span style="color:#dc2626;font-size:11px;float:right;margin-top:2px;">(預測)</span>' : ''}</div>
                             <div>時間: ${d.name}</div>
                             <div>風速: ${d.value[2] > 0 ? d.value[2] + ' km/h' : '-'} ${d.windDesc ? '('+d.windDesc+')' : ''}</div>
                             <div>位置: ${d.value[1].toFixed(1)}°N, ${d.value[0].toFixed(1)}°E</div>
@@ -842,7 +831,7 @@
                 },
                 geo: {
                     map: 'world', roam: true, silent: true, aspectScale: 1,
-                    boundingCoords: dynamicBoundingCoords, // 動態完美縮放至追蹤路徑
+                    boundingCoords: dynamicBoundingCoords, // 動態追蹤預測路徑並填滿整個盒子
                     itemStyle: { areaColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1 }
                 },
                 series: series
