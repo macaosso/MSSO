@@ -82,13 +82,12 @@
             font-weight: 700; font-family: 'Noto Sans TC', sans-serif; white-space: nowrap;
         }
 
+        /* 移除斜線網格，改為純淡藍色海洋背景 */
         .map-container {
-            background-color: #f8fafc; border: 2px solid #e11d48; border-radius: 16px;
+            background-color: #e0f2fe; /* Light Blue for Ocean */
+            border: 2px solid #e11d48; border-radius: 16px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            background-image: 
-                linear-gradient(rgba(225, 29, 72, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(225, 29, 72, 0.05) 1px, transparent 1px);
-            background-size: 40px 40px; overflow: hidden; position: relative;
+            overflow: hidden; position: relative;
         }
 
         .chip {
@@ -346,7 +345,6 @@
             return ERROR_RADII_KM[ERROR_RADII_KM.length - 1];
         }
 
-        // 使用 Turf 產生平滑貝茲曲線，並強制綁定首尾端點以完美對齊
         function getSmoothLine(coords) {
             if (!coords || coords.length < 3) return coords; 
             try {
@@ -356,9 +354,7 @@
                 res[0] = coords[0];
                 res[res.length - 1] = coords[coords.length - 1];
                 return res;
-            } catch (e) {
-                return coords;
-            }
+            } catch (e) { return coords; }
         }
 
         function safeUnion(p1, p2) {
@@ -412,9 +408,7 @@
 
             if (circlesFull.length === 0) return { fullCone: null };
             let fullCone = circlesFull[0];
-            for (let i = 1; i < circlesFull.length; i++) {
-                fullCone = safeUnion(fullCone, circlesFull[i]);
-            }
+            for (let i = 1; i < circlesFull.length; i++) { fullCone = safeUnion(fullCone, circlesFull[i]); }
             return { fullCone };
         }
 
@@ -640,18 +634,50 @@
             if (!eChartInstance || !worldGeoJsonData) return;
 
             let series = [];
-            const keysToRender = filterKey === 'all' ? Object.keys(allActiveStorms) : (allActiveStorms[filterKey] ? [filterKey] : []);
+            
+            // 1. 動態繪製經緯度網格 (每 2 度一線)
+            let gridLinesData = [];
+            for (let lat = 0; lat <= 50; lat += 2) gridLinesData.push({ coords: [[100, lat], [180, lat]] });
+            for (let lon = 100; lon <= 180; lon += 2) gridLinesData.push({ coords: [[lon, 0], [lon, 50]] });
+            series.push({
+                type: 'lines', coordinateSystem: 'geo', data: gridLinesData,
+                lineStyle: { color: 'rgba(0,0,0,0.1)', width: 1 }, zlevel: 0
+            });
 
+            // 2. 澳門與距離同心圓 (100km, 200km, 400km, 800km)
+            const macauPt = turf.point(MACAU_COORDS);
             series.push({
                 name: 'Macau', type: 'scatter', coordinateSystem: 'geo',
                 data: [{ name: '澳門', value: [MACAU_COORDS[0], MACAU_COORDS[1]] }],
                 symbolSize: 8, itemStyle: { color: '#1a1e20', borderColor: '#ffffff', borderWidth: 2 }, zlevel: 5
             });
 
+            let ringLinesData = [];
+            let ringLabelsData = [];
+            [100, 200, 400, 800].forEach(r => {
+                const circle = turf.buffer(macauPt, r, {units: 'kilometers', steps: 64});
+                if(circle && circle.geometry && circle.geometry.coordinates) {
+                    ringLinesData.push({coords: circle.geometry.coordinates[0]});
+                    const labelPt = turf.destination(macauPt, r, 45, {units: 'kilometers'}); 
+                    ringLabelsData.push({
+                        name: `${r}km`, value: labelPt.geometry.coordinates,
+                        label: { show: true, formatter: '{b}', color: '#64748b', fontSize: 10, position: 'right' }
+                    });
+                }
+            });
+            series.push({
+                type: 'lines', coordinateSystem: 'geo', polyline: true, data: ringLinesData,
+                lineStyle: { color: 'rgba(0,0,0,0.2)', type: 'dashed', width: 1 }, zlevel: 1
+            });
+            series.push({
+                type: 'scatter', coordinateSystem: 'geo', data: ringLabelsData, symbolSize: 0, zlevel: 1
+            });
+
+            // 3. 氣旋路徑與圖示
+            const keysToRender = filterKey === 'all' ? Object.keys(allActiveStorms) : (allActiveStorms[filterKey] ? [filterKey] : []);
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 
-                // 誤差圓錐繪製 (Error Cone)
                 const coneData = makeSplitCone(storm.forecastPoints, storm.forecastCoords);
                 if (coneData.fullCone) {
                     let polygons = [];
@@ -663,21 +689,18 @@
                     
                     polygons.forEach(poly => {
                         series.push({
-                            type: 'custom',
-                            coordinateSystem: 'geo',
+                            type: 'custom', coordinateSystem: 'geo',
                             renderItem: function(params, api) {
                                 let points = poly[0].map(coord => api.coord(coord));
                                 return {
                                     type: 'polygon', shape: { points: points },
                                     style: api.style({ fill: 'rgba(167, 209, 195, 0.4)', stroke: 'rgba(84, 153, 131, 0.7)', lineWidth: 1.5, lineDash: [5, 5] })
                                 };
-                            },
-                            data: [0], zlevel: 1
+                            }, data: [0], zlevel: 1
                         });
                     });
                 }
 
-                // 透過 Turf.js 將線段計算為平滑曲線 (綁定端點)
                 const pastCoords = storm.rows.filter(r => !r.isForecast).map(r => [r.lon, r.lat]);
                 const foreCoords = storm.rows.filter(r => r.isForecast || r.hour === 0).map(r => [r.lon, r.lat]);
 
@@ -696,25 +719,25 @@
                     });
                 }
                 
-                // 各個氣旋節點資料 (使用對應圖示)
+                // 過去路徑使用純圓點 (Size:6)，目前與未來預測使用氣旋圖標 (Size:20)
                 const pointData = storm.rows.map(r => {
                     const intensity = getIntensity(r.wind, r.isEx);
+                    const isForecastOrCurrent = r.isForecast || r.hour === 0;
                     return {
                         name: r.time,
                         value: [r.lon, r.lat, r.wind],
-                        symbol: `image://icon/tc_icon/${intensity.code}.png`, // 自訂節點圖示
-                        itemStyle: { color: intensity.color },
+                        symbol: isForecastOrCurrent ? `image://icon/tc_icon/${intensity.code}.png` : 'circle',
+                        symbolSize: isForecastOrCurrent ? 20 : 6,
+                        itemStyle: { color: intensity.color, borderColor: '#fff', borderWidth: isForecastOrCurrent ? 0 : 1 },
                         stormName: storm.name, category: r.category, isForecast: r.isForecast,
                         windDesc: r.isEx ? 'EX' : intensity.code, distMacau: r.macauData.text, movRaw: r.segmentMove
                     };
                 });
                 
                 series.push({
-                    type: 'scatter', coordinateSystem: 'geo', data: pointData,
-                    symbolSize: 20, zlevel: 4 // 加大層級，確保它在上層且負責響應 Hover Tooltip
+                    type: 'scatter', coordinateSystem: 'geo', data: pointData, zlevel: 4
                 });
 
-                // 當前位置加入閃爍動畫 (silent: true 避免搶走上方 Scatter 的 Hover 事件)
                 series.push({
                     type: 'effectScatter', coordinateSystem: 'geo', silent: true,
                     data: [{ name: storm.name, value: [storm.lon, storm.lat] }],
@@ -722,12 +745,6 @@
                     rippleEffect: { brushType: 'stroke', scale: 3 }, zlevel: 3 
                 });
             });
-
-            let centerCoord = MACAU_COORDS, zoomLevel = 4;
-            if (keysToRender.length === 1) {
-                centerCoord = [allActiveStorms[keysToRender[0]].lon, allActiveStorms[keysToRender[0]].lat];
-                zoomLevel = 5.5;
-            }
 
             eChartInstance.setOption({
                 tooltip: {
@@ -738,7 +755,6 @@
                         const d = p.data;
                         if (!d || !d.stormName) return p.name;
                         
-                        // 滑鼠懸浮提示框，依照您提供的圖片佈局重現[cite: 3]
                         return `
                         <div class="tc-tooltip">
                             <div class="tc-tooltip-title">${d.stormName} ${d.isForecast ? '<span style="color:#dc2626;font-size:12px;float:right;margin-top:2px;">(預測)</span>' : ''}</div>
@@ -752,9 +768,11 @@
                     }
                 },
                 geo: {
-                    map: 'world', roam: true, silent: true, aspectScale: 1, // 修正比例壓縮與停止陸地互動[cite: 4]
-                    center: centerCoord, zoom: zoomLevel,
-                    itemStyle: { areaColor: '#f1f5f9', borderColor: '#cbd5e1', borderWidth: 1 }
+                    map: 'world', roam: true, silent: true, aspectScale: 1,
+                    // 強制限制視角：0-50°N, 100-180°E
+                    boundingCoords: [[100, 0], [180, 50]],
+                    // 地圖陸地顏色設為淡綠色
+                    itemStyle: { areaColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1 }
                 },
                 series: series
             }, true);
