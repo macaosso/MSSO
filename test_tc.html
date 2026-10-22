@@ -644,7 +644,6 @@
         function renderEChartsMap(filterKey) {
             if (!eChartInstance || !worldGeoJsonData) return;
 
-            // 強制重算尺寸
             eChartInstance.resize();
 
             let series = [];
@@ -659,7 +658,6 @@
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 storm.rows.forEach(r => {
-                    // 只將目前與未來預測點納入計算
                     if (r.isCurrent || r.isForecast) {
                         if (r.lon < minLon) minLon = r.lon;
                         if (r.lon > maxLon) maxLon = r.lon;
@@ -671,11 +669,9 @@
             });
 
             if (hasForecastData) {
-                // 嚴格加上上下左右各 2 度邊距
                 minLon -= 2; maxLon += 2;
                 minLat -= 2; maxLat += 2;
 
-                // 限制最終範圍不可超過全球絕對邊界 100~180E, 0~50N
                 minLon = Math.max(100, minLon);
                 maxLon = Math.min(180, maxLon);
                 minLat = Math.max(0, minLat);
@@ -686,7 +682,7 @@
             
             const dynamicBoundingCoords = [[minLon, minLat], [maxLon, maxLat]];
 
-            // 1. 動態繪製經緯度網格 (每 2 度一線, Z-Level 0)
+            // 1. 動態繪製經緯度網格 (Z-Level 0)
             let gridLinesData = [];
             for (let lat = 0; lat <= 50; lat += 2) gridLinesData.push({ coords: [[100, lat], [180, lat]] });
             for (let lon = 100; lon <= 180; lon += 2) gridLinesData.push({ coords: [[lon, 0], [lon, 50]] });
@@ -728,7 +724,7 @@
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 
-                // 誤差圓錐 (實線邊界, Z-Level 1)
+                // 誤差圓錐 (Z-Level 1)
                 const coneData = makeSplitCone(storm.forecastPoints, storm.forecastCoords);
                 if (coneData.fullCone) {
                     let polygons = [];
@@ -745,7 +741,6 @@
                                 let points = poly[0].map(coord => api.coord(coord));
                                 return {
                                     type: 'polygon', shape: { points: points },
-                                    // 移除 lineDash 設定使邊界變為實線
                                     style: api.style({ fill: 'rgba(167, 209, 195, 0.4)', stroke: 'rgba(84, 153, 131, 0.7)', lineWidth: 1.5 })
                                 };
                             }, data: [0], zlevel: 1
@@ -765,7 +760,7 @@
                     });
                 }
                 
-                // 未來預測路徑線 (實心無透明度, 移至較前方的 Z-Level 9)
+                // 未來預測路徑線 (移至 Z-Level 9，確保置頂)
                 if(foreCoords.length > 0) {
                     series.push({
                         type: 'lines', coordinateSystem: 'geo', polyline: true,
@@ -774,7 +769,6 @@
                     });
                 }
                 
-                // 節點整理：過去點與未來點拆開，確保未來圖標與路徑始終在最上方
                 const pastPointData = [];
                 const forecastPointData = [];
 
@@ -787,7 +781,7 @@
                             color: intensity.color, 
                             borderColor: '#fff', 
                             borderWidth: r.isPast ? 1 : 0,
-                            opacity: 1 // 強制實心顯示
+                            opacity: 1 
                         },
                         stormName: storm.name, category: r.category, isForecast: r.isForecast,
                         windDesc: r.isEx ? 'EX' : intensity.code, distMacau: r.macauData.text, movRaw: r.segmentMove
@@ -809,12 +803,12 @@
                     series.push({ type: 'scatter', coordinateSystem: 'geo', data: pastPointData, zlevel: 3 });
                 }
 
-                // 未來預測圖標 (最高層級 Z-Level 10)
+                // 未來預測圖標 (最高層級 Z-Level 10，確保絕對置頂)
                 if (forecastPointData.length > 0) {
                     series.push({ type: 'scatter', coordinateSystem: 'geo', data: forecastPointData, zlevel: 10 });
                 }
 
-                // 當前位置的動畫光暈 (Z-Level 8)
+                // 當前位置動畫光暈 (Z-Level 8)
                 series.push({
                     type: 'effectScatter', coordinateSystem: 'geo', silent: true,
                     data: [{ name: storm.name, value: [storm.lon, storm.lat] }],
@@ -847,7 +841,7 @@
                 },
                 geo: {
                     map: 'world', roam: true, silent: true, aspectScale: 1,
-                    boundingCoords: dynamicBoundingCoords, // 動態完美追蹤預測路徑
+                    boundingCoords: dynamicBoundingCoords, 
                     itemStyle: { areaColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1 }
                 },
                 series: series
@@ -871,7 +865,7 @@
 
             const activeKeys = Object.keys(allActiveStorms);
             
-            // 如果超過1個氣旋，則建立 "全部熱帶氣旋" 按鈕，否則只產生單獨的氣旋按鈕
+            // 判斷機制：只有當同時存在 2 個或以上的熱帶氣旋時，才會顯示「全部熱帶氣旋」按鈕
             if (trackContainer) {
                 trackContainer.innerHTML = '';
                 
@@ -882,7 +876,6 @@
                     allBtn.onclick = function() { switchTrackMap('all', this); };
                     trackContainer.appendChild(allBtn);
                 } else if (activeKeys.length === 1 && activeTrackMapKey === 'all') {
-                    // 若只有1個但原狀態為全顯，切換成該單一氣旋
                     activeTrackMapKey = activeKeys[0];
                 }
 
@@ -927,7 +920,6 @@
                 document.getElementById('tcTrackCard').classList.remove('hidden');
                 if (activeStormKey) updateWindGauge(allActiveStorms[activeStormKey]);
                 
-                // 確保重新計算並渲染地圖
                 setTimeout(() => {
                     renderEChartsMap(activeTrackMapKey);
                 }, 50);
