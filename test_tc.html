@@ -114,7 +114,7 @@
         .bottom-bar-btn:hover { color: #475569; }
         .bottom-bar-btn.active { color: #d82b32; }
 
-        /* Custom Tooltip Styling (縮小版) */
+        /* Custom Tooltip Styling */
         .tc-tooltip {
             font-family: 'JetBrains Mono', 'Noto Sans TC', sans-serif;
             background: #fdfdf9; color: #2c2c2c; border: 1px solid #e2e8f0; border-radius: 6px;
@@ -237,6 +237,7 @@
 
         <!-- Track Selection & ECharts Area -->
         <div id="tcTrackCard" class="space-y-4 hidden">
+            <!-- 氣旋選擇按鈕將在這裡動態生成 -->
             <div class="flex flex-wrap items-center gap-2" id="trackImageButtons"></div>
 
             <div class="map-container relative w-full h-[400px] md:h-[600px] lg:h-[700px] flex items-center justify-center">
@@ -643,19 +644,22 @@
         function renderEChartsMap(filterKey) {
             if (!eChartInstance || !worldGeoJsonData) return;
 
-            // 強制重算尺寸 (解決在 display:none 下初始化導致的縮小問題)
+            // 強制重算尺寸
             eChartInstance.resize();
 
             let series = [];
             const keysToRender = filterKey === 'all' ? Object.keys(allActiveStorms) : (allActiveStorms[filterKey] ? [filterKey] : []);
             
-            // 計算動態 Bounding Box (嚴格追蹤預測路徑，上下左右 ±2 度)
+            // --------------------------------------------------------
+            // 縮放演算法 (精準追蹤目前與未來的預測路徑，並加上 ±2 度邊距)
+            // --------------------------------------------------------
             let minLon = 999, maxLon = -999, minLat = 999, maxLat = -999;
             let hasForecastData = false;
 
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 storm.rows.forEach(r => {
+                    // 只將目前與未來預測點納入計算
                     if (r.isCurrent || r.isForecast) {
                         if (r.lon < minLon) minLon = r.lon;
                         if (r.lon > maxLon) maxLon = r.lon;
@@ -667,10 +671,11 @@
             });
 
             if (hasForecastData) {
+                // 嚴格加上上下左右各 2 度邊距
                 minLon -= 2; maxLon += 2;
                 minLat -= 2; maxLat += 2;
 
-                // 限制最終範圍不可超過絕對邊界 100~180E, 0~50N
+                // 限制最終範圍不可超過全球絕對邊界 100~180E, 0~50N
                 minLon = Math.max(100, minLon);
                 maxLon = Math.min(180, maxLon);
                 minLat = Math.max(0, minLat);
@@ -679,7 +684,6 @@
                 minLon = 100; maxLon = 180; minLat = 0; maxLat = 50;
             }
             
-            // 動態傳遞給 boundingCoords
             const dynamicBoundingCoords = [[minLon, minLat], [maxLon, maxLat]];
 
             // 1. 動態繪製經緯度網格 (每 2 度一線, Z-Level 0)
@@ -691,12 +695,12 @@
                 lineStyle: { color: 'rgba(0,0,0,0.1)', width: 1 }, zlevel: 0
             });
 
-            // 2. 澳門與距離同心圓 (Z-Level 1)
+            // 2. 澳門與距離同心圓 (Z-Level 4)
             const macauPt = turf.point(MACAU_COORDS);
             series.push({
                 name: 'Macau', type: 'scatter', coordinateSystem: 'geo',
                 data: [{ name: '澳門', value: [MACAU_COORDS[0], MACAU_COORDS[1]] }],
-                symbolSize: 8, itemStyle: { color: '#1a1e20', borderColor: '#ffffff', borderWidth: 2 }, zlevel: 6
+                symbolSize: 8, itemStyle: { color: '#1a1e20', borderColor: '#ffffff', borderWidth: 2 }, zlevel: 4
             });
 
             let ringLinesData = [];
@@ -720,7 +724,7 @@
                 type: 'scatter', coordinateSystem: 'geo', data: ringLabelsData, symbolSize: 0, zlevel: 1
             });
 
-            // 3. 氣旋路徑與圖示
+            // 3. 氣旋圖層資料整合
             keysToRender.forEach(key => {
                 const storm = allActiveStorms[key];
                 
@@ -741,7 +745,7 @@
                                 let points = poly[0].map(coord => api.coord(coord));
                                 return {
                                     type: 'polygon', shape: { points: points },
-                                    // 移除 lineDash 使邊界變為實線
+                                    // 移除 lineDash 設定使邊界變為實線
                                     style: api.style({ fill: 'rgba(167, 209, 195, 0.4)', stroke: 'rgba(84, 153, 131, 0.7)', lineWidth: 1.5 })
                                 };
                             }, data: [0], zlevel: 1
@@ -761,31 +765,24 @@
                     });
                 }
                 
-                // 未來預測路徑線 (實心無透明度, 移至最前層級 Z-Level 5)
+                // 未來預測路徑線 (實心無透明度, 移至較前方的 Z-Level 9)
                 if(foreCoords.length > 0) {
                     series.push({
                         type: 'lines', coordinateSystem: 'geo', polyline: true,
                         data: [{ coords: getSmoothLine(foreCoords) }],
-                        lineStyle: { color: '#64748b', width: 2, type: 'dashed', opacity: 1 }, zlevel: 5
+                        lineStyle: { color: '#64748b', width: 2, type: 'dashed', opacity: 1 }, zlevel: 9
                     });
                 }
                 
-                // 節點圖示 (實心無透明度, 移至最前層級 Z-Level 6)
-                const pointData = storm.rows.map(r => {
+                // 節點整理：過去點與未來點拆開，確保未來圖標與路徑始終在最上方
+                const pastPointData = [];
+                const forecastPointData = [];
+
+                storm.rows.forEach(r => {
                     const intensity = getIntensity(r.wind, r.isEx);
-                    let symbolType = 'circle';
-                    let symbolSize = 6;
-
-                    if (r.isCurrent || r.isForecast) {
-                        symbolType = `image://icon/tc_icon/${intensity.code}.png`;
-                        symbolSize = 22;
-                    }
-
-                    return {
+                    const pt = {
                         name: r.time,
                         value: [r.lon, r.lat, r.wind],
-                        symbol: symbolType,
-                        symbolSize: symbolSize,
                         itemStyle: { 
                             color: intensity.color, 
                             borderColor: '#fff', 
@@ -795,18 +792,34 @@
                         stormName: storm.name, category: r.category, isForecast: r.isForecast,
                         windDesc: r.isEx ? 'EX' : intensity.code, distMacau: r.macauData.text, movRaw: r.segmentMove
                     };
+
+                    if (r.isCurrent || r.isForecast) {
+                        pt.symbol = `image://icon/tc_icon/${intensity.code}.png`;
+                        pt.symbolSize = 22;
+                        forecastPointData.push(pt);
+                    } else {
+                        pt.symbol = 'circle';
+                        pt.symbolSize = 6;
+                        pastPointData.push(pt);
+                    }
                 });
                 
-                series.push({
-                    type: 'scatter', coordinateSystem: 'geo', data: pointData, zlevel: 6
-                });
+                // 過去的點 (Z-Level 3)
+                if (pastPointData.length > 0) {
+                    series.push({ type: 'scatter', coordinateSystem: 'geo', data: pastPointData, zlevel: 3 });
+                }
 
-                // 動畫光暈 (Z-Level 4)
+                // 未來預測圖標 (最高層級 Z-Level 10)
+                if (forecastPointData.length > 0) {
+                    series.push({ type: 'scatter', coordinateSystem: 'geo', data: forecastPointData, zlevel: 10 });
+                }
+
+                // 當前位置的動畫光暈 (Z-Level 8)
                 series.push({
                     type: 'effectScatter', coordinateSystem: 'geo', silent: true,
                     data: [{ name: storm.name, value: [storm.lon, storm.lat] }],
                     symbolSize: 12, itemStyle: { color: storm.intensityObj.color },
-                    rippleEffect: { brushType: 'stroke', scale: 3 }, zlevel: 4 
+                    rippleEffect: { brushType: 'stroke', scale: 3 }, zlevel: 8 
                 });
             });
 
@@ -834,7 +847,7 @@
                 },
                 geo: {
                     map: 'world', roam: true, silent: true, aspectScale: 1,
-                    boundingCoords: dynamicBoundingCoords, // 動態追蹤預測路徑並填滿整個盒子
+                    boundingCoords: dynamicBoundingCoords, // 動態完美追蹤預測路徑
                     itemStyle: { areaColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1 }
                 },
                 series: series
@@ -846,16 +859,6 @@
             const gaugeTabsContainer = document.getElementById('gaugeStormTabs');
             let activeCount = 0; allActiveStorms = {}; const previousStormKey = activeStormKey;
 
-            if (trackContainer) {
-                trackContainer.innerHTML = '';
-                const allBtn = document.createElement('button');
-                allBtn.className = (activeTrackMapKey === 'all') ? "chip chip-active" : "chip";
-                allBtn.textContent = "全部熱帶氣旋";
-                allBtn.onclick = function() { switchTrackMap('all', this); };
-                trackContainer.appendChild(allBtn);
-            }
-            if (gaugeTabsContainer) gaugeTabsContainer.innerHTML = '';
-
             for (const f of ['A', 'B', 'C', 'D', 'E', 'F']) {
                 try {
                     const res = await fetch(`TCdata/${f}.csv?_t=${Date.now()}`, { cache: 'no-store' });
@@ -863,24 +866,47 @@
                     const text = await res.text(); if (!text || !text.trim()) continue;
                     const stormData = parseCSVToTyphoon(text, f); if (!stormData) continue;
                     activeCount++; allActiveStorms[f] = stormData;
-
-                    if (trackContainer) {
-                        const btn = document.createElement('button');
-                        btn.className = (activeTrackMapKey === f) ? "chip chip-active" : "chip";
-                        btn.textContent = stormData.name;
-                        btn.onclick = function() { switchTrackMap(f, this); };
-                        trackContainer.appendChild(btn);
-                    }
-                    if (gaugeTabsContainer) {
-                        const gaugeBtn = document.createElement('button');
-                        gaugeBtn.className = "chip"; gaugeBtn.textContent = stormData.name;
-                        gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
-                        gaugeTabsContainer.appendChild(gaugeBtn);
-                    }
                 } catch (e) {}
             }
 
             const activeKeys = Object.keys(allActiveStorms);
+            
+            // 如果超過1個氣旋，則建立 "全部熱帶氣旋" 按鈕，否則只產生單獨的氣旋按鈕
+            if (trackContainer) {
+                trackContainer.innerHTML = '';
+                
+                if (activeKeys.length > 1) {
+                    const allBtn = document.createElement('button');
+                    allBtn.className = (activeTrackMapKey === 'all') ? "chip chip-active" : "chip";
+                    allBtn.textContent = "全部熱帶氣旋";
+                    allBtn.onclick = function() { switchTrackMap('all', this); };
+                    trackContainer.appendChild(allBtn);
+                } else if (activeKeys.length === 1 && activeTrackMapKey === 'all') {
+                    // 若只有1個但原狀態為全顯，切換成該單一氣旋
+                    activeTrackMapKey = activeKeys[0];
+                }
+
+                activeKeys.forEach(f => {
+                    const stormData = allActiveStorms[f];
+                    const btn = document.createElement('button');
+                    btn.className = (activeTrackMapKey === f) ? "chip chip-active" : "chip";
+                    btn.textContent = stormData.name;
+                    btn.onclick = function() { switchTrackMap(f, this); };
+                    trackContainer.appendChild(btn);
+                });
+            }
+
+            if (gaugeTabsContainer) {
+                gaugeTabsContainer.innerHTML = '';
+                activeKeys.forEach(f => {
+                    const stormData = allActiveStorms[f];
+                    const gaugeBtn = document.createElement('button');
+                    gaugeBtn.className = "chip"; gaugeBtn.textContent = stormData.name;
+                    gaugeBtn.onclick = function() { switchGaugeStorm(f, this); };
+                    gaugeTabsContainer.appendChild(gaugeBtn);
+                });
+            }
+
             activeStormKey = activeKeys.length > 0 ? (activeKeys.includes(previousStormKey) ? previousStormKey : activeKeys[0]) : null;
 
             if (gaugeTabsContainer) {
@@ -901,7 +927,7 @@
                 document.getElementById('tcTrackCard').classList.remove('hidden');
                 if (activeStormKey) updateWindGauge(allActiveStorms[activeStormKey]);
                 
-                // 延遲一點點確保瀏覽器已經渲染出 DOM 的實際大小，解決首次載入地圖縮小的問題
+                // 確保重新計算並渲染地圖
                 setTimeout(() => {
                     renderEChartsMap(activeTrackMapKey);
                 }, 50);
