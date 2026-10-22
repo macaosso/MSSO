@@ -82,9 +82,7 @@
             font-weight: 700; font-family: 'Noto Sans TC', sans-serif; white-space: nowrap;
         }
 
-        /* 移除斜線網格，改為純淡藍色海洋背景 */
         .map-container {
-            background-color: #e0f2fe; /* Light Blue for Ocean */
             border: 2px solid #e11d48; border-radius: 16px;
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
             overflow: hidden; position: relative;
@@ -154,7 +152,6 @@
             </h1>
         </div>
 
-        <!-- 4 Stats Cards Container - 響應式 2x2 排列 -->
         <div id="activeSystemGaugeCard" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 hidden">
             
             <div class="stat-card p-3 sm:p-5">
@@ -243,7 +240,7 @@
         <div id="tcTrackCard" class="space-y-4 hidden">
             <div class="flex flex-wrap items-center gap-2" id="trackImageButtons"></div>
 
-            <div class="map-container relative w-full h-[400px] md:h-[600px] lg:h-[700px] flex items-center justify-center bg-white">
+            <div class="map-container relative w-full h-[400px] md:h-[600px] lg:h-[700px] flex items-center justify-center">
                 <div class="absolute top-4 left-4 z-20 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-2 shadow-sm font-bold text-sm text-slate-800">
                     颱風路徑與預報 <span id="map-storm-name" class="text-red-600"></span>
                 </div>
@@ -478,7 +475,22 @@
             eChartInstance = echarts.init(dom);
             try {
                 const response = await fetch('https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/50m/cultural/ne_50m_admin_0_countries.json');
-                worldGeoJsonData = await response.json();
+                const rawGeo = await response.json();
+                
+                // 使用 Turf.js 嚴格裁剪 GeoJSON (限制在地圖視圖內 100°E ~ 180°E, 0°N ~ 50°N)
+                const bbox = [100, 0, 180, 50];
+                const clippedFeatures = [];
+                rawGeo.features.forEach(f => {
+                    if (f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')) {
+                        try {
+                            const clipped = turf.bboxClip(f, bbox);
+                            if (clipped.geometry.coordinates.length > 0) {
+                                clippedFeatures.push(clipped);
+                            }
+                        } catch(e) {}
+                    }
+                });
+                worldGeoJsonData = turf.featureCollection(clippedFeatures);
                 echarts.registerMap('world', worldGeoJsonData);
             } catch (err) {}
             window.addEventListener('resize', () => { if (eChartInstance) eChartInstance.resize(); });
@@ -553,6 +565,8 @@
             rows.forEach((r, idx) => {
                 const hr = parseInt(r.category.replace(/h/i,'')) || 0;
                 r.hour = hr;
+                r.isPast = idx < anchorIdx;
+                r.isCurrent = idx === anchorIdx;
                 r.isForecast = idx > anchorIdx;
                 r.macauData = getDistanceAndDirectionToMacau(r.lon, r.lat);
                 
@@ -715,20 +729,35 @@
                     series.push({
                         type: 'lines', coordinateSystem: 'geo', polyline: true,
                         data: [{ coords: getSmoothLine(foreCoords) }],
-                        lineStyle: { color: '#64748b', width: 2, type: 'dashed' }, zlevel: 2
+                        // 賦予未來預測路徑線 0.6 的透明度（Alpha）
+                        lineStyle: { color: '#64748b', width: 2, type: 'dashed', opacity: 0.6 }, zlevel: 2
                     });
                 }
                 
-                // 過去路徑使用純圓點 (Size:6)，目前與未來預測使用氣旋圖標 (Size:20)
+                // 過去路徑使用純圓點，目前與未來預測使用氣旋圖標，並為未來圖標增加透明度
                 const pointData = storm.rows.map(r => {
                     const intensity = getIntensity(r.wind, r.isEx);
-                    const isForecastOrCurrent = r.isForecast || r.hour === 0;
+                    let symbolType = 'circle';
+                    let symbolSize = 6;
+                    let opacity = 1;
+
+                    if (r.isCurrent || r.isForecast) {
+                        symbolType = `image://icon/tc_icon/${intensity.code}.png`;
+                        symbolSize = 22;
+                        if (r.isForecast) opacity = 0.6; // 賦予未來預測圖示 0.6 的透明度（Alpha）
+                    }
+
                     return {
                         name: r.time,
                         value: [r.lon, r.lat, r.wind],
-                        symbol: isForecastOrCurrent ? `image://icon/tc_icon/${intensity.code}.png` : 'circle',
-                        symbolSize: isForecastOrCurrent ? 20 : 6,
-                        itemStyle: { color: intensity.color, borderColor: '#fff', borderWidth: isForecastOrCurrent ? 0 : 1 },
+                        symbol: symbolType,
+                        symbolSize: symbolSize,
+                        itemStyle: { 
+                            color: intensity.color, 
+                            borderColor: '#fff', 
+                            borderWidth: r.isPast ? 1 : 0, // 僅為圓點添加邊框
+                            opacity: opacity 
+                        },
                         stormName: storm.name, category: r.category, isForecast: r.isForecast,
                         windDesc: r.isEx ? 'EX' : intensity.code, distMacau: r.macauData.text, movRaw: r.segmentMove
                     };
@@ -747,6 +776,7 @@
             });
 
             eChartInstance.setOption({
+                backgroundColor: '#e0f2fe', // 全域背景設定為淡藍色海洋
                 tooltip: {
                     trigger: 'item', padding: 0, backgroundColor: 'transparent', borderWidth: 0,
                     formatter: function (p) {
@@ -769,7 +799,7 @@
                 },
                 geo: {
                     map: 'world', roam: true, silent: true, aspectScale: 1,
-                    // 強制限制視角：0-50°N, 100-180°E
+                    // 強制限制視角與範圍
                     boundingCoords: [[100, 0], [180, 50]],
                     // 地圖陸地顏色設為淡綠色
                     itemStyle: { areaColor: '#dcfce7', borderColor: '#86efac', borderWidth: 1 }
