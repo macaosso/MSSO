@@ -140,7 +140,7 @@
       <div class="flex items-center gap-2">
         <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0"></i>
         <span>
-          <strong class="font-bold">數據說明：</strong>1952 年至 1998 年之最高溫 (MaxTemp) 及最低溫 (MinTemp) 歷史觀測數據已四捨五入至整數，系統於該時期數據旁加註 <span class="inline-flex items-center px-1.5 py-0.2 text-[10px] font-bold text-amber-800 bg-amber-200/80 rounded border border-amber-300">*</span> 標記；1999 年起為精確小數觀測值。
+          <strong class="font-bold">數據說明：</strong>1952 年至 1998 年之最高溫 (MaxTemp) 及最低溫 (MinTemp) 觀測值已四捨五入至整數，數值以同色系框盒 <span class="inline-block px-1.5 py-0.5 rounded border border-rose-300 bg-rose-50 font-bold text-rose-700 font-mono shadow-2xs">35</span> <span class="inline-block px-1.5 py-0.5 rounded border border-blue-300 bg-blue-50 font-bold text-blue-700 font-mono shadow-2xs">9</span> 呈現；1999 年起為精確小數觀測值 (如 <span class="font-bold text-rose-700 font-mono">35.4</span>)。
         </span>
       </div>
       <span class="hidden sm:inline-block shrink-0 text-[10px] font-medium text-amber-700 bg-white/70 px-2 py-0.5 rounded border border-amber-200">1952 – 1998 整數化記錄</span>
@@ -301,9 +301,17 @@
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
         <div>
           <h2 class="text-base font-bold text-slate-900">歷史月份氣溫統計與排行 (1952-2026)</h2>
-          <p class="text-xs text-slate-500 mt-0.5">依據月均溫或單日極值快速排列歷史紀錄（高溫排行不混入低溫，低溫排行不混入高溫，完全排除降雨干擾）</p>
+          <p class="text-xs text-slate-500 mt-0.5">可切換「單日極值排行（以日為單位，允許同月多日入榜）」或「整月均溫排行（以月份為單位）」（完全隔離無關降雨與相反極值）</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <!-- View Dimension Mode -->
+          <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+            <span class="text-xs text-slate-500 font-medium">排行維度:</span>
+            <select id="monthly-filter-view" class="text-xs bg-transparent font-bold text-sky-800 focus:outline-none">
+              <option value="daily-occurrences">月內單日極端氣溫排行 (日為單位，多次入榜)</option>
+              <option value="monthly-aggregated">月平均氣溫總排行 (月為單位)</option>
+            </select>
+          </div>
           <!-- Select Month -->
           <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
             <span class="text-xs text-slate-500">月份:</span>
@@ -327,9 +335,9 @@
           <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
             <span class="text-xs text-slate-500">指標:</span>
             <select id="monthly-filter-metric" class="text-xs bg-transparent font-medium text-slate-800 focus:outline-none">
-              <option value="avg">月平均氣溫 (AvgTemp)</option>
-              <option value="max">月最高極端氣溫 (MaxTemp)</option>
-              <option value="min">月最低極端氣溫 (MinTemp)</option>
+              <option value="max">最高氣溫 (MaxTemp &ge;)</option>
+              <option value="min">最低氣溫 (MinTemp &le;)</option>
+              <option value="avg">平均氣溫 (AvgTemp)</option>
             </select>
           </div>
           <!-- Order -->
@@ -356,7 +364,10 @@
           </tbody>
         </table>
       </div>
-      <p class="text-[11px] text-slate-400 text-right">資料筆數共 <span id="monthly-count-label" class="font-semibold text-slate-600">0</span> 筆月份紀錄</p>
+      <div class="flex items-center justify-between text-[11px] text-slate-400">
+        <span id="monthly-table-note">提示：若選擇單日極端排行，同一個月份中所有符合條件的單日極端均會列出。</span>
+        <span>資料筆數共 <span id="monthly-count-label" class="font-semibold text-slate-600">0</span> 筆</span>
+      </div>
     </div>
   </section>
 
@@ -769,18 +780,34 @@
     let rawWeatherData = [];
 
     /**
-     * Format temperature display with a badge if year is between 1952 and 1998.
-     * MaxTemp & MinTemp were rounded to integer during 1952-1998.
+     * Format temperature display.
+     * For 1952-1998: Displays the rounded integer inside a stylized, contextually-colored box container.
+     * For 1999+: Displays the precise decimal text.
      */
-    function formatTempWithBadge(tempVal, year, customClass = '') {
+    function formatTempWithBadge(tempVal, year, type = 'hot') {
       if (tempVal === null || tempVal === undefined || isNaN(tempVal)) return '--';
       const isIntegerEra = year >= 1952 && year <= 1998;
-      // In 1952-1998, display formatted number with optional badge
       const formattedNum = isIntegerEra ? Math.round(tempVal).toString() : tempVal.toFixed(1);
-      const badgeHtml = isIntegerEra
-        ? `<span title="1952-1998 年氣溫觀測數據已四捨五入至整數" class="inline-flex items-center ml-1 px-1 py-0.1 text-[9px] font-semibold text-amber-800 bg-amber-100 rounded border border-amber-200/90 align-middle select-none cursor-help">*</span>`
-        : '';
-      return `<span class="inline-flex items-baseline justify-end ${customClass}"><span>${formattedNum}</span>${badgeHtml}</span>`;
+
+      if (isIntegerEra) {
+        let boxStyle = "border-amber-300 bg-amber-50/90 text-amber-800";
+        if (type === 'hot') {
+          boxStyle = "border-rose-300 bg-rose-50 text-rose-700 shadow-2xs";
+        } else if (type === 'cold') {
+          boxStyle = "border-sky-300 bg-sky-50 text-blue-700 shadow-2xs";
+        } else if (type === 'neutral') {
+          boxStyle = "border-slate-300 bg-slate-100 text-slate-800";
+        }
+        return `<span title="1952-1998 年觀測數據為四捨五入至整數之紀錄" class="inline-block px-1.5 py-0.5 rounded border font-mono font-bold text-xs select-none cursor-help ${boxStyle}">${formattedNum}</span>`;
+      }
+
+      // Modern precise era (1999+)
+      let textClass = "font-semibold";
+      if (type === 'hot') textClass = "font-black text-rose-600";
+      else if (type === 'cold') textClass = "font-black text-blue-600";
+      else if (type === 'neutral') textClass = "font-bold text-slate-800";
+
+      return `<span class="font-mono text-sm ${textClass}">${formattedNum}</span>`;
     }
 
     /* ==========================================================================
@@ -941,11 +968,11 @@
       }
 
       if (absMaxRec) {
-        document.getElementById('kpi-max-temp').innerHTML = `${formatTempWithBadge(absMaxRec.maxTemp, absMaxRec.year)}`;
+        document.getElementById('kpi-max-temp').innerHTML = `${formatTempWithBadge(absMaxRec.maxTemp, absMaxRec.year, 'hot')}`;
         document.getElementById('kpi-max-date').textContent = `${absMaxRec.date} 創紀錄`;
       }
       if (absMinRec) {
-        document.getElementById('kpi-min-temp').innerHTML = `${formatTempWithBadge(absMinRec.minTemp, absMinRec.year)}`;
+        document.getElementById('kpi-min-temp').innerHTML = `${formatTempWithBadge(absMinRec.minTemp, absMinRec.year, 'cold')}`;
         document.getElementById('kpi-min-date').textContent = `${absMinRec.date} 創紀錄`;
       }
       if (absRainRec) {
@@ -1022,15 +1049,15 @@
 
           let valHtml = "";
           if (type === 'max-desc') {
-            valHtml = `<td class="px-4 py-2.5 text-right font-black text-rose-600 text-sm">${formatTempWithBadge(d.maxTemp, d.year)}</td>
-                       <td class="px-4 py-2.5 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>`;
+            valHtml = `<td class="px-4 py-2.5 text-right font-black text-sm">${formatTempWithBadge(d.maxTemp, d.year, 'hot')}</td>
+                       <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>`;
           } else if (type === 'min-asc') {
-            valHtml = `<td class="px-4 py-2.5 text-right font-black text-blue-600 text-sm">${formatTempWithBadge(d.minTemp, d.year)}</td>
-                       <td class="px-4 py-2.5 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>`;
+            valHtml = `<td class="px-4 py-2.5 text-right font-black text-sm">${formatTempWithBadge(d.minTemp, d.year, 'cold')}</td>
+                       <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>`;
           } else if (type === 'avg-desc') {
-            valHtml = `<td class="px-4 py-2.5 text-right font-black text-amber-700 text-sm">${d.avgTemp.toFixed(1)}</td>`;
+            valHtml = `<td class="px-4 py-2.5 text-right font-black text-amber-700 text-sm font-mono">${d.avgTemp.toFixed(1)}</td>`;
           } else {
-            valHtml = `<td class="px-4 py-2.5 text-right font-black text-cyan-700 text-sm">${d.avgTemp.toFixed(1)}</td>`;
+            valHtml = `<td class="px-4 py-2.5 text-right font-black text-cyan-700 text-sm font-mono">${d.avgTemp.toFixed(1)}</td>`;
           }
 
           const solarBadge = d.solarTerm ? `<span class="bg-sky-100 text-sky-800 px-2 py-0.5 rounded font-bold text-[10px]">${d.solarTerm}</span>` : `<span class="text-slate-300">-</span>`;
@@ -1050,7 +1077,7 @@
     }
 
     /* ==========================================================================
-       SECTION: 歷年同日氣象查詢與排行 (NEW FEATURE)
+       SECTION: 歷年同日氣象查詢與排行
        User specifies MM-DD -> query all 1952-2026 data on that exact calendar day
        Toggle: Hot rank (desc) or Cold rank (asc)
        ========================================================================== */
@@ -1140,11 +1167,11 @@
         });
 
         if (hottestRec) {
-          document.getElementById('target-hot-val').innerHTML = formatTempWithBadge(hottestRec.maxTemp, hottestRec.year);
+          document.getElementById('target-hot-val').innerHTML = formatTempWithBadge(hottestRec.maxTemp, hottestRec.year, 'hot');
           document.getElementById('target-hot-date').textContent = `${hottestRec.year}年 (${hottestRec.date})`;
         }
         if (coldestRec) {
-          document.getElementById('target-cold-val').innerHTML = formatTempWithBadge(coldestRec.minTemp, coldestRec.year);
+          document.getElementById('target-cold-val').innerHTML = formatTempWithBadge(coldestRec.minTemp, coldestRec.year, 'cold');
           document.getElementById('target-cold-date').textContent = `${coldestRec.year}年 (${coldestRec.date})`;
         }
         document.getElementById('target-avg-val').textContent = countAvg > 0 ? (sumAvg / countAvg).toFixed(2) : "--";
@@ -1179,17 +1206,16 @@
           tr.className = isHot ? "hover:bg-rose-50/40" : "hover:bg-sky-50/40";
 
           const valWithBadge = isHot
-            ? formatTempWithBadge(item.maxTemp, item.year)
-            : formatTempWithBadge(item.minTemp, item.year);
-          const valClass = isHot ? 'text-rose-600' : 'text-blue-600';
+            ? formatTempWithBadge(item.maxTemp, item.year, 'hot')
+            : formatTempWithBadge(item.minTemp, item.year, 'cold');
           const solarBadge = item.solarTerm ? `<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold text-[10px]">${item.solarTerm}</span>` : `<span class="text-slate-300">-</span>`;
 
           tr.innerHTML = `
             <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
             <td class="px-4 py-2.5 font-black text-slate-800">${item.year} 年</td>
             <td class="px-4 py-2.5 font-mono text-slate-600">${item.date}</td>
-            <td class="px-4 py-2.5 text-right font-black ${valClass} text-sm">${valWithBadge}</td>
-            <td class="px-4 py-2.5 text-right text-slate-600">${item.avgTemp !== null ? item.avgTemp.toFixed(1) : '--'}</td>
+            <td class="px-4 py-2.5 text-right text-sm">${valWithBadge}</td>
+            <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${item.avgTemp !== null ? item.avgTemp.toFixed(1) : '--'}</td>
             <td class="px-4 py-2.5">${solarBadge}</td>
           `;
           tbody.appendChild(tr);
@@ -1200,131 +1226,240 @@
     }
 
     /* ==========================================================================
-       SECTION 1: 月氣溫排行
-       Strict rule: When ranking High temp (max), do NOT show min temp or rain.
-                    When ranking Low temp (min), do NOT show max temp or rain.
-                    When ranking Avg temp, show Avg and clean notes without rain.
+       SECTION 1: 月氣溫排行 (Support both individual daily extreme occurrences & monthly aggregation)
        ========================================================================== */
     function initMonthlyModule() {
+      const viewSel = document.getElementById('monthly-filter-view');
       const monthSel = document.getElementById('monthly-filter-month');
       const metricSel = document.getElementById('monthly-filter-metric');
       const orderSel = document.getElementById('monthly-filter-order');
       const headerRow = document.getElementById('monthly-table-header-row');
       const tbody = document.getElementById('monthly-table-tbody');
+      const tableNote = document.getElementById('monthly-table-note');
+
+      // Adjust default metric when switching view
+      viewSel.addEventListener('change', () => {
+        if (viewSel.value === 'monthly-aggregated' && metricSel.value !== 'avg') {
+          // Keep current or let user choose
+        }
+        render();
+      });
 
       const render = () => {
+        const viewMode = viewSel.value; // 'daily-occurrences' or 'monthly-aggregated'
         const mVal = monthSel.value;
         const metricVal = metricSel.value; // 'avg', 'max', 'min'
         const orderVal = orderSel.value;   // 'desc', 'asc'
 
-        // Group by Year-Month
-        const map = new Map();
+        if (viewMode === 'daily-occurrences') {
+          // --- MODE A: 月內單日極端氣溫排行 (日為單位，允許同月多日入榜) ---
+          tableNote.textContent = "當前模式：月內所有單日極值排行。同一年該月份內若有多日出現極端高溫或低溫，每筆觀測日皆有獨立名次。";
 
-        rawWeatherData.forEach(d => {
-          if (mVal !== 'all' && d.month !== parseInt(mVal, 10)) return;
-          const ymKey = `${d.year}-${String(d.month).padStart(2, '0')}`;
-          if (!map.has(ymKey)) {
-            map.set(ymKey, {
-              ym: ymKey,
-              year: d.year,
-              month: d.month,
-              sumAvg: 0,
-              maxTemp: -999,
-              minTemp: 999,
-              count: 0
-            });
-          }
-          const rec = map.get(ymKey);
-          if (d.avgTemp !== null) rec.sumAvg += d.avgTemp;
-          rec.count++;
-          if (d.maxTemp !== null && d.maxTemp > rec.maxTemp) rec.maxTemp = d.maxTemp;
-          if (d.minTemp !== null && d.minTemp < rec.minTemp) rec.minTemp = d.minTemp;
-        });
+          let filteredDays = rawWeatherData.filter(d => {
+            if (mVal !== 'all' && d.month !== parseInt(mVal, 10)) return false;
+            if (metricVal === 'max') return d.maxTemp !== null;
+            if (metricVal === 'min') return d.minTemp !== null;
+            return d.avgTemp !== null;
+          });
 
-        const list = Array.from(map.values()).map(r => ({
-          ym: r.ym,
-          year: r.year,
-          month: r.month,
-          avgTemp: r.count > 0 ? parseFloat((r.sumAvg / r.count).toFixed(2)) : 0,
-          maxTemp: r.maxTemp > -900 ? parseFloat(r.maxTemp.toFixed(1)) : null,
-          minTemp: r.minTemp < 900 ? parseFloat(r.minTemp.toFixed(1)) : null
-        }));
+          filteredDays.sort((a, b) => {
+            let vA = 0, vB = 0;
+            if (metricVal === 'max') {
+              vA = a.maxTemp || -999;
+              vB = b.maxTemp || -999;
+              if (vA === vB) return (b.avgTemp || 0) - (a.avgTemp || 0);
+            } else if (metricVal === 'min') {
+              vA = a.minTemp || 999;
+              vB = b.minTemp || 999;
+              if (vA === vB) return (a.avgTemp || 0) - (b.avgTemp || 0);
+            } else {
+              vA = a.avgTemp || 0;
+              vB = b.avgTemp || 0;
+            }
+            return orderVal === 'desc' ? (vB - vA) : (vA - vB);
+          });
 
-        // Sort based on chosen metric
-        list.sort((a, b) => {
-          let vA = a.avgTemp, vB = b.avgTemp;
-          if (metricVal === 'max') { vA = a.maxTemp || -999; vB = b.maxTemp || -999; }
-          else if (metricVal === 'min') { vA = a.minTemp || 999; vB = b.minTemp || 999; }
-          return orderVal === 'desc' ? (vB - vA) : (vA - vB);
-        });
-
-        // Set Dynamic Header: Eliminate rain and opposite extremes
-        if (metricVal === 'max') {
-          headerRow.innerHTML = `
-            <th class="px-4 py-2.5 w-16">名次</th>
-            <th class="px-4 py-2.5">年份 / 月份</th>
-            <th class="px-4 py-2.5 text-right font-bold text-rose-700">該月最高極端氣溫 (°C)</th>
-            <th class="px-4 py-2.5 text-right">該月平均均溫 (°C)</th>
-            <th class="px-4 py-2.5">歷史評註</th>
-          `;
-        } else if (metricVal === 'min') {
-          headerRow.innerHTML = `
-            <th class="px-4 py-2.5 w-16">名次</th>
-            <th class="px-4 py-2.5">年份 / 月份</th>
-            <th class="px-4 py-2.5 text-right font-bold text-blue-700">該月最低極端氣溫 (°C)</th>
-            <th class="px-4 py-2.5 text-right">該月平均均溫 (°C)</th>
-            <th class="px-4 py-2.5">歷史評註</th>
-          `;
-        } else {
-          headerRow.innerHTML = `
-            <th class="px-4 py-2.5 w-16">名次</th>
-            <th class="px-4 py-2.5">年份 / 月份</th>
-            <th class="px-4 py-2.5 text-right font-bold text-slate-800">月平均氣溫 (AvgTemp °C)</th>
-            <th class="px-4 py-2.5">歷史評註</th>
-          `;
-        }
-
-        tbody.innerHTML = '';
-        document.getElementById('monthly-count-label').textContent = list.length.toLocaleString();
-
-        list.forEach((item, idx) => {
-          const rank = idx + 1;
-          const tr = document.createElement('tr');
-          tr.className = "hover:bg-slate-50 transition-colors";
-
-          let note = "";
-          if (rank === 1) note = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">歷史第一位</span>`;
-          else if (rank <= 3) note = `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">歷史前三甲</span>`;
-
+          // Dynamic Headers for Daily Occurrences (No Rain, No Cross Extremes)
           if (metricVal === 'max') {
-            tr.innerHTML = `
-              <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
-              <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
-              <td class="px-4 py-2.5 text-right font-black text-rose-600 text-sm">${formatTempWithBadge(item.maxTemp, item.year)}</td>
-              <td class="px-4 py-2.5 text-right text-slate-600">${item.avgTemp.toFixed(2)}</td>
-              <td class="px-4 py-2.5 text-slate-500">${note}</td>
+            headerRow.innerHTML = `
+              <th class="px-4 py-2.5 w-16">名次</th>
+              <th class="px-4 py-2.5">觀測日期</th>
+              <th class="px-4 py-2.5">年份/月份</th>
+              <th class="px-4 py-2.5 text-right font-bold text-rose-700">當日最高極端氣溫 (°C)</th>
+              <th class="px-4 py-2.5 text-right">當日均溫 (°C)</th>
+              <th class="px-4 py-2.5">節氣</th>
             `;
           } else if (metricVal === 'min') {
-            tr.innerHTML = `
-              <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
-              <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
-              <td class="px-4 py-2.5 text-right font-black text-blue-600 text-sm">${formatTempWithBadge(item.minTemp, item.year)}</td>
-              <td class="px-4 py-2.5 text-right text-slate-600">${item.avgTemp.toFixed(2)}</td>
-              <td class="px-4 py-2.5 text-slate-500">${note}</td>
+            headerRow.innerHTML = `
+              <th class="px-4 py-2.5 w-16">名次</th>
+              <th class="px-4 py-2.5">觀測日期</th>
+              <th class="px-4 py-2.5">年份/月份</th>
+              <th class="px-4 py-2.5 text-right font-bold text-blue-700">當日最低極端氣溫 (°C)</th>
+              <th class="px-4 py-2.5 text-right">當日均溫 (°C)</th>
+              <th class="px-4 py-2.5">節氣</th>
             `;
           } else {
-            tr.innerHTML = `
-              <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
-              <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
-              <td class="px-4 py-2.5 text-right font-black text-slate-800 text-sm">${item.avgTemp.toFixed(2)}</td>
-              <td class="px-4 py-2.5 text-slate-500">${note}</td>
+            headerRow.innerHTML = `
+              <th class="px-4 py-2.5 w-16">名次</th>
+              <th class="px-4 py-2.5">觀測日期</th>
+              <th class="px-4 py-2.5">年份/月份</th>
+              <th class="px-4 py-2.5 text-right font-bold text-slate-800">當日平均氣溫 (°C)</th>
+              <th class="px-4 py-2.5">節氣</th>
             `;
           }
 
-          tbody.appendChild(tr);
-        });
+          tbody.innerHTML = '';
+          const displayList = filteredDays.slice(0, 200); // Top 200 occurrences
+          document.getElementById('monthly-count-label').textContent = `${displayList.length.toLocaleString()} (總符合 ${filteredDays.length.toLocaleString()} 日)`;
+
+          displayList.forEach((d, idx) => {
+            const rank = idx + 1;
+            const tr = document.createElement('tr');
+            tr.className = metricVal === 'max' ? "hover:bg-rose-50/40" : (metricVal === 'min' ? "hover:bg-sky-50/40" : "hover:bg-slate-50");
+            const ymLabel = `${d.year} 年 ${d.month} 月`;
+            const solarBadge = d.solarTerm ? `<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold text-[10px]">${d.solarTerm}</span>` : `<span class="text-slate-300">-</span>`;
+
+            if (metricVal === 'max') {
+              tr.innerHTML = `
+                <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+                <td class="px-4 py-2.5 font-bold text-slate-900">${d.date}</td>
+                <td class="px-4 py-2.5 text-slate-600">${ymLabel}</td>
+                <td class="px-4 py-2.5 text-right text-sm">${formatTempWithBadge(d.maxTemp, d.year, 'hot')}</td>
+                <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+                <td class="px-4 py-2.5">${solarBadge}</td>
+              `;
+            } else if (metricVal === 'min') {
+              tr.innerHTML = `
+                <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+                <td class="px-4 py-2.5 font-bold text-slate-900">${d.date}</td>
+                <td class="px-4 py-2.5 text-slate-600">${ymLabel}</td>
+                <td class="px-4 py-2.5 text-right text-sm">${formatTempWithBadge(d.minTemp, d.year, 'cold')}</td>
+                <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+                <td class="px-4 py-2.5">${solarBadge}</td>
+              `;
+            } else {
+              tr.innerHTML = `
+                <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+                <td class="px-4 py-2.5 font-bold text-slate-900">${d.date}</td>
+                <td class="px-4 py-2.5 text-slate-600">${ymLabel}</td>
+                <td class="px-4 py-2.5 text-right text-slate-800 font-bold font-mono text-sm">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+                <td class="px-4 py-2.5">${solarBadge}</td>
+              `;
+            }
+            tbody.appendChild(tr);
+          });
+
+        } else {
+          // --- MODE B: 月平均氣溫排行 (月為單位) ---
+          tableNote.textContent = "當前模式：整月統計排行。將各年份該月份所有天數彙整計算整月平均溫與月內極端值。";
+
+          const map = new Map();
+
+          rawWeatherData.forEach(d => {
+            if (mVal !== 'all' && d.month !== parseInt(mVal, 10)) return;
+            const ymKey = `${d.year}-${String(d.month).padStart(2, '0')}`;
+            if (!map.has(ymKey)) {
+              map.set(ymKey, {
+                ym: ymKey,
+                year: d.year,
+                month: d.month,
+                sumAvg: 0,
+                maxTemp: -999,
+                minTemp: 999,
+                count: 0
+              });
+            }
+            const rec = map.get(ymKey);
+            if (d.avgTemp !== null) rec.sumAvg += d.avgTemp;
+            rec.count++;
+            if (d.maxTemp !== null && d.maxTemp > rec.maxTemp) rec.maxTemp = d.maxTemp;
+            if (d.minTemp !== null && d.minTemp < rec.minTemp) rec.minTemp = d.minTemp;
+          });
+
+          const list = Array.from(map.values()).map(r => ({
+            ym: r.ym,
+            year: r.year,
+            month: r.month,
+            avgTemp: r.count > 0 ? parseFloat((r.sumAvg / r.count).toFixed(2)) : 0,
+            maxTemp: r.maxTemp > -900 ? parseFloat(r.maxTemp.toFixed(1)) : null,
+            minTemp: r.minTemp < 900 ? parseFloat(r.minTemp.toFixed(1)) : null
+          }));
+
+          list.sort((a, b) => {
+            let vA = a.avgTemp, vB = b.avgTemp;
+            if (metricVal === 'max') { vA = a.maxTemp || -999; vB = b.maxTemp || -999; }
+            else if (metricVal === 'min') { vA = a.minTemp || 999; vB = b.minTemp || 999; }
+            return orderVal === 'desc' ? (vB - vA) : (vA - vB);
+          });
+
+          if (metricVal === 'max') {
+            headerRow.innerHTML = `
+              <th class="px-4 py-2.5 w-16">名次</th>
+              <th class="px-4 py-2.5">年份 / 月份</th>
+              <th class="px-4 py-2.5 text-right font-bold text-rose-700">該月最高極端氣溫 (°C)</th>
+              <th class="px-4 py-2.5 text-right">該月平均均溫 (°C)</th>
+              <th class="px-4 py-2.5">歷史評註</th>
+            `;
+          } else if (metricVal === 'min') {
+            headerRow.innerHTML = `
+              <th class="px-4 py-2.5 w-16">名次</th>
+              <th class="px-4 py-2.5">年份 / 月份</th>
+              <th class="px-4 py-2.5 text-right font-bold text-blue-700">該月最低極端氣溫 (°C)</th>
+              <th class="px-4 py-2.5 text-right">該月平均均溫 (°C)</th>
+              <th class="px-4 py-2.5">歷史評註</th>
+            `;
+          } else {
+            headerRow.innerHTML = `
+              <th class="px-4 py-2.5 w-16">名次</th>
+              <th class="px-4 py-2.5">年份 / 月份</th>
+              <th class="px-4 py-2.5 text-right font-bold text-slate-800">月平均氣溫 (AvgTemp °C)</th>
+              <th class="px-4 py-2.5">歷史評註</th>
+            `;
+          }
+
+          tbody.innerHTML = '';
+          document.getElementById('monthly-count-label').textContent = `${list.length.toLocaleString()} 個月份紀錄`;
+
+          list.forEach((item, idx) => {
+            const rank = idx + 1;
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-slate-50 transition-colors";
+
+            let note = "";
+            if (rank === 1) note = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">歷史第一位</span>`;
+            else if (rank <= 3) note = `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">歷史前三甲</span>`;
+
+            if (metricVal === 'max') {
+              tr.innerHTML = `
+                <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+                <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
+                <td class="px-4 py-2.5 text-right text-sm">${formatTempWithBadge(item.maxTemp, item.year, 'hot')}</td>
+                <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${item.avgTemp.toFixed(2)}</td>
+                <td class="px-4 py-2.5 text-slate-500">${note}</td>
+              `;
+            } else if (metricVal === 'min') {
+              tr.innerHTML = `
+                <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+                <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
+                <td class="px-4 py-2.5 text-right text-sm">${formatTempWithBadge(item.minTemp, item.year, 'cold')}</td>
+                <td class="px-4 py-2.5 text-right text-slate-600 font-mono">${item.avgTemp.toFixed(2)}</td>
+                <td class="px-4 py-2.5 text-slate-500">${note}</td>
+              `;
+            } else {
+              tr.innerHTML = `
+                <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+                <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
+                <td class="px-4 py-2.5 text-right font-black text-slate-800 text-sm font-mono">${item.avgTemp.toFixed(2)}</td>
+                <td class="px-4 py-2.5 text-slate-500">${note}</td>
+              `;
+            }
+
+            tbody.appendChild(tr);
+          });
+        }
       };
 
+      viewSel.addEventListener('change', render);
       monthSel.addEventListener('change', render);
       metricSel.addEventListener('change', render);
       orderSel.addEventListener('change', render);
@@ -1389,9 +1524,9 @@
           }
         });
 
-        document.getElementById('st-hist-max-val').innerHTML = highest > -900 ? formatTempWithBadge(highest, highestYear) : "--";
+        document.getElementById('st-hist-max-val').innerHTML = highest > -900 ? formatTempWithBadge(highest, highestYear, 'hot') : "--";
         document.getElementById('st-hist-max-date').textContent = highestDate ? `${highestDate} 創最高` : "--";
-        document.getElementById('st-hist-min-val').innerHTML = lowest < 900 ? formatTempWithBadge(lowest, lowestYear) : "--";
+        document.getElementById('st-hist-min-val').innerHTML = lowest < 900 ? formatTempWithBadge(lowest, lowestYear, 'cold') : "--";
         document.getElementById('st-hist-min-date').textContent = lowestDate ? `${lowestDate} 創最低` : "--";
         document.getElementById('st-hist-avg-val').textContent = countAvg > 0 ? (sumAvg / countAvg).toFixed(2) : "--";
         document.getElementById('st-hist-count').textContent = `歷年樣本數: ${matchedDays.length} 年紀錄`;
@@ -1406,8 +1541,8 @@
           tr.innerHTML = `
             <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
             <td class="px-3 py-2 font-bold text-slate-900">${d.date}</td>
-            <td class="px-3 py-2 text-right font-black text-rose-600">${formatTempWithBadge(d.maxTemp, d.year)}</td>
-            <td class="px-3 py-2 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+            <td class="px-3 py-2 text-right">${formatTempWithBadge(d.maxTemp, d.year, 'hot')}</td>
+            <td class="px-3 py-2 text-right text-slate-600 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
           `;
           maxTbody.appendChild(tr);
         });
@@ -1422,8 +1557,8 @@
           tr.innerHTML = `
             <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
             <td class="px-3 py-2 font-bold text-slate-900">${d.date}</td>
-            <td class="px-3 py-2 text-right font-black text-blue-600">${formatTempWithBadge(d.minTemp, d.year)}</td>
-            <td class="px-3 py-2 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+            <td class="px-3 py-2 text-right">${formatTempWithBadge(d.minTemp, d.year, 'cold')}</td>
+            <td class="px-3 py-2 text-right text-slate-600 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
           `;
           minTbody.appendChild(tr);
         });
@@ -1517,7 +1652,7 @@
           <td class="py-1 font-bold text-slate-500">${idx + 1}</td>
           <td class="py-1 font-black text-slate-800">${item.year}</td>
           <td class="py-1 font-mono text-rose-700 font-semibold">${item.firstHotDate}</td>
-          <td class="py-1 text-right text-rose-600 font-bold">${formatTempWithBadge(item.firstHotTemp, item.year)}</td>
+          <td class="py-1 text-right">${formatTempWithBadge(item.firstHotTemp, item.year, 'hot')}</td>
         `;
         earlyHotTbody.appendChild(tr);
       });
@@ -1533,7 +1668,7 @@
           <td class="py-1 font-bold text-slate-500">${idx + 1}</td>
           <td class="py-1 font-black text-slate-800">${item.year}</td>
           <td class="py-1 font-mono text-amber-800 font-semibold">${item.firstHotDate}</td>
-          <td class="py-1 text-right text-amber-700 font-bold">${formatTempWithBadge(item.firstHotTemp, item.year)}</td>
+          <td class="py-1 text-right">${formatTempWithBadge(item.firstHotTemp, item.year, 'hot')}</td>
         `;
         lateHotTbody.appendChild(tr);
       });
@@ -1550,7 +1685,7 @@
           <td class="py-1 font-bold text-slate-500">${idx + 1}</td>
           <td class="py-1 font-black text-slate-800">${item.year}</td>
           <td class="py-1 font-mono text-blue-700 font-semibold">${item.firstColdDate}</td>
-          <td class="py-1 text-right text-blue-600 font-bold">${formatTempWithBadge(item.firstColdTemp, item.year)}</td>
+          <td class="py-1 text-right">${formatTempWithBadge(item.firstColdTemp, item.year, 'cold')}</td>
         `;
         earlyColdTbody.appendChild(tr);
       });
@@ -1565,8 +1700,8 @@
         tr.innerHTML = `
           <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
           <td class="px-3 py-2 font-bold text-slate-900">${item.year} 年</td>
-          <td class="px-3 py-2 text-right font-black text-rose-600 text-sm">${item.hotDays} 天</td>
-          <td class="px-3 py-2 text-right font-semibold text-slate-700">${formatTempWithBadge(item.maxTemp, item.year)}</td>
+          <td class="px-3 py-2 text-right font-black text-rose-600 text-sm font-mono">${item.hotDays} 天</td>
+          <td class="px-3 py-2 text-right">${formatTempWithBadge(item.maxTemp, item.year, 'hot')}</td>
         `;
         hotTbody.appendChild(tr);
       });
@@ -1581,8 +1716,8 @@
         tr.innerHTML = `
           <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
           <td class="px-3 py-2 font-bold text-slate-900">${item.year} 年</td>
-          <td class="px-3 py-2 text-right font-black text-blue-600 text-sm">${item.coldDays} 天</td>
-          <td class="px-3 py-2 text-right font-semibold text-slate-700">${formatTempWithBadge(item.minTemp, item.year)}</td>
+          <td class="px-3 py-2 text-right font-black text-blue-600 text-sm font-mono">${item.coldDays} 天</td>
+          <td class="px-3 py-2 text-right">${formatTempWithBadge(item.minTemp, item.year, 'cold')}</td>
         `;
         coldTbody.appendChild(tr);
       });
@@ -1605,11 +1740,11 @@
           tr.className = "hover:bg-slate-50";
           tr.innerHTML = `
             <td class="px-4 py-2 font-bold text-slate-900">${item.year} 年</td>
-            <td class="px-4 py-2 text-right font-bold text-rose-600">${item.hotDays} 天</td>
-            <td class="px-4 py-2 text-right font-bold text-blue-600">${item.coldDays} 天</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-semibold">${formatTempWithBadge(item.maxTemp, item.year)}</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-semibold">${formatTempWithBadge(item.minTemp, item.year)}</td>
-            <td class="px-4 py-2 text-right text-slate-600">${item.avgTemp.toFixed(2)}</td>
+            <td class="px-4 py-2 text-right font-bold text-rose-600 font-mono">${item.hotDays} 天</td>
+            <td class="px-4 py-2 text-right font-bold text-blue-600 font-mono">${item.coldDays} 天</td>
+            <td class="px-4 py-2 text-right">${formatTempWithBadge(item.maxTemp, item.year, 'hot')}</td>
+            <td class="px-4 py-2 text-right">${formatTempWithBadge(item.minTemp, item.year, 'cold')}</td>
+            <td class="px-4 py-2 text-right text-slate-600 font-mono">${item.avgTemp.toFixed(2)}</td>
           `;
           allTbody.appendChild(tr);
         });
