@@ -135,6 +135,17 @@
       </div>
     </div>
 
+    <!-- Era Data Annotation Banner (1952-1998 Round-off Notice) -->
+    <div class="bg-amber-50/80 border border-amber-200 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 text-amber-900 text-xs shadow-2xs">
+      <div class="flex items-center gap-2">
+        <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0"></i>
+        <span>
+          <strong class="font-bold">數據說明：</strong>1952 年至 1998 年之最高溫 (MaxTemp) 及最低溫 (MinTemp) 歷史觀測數據已四捨五入至整數，系統於該時期數據旁加註 <span class="inline-flex items-center px-1.5 py-0.2 text-[10px] font-bold text-amber-800 bg-amber-200/80 rounded border border-amber-300">整數*</span> 標記；1999 年起為精確小數觀測值。
+        </span>
+      </div>
+      <span class="hidden sm:inline-block shrink-0 text-[10px] font-medium text-amber-700 bg-white/70 px-2 py-0.5 rounded border border-amber-200">1952 – 1998 整數化記錄</span>
+    </div>
+
     <!-- Navigation Tabs -->
   <div class="border-b border-slate-200 flex space-x-3 sm:space-x-8 overflow-x-auto text-sm font-medium">
     <button class="tab-btn pb-3 px-1 border-b-2 border-sky-600 text-sky-600 flex items-center space-x-2 shrink-0" data-tab="tab-daily">
@@ -739,7 +750,7 @@
 
   <!-- Footer -->
   <footer class="border-t border-slate-200 bg-white py-4 mt-auto text-center text-xs text-slate-400">
-    氣象歷史大數據平台 (1952-2026) &bull; 資料源: data/1952-2026weather.csv &bull; 相對濕度欄位已自動忽略
+    氣象歷史大數據平台 (1952-2026) &bull; 資料源: data/1952-2026weather.csv &bull; 註：1952-1998 年最高溫及最低溫已四捨五入至整數 (*標記) &bull; 相對濕度欄位已自動忽略
   </footer>
 
   <script>
@@ -756,6 +767,21 @@
     ];
 
     let rawWeatherData = [];
+
+    /**
+     * Format temperature display with a badge if year is between 1952 and 1998.
+     * MaxTemp & MinTemp were rounded to integer during 1952-1998.
+     */
+    function formatTempWithBadge(tempVal, year, customClass = '') {
+      if (tempVal === null || tempVal === undefined || isNaN(tempVal)) return '--';
+      const isIntegerEra = year >= 1952 && year <= 1998;
+      // In 1952-1998, display formatted number with optional badge
+      const formattedNum = isIntegerEra ? Math.round(tempVal).toString() : tempVal.toFixed(1);
+      const badgeHtml = isIntegerEra
+        ? `<span title="1952-1998 年氣溫觀測數據已四捨五入至整數" class="inline-flex items-center ml-1 px-1 py-0.1 text-[9px] font-semibold text-amber-800 bg-amber-100 rounded border border-amber-200/90 align-middle select-none cursor-help">整數*</span>`
+        : '';
+      return `<span class="inline-flex items-baseline justify-end ${customClass}"><span>${formattedNum}</span>${badgeHtml}</span>`;
+    }
 
     /* ==========================================================================
        CSV FETCHER
@@ -915,11 +941,11 @@
       }
 
       if (absMaxRec) {
-        document.getElementById('kpi-max-temp').textContent = absMaxRec.maxTemp.toFixed(1);
+        document.getElementById('kpi-max-temp').innerHTML = `${formatTempWithBadge(absMaxRec.maxTemp, absMaxRec.year)}`;
         document.getElementById('kpi-max-date').textContent = `${absMaxRec.date} 創紀錄`;
       }
       if (absMinRec) {
-        document.getElementById('kpi-min-temp').textContent = absMinRec.minTemp.toFixed(1);
+        document.getElementById('kpi-min-temp').innerHTML = `${formatTempWithBadge(absMinRec.minTemp, absMinRec.year)}`;
         document.getElementById('kpi-min-date').textContent = `${absMinRec.date} 創紀錄`;
       }
       if (absRainRec) {
@@ -996,10 +1022,10 @@
 
           let valHtml = "";
           if (type === 'max-desc') {
-            valHtml = `<td class="px-4 py-2.5 text-right font-black text-rose-600 text-sm">${d.maxTemp.toFixed(1)}</td>
+            valHtml = `<td class="px-4 py-2.5 text-right font-black text-rose-600 text-sm">${formatTempWithBadge(d.maxTemp, d.year)}</td>
                        <td class="px-4 py-2.5 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>`;
           } else if (type === 'min-asc') {
-            valHtml = `<td class="px-4 py-2.5 text-right font-black text-blue-600 text-sm">${d.minTemp.toFixed(1)}</td>
+            valHtml = `<td class="px-4 py-2.5 text-right font-black text-blue-600 text-sm">${formatTempWithBadge(d.minTemp, d.year)}</td>
                        <td class="px-4 py-2.5 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>`;
           } else if (type === 'avg-desc') {
             valHtml = `<td class="px-4 py-2.5 text-right font-black text-amber-700 text-sm">${d.avgTemp.toFixed(1)}</td>`;
@@ -1114,11 +1140,11 @@
         });
 
         if (hottestRec) {
-          document.getElementById('target-hot-val').textContent = hottestRec.maxTemp.toFixed(1);
+          document.getElementById('target-hot-val').innerHTML = formatTempWithBadge(hottestRec.maxTemp, hottestRec.year);
           document.getElementById('target-hot-date').textContent = `${hottestRec.year}年 (${hottestRec.date})`;
         }
         if (coldestRec) {
-          document.getElementById('target-cold-val').textContent = coldestRec.minTemp.toFixed(1);
+          document.getElementById('target-cold-val').innerHTML = formatTempWithBadge(coldestRec.minTemp, coldestRec.year);
           document.getElementById('target-cold-date').textContent = `${coldestRec.year}年 (${coldestRec.date})`;
         }
         document.getElementById('target-avg-val').textContent = countAvg > 0 ? (sumAvg / countAvg).toFixed(2) : "--";
@@ -1152,7 +1178,9 @@
           const tr = document.createElement('tr');
           tr.className = isHot ? "hover:bg-rose-50/40" : "hover:bg-sky-50/40";
 
-          const val = isHot ? (item.maxTemp !== null ? item.maxTemp.toFixed(1) : '--') : (item.minTemp !== null ? item.minTemp.toFixed(1) : '--');
+          const valWithBadge = isHot
+            ? formatTempWithBadge(item.maxTemp, item.year)
+            : formatTempWithBadge(item.minTemp, item.year);
           const valClass = isHot ? 'text-rose-600' : 'text-blue-600';
           const solarBadge = item.solarTerm ? `<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold text-[10px]">${item.solarTerm}</span>` : `<span class="text-slate-300">-</span>`;
 
@@ -1160,7 +1188,7 @@
             <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
             <td class="px-4 py-2.5 font-black text-slate-800">${item.year} 年</td>
             <td class="px-4 py-2.5 font-mono text-slate-600">${item.date}</td>
-            <td class="px-4 py-2.5 text-right font-black ${valClass} text-sm">${val}</td>
+            <td class="px-4 py-2.5 text-right font-black ${valClass} text-sm">${valWithBadge}</td>
             <td class="px-4 py-2.5 text-right text-slate-600">${item.avgTemp !== null ? item.avgTemp.toFixed(1) : '--'}</td>
             <td class="px-4 py-2.5">${solarBadge}</td>
           `;
@@ -1272,7 +1300,7 @@
             tr.innerHTML = `
               <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
               <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
-              <td class="px-4 py-2.5 text-right font-black text-rose-600 text-sm">${item.maxTemp !== null ? item.maxTemp.toFixed(1) : '--'}</td>
+              <td class="px-4 py-2.5 text-right font-black text-rose-600 text-sm">${formatTempWithBadge(item.maxTemp, item.year)}</td>
               <td class="px-4 py-2.5 text-right text-slate-600">${item.avgTemp.toFixed(2)}</td>
               <td class="px-4 py-2.5 text-slate-500">${note}</td>
             `;
@@ -1280,7 +1308,7 @@
             tr.innerHTML = `
               <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
               <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
-              <td class="px-4 py-2.5 text-right font-black text-blue-600 text-sm">${item.minTemp !== null ? item.minTemp.toFixed(1) : '--'}</td>
+              <td class="px-4 py-2.5 text-right font-black text-blue-600 text-sm">${formatTempWithBadge(item.minTemp, item.year)}</td>
               <td class="px-4 py-2.5 text-right text-slate-600">${item.avgTemp.toFixed(2)}</td>
               <td class="px-4 py-2.5 text-slate-500">${note}</td>
             `;
@@ -1340,8 +1368,8 @@
           return;
         }
 
-        let highest = -999, highestDate = "";
-        let lowest = 999, lowestDate = "";
+        let highest = -999, highestDate = "", highestYear = 0;
+        let lowest = 999, lowestDate = "", lowestYear = 0;
         let sumAvg = 0, countAvg = 0;
 
         matchedDays.forEach(d => {
@@ -1352,16 +1380,18 @@
           if (d.maxTemp !== null && d.maxTemp > highest) {
             highest = d.maxTemp;
             highestDate = d.date;
+            highestYear = d.year;
           }
           if (d.minTemp !== null && d.minTemp < lowest) {
             lowest = d.minTemp;
             lowestDate = d.date;
+            lowestYear = d.year;
           }
         });
 
-        document.getElementById('st-hist-max-val').textContent = highest > -900 ? highest.toFixed(1) : "--";
+        document.getElementById('st-hist-max-val').innerHTML = highest > -900 ? formatTempWithBadge(highest, highestYear) : "--";
         document.getElementById('st-hist-max-date').textContent = highestDate ? `${highestDate} 創最高` : "--";
-        document.getElementById('st-hist-min-val').textContent = lowest < 900 ? lowest.toFixed(1) : "--";
+        document.getElementById('st-hist-min-val').innerHTML = lowest < 900 ? formatTempWithBadge(lowest, lowestYear) : "--";
         document.getElementById('st-hist-min-date').textContent = lowestDate ? `${lowestDate} 創最低` : "--";
         document.getElementById('st-hist-avg-val').textContent = countAvg > 0 ? (sumAvg / countAvg).toFixed(2) : "--";
         document.getElementById('st-hist-count').textContent = `歷年樣本數: ${matchedDays.length} 年紀錄`;
@@ -1376,7 +1406,7 @@
           tr.innerHTML = `
             <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
             <td class="px-3 py-2 font-bold text-slate-900">${d.date}</td>
-            <td class="px-3 py-2 text-right font-black text-rose-600">${d.maxTemp !== null ? d.maxTemp.toFixed(1) : '--'}</td>
+            <td class="px-3 py-2 text-right font-black text-rose-600">${formatTempWithBadge(d.maxTemp, d.year)}</td>
             <td class="px-3 py-2 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
           `;
           maxTbody.appendChild(tr);
@@ -1392,7 +1422,7 @@
           tr.innerHTML = `
             <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
             <td class="px-3 py-2 font-bold text-slate-900">${d.date}</td>
-            <td class="px-3 py-2 text-right font-black text-blue-600">${d.minTemp !== null ? d.minTemp.toFixed(1) : '--'}</td>
+            <td class="px-3 py-2 text-right font-black text-blue-600">${formatTempWithBadge(d.minTemp, d.year)}</td>
             <td class="px-3 py-2 text-right text-slate-600">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
           `;
           minTbody.appendChild(tr);
@@ -1487,7 +1517,7 @@
           <td class="py-1 font-bold text-slate-500">${idx + 1}</td>
           <td class="py-1 font-black text-slate-800">${item.year}</td>
           <td class="py-1 font-mono text-rose-700 font-semibold">${item.firstHotDate}</td>
-          <td class="py-1 text-right text-rose-600 font-bold">${item.firstHotTemp.toFixed(1)}°</td>
+          <td class="py-1 text-right text-rose-600 font-bold">${formatTempWithBadge(item.firstHotTemp, item.year)}</td>
         `;
         earlyHotTbody.appendChild(tr);
       });
@@ -1503,7 +1533,7 @@
           <td class="py-1 font-bold text-slate-500">${idx + 1}</td>
           <td class="py-1 font-black text-slate-800">${item.year}</td>
           <td class="py-1 font-mono text-amber-800 font-semibold">${item.firstHotDate}</td>
-          <td class="py-1 text-right text-amber-700 font-bold">${item.firstHotTemp.toFixed(1)}°</td>
+          <td class="py-1 text-right text-amber-700 font-bold">${formatTempWithBadge(item.firstHotTemp, item.year)}</td>
         `;
         lateHotTbody.appendChild(tr);
       });
@@ -1520,7 +1550,7 @@
           <td class="py-1 font-bold text-slate-500">${idx + 1}</td>
           <td class="py-1 font-black text-slate-800">${item.year}</td>
           <td class="py-1 font-mono text-blue-700 font-semibold">${item.firstColdDate}</td>
-          <td class="py-1 text-right text-blue-600 font-bold">${item.firstColdTemp.toFixed(1)}°</td>
+          <td class="py-1 text-right text-blue-600 font-bold">${formatTempWithBadge(item.firstColdTemp, item.year)}</td>
         `;
         earlyColdTbody.appendChild(tr);
       });
@@ -1536,7 +1566,7 @@
           <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
           <td class="px-3 py-2 font-bold text-slate-900">${item.year} 年</td>
           <td class="px-3 py-2 text-right font-black text-rose-600 text-sm">${item.hotDays} 天</td>
-          <td class="px-3 py-2 text-right font-semibold text-slate-700">${item.maxTemp !== null ? item.maxTemp.toFixed(1) : '--'}</td>
+          <td class="px-3 py-2 text-right font-semibold text-slate-700">${formatTempWithBadge(item.maxTemp, item.year)}</td>
         `;
         hotTbody.appendChild(tr);
       });
@@ -1552,7 +1582,7 @@
           <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
           <td class="px-3 py-2 font-bold text-slate-900">${item.year} 年</td>
           <td class="px-3 py-2 text-right font-black text-blue-600 text-sm">${item.coldDays} 天</td>
-          <td class="px-3 py-2 text-right font-semibold text-slate-700">${item.minTemp !== null ? item.minTemp.toFixed(1) : '--'}</td>
+          <td class="px-3 py-2 text-right font-semibold text-slate-700">${formatTempWithBadge(item.minTemp, item.year)}</td>
         `;
         coldTbody.appendChild(tr);
       });
@@ -1577,8 +1607,8 @@
             <td class="px-4 py-2 font-bold text-slate-900">${item.year} 年</td>
             <td class="px-4 py-2 text-right font-bold text-rose-600">${item.hotDays} 天</td>
             <td class="px-4 py-2 text-right font-bold text-blue-600">${item.coldDays} 天</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-semibold">${item.maxTemp !== null ? item.maxTemp.toFixed(1) : '--'}</td>
-            <td class="px-4 py-2 text-right text-slate-700 font-semibold">${item.minTemp !== null ? item.minTemp.toFixed(1) : '--'}</td>
+            <td class="px-4 py-2 text-right text-slate-700 font-semibold">${formatTempWithBadge(item.maxTemp, item.year)}</td>
+            <td class="px-4 py-2 text-right text-slate-700 font-semibold">${formatTempWithBadge(item.minTemp, item.year)}</td>
             <td class="px-4 py-2 text-right text-slate-600">${item.avgTemp.toFixed(2)}</td>
           `;
           allTbody.appendChild(tr);
