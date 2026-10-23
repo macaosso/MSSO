@@ -3,18 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>氣候大數據分析系統 (1952-2026)</title>
+  <title>氣候歷史大數據統計系統 (1952-2026)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- PapaParse for high-speed client CSV processing -->
+  <!-- PapaParse for fast client CSV processing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -36,417 +33,429 @@
     }
   </script>
   <style>
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f5f9;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased">
 
-  <!-- Header / Navigation -->
-  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-sm">
           <i data-lucide="cloud-sun-rain" class="w-6 h-6"></i>
         </div>
         <div>
-          <h1 class="text-lg font-bold text-slate-900 tracking-tight leading-tight">氣候大數據統計系統</h1>
-          <p class="text-xs text-slate-500 font-medium">1952 - 2026 歷史氣候數據分析 (已略過相對濕度)</p>
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">氣候歷史大數據統計系統</h1>
+          <p class="text-[11px] sm:text-xs text-slate-500 font-medium">1952 – 2026 觀測分析 (自動忽略相對濕度欄位)</p>
         </div>
       </div>
 
-      <!-- Quick Actions / Data Status -->
-      <div class="flex items-center space-x-2 sm:space-x-4">
-        <div id="data-status-badge" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-          <span id="data-status-text">載入中...</span>
+      <!-- Live Fetch Status Indicator -->
+      <div class="flex items-center space-x-3">
+        <div id="status-container" class="flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+          <span id="status-dot" class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+          <span id="status-label">正在讀取 data/1952-2026weather.csv...</span>
         </div>
-        <button id="btn-upload-modal" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
-          <i data-lucide="upload" class="w-4 h-4"></i>
-          <span>導入 CSV</span>
-        </button>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Layout -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <!-- Global Loading / Error State -->
+  <div id="loading-overlay" class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center justify-center text-center space-y-3">
+    <div class="w-10 h-10 border-4 border-sky-600 border-t-transparent rounded-full animate-spin"></div>
+    <p class="text-sm font-medium text-slate-600">正在非同步載入並解析氣候資料檔...</p>
+    <p class="text-xs text-slate-400 font-mono">來源路徑: data/1952-2026weather.csv</p>
+  </div>
 
-    <!-- Notification / File Drop banner when needed -->
-    <div id="file-drop-card" class="bg-white border-2 border-dashed border-sky-300 rounded-2xl p-6 text-center hover:border-sky-500 transition shadow-sm">
-      <div class="max-w-md mx-auto space-y-3">
-        <div class="w-12 h-12 mx-auto rounded-full bg-sky-50 text-sky-600 flex items-center justify-center">
-          <i data-lucide="file-spreadsheet" class="w-6 h-6"></i>
-        </div>
-        <h3 class="text-base font-semibold text-slate-800">載入氣象數據檔案</h3>
-        <p class="text-xs text-slate-500">預設自動嘗試載入 <code class="bg-slate-100 px-1 py-0.5 rounded text-sky-700">data/1952-2026weather.csv</code>。若您是在本機瀏覽器預覽，請拖放檔案至此，或一鍵產生高仿真模擬數據。</p>
-        <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
-          <label class="cursor-pointer inline-flex items-center space-x-2 px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium rounded-lg shadow-sm transition">
-            <i data-lucide="folder-up" class="w-4 h-4"></i>
-            <span>選取本地 CSV</span>
-            <input type="file" id="csv-file-input" accept=".csv" class="hidden">
-          </label>
-          <button id="btn-gen-mock" class="inline-flex items-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg border border-slate-300 transition">
-            <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i>
-            <span>產生 1952-2026 仿真歷史資料庫</span>
-          </button>
-        </div>
+  <div id="error-banner" class="hidden max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start space-x-3 text-rose-800">
+      <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
+      <div>
+        <h4 class="text-sm font-bold">無法載入氣象資料檔案</h4>
+        <p class="text-xs text-rose-700 mt-1" id="error-message">請確認根目錄下存有 <code class="font-mono bg-rose-100 px-1 py-0.5 rounded">data/1952-2026weather.csv</code> 且伺服器允許存取。</p>
       </div>
     </div>
+  </div>
 
-    <!-- Summary KPI Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="kpi-grid">
-      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+  <!-- Main Content Layout (Hidden while loading) -->
+  <main id="dashboard-content" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Overall KPI Summary -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs">
         <div class="flex items-center justify-between text-slate-400">
-          <span class="text-xs font-medium text-slate-500">紀錄總天數</span>
+          <span class="text-xs font-medium text-slate-500">歷史觀測總天數</span>
           <i data-lucide="calendar" class="w-4 h-4 text-sky-500"></i>
         </div>
-        <div class="mt-2">
-          <span id="kpi-total-days" class="text-2xl font-bold text-slate-800 tracking-tight">0</span>
-          <span class="text-xs text-slate-400 ml-1">日</span>
+        <div class="mt-2 flex items-baseline gap-1">
+          <span id="kpi-total-days" class="text-2xl font-bold text-slate-800 tracking-tight">--</span>
+          <span class="text-xs text-slate-400">天</span>
         </div>
-        <div class="text-[11px] text-slate-400 mt-1" id="kpi-date-range">年份區間: 1952 - 2026</div>
+        <div class="text-[11px] text-slate-400 mt-1" id="kpi-year-range">年份: 1952 - 2026</div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+      <div class="bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs">
         <div class="flex items-center justify-between text-slate-400">
           <span class="text-xs font-medium text-slate-500">歷史極端最高溫</span>
           <i data-lucide="flame" class="w-4 h-4 text-hot"></i>
         </div>
-        <div class="mt-2">
+        <div class="mt-2 flex items-baseline gap-1">
           <span id="kpi-max-temp" class="text-2xl font-bold text-rose-600 tracking-tight">--</span>
-          <span class="text-xs text-slate-400 ml-1">°C</span>
+          <span class="text-xs text-slate-400">°C</span>
         </div>
-        <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpi-max-temp-date">--</div>
+        <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpi-max-date">--</div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+      <div class="bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs">
         <div class="flex items-center justify-between text-slate-400">
           <span class="text-xs font-medium text-slate-500">歷史極端最低溫</span>
           <i data-lucide="snowflake" class="w-4 h-4 text-cold"></i>
         </div>
-        <div class="mt-2">
+        <div class="mt-2 flex items-baseline gap-1">
           <span id="kpi-min-temp" class="text-2xl font-bold text-blue-600 tracking-tight">--</span>
-          <span class="text-xs text-slate-400 ml-1">°C</span>
+          <span class="text-xs text-slate-400">°C</span>
         </div>
-        <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpi-min-temp-date">--</div>
+        <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpi-min-date">--</div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+      <div class="bg-white p-4 rounded-xl border border-slate-200/90 shadow-xs">
         <div class="flex items-center justify-between text-slate-400">
-          <span class="text-xs font-medium text-slate-500">單日最高降雨量</span>
-          <i data-lucide="cloud-rain" class="w-4 h-4 text-cyan-500"></i>
+          <span class="text-xs font-medium text-slate-500">歷史單日最大降雨</span>
+          <i data-lucide="cloud-rain" class="w-4 h-4 text-cyan-600"></i>
         </div>
-        <div class="mt-2">
-          <span id="kpi-max-rain" class="text-2xl font-bold text-cyan-600 tracking-tight">--</span>
-          <span class="text-xs text-slate-400 ml-1">mm</span>
+        <div class="mt-2 flex items-baseline gap-1">
+          <span id="kpi-max-rain" class="text-2xl font-bold text-cyan-700 tracking-tight">--</span>
+          <span class="text-xs text-slate-400">mm</span>
         </div>
-        <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpi-max-rain-date">--</div>
+        <div class="text-[11px] text-slate-500 mt-1 truncate" id="kpi-rain-date">--</div>
       </div>
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="border-b border-slate-200 flex space-x-6 overflow-x-auto text-sm font-medium">
-      <button class="tab-btn pb-3 px-1 border-b-2 border-sky-600 text-sky-600 flex items-center space-x-2" data-tab="tab-monthly">
-        <i data-lucide="calendar-range" class="w-4 h-4"></i>
+    <div class="border-b border-slate-200 flex space-x-3 sm:space-x-8 overflow-x-auto text-sm font-medium">
+      <button class="tab-btn pb-3 px-1 border-b-2 border-sky-600 text-sky-600 flex items-center space-x-2 shrink-0" data-tab="tab-monthly">
+        <i data-lucide="calendar-days" class="w-4 h-4"></i>
         <span>1. 月氣溫排行</span>
       </button>
-      <button class="tab-btn pb-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2" data-tab="tab-solarterms">
+      <button class="tab-btn pb-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 shrink-0" data-tab="tab-solarterm-record">
         <i data-lucide="sun-snow" class="w-4 h-4"></i>
-        <span>2. 二十四節氣氣溫排行</span>
+        <span>2. 二十四節氣 歷史極值紀錄 (歷年當日)</span>
       </button>
-      <button class="tab-btn pb-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2" data-tab="tab-extremes">
+      <button class="tab-btn pb-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 shrink-0" data-tab="tab-extremes">
         <i data-lucide="flame" class="w-4 h-4"></i>
-        <span>3. 酷熱與寒冷日數統計</span>
+        <span>3. 酷熱與寒冷日數統計與排行</span>
       </button>
-      <button class="tab-btn pb-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2" data-tab="tab-rainfall">
+      <button class="tab-btn pb-3 px-1 border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center space-x-2 shrink-0" data-tab="tab-rainfall">
         <i data-lucide="cloud-drizzle" class="w-4 h-4"></i>
         <span>4. 年總雨量排行</span>
       </button>
     </div>
 
-    <!-- TAB 1: 月氣溫排行 -->
-    <section id="tab-monthly" class="tab-content space-y-6">
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+    <!-- ==========================================
+         SECTION 1: 月氣溫排行
+         ========================================== -->
+    <section id="tab-monthly" class="tab-content space-y-4">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-4">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div>
-            <h2 class="text-base font-semibold text-slate-800">歷史月份氣溫統計與排行 (1952-2026)</h2>
-            <p class="text-xs text-slate-500">可切換特定月份查詢最熱/最冷年月，或檢視單日極值紀錄</p>
+            <h2 class="text-base font-bold text-slate-900">歷史月份氣溫統計與排行 (1952-2026)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">可自訂選擇月份與排序指標，依據月均溫或單日極值快速排列歷史紀錄</p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <!-- Filter Month -->
-            <select id="monthly-select-month" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-sky-500">
-              <option value="all">全年度總覽 (1-12月氣候常態)</option>
-              <option value="1">1 月 (寒冬)</option>
-              <option value="2">2 月</option>
-              <option value="3">3 月 (早春)</option>
-              <option value="4">4 月</option>
-              <option value="5">5 月 (立夏)</option>
-              <option value="6">6 月</option>
-              <option value="7" selected>7 月 (盛夏熱門)</option>
-              <option value="8">8 月</option>
-              <option value="9">9 月</option>
-              <option value="10">10 月 (深秋)</option>
-              <option value="11">11 月</option>
-              <option value="12">12 月 (嚴冬)</option>
-            </select>
-            <!-- Metric Type -->
-            <select id="monthly-select-metric" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-sky-500">
-              <option value="avg">月平均氣溫 (AvgTemp)</option>
-              <option value="max">月最高單日氣溫 (MaxTemp)</option>
-              <option value="min">月最低單日氣溫 (MinTemp)</option>
-            </select>
+            <!-- Select Month -->
+            <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+              <span class="text-xs text-slate-500">月份:</span>
+              <select id="monthly-filter-month" class="text-xs bg-transparent font-medium text-slate-800 focus:outline-none">
+                <option value="all">全年度所有月份 (1-12月)</option>
+                <option value="1">1 月 (寒冬)</option>
+                <option value="2">2 月</option>
+                <option value="3">3 月</option>
+                <option value="4">4 月</option>
+                <option value="5">5 月</option>
+                <option value="6">6 月</option>
+                <option value="7" selected>7 月 (盛夏熱門)</option>
+                <option value="8">8 月</option>
+                <option value="9">9 月</option>
+                <option value="10">10 月</option>
+                <option value="11">11 月</option>
+                <option value="12">12 月 (嚴冬)</option>
+              </select>
+            </div>
+            <!-- Metric -->
+            <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+              <span class="text-xs text-slate-500">指標:</span>
+              <select id="monthly-filter-metric" class="text-xs bg-transparent font-medium text-slate-800 focus:outline-none">
+                <option value="avg">月平均氣溫 (AvgTemp)</option>
+                <option value="max">月最高極端氣溫 (MaxTemp)</option>
+                <option value="min">月最低極端氣溫 (MinTemp)</option>
+              </select>
+            </div>
             <!-- Order -->
-            <select id="monthly-select-order" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-sky-500">
-              <option value="desc">由高到低 (最熱)</option>
-              <option value="asc">由低到高 (最冷)</option>
+            <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+              <span class="text-xs text-slate-500">順序:</span>
+              <select id="monthly-filter-order" class="text-xs bg-transparent font-medium text-slate-800 focus:outline-none">
+                <option value="desc">由高溫至低溫 (最高 &darr;)</option>
+                <option value="asc">由低溫至高溫 (最低 &uarr;)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Monthly Table -->
+        <div class="overflow-x-auto rounded-xl border border-slate-200">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-2.5 w-16">名次</th>
+                <th class="px-4 py-2.5">年份 / 月份</th>
+                <th class="px-4 py-2.5 text-right" id="monthly-th-metric">月平均氣溫 (°C)</th>
+                <th class="px-4 py-2.5 text-right">該月最高溫 (°C)</th>
+                <th class="px-4 py-2.5 text-right">該月最低溫 (°C)</th>
+                <th class="px-4 py-2.5 text-right">該月累積降雨 (mm)</th>
+                <th class="px-4 py-2.5">氣候評註</th>
+              </tr>
+            </thead>
+            <tbody id="monthly-table-tbody" class="divide-y divide-slate-100 bg-white">
+              <!-- Dynamically rendered -->
+            </tbody>
+          </table>
+        </div>
+        <p class="text-[11px] text-slate-400 text-right">資料筆數共 <span id="monthly-count-label" class="font-semibold text-slate-600">0</span> 筆月份紀錄</p>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         SECTION 2: 二十四節氣 歷史極值紀錄 (歷年該節氣當日) + 名次
+         ========================================== -->
+    <section id="tab-solarterm-record" class="tab-content hidden space-y-4">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-5">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">二十四節氣 歷史極值紀錄 (1952-2026 歷年該節氣當日)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">點選單一節氣，即時查閱該節氣於 1952 至 2026 年歷年當日之「最高氣溫」與「最低氣溫」完整名次排行</p>
+          </div>
+          <!-- Solar Term Selector -->
+          <div class="flex items-center space-x-2">
+            <label for="solar-term-select" class="text-xs font-semibold text-slate-600 shrink-0">選擇節氣:</label>
+            <select id="solar-term-select" class="text-xs bg-slate-50 border border-slate-300 font-bold text-sky-800 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-sky-500 focus:outline-none">
+              <!-- Populated by JS -->
             </select>
           </div>
         </div>
 
-        <!-- Monthly Chart -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60">
-            <h4 class="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
-              <i data-lucide="line-chart" class="w-3.5 h-3.5 text-sky-600"></i>
-              <span id="monthly-chart-title">1952-2026 月平均氣溫歷年趨勢</span>
-            </h4>
-            <div class="h-64 sm:h-72 w-full">
-              <canvas id="monthlyTrendChart"></canvas>
-            </div>
-          </div>
-
-          <!-- Monthly Records Side Card -->
-          <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex flex-col justify-between">
+        <!-- Term Summary Quick Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="bg-rose-50/70 border border-rose-100 rounded-xl p-3.5 flex items-center justify-between">
             <div>
-              <h4 class="text-xs font-semibold text-slate-600 mb-3 flex items-center gap-1.5">
-                <i data-lucide="trophy" class="w-3.5 h-3.5 text-amber-500"></i>
-                <span id="monthly-top-title">7月份 歷史排名前列</span>
-              </h4>
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs text-left">
-                  <thead>
-                    <tr class="text-slate-400 border-b border-slate-200 font-medium">
-                      <th class="py-1.5">名次</th>
-                      <th class="py-1.5">年份/日期</th>
-                      <th class="py-1.5 text-right">數值 (°C)</th>
-                    </tr>
-                  </thead>
-                  <tbody id="monthly-top-tbody" class="divide-y divide-slate-100 font-medium">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
+              <span class="text-[11px] font-semibold text-rose-700 block">歷年該節氣「最高紀錄」</span>
+              <div class="flex items-baseline space-x-1 mt-0.5">
+                <span id="st-hist-max-val" class="text-xl font-black text-rose-600">--</span>
+                <span class="text-xs text-rose-500">°C</span>
               </div>
+              <span id="st-hist-max-date" class="text-[11px] text-rose-800 font-medium mt-0.5 block">--</span>
             </div>
-            <p class="text-[11px] text-slate-400 mt-3 pt-2 border-t border-slate-200">
-              *此表依據篩選條件動態重整，單一月份共包含 1952-2026 歷年資料。
-            </p>
+            <div class="w-9 h-9 rounded-full bg-rose-200/60 flex items-center justify-center text-rose-600 shrink-0">
+              <i data-lucide="sun" class="w-5 h-5"></i>
+            </div>
+          </div>
+
+          <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3.5 flex items-center justify-between">
+            <div>
+              <span class="text-[11px] font-semibold text-blue-700 block">歷年該節氣「最低紀錄」</span>
+              <div class="flex items-baseline space-x-1 mt-0.5">
+                <span id="st-hist-min-val" class="text-xl font-black text-blue-600">--</span>
+                <span class="text-xs text-blue-500">°C</span>
+              </div>
+              <span id="st-hist-min-date" class="text-[11px] text-blue-800 font-medium mt-0.5 block">--</span>
+            </div>
+            <div class="w-9 h-9 rounded-full bg-blue-200/60 flex items-center justify-center text-blue-600 shrink-0">
+              <i data-lucide="snowflake" class="w-5 h-5"></i>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+            <div>
+              <span class="text-[11px] font-semibold text-slate-600 block">歷史平均日均溫 (氣候態)</span>
+              <div class="flex items-baseline space-x-1 mt-0.5">
+                <span id="st-hist-avg-val" class="text-xl font-bold text-slate-800">--</span>
+                <span class="text-xs text-slate-500">°C</span>
+              </div>
+              <span id="st-hist-count" class="text-[11px] text-slate-500 mt-0.5 block">歷年樣本數: -- 年</span>
+            </div>
+            <div class="w-9 h-9 rounded-full bg-slate-200/70 flex items-center justify-center text-slate-600 shrink-0">
+              <i data-lucide="scale" class="w-5 h-5"></i>
+            </div>
           </div>
         </div>
 
-        <!-- Full monthly breakdown table -->
-        <div class="pt-2">
-          <h4 class="text-xs font-semibold text-slate-700 mb-2">歷史數據列表 (可捲動檢視)</h4>
-          <div class="max-h-60 overflow-y-auto rounded-lg border border-slate-200">
-            <table class="w-full text-xs text-left">
-              <thead class="bg-slate-100 text-slate-600 sticky top-0">
-                <tr>
-                  <th class="px-3 py-2">名次</th>
-                  <th class="px-3 py-2">時間標籤</th>
-                  <th class="px-3 py-2">月均溫 (°C)</th>
-                  <th class="px-3 py-2">月極高溫 (°C)</th>
-                  <th class="px-3 py-2">月極低溫 (°C)</th>
-                  <th class="px-3 py-2">該月降雨總量 (mm)</th>
-                </tr>
-              </thead>
-              <tbody id="monthly-full-table-tbody" class="divide-y divide-slate-100 bg-white">
-                <!-- Dynamically populated -->
-              </tbody>
-            </table>
+        <!-- 2 Side-by-Side Ranked Tables for that specific term -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Left Table: 最高氣溫排行 -->
+          <div class="border border-rose-200/80 rounded-xl overflow-hidden shadow-2xs bg-white">
+            <div class="bg-rose-50 px-4 py-2.5 border-b border-rose-200/70 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="flame" class="w-4 h-4 text-rose-600"></i>
+                <h3 class="text-xs font-bold text-rose-900 tracking-wide uppercase">
+                  歷年「<span class="solar-curr-title">--</span>」最高氣溫排行 (最熱當日)
+                </h3>
+              </div>
+              <span class="text-[11px] font-semibold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">MaxTemp &darr;</span>
+            </div>
+            <div class="max-h-[500px] overflow-y-auto">
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b border-slate-200">
+                  <tr>
+                    <th class="px-3 py-2 w-16">名次</th>
+                    <th class="px-3 py-2">觀測日期</th>
+                    <th class="px-3 py-2 text-right">最高溫 (°C)</th>
+                    <th class="px-3 py-2 text-right">當日均溫 (°C)</th>
+                    <th class="px-3 py-2 text-right">降雨 (mm)</th>
+                  </tr>
+                </thead>
+                <tbody id="st-max-tbody" class="divide-y divide-slate-100">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          <!-- Right Table: 最低氣溫排行 -->
+          <div class="border border-sky-200/80 rounded-xl overflow-hidden shadow-2xs bg-white">
+            <div class="bg-sky-50 px-4 py-2.5 border-b border-sky-200/70 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="snowflake" class="w-4 h-4 text-sky-600"></i>
+                <h3 class="text-xs font-bold text-sky-900 tracking-wide uppercase">
+                  歷年「<span class="solar-curr-title">--</span>」最低氣溫排行 (最寒冷當日)
+                </h3>
+              </div>
+              <span class="text-[11px] font-semibold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">MinTemp &uarr;</span>
+            </div>
+            <div class="max-h-[500px] overflow-y-auto">
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b border-slate-200">
+                  <tr>
+                    <th class="px-3 py-2 w-16">名次</th>
+                    <th class="px-3 py-2">觀測日期</th>
+                    <th class="px-3 py-2 text-right">最低溫 (°C)</th>
+                    <th class="px-3 py-2 text-right">當日均溫 (°C)</th>
+                    <th class="px-3 py-2 text-right">降雨 (mm)</th>
+                  </tr>
+                </thead>
+                <tbody id="st-min-tbody" class="divide-y divide-slate-100">
+                  <!-- Injected via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
 
-    <!-- TAB 2: 二十四節氣 氣溫排行 -->
-    <section id="tab-solarterms" class="tab-content hidden space-y-6">
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+    <!-- ==========================================
+         SECTION 3: 酷熱 (>=32.5°C) & 寒冷 (<=12.5°C) 日數統計＋排行
+         ========================================== -->
+    <section id="tab-extremes" class="tab-content hidden space-y-4">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-5">
+        <div class="pb-3 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
           <div>
-            <h2 class="text-base font-semibold text-slate-800">二十四節氣 氣象氣溫排行與比較</h2>
-            <p class="text-xs text-slate-500">精準比對 1952-2026 年各節氣期間之最高氣溫、最低氣溫與總體均溫排行</p>
+            <h2 class="text-base font-bold text-slate-900">酷熱與寒冷日數統計與歷史排行</h2>
+            <p class="text-xs text-slate-500 mt-0.5">定義門檻：酷熱日 (最高溫 MaxTemp &ge; 32.5°C) ｜ 寒冷日 (最低溫 MinTemp &le; 12.5°C)</p>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <select id="solar-metric-select" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-sky-500">
-              <option value="avg">依節氣平均氣溫 (AvgTemp) 排序</option>
-              <option value="max">依節氣極端最高溫 (MaxTemp) 排序</option>
-              <option value="min">依節氣極端最低溫 (MinTemp) 排序</option>
-            </select>
-            <select id="solar-order-select" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-sky-500">
-              <option value="desc">由高溫至低溫 (熱到冷)</option>
-              <option value="asc">由低溫至高溫 (冷到熱)</option>
-              <option value="chronological">傳統時序排列 (立春開始)</option>
-            </select>
+          <div class="flex items-center space-x-3 text-xs">
+            <span class="inline-flex items-center text-rose-700 font-semibold"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 mr-1.5"></span> 酷熱門檻 &ge; 32.5°C</span>
+            <span class="inline-flex items-center text-blue-700 font-semibold"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 mr-1.5"></span> 寒冷門檻 &le; 12.5°C</span>
           </div>
         </div>
 
-        <!-- Solar terms chart -->
-        <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60">
-          <div class="h-72 w-full">
-            <canvas id="solarTermBarChart"></canvas>
-          </div>
-        </div>
-
-        <!-- 24 Solar Terms Cards Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3" id="solarterms-cards-container">
-          <!-- Cards injected dynamically -->
-        </div>
-
-        <!-- Single Solar Term Drilldown -->
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h4 class="text-xs font-semibold text-slate-700 flex items-center gap-2">
-              <i data-lucide="search" class="w-4 h-4 text-sky-600"></i>
-              <span>特定節氣歷史極值紀錄 (1952-2026 歷年該節氣當日)</span>
-            </h4>
-            <select id="solar-drill-term-select" class="text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1">
-              <!-- All 24 terms options -->
-            </select>
-          </div>
-          <div class="overflow-x-auto max-h-56">
-            <table class="w-full text-xs text-left bg-white rounded-lg overflow-hidden">
-              <thead class="bg-slate-100 text-slate-600">
-                <tr>
-                  <th class="px-3 py-2">日期</th>
-                  <th class="px-3 py-2">最高溫 (°C)</th>
-                  <th class="px-3 py-2">最低溫 (°C)</th>
-                  <th class="px-3 py-2">平均溫 (°C)</th>
-                  <th class="px-3 py-2">降雨量 (mm)</th>
-                </tr>
-              </thead>
-              <tbody id="solar-drill-tbody" class="divide-y divide-slate-100">
-                <!-- Injected via JS -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TAB 3: 酷熱與寒冷日數統計與排行 -->
-    <section id="tab-extremes" class="tab-content hidden space-y-6">
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div>
-            <h2 class="text-base font-semibold text-slate-800">酷熱與寒冷日數歷年統計及排行</h2>
-            <p class="text-xs text-slate-500">標準：酷熱日 (最高溫 MaxTemp &ge; 32.5°C) ｜ 寒冷日 (最低溫 MinTemp &le; 12.5°C)</p>
-          </div>
-          <div class="flex items-center gap-2 text-xs">
-            <span class="inline-flex items-center gap-1 text-rose-600 font-medium">
-              <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> 酷熱日數 &ge; 32.5°C
-            </span>
-            <span class="inline-flex items-center gap-1 text-sky-600 font-medium ml-3">
-              <span class="w-3 h-3 rounded-full bg-sky-500 inline-block"></span> 寒冷日數 &le; 12.5°C
-            </span>
-          </div>
-        </div>
-
-        <!-- Annual Trend Chart -->
-        <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60">
-          <h4 class="text-xs font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
-            <i data-lucide="trending-up" class="w-4 h-4 text-slate-600"></i>
-            <span>1952-2026 酷熱日 vs 寒冷日 變化趨勢圖 (全球暖化與氣候變遷特徵)</span>
-          </h4>
-          <div class="h-64 sm:h-80 w-full">
-            <canvas id="extremesTrendChart"></canvas>
-          </div>
-        </div>
-
-        <!-- Two Columns Top 10 Tables -->
+        <!-- Top 10 Extreme Years Side-by-Side -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Top Hot Years -->
-          <div class="border border-rose-100 bg-rose-50/30 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-xs font-bold text-rose-700 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="flame" class="w-4 h-4 text-rose-500"></i>
-                酷熱日數最多年份排行 (Top Years)
-              </h3>
-              <span class="text-[11px] text-rose-500 bg-rose-100/60 px-2 py-0.5 rounded-full font-semibold">MaxTemp &ge; 32.5°C</span>
+
+          <!-- Hot Years Leaderboard -->
+          <div class="border border-rose-200 rounded-xl overflow-hidden bg-rose-50/20">
+            <div class="bg-rose-100/70 px-4 py-2.5 border-b border-rose-200 flex items-center justify-between">
+              <span class="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                <i data-lucide="flame" class="w-4 h-4 text-rose-600"></i>
+                歷年酷熱日數最多排行 (Top 10 最酷熱年份)
+              </span>
+              <span class="text-[10px] font-bold text-rose-700 bg-white px-2 py-0.5 rounded-full">MaxTemp &ge; 32.5°C</span>
             </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs text-left bg-white rounded-lg shadow-xs">
-                <thead>
-                  <tr class="text-slate-500 bg-slate-50 border-b border-slate-100">
-                    <th class="py-2 px-3">排名</th>
-                    <th class="py-2 px-3">年份</th>
-                    <th class="py-2 px-3 text-right">酷熱日數</th>
-                    <th class="py-2 px-3 text-right">年最高溫</th>
-                  </tr>
-                </thead>
-                <tbody id="top-hot-tbody" class="divide-y divide-slate-100">
-                  <!-- Populated by JS -->
-                </tbody>
-              </table>
-            </div>
+            <table class="w-full text-xs text-left bg-white">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="px-3 py-2 w-14">名次</th>
+                  <th class="px-3 py-2">年份</th>
+                  <th class="px-3 py-2 text-right">酷熱日數</th>
+                  <th class="px-3 py-2 text-right">年最高溫 (°C)</th>
+                  <th class="px-3 py-2 text-right">首個酷熱日</th>
+                </tr>
+              </thead>
+              <tbody id="top-hot-tbody" class="divide-y divide-slate-100">
+                <!-- JS populated -->
+              </tbody>
+            </table>
           </div>
 
-          <!-- Top Cold Years -->
-          <div class="border border-sky-100 bg-sky-50/30 rounded-xl p-4">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-xs font-bold text-sky-700 uppercase tracking-wider flex items-center gap-1.5">
-                <i data-lucide="snowflake" class="w-4 h-4 text-sky-500"></i>
-                寒冷日數最多年份排行 (Top Years)
-              </h3>
-              <span class="text-[11px] text-sky-500 bg-sky-100/60 px-2 py-0.5 rounded-full font-semibold">MinTemp &le; 12.5°C</span>
+          <!-- Cold Years Leaderboard -->
+          <div class="border border-sky-200 rounded-xl overflow-hidden bg-sky-50/20">
+            <div class="bg-sky-100/70 px-4 py-2.5 border-b border-sky-200 flex items-center justify-between">
+              <span class="text-xs font-bold text-sky-900 flex items-center gap-1.5">
+                <i data-lucide="snowflake" class="w-4 h-4 text-sky-600"></i>
+                歷年寒冷日數最多排行 (Top 10 最嚴寒年份)
+              </span>
+              <span class="text-[10px] font-bold text-sky-700 bg-white px-2 py-0.5 rounded-full">MinTemp &le; 12.5°C</span>
             </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs text-left bg-white rounded-lg shadow-xs">
-                <thead>
-                  <tr class="text-slate-500 bg-slate-50 border-b border-slate-100">
-                    <th class="py-2 px-3">排名</th>
-                    <th class="py-2 px-3">年份</th>
-                    <th class="py-2 px-3 text-right">寒冷日數</th>
-                    <th class="py-2 px-3 text-right">年最低溫</th>
-                  </tr>
-                </thead>
-                <tbody id="top-cold-tbody" class="divide-y divide-slate-100">
-                  <!-- Populated by JS -->
-                </tbody>
-              </table>
-            </div>
+            <table class="w-full text-xs text-left bg-white">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="px-3 py-2 w-14">名次</th>
+                  <th class="px-3 py-2">年份</th>
+                  <th class="px-3 py-2 text-right">寒冷日數</th>
+                  <th class="px-3 py-2 text-right">年最低溫 (°C)</th>
+                  <th class="px-3 py-2 text-right">末個寒冷日</th>
+                </tr>
+              </thead>
+              <tbody id="top-cold-tbody" class="divide-y divide-slate-100">
+                <!-- JS populated -->
+              </tbody>
+            </table>
           </div>
+
         </div>
 
-        <!-- Extremes Comprehensive Year-by-Year Table -->
-        <div>
-          <h4 class="text-xs font-semibold text-slate-700 mb-2">歷年完整酷熱與寒冷日數清單</h4>
-          <div class="max-h-56 overflow-y-auto rounded-lg border border-slate-200">
+        <!-- Full Year-by-Year Table with interactive sort -->
+        <div class="space-y-2 pt-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-slate-700">1952-2026 歷年酷熱與寒冷日數完整清單</h4>
+            <div class="flex items-center space-x-2">
+              <span class="text-[11px] text-slate-500">排序依據:</span>
+              <select id="extremes-sort-select" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 focus:outline-none">
+                <option value="year-desc">年份由新到舊 (2026 &rarr; 1952)</option>
+                <option value="year-asc">年份由舊到新 (1952 &rarr; 2026)</option>
+                <option value="hot-desc">酷熱日數 (由多到少)</option>
+                <option value="cold-desc">寒冷日數 (由多到少)</option>
+              </select>
+            </div>
+          </div>
+          <div class="max-h-72 overflow-y-auto rounded-xl border border-slate-200">
             <table class="w-full text-xs text-left bg-white">
-              <thead class="bg-slate-100 text-slate-600 sticky top-0">
+              <thead class="bg-slate-100 text-slate-600 sticky top-0 font-semibold">
                 <tr>
-                  <th class="px-3 py-2">年份</th>
-                  <th class="px-3 py-2">酷熱日數 (&ge;32.5°C)</th>
-                  <th class="px-3 py-2">寒冷日數 (&le;12.5°C)</th>
-                  <th class="px-3 py-2">年極高溫</th>
-                  <th class="px-3 py-2">年極低溫</th>
-                  <th class="px-3 py-2">年平均溫</th>
+                  <th class="px-3.5 py-2">年份</th>
+                  <th class="px-3.5 py-2 text-right">酷熱日數 (天)</th>
+                  <th class="px-3.5 py-2 text-right">寒冷日數 (天)</th>
+                  <th class="px-3.5 py-2 text-right">年度極端最高溫 (°C)</th>
+                  <th class="px-3.5 py-2 text-right">年度極端最低溫 (°C)</th>
+                  <th class="px-3.5 py-2 text-right">全年平均氣溫 (°C)</th>
                 </tr>
               </thead>
               <tbody id="extremes-all-tbody" class="divide-y divide-slate-100">
-                <!-- Injected via JS -->
+                <!-- JS injected -->
               </tbody>
             </table>
           </div>
@@ -454,81 +463,78 @@
       </div>
     </section>
 
-    <!-- TAB 4: 年總雨量排行 -->
-    <section id="tab-rainfall" class="tab-content hidden space-y-6">
-      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
+    <!-- ==========================================
+         SECTION 4: 年總雨量排行
+         ========================================== -->
+    <section id="tab-rainfall" class="tab-content hidden space-y-4">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/90 shadow-xs space-y-5">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div>
-            <h2 class="text-base font-semibold text-slate-800">年總雨量統計與排行 (1952-2026)</h2>
-            <p class="text-xs text-slate-500">歷史多雨年與乾旱年排名、單日豪雨最高紀錄分析</p>
+            <h2 class="text-base font-bold text-slate-900">歷年年總雨量統計與排行 (1952-2026)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">統計各年份總降雨量、降雨日數（Rain &ge; 0.1mm）與單日極端降雨紀錄</p>
           </div>
-          <div class="flex items-center gap-2">
-            <select id="rain-sort-order" class="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-sky-500">
-              <option value="desc">由多到少 (歷史最多雨年份)</option>
-              <option value="asc">由少到多 (歷史最乾旱年份)</option>
-              <option value="chronological">依年份次序 (1952 &rarr; 2026)</option>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs text-slate-500">排序模式:</span>
+            <select id="rain-sort-select" class="text-xs bg-slate-50 border border-slate-300 font-medium text-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none">
+              <option value="wet-desc">由多到少 (歷史最多雨年 &darr;)</option>
+              <option value="dry-asc">由少到多 (歷史最乾旱年 &uarr;)</option>
+              <option value="year-asc">依年份次序 (1952 &rarr; 2026)</option>
+              <option value="year-desc">依年份次序 (2026 &rarr; 1952)</option>
             </select>
-            <button id="btn-export-rain-csv" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-300 font-medium inline-flex items-center gap-1 text-slate-700">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-              <span>匯出降雨排行 CSV</span>
-            </button>
           </div>
         </div>
 
-        <!-- Rainfall Chart -->
-        <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/60">
-          <div class="h-64 sm:h-72 w-full">
-            <canvas id="rainfallYearlyChart"></canvas>
-          </div>
-        </div>
-
+        <!-- Top Wettest vs Top Driest 5 Highlight Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Top Wettest vs Driest -->
-          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h4 class="text-xs font-semibold text-slate-700 mb-3 flex items-center gap-2">
+          <div class="bg-cyan-50/50 border border-cyan-200 rounded-xl p-4">
+            <h3 class="text-xs font-bold text-cyan-900 flex items-center gap-1.5 mb-3">
               <i data-lucide="cloud-rain" class="w-4 h-4 text-cyan-600"></i>
-              <span>歷史年總雨量 前 10 名排行 (極濕 vs 極乾)</span>
-            </h4>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <p class="text-[11px] font-bold text-cyan-700 mb-1">最潮濕前 5 年</p>
-                <ol id="top-wettest-list" class="space-y-1.5 text-xs text-slate-700"></ol>
-              </div>
-              <div>
-                <p class="text-[11px] font-bold text-amber-700 mb-1">最乾旱前 5 年</p>
-                <ol id="top-driest-list" class="space-y-1.5 text-xs text-slate-700"></ol>
-              </div>
+              歷史最潮濕前 5 名年份 (最高年總雨量)
+            </h3>
+            <div id="rain-top-wet-cards" class="space-y-2">
+              <!-- JS rendered -->
             </div>
           </div>
 
-          <!-- Single Day Rain Record -->
-          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <h4 class="text-xs font-semibold text-slate-700 mb-3 flex items-center gap-2">
-              <i data-lucide="cloud-lightning" class="w-4 h-4 text-indigo-600"></i>
-              <span>歷史單日極端降雨量 前 5 名紀錄</span>
-            </h4>
-            <ul id="top-single-day-rain" class="space-y-2 text-xs text-slate-700">
-              <!-- Dynamically populated -->
-            </ul>
+          <div class="bg-amber-50/50 border border-amber-200 rounded-xl p-4">
+            <h3 class="text-xs font-bold text-amber-900 flex items-center gap-1.5 mb-3">
+              <i data-lucide="sun-medium" class="w-4 h-4 text-amber-600"></i>
+              歷史最乾旱前 5 名年份 (最低年總雨量)
+            </h3>
+            <div id="rain-top-dry-cards" class="space-y-2">
+              <!-- JS rendered -->
+            </div>
           </div>
         </div>
 
-        <!-- Rainfall Table -->
-        <div>
-          <h4 class="text-xs font-semibold text-slate-700 mb-2">年降雨量詳細統計數據</h4>
-          <div class="max-h-60 overflow-y-auto rounded-lg border border-slate-200">
+        <!-- Single Day Extreme Rain Records (Top 10) -->
+        <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-2.5">
+          <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="cloud-lightning" class="w-4 h-4 text-indigo-600"></i>
+            歷史單日最大降雨量 前 10 名極端紀錄 (1952-2026)
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5" id="rain-top-single-days">
+            <!-- JS populated -->
+          </div>
+        </div>
+
+        <!-- Comprehensive Rainfall Table -->
+        <div class="space-y-2">
+          <h4 class="text-xs font-bold text-slate-700">歷年降雨詳細統計總表</h4>
+          <div class="max-h-72 overflow-y-auto rounded-xl border border-slate-200">
             <table class="w-full text-xs text-left bg-white">
-              <thead class="bg-slate-100 text-slate-600 sticky top-0">
+              <thead class="bg-slate-100 text-slate-600 sticky top-0 font-semibold">
                 <tr>
-                  <th class="px-3 py-2">排名</th>
-                  <th class="px-3 py-2">年份</th>
-                  <th class="px-3 py-2">全年總降雨量 (mm)</th>
-                  <th class="px-3 py-2">單日最高雨量 (mm)</th>
-                  <th class="px-3 py-2">降雨日數 (&ge;0.1mm)</th>
+                  <th class="px-4 py-2.5 w-16">名次</th>
+                  <th class="px-4 py-2.5">年份</th>
+                  <th class="px-4 py-2.5 text-right">全年累積降雨量 (mm)</th>
+                  <th class="px-4 py-2.5 text-right">降雨日數 (&ge;0.1mm)</th>
+                  <th class="px-4 py-2.5 text-right">年度單日最大雨量 (mm)</th>
+                  <th class="px-4 py-2.5">單日極端發生日期</th>
                 </tr>
               </thead>
               <tbody id="rainfall-table-tbody" class="divide-y divide-slate-100">
-                <!-- Dynamically populated -->
+                <!-- JS populated -->
               </tbody>
             </table>
           </div>
@@ -539,1173 +545,666 @@
   </main>
 
   <!-- Footer -->
-  <footer class="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
-    氣象歷史大數據平台 (1952-2026) &bull; 自動忽略 MaxRH 及 MinRH 相對濕度欄位 &bull; 適用於歷史氣象分析研究
+  <footer class="border-t border-slate-200 bg-white py-4 mt-auto text-center text-xs text-slate-400">
+    氣象歷史大數據平台 (1952-2026) &bull; 資料源: data/1952-2026weather.csv &bull; 相對濕度欄位已自動忽略
   </footer>
-
-  <!-- File Upload / Switch Modal -->
-  <div id="upload-modal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-base font-bold text-slate-800">變更或重新載入氣候資料</h3>
-        <button id="modal-close-btn" class="text-slate-400 hover:text-slate-600">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-      <p class="text-xs text-slate-500 leading-relaxed">
-        可選擇上傳您自己的 <code class="bg-slate-100 px-1 py-0.5 rounded text-sky-600">1952-2026weather.csv</code> 檔案，支援欄位：
-        <span class="block mt-1 font-mono text-[11px] text-slate-600 bg-slate-50 p-1.5 rounded">Date,MaxTemp,MinTemp,AvgTemp,Rain,MaxRH,MinRH,SolarTerm</span>
-      </p>
-
-      <div class="space-y-3 pt-2">
-        <label class="block w-full border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-xl p-4 text-center cursor-pointer transition">
-          <i data-lucide="upload-cloud" class="w-7 h-7 mx-auto text-sky-600 mb-1"></i>
-          <span class="text-xs font-semibold text-slate-700 block">點擊選取或拖曳 CSV 檔案</span>
-          <span class="text-[11px] text-slate-400 block mt-0.5">系統將自動分析並重繪圖表</span>
-          <input type="file" id="modal-file-input" accept=".csv" class="hidden">
-        </label>
-        <button id="modal-gen-mock-btn" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg border border-slate-200 transition">
-          使用演算法產生 1952-2026 模擬氣候資料庫
-        </button>
-      </div>
-    </div>
-  </div>
 
   <script>
     /* ==========================================================================
        CONSTANTS & STATE
        ========================================================================== */
-    const SOLAR_TERMS_ORDER = [
+    const CSV_URL = 'data/1952-2026weather.csv';
+
+    const ALL_SOLAR_TERMS = [
       "立春", "雨水", "驚蟄", "春分", "清明", "穀雨",
       "立夏", "小滿", "芒種", "夏至", "小暑", "大暑",
       "立秋", "處暑", "白露", "秋分", "寒露", "霜降",
       "立冬", "小雪", "大雪", "冬至", "小寒", "大寒"
     ];
 
-    // Main weather dataset array in memory
-    // Each row: { date: string, year: number, month: number, day: number, maxTemp: number, minTemp: number, avgTemp: number, rain: number, solarTerm: string }
-    // Note: MaxRH and MinRH are explicitly ignored.
-    let weatherData = [];
-
-    // Chart.js instances cache
-    let monthlyChartInst = null;
-    let solarBarChartInst = null;
-    let extremesTrendChartInst = null;
-    let rainfallChartInst = null;
+    // Master dataset: { date, year, month, day, maxTemp, minTemp, avgTemp, rain, solarTerm }
+    let rawWeatherData = [];
 
     /* ==========================================================================
-       REALISTIC MOCK DATA GENERATOR (1952 - 2026)
-       Produces ~27,000+ realistic daily rows for Macau/South China Subtropical Climate
+       CSV FETCHER (Silent & Direct, No Mock / No Upload UI)
        ========================================================================== */
-    function generateRealisticDataset() {
-      const records = [];
-      const startYear = 1952;
-      const endYear = 2026;
+    async function fetchWeatherData() {
+      const statusLabel = document.getElementById('status-label');
+      const statusDot = document.getElementById('status-dot');
+      const statusContainer = document.getElementById('status-container');
+      const loadingOverlay = document.getElementById('loading-overlay');
+      const errorBanner = document.getElementById('error-banner');
+      const errorMessage = document.getElementById('error-message');
+      const dashboardContent = document.getElementById('dashboard-content');
 
-      // Solar term approximate day-of-year (approximate midpoints)
-      const termDayOfYear = {
-        "小寒": 6, "大寒": 20, "立春": 35, "雨水": 50, "驚蟄": 65, "春分": 80,
-        "清明": 95, "穀雨": 110, "立夏": 126, "小滿": 141, "芒種": 157, "夏至": 172,
-        "小暑": 188, "大暑": 204, "立秋": 220, "處暑": 235, "白露": 251, "秋分": 266,
-        "寒露": 281, "霜降": 296, "立冬": 311, "小雪": 326, "大雪": 341, "冬至": 356
-      };
-
-      for (let y = startYear; y <= endYear; y++) {
-        // Subtle global warming trend (~0.015°C per year)
-        const warmingBias = (y - 1952) * 0.018;
-
-        const isLeap = (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
-        const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        let dayOfYearCount = 0;
-
-        for (let m = 0; m < 12; m++) {
-          const numDays = daysInMonth[m];
-          for (let d = 1; d <= numDays; d++) {
-            dayOfYearCount++;
-
-            // Monthly base temperature model for South China:
-            // Jan ~ 15°C, July ~ 29°C
-            const radian = ((dayOfYearCount - 25) / 365) * 2 * Math.PI;
-            // Base sinusoidal seasonal curve
-            const seasonalMean = 22.5 - 7.5 * Math.cos(radian) + warmingBias;
-
-            // Random daily fluctuation
-            const randomNoise = (Math.random() - 0.5) * 4.5;
-            const avgT = parseFloat((seasonalMean + randomNoise).toFixed(1));
-            
-            // Diurnal range: usually 4 to 8 deg C
-            const diurnal = 4.0 + Math.random() * 4.0;
-            const maxT = parseFloat((avgT + diurnal * 0.55).toFixed(1));
-            const minT = parseFloat((avgT - diurnal * 0.45).toFixed(1));
-
-            // Rainfall simulation: South China Wet season (May-Sep) vs Dry winter
-            let rain = 0;
-            const isRainSeason = m >= 3 && m <= 8; // Apr to Sep
-            const rainChance = isRainSeason ? 0.42 : 0.15;
-            if (Math.random() < rainChance) {
-              // Gamma-like distribution for rain
-              const p = Math.random();
-              if (p > 0.96) {
-                // Heavy torrential rain
-                rain = parseFloat((50 + Math.random() * 160).toFixed(1));
-              } else if (p > 0.7) {
-                rain = parseFloat((15 + Math.random() * 45).toFixed(1));
-              } else {
-                rain = parseFloat((0.2 + Math.random() * 12).toFixed(1));
-              }
-            }
-
-            // Assign Solar term if within +/- 1 day of term date
-            let currentSolarTerm = "";
-            for (const [term, dayTarget] of Object.entries(termDayOfYear)) {
-              if (Math.abs(dayOfYearCount - dayTarget) <= 0) {
-                currentSolarTerm = term;
-                break;
-              }
-            }
-
-            const monthStr = String(m + 1).padStart(2, '0');
-            const dayStr = String(d).padStart(2, '0');
-            const dateStr = `${y}-${monthStr}-${dayStr}`;
-
-            records.push({
-              date: dateStr,
-              year: y,
-              month: m + 1,
-              day: d,
-              maxTemp: maxT,
-              minTemp: minT,
-              avgTemp: avgT,
-              rain: rain,
-              solarTerm: currentSolarTerm
-            });
-          }
+      try {
+        const response = await fetch(CSV_URL);
+        if (!response.ok) {
+          throw new Error(`伺服器回應錯誤 HTTP ${response.status}: 無法讀取 ${CSV_URL}`);
         }
+
+        const csvText = await response.text();
+        const records = parseCSVContent(csvText);
+
+        if (records.length === 0) {
+          throw new Error("CSV 解析完成，但未發現有效之氣象數據行。");
+        }
+
+        rawWeatherData = records;
+
+        // UI Ready state
+        loadingOverlay.classList.add('hidden');
+        errorBanner.classList.add('hidden');
+        dashboardContent.classList.remove('hidden');
+
+        // Status pill
+        statusContainer.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+        statusDot.className = "w-2 h-2 rounded-full bg-emerald-500";
+        statusLabel.textContent = `已成功載入 ${records.length.toLocaleString()} 筆氣象紀錄`;
+
+        // Initialize modules
+        initKPIs();
+        initMonthlyModule();
+        initSolarTermDrillModule();
+        initExtremesModule();
+        initRainfallModule();
+
+        lucide.createIcons();
+      } catch (err) {
+        console.error("載入 CSV 失敗:", err);
+        loadingOverlay.classList.add('hidden');
+        errorBanner.classList.remove('hidden');
+        errorMessage.textContent = err.message || "無法取得或解析 data/1952-2026weather.csv，請確認檔案路徑。";
+
+        statusContainer.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+        statusDot.className = "w-2 h-2 rounded-full bg-rose-500";
+        statusLabel.textContent = "載入失敗";
       }
-      return records;
     }
 
     /* ==========================================================================
-       CSV PARSING & SANITIZATION (Ignores MaxRH and MinRH)
+       CSV PARSER (Ignores MaxRH and MinRH completely)
        ========================================================================== */
-    function parseCSVData(csvText) {
-      const parsed = Papa.parse(csvText, {
+    function parseCSVContent(csvString) {
+      const result = Papa.parse(csvString, {
         header: true,
         skipEmptyLines: true,
         dynamicTyping: false
       });
 
-      if (!parsed.data || parsed.data.length === 0) {
-        throw new Error("CSV 資料為空或格式不符");
-      }
+      const list = [];
+      const dataRows = result.data || [];
 
-      const rows = [];
-      parsed.data.forEach(item => {
-        // Date parsing: expected format YYYY-MM-DD or YYYY/MM/DD
-        const dateRaw = item.Date || item.date || item["日期"];
-        if (!dateRaw) return;
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const dateRaw = row.Date || row.date || row["日期"];
+        if (!dateRaw) continue;
 
         const cleanDate = String(dateRaw).trim().replace(/\//g, '-');
         const parts = cleanDate.split('-');
-        if (parts.length < 3) return;
+        if (parts.length < 3) continue;
 
         const year = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10);
         const day = parseInt(parts[2], 10);
+        if (isNaN(year) || isNaN(month) || isNaN(day)) continue;
 
-        if (isNaN(year) || isNaN(month) || isNaN(day)) return;
+        const maxT = parseFloat(row.MaxTemp !== undefined ? row.MaxTemp : row["最高氣溫"]);
+        const minT = parseFloat(row.MinTemp !== undefined ? row.MinTemp : row["最低氣溫"]);
+        const avgT = parseFloat(row.AvgTemp !== undefined ? row.AvgTemp : row["平均氣溫"]);
+        const rain = parseFloat(row.Rain !== undefined ? row.Rain : row["降雨量"]);
+        const solar = (row.SolarTerm || row["節氣"] || "").trim();
 
-        // Numeric values parsing
-        const maxT = parseFloat(item.MaxTemp !== undefined ? item.MaxTemp : (item["最高氣溫"] || 0));
-        const minT = parseFloat(item.MinTemp !== undefined ? item.MinTemp : (item["最低氣溫"] || 0));
-        const avgT = parseFloat(item.AvgTemp !== undefined ? item.AvgTemp : (item["平均氣溫"] || ((maxT + minT) / 2)));
-        const rain = parseFloat(item.Rain !== undefined ? item.Rain : (item["降雨量"] || 0));
-        
-        // SolarTerm
-        const solar = (item.SolarTerm || item["節氣"] || "").trim();
-
-        // MaxRH and MinRH are consciously ignored as requested.
-        rows.push({
+        // Note: MaxRH and MinRH from CSV are deliberately not captured
+        list.push({
           date: cleanDate,
           year: year,
           month: month,
           day: day,
           maxTemp: isNaN(maxT) ? 0 : maxT,
           minTemp: isNaN(minT) ? 0 : minT,
-          avgTemp: isNaN(avgT) ? 0 : avgT,
+          avgTemp: isNaN(avgT) ? ((isNaN(maxT) ? 0 : maxT) + (isNaN(minT) ? 0 : minT)) / 2 : avgT,
           rain: isNaN(rain) ? 0 : Math.max(0, rain),
           solarTerm: solar
         });
-      });
-
-      return rows;
-    }
-
-    /* ==========================================================================
-       DATA LOADER (FETCH with fallback to mock)
-       ========================================================================== */
-    async function loadInitialData() {
-      const statusBadge = document.getElementById('data-status-badge');
-      const statusText = document.getElementById('data-status-text');
-
-      statusText.textContent = "載入 data/1952-2026weather.csv 中...";
-
-      try {
-        const response = await fetch('data/1952-2026weather.csv');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const text = await response.text();
-        const records = parseCSVData(text);
-        if (records.length === 0) throw new Error("解析後無有效氣象資料");
-        
-        initDashboardWithData(records, "已成功載入 data/1952-2026weather.csv");
-      } catch (err) {
-        console.warn("無法取得本機/遠端 'data/1952-2026weather.csv'，自動切換至高仿真氣候模擬資料庫：", err);
-        const mockRecords = generateRealisticDataset();
-        initDashboardWithData(mockRecords, "已使用內建 1952-2026 氣候資料庫 (可隨時自選 CSV)");
       }
-    }
 
-    function initDashboardWithData(data, statusMessage) {
-      weatherData = data;
-
-      // Update badge
-      const statusBadge = document.getElementById('data-status-badge');
-      const statusText = document.getElementById('data-status-text');
-      statusBadge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200";
-      statusText.textContent = statusMessage || `已載入 ${data.length.toLocaleString()} 筆資料`;
-
-      // Update KPI
-      updateKPIs();
-
-      // Render modules
-      renderMonthlyModule();
-      renderSolarTermsModule();
-      renderExtremesModule();
-      renderRainfallModule();
-
-      // Refresh lucide icons
-      lucide.createIcons();
+      return list;
     }
 
     /* ==========================================================================
-       KPI UPDATES
+       KPI METRICS
        ========================================================================== */
-    function updateKPIs() {
-      if (weatherData.length === 0) return;
+    function initKPIs() {
+      if (rawWeatherData.length === 0) return;
 
-      document.getElementById('kpi-total-days').textContent = weatherData.length.toLocaleString();
-      
-      const years = weatherData.map(d => d.year);
+      document.getElementById('kpi-total-days').textContent = rawWeatherData.length.toLocaleString();
+
+      const years = rawWeatherData.map(d => d.year);
       const minYear = Math.min(...years);
       const maxYear = Math.max(...years);
-      document.getElementById('kpi-date-range').textContent = `年份區間: ${minYear} - ${maxYear}`;
+      document.getElementById('kpi-year-range').textContent = `年份範圍: ${minYear} - ${maxYear}`;
 
-      // Max Temp
-      let highestMax = -999;
-      let highestMaxRecord = null;
-      // Min Temp
-      let lowestMin = 999;
-      let lowestMinRecord = null;
-      // Max Rain
-      let highestRain = -1;
-      let highestRainRecord = null;
+      let absMax = -999, absMaxRec = null;
+      let absMin = 999, absMinRec = null;
+      let absRain = -1, absRainRec = null;
 
-      for (const d of weatherData) {
-        if (d.maxTemp > highestMax) {
-          highestMax = d.maxTemp;
-          highestMaxRecord = d;
+      for (let i = 0; i < rawWeatherData.length; i++) {
+        const d = rawWeatherData[i];
+        if (d.maxTemp > absMax) {
+          absMax = d.maxTemp;
+          absMaxRec = d;
         }
-        if (d.minTemp < lowestMin) {
-          lowestMin = d.minTemp;
-          lowestMinRecord = d;
+        if (d.minTemp < absMin) {
+          absMin = d.minTemp;
+          absMinRec = d;
         }
-        if (d.rain > highestRain) {
-          highestRain = d.rain;
-          highestRainRecord = d;
+        if (d.rain > absRain) {
+          absRain = d.rain;
+          absRainRec = d;
         }
       }
 
-      if (highestMaxRecord) {
-        document.getElementById('kpi-max-temp').textContent = highestMaxRecord.maxTemp.toFixed(1);
-        document.getElementById('kpi-max-temp-date').textContent = `${highestMaxRecord.date} (創紀錄最高)`;
+      if (absMaxRec) {
+        document.getElementById('kpi-max-temp').textContent = absMaxRec.maxTemp.toFixed(1);
+        document.getElementById('kpi-max-date').textContent = `${absMaxRec.date} 創紀錄`;
       }
-
-      if (lowestMinRecord) {
-        document.getElementById('kpi-min-temp').textContent = lowestMinRecord.minTemp.toFixed(1);
-        document.getElementById('kpi-min-temp-date').textContent = `${lowestMinRecord.date} (創紀錄最低)`;
+      if (absMinRec) {
+        document.getElementById('kpi-min-temp').textContent = absMinRec.minTemp.toFixed(1);
+        document.getElementById('kpi-min-date').textContent = `${absMinRec.date} 創紀錄`;
       }
-
-      if (highestRainRecord) {
-        document.getElementById('kpi-max-rain').textContent = highestRainRecord.rain.toFixed(1);
-        document.getElementById('kpi-max-rain-date').textContent = `${highestRainRecord.date} (單日極端暴雨)`;
+      if (absRainRec) {
+        document.getElementById('kpi-max-rain').textContent = absRainRec.rain.toFixed(1);
+        document.getElementById('kpi-rain-date').textContent = `${absRainRec.date} 創紀錄`;
       }
     }
 
     /* ==========================================================================
-       MODULE 1: 月氣溫排行 (Monthly Ranking & Trend)
+       HELPER: RANK BADGE
        ========================================================================== */
-    function renderMonthlyModule() {
-      if (weatherData.length === 0) return;
+    function getRankBadge(rank) {
+      if (rank === 1) {
+        return `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black text-[11px] shadow-xs">1</span>`;
+      }
+      if (rank === 2) {
+        return `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-300 text-slate-800 font-bold text-[11px] shadow-xs">2</span>`;
+      }
+      if (rank === 3) {
+        return `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-700/80 text-white font-bold text-[11px] shadow-xs">3</span>`;
+      }
+      return `<span class="text-slate-400 font-mono font-medium px-1.5">#${rank}</span>`;
+    }
 
-      const selMonth = document.getElementById('monthly-select-month').value;
-      const metric = document.getElementById('monthly-select-metric').value; // 'avg', 'max', 'min'
-      const order = document.getElementById('monthly-select-order').value;   // 'desc', 'asc'
+    /* ==========================================================================
+       SECTION 1: 月氣溫排行 (Monthly Ranking)
+       ========================================================================== */
+    function initMonthlyModule() {
+      const monthSel = document.getElementById('monthly-filter-month');
+      const metricSel = document.getElementById('monthly-filter-metric');
+      const orderSel = document.getElementById('monthly-filter-order');
 
-      // Group data by Year-Month
-      // key: "YYYY-MM"
-      const ymMap = new Map();
+      const render = () => {
+        const mVal = monthSel.value;
+        const metricVal = metricSel.value;
+        const orderVal = orderSel.value;
 
-      weatherData.forEach(d => {
-        if (selMonth !== 'all' && d.month !== parseInt(selMonth, 10)) {
+        // Group by Year-Month
+        const map = new Map();
+
+        rawWeatherData.forEach(d => {
+          if (mVal !== 'all' && d.month !== parseInt(mVal, 10)) return;
+          const ymKey = `${d.year}-${String(d.month).padStart(2, '0')}`;
+          if (!map.has(ymKey)) {
+            map.set(ymKey, {
+              ym: ymKey,
+              year: d.year,
+              month: d.month,
+              sumAvg: 0,
+              maxTemp: -999,
+              minTemp: 999,
+              rainSum: 0,
+              count: 0
+            });
+          }
+          const rec = map.get(ymKey);
+          rec.sumAvg += d.avgTemp;
+          rec.rainSum += d.rain;
+          rec.count++;
+          if (d.maxTemp > rec.maxTemp) rec.maxTemp = d.maxTemp;
+          if (d.minTemp < rec.minTemp) rec.minTemp = d.minTemp;
+        });
+
+        const list = Array.from(map.values()).map(r => ({
+          ym: r.ym,
+          year: r.year,
+          month: r.month,
+          avgTemp: parseFloat((r.sumAvg / r.count).toFixed(2)),
+          maxTemp: parseFloat(r.maxTemp.toFixed(1)),
+          minTemp: parseFloat(r.minTemp.toFixed(1)),
+          rainSum: parseFloat(r.rainSum.toFixed(1))
+        }));
+
+        // Sort based on metric
+        list.sort((a, b) => {
+          let vA = a.avgTemp, vB = b.avgTemp;
+          if (metricVal === 'max') { vA = a.maxTemp; vB = b.maxTemp; }
+          else if (metricVal === 'min') { vA = a.minTemp; vB = b.minTemp; }
+          return orderVal === 'desc' ? (vB - vA) : (vA - vB);
+        });
+
+        // Update header label
+        const thLabel = document.getElementById('monthly-th-metric');
+        if (metricVal === 'max') thLabel.textContent = "該月最高極端氣溫 (°C)";
+        else if (metricVal === 'min') thLabel.textContent = "該月最低極端氣溫 (°C)";
+        else thLabel.textContent = "月平均氣溫 (AvgTemp °C)";
+
+        // Populate table
+        const tbody = document.getElementById('monthly-table-tbody');
+        tbody.innerHTML = '';
+        document.getElementById('monthly-count-label').textContent = list.length.toLocaleString();
+
+        list.forEach((item, idx) => {
+          const rank = idx + 1;
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50 transition-colors";
+
+          let highlightVal = item.avgTemp.toFixed(2);
+          if (metricVal === 'max') highlightVal = item.maxTemp.toFixed(1);
+          if (metricVal === 'min') highlightVal = item.minTemp.toFixed(1);
+
+          let note = "";
+          if (rank === 1) note = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">歷史第一位</span>`;
+          else if (rank <= 3) note = `<span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">歷史前三甲</span>`;
+          else if (item.maxTemp >= 35.0) note = `<span class="text-rose-600 font-medium">出現顯著高溫</span>`;
+          else if (item.minTemp <= 5.0) note = `<span class="text-sky-600 font-medium">出現強烈寒潮</span>`;
+
+          tr.innerHTML = `
+            <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+            <td class="px-4 py-2.5 font-bold text-slate-900">${item.ym}</td>
+            <td class="px-4 py-2.5 text-right font-black text-slate-800">${highlightVal}</td>
+            <td class="px-4 py-2.5 text-right text-rose-600 font-semibold">${item.maxTemp.toFixed(1)}</td>
+            <td class="px-4 py-2.5 text-right text-blue-600 font-semibold">${item.minTemp.toFixed(1)}</td>
+            <td class="px-4 py-2.5 text-right text-cyan-700">${item.rainSum.toFixed(1)}</td>
+            <td class="px-4 py-2.5 text-slate-500">${note}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      };
+
+      monthSel.addEventListener('change', render);
+      metricSel.addEventListener('change', render);
+      orderSel.addEventListener('change', render);
+      render();
+    }
+
+    /* ==========================================================================
+       SECTION 2: 二十四節氣 歷史極值紀錄 (歷年該節氣當日) + 名次
+       (STRICT: No cards comparison, ONLY the selected term's daily ranked records)
+       ========================================================================== */
+    function initSolarTermDrillModule() {
+      const termSelect = document.getElementById('solar-term-select');
+      termSelect.innerHTML = '';
+
+      ALL_SOLAR_TERMS.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = `${t}`;
+        termSelect.appendChild(opt);
+      });
+
+      // Default term: 大暑
+      termSelect.value = "大暑";
+
+      const renderTermLeaderboards = () => {
+        const curTerm = termSelect.value;
+        const matchedDays = rawWeatherData.filter(d => d.solarTerm === curTerm);
+
+        // Update headers
+        document.querySelectorAll('.solar-curr-title').forEach(el => el.textContent = curTerm);
+
+        if (matchedDays.length === 0) {
+          document.getElementById('st-hist-max-val').textContent = "--";
+          document.getElementById('st-hist-max-date').textContent = "無紀錄";
+          document.getElementById('st-hist-min-val').textContent = "--";
+          document.getElementById('st-hist-min-date').textContent = "無紀錄";
+          document.getElementById('st-hist-avg-val').textContent = "--";
+          document.getElementById('st-hist-count').textContent = "歷年樣本數: 0 年";
+          document.getElementById('st-max-tbody').innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">查無「${curTerm}」標記數據</td></tr>`;
+          document.getElementById('st-min-tbody').innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400">查無「${curTerm}」標記數據</td></tr>`;
           return;
         }
-        const key = `${d.year}-${String(d.month).padStart(2, '0')}`;
-        if (!ymMap.has(key)) {
-          ymMap.set(key, {
-            year: d.year,
-            month: d.month,
-            label: key,
-            sumAvg: 0,
-            maxTemp: -999,
-            minTemp: 999,
-            totalRain: 0,
-            count: 0
-          });
-        }
-        const rec = ymMap.get(key);
-        rec.sumAvg += d.avgTemp;
-        rec.totalRain += d.rain;
-        rec.count++;
-        if (d.maxTemp > rec.maxTemp) rec.maxTemp = d.maxTemp;
-        if (d.minTemp < rec.minTemp) rec.minTemp = d.minTemp;
-      });
 
-      const list = [];
-      ymMap.forEach(v => {
-        const meanAvg = v.count > 0 ? (v.sumAvg / v.count) : 0;
-        list.push({
-          label: v.label,
-          year: v.year,
-          month: v.month,
-          avgTemp: parseFloat(meanAvg.toFixed(2)),
-          maxTemp: parseFloat(v.maxTemp.toFixed(1)),
-          minTemp: parseFloat(v.minTemp.toFixed(1)),
-          totalRain: parseFloat(v.totalRain.toFixed(1))
-        });
-      });
+        // Summary stats
+        let highest = -999, highestDate = "";
+        let lowest = 999, lowestDate = "";
+        let sumAvg = 0;
 
-      // Sort according to metric and order
-      list.sort((a, b) => {
-        let valA = a.avgTemp;
-        let valB = b.avgTemp;
-        if (metric === 'max') {
-          valA = a.maxTemp;
-          valB = b.maxTemp;
-        } else if (metric === 'min') {
-          valA = a.minTemp;
-          valB = b.minTemp;
-        }
-
-        return order === 'desc' ? (valB - valA) : (valA - valB);
-      });
-
-      // Populate Top 10 table
-      const topTbody = document.getElementById('monthly-top-tbody');
-      topTbody.innerHTML = '';
-      const topSlice = list.slice(0, 10);
-      topSlice.forEach((item, idx) => {
-        const tr = document.createElement('tr');
-        let displayVal = item.avgTemp;
-        if (metric === 'max') displayVal = item.maxTemp;
-        if (metric === 'min') displayVal = item.minTemp;
-
-        const rankBadge = idx === 0 ? 'bg-amber-100 text-amber-800 font-bold' :
-                          idx === 1 ? 'bg-slate-200 text-slate-700' :
-                          idx === 2 ? 'bg-amber-50 text-amber-900' : 'text-slate-500';
-
-        tr.innerHTML = `
-          <td class="py-1.5"><span class="w-5 h-5 inline-flex items-center justify-center rounded-full text-[11px] ${rankBadge}">${idx + 1}</span></td>
-          <td class="py-1.5 font-medium text-slate-800">${item.label}</td>
-          <td class="py-1.5 text-right font-bold ${displayVal >= 30 ? 'text-rose-600' : displayVal <= 14 ? 'text-sky-600' : 'text-slate-700'}">${displayVal.toFixed(1)}</td>
-        `;
-        topTbody.appendChild(tr);
-      });
-
-      // Populate full table
-      const fullTbody = document.getElementById('monthly-full-table-tbody');
-      fullTbody.innerHTML = '';
-      list.forEach((item, idx) => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="px-3 py-1.5 text-slate-400 font-mono">${idx + 1}</td>
-          <td class="px-3 py-1.5 font-semibold text-slate-800">${item.label}</td>
-          <td class="px-3 py-1.5 font-bold text-slate-700">${item.avgTemp.toFixed(1)}</td>
-          <td class="px-3 py-1.5 text-rose-600 font-medium">${item.maxTemp.toFixed(1)}</td>
-          <td class="px-3 py-1.5 text-sky-600 font-medium">${item.minTemp.toFixed(1)}</td>
-          <td class="px-3 py-1.5 text-cyan-700">${item.totalRain.toFixed(1)}</td>
-        `;
-        fullTbody.appendChild(tr);
-      });
-
-      // Render or Update Monthly Trend Chart
-      renderMonthlyChart(list, selMonth, metric);
-    }
-
-    function renderMonthlyChart(sortedList, selMonth, metric) {
-      // For charting, sort chronologically
-      const chronoList = [...sortedList].sort((a, b) => a.label.localeCompare(b.label));
-      
-      const ctx = document.getElementById('monthlyTrendChart').getContext('2d');
-      const labels = chronoList.map(item => item.label);
-      const dataPoints = chronoList.map(item => {
-        if (metric === 'max') return item.maxTemp;
-        if (metric === 'min') return item.minTemp;
-        return item.avgTemp;
-      });
-
-      const metricLabel = metric === 'max' ? '最高溫 (°C)' : metric === 'min' ? '最低溫 (°C)' : '月均溫 (°C)';
-      const monthTitle = selMonth === 'all' ? '全部月份' : `${selMonth} 月份`;
-      document.getElementById('monthly-chart-title').textContent = `${monthTitle} ${metricLabel}歷年時序走勢`;
-
-      if (monthlyChartInst) {
-        monthlyChartInst.destroy();
-      }
-
-      monthlyChartInst = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: `${monthTitle} ${metricLabel}`,
-            data: dataPoints,
-            borderColor: '#0284c7',
-            backgroundColor: 'rgba(2, 132, 199, 0.08)',
-            borderWidth: 1.8,
-            fill: true,
-            pointRadius: labels.length > 50 ? 0 : 3,
-            tension: 0.2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              mode: 'index',
-              intersect: false
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxTicksLimit: 12, font: { size: 10 } }
-            },
-            y: {
-              grid: { color: '#f1f5f9' },
-              ticks: { font: { size: 10 } }
-            }
+        matchedDays.forEach(d => {
+          sumAvg += d.avgTemp;
+          if (d.maxTemp > highest) {
+            highest = d.maxTemp;
+            highestDate = d.date;
           }
-        }
-      });
+          if (d.minTemp < lowest) {
+            lowest = d.minTemp;
+            lowestDate = d.date;
+          }
+        });
+
+        document.getElementById('st-hist-max-val').textContent = highest.toFixed(1);
+        document.getElementById('st-hist-max-date').textContent = `${highestDate} 創最高`;
+        document.getElementById('st-hist-min-val').textContent = lowest.toFixed(1);
+        document.getElementById('st-hist-min-date').textContent = `${lowestDate} 創最低`;
+        document.getElementById('st-hist-avg-val').textContent = (sumAvg / matchedDays.length).toFixed(2);
+        document.getElementById('st-hist-count').textContent = `歷年樣本數: ${matchedDays.length} 年紀錄`;
+
+        // 1. Ranked by MaxTemp Descending
+        const byMax = [...matchedDays].sort((a, b) => b.maxTemp - a.maxTemp || b.avgTemp - a.avgTemp);
+        const maxTbody = document.getElementById('st-max-tbody');
+        maxTbody.innerHTML = '';
+        byMax.forEach((d, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-rose-50/40 transition-colors";
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 font-bold text-slate-900">${d.date}</td>
+            <td class="px-3 py-2 text-right font-black text-rose-600">${d.maxTemp.toFixed(1)}</td>
+            <td class="px-3 py-2 text-right font-medium text-slate-700">${d.avgTemp.toFixed(1)}</td>
+            <td class="px-3 py-2 text-right text-cyan-700">${d.rain.toFixed(1)}</td>
+          `;
+          maxTbody.appendChild(tr);
+        });
+
+        // 2. Ranked by MinTemp Ascending
+        const byMin = [...matchedDays].sort((a, b) => a.minTemp - b.minTemp || a.avgTemp - b.avgTemp);
+        const minTbody = document.getElementById('st-min-tbody');
+        minTbody.innerHTML = '';
+        byMin.forEach((d, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-sky-50/40 transition-colors";
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 font-bold text-slate-900">${d.date}</td>
+            <td class="px-3 py-2 text-right font-black text-blue-600">${d.minTemp.toFixed(1)}</td>
+            <td class="px-3 py-2 text-right font-medium text-slate-700">${d.avgTemp.toFixed(1)}</td>
+            <td class="px-3 py-2 text-right text-cyan-700">${d.rain.toFixed(1)}</td>
+          `;
+          minTbody.appendChild(tr);
+        });
+      };
+
+      termSelect.addEventListener('change', renderTermLeaderboards);
+      renderTermLeaderboards();
     }
 
     /* ==========================================================================
-       MODULE 2: 二十四節氣 氣溫排行 (24 Solar Terms Ranking)
+       SECTION 3: 酷熱 & 寒冷 日數統計＋排行
        ========================================================================== */
-    function renderSolarTermsModule() {
-      if (weatherData.length === 0) return;
-
-      const metric = document.getElementById('solar-metric-select').value;
-      const order = document.getElementById('solar-order-select').value;
-
-      // Group by SolarTerm (only entries with SolarTerm assigned)
-      const termStats = {};
-      SOLAR_TERMS_ORDER.forEach(t => {
-        termStats[t] = {
-          term: t,
-          count: 0,
-          sumAvg: 0,
-          maxTemp: -999,
-          minTemp: 999,
-          sumRain: 0,
-          hottestDate: "",
-          coldestDate: ""
-        };
-      });
-
-      weatherData.forEach(d => {
-        if (!d.solarTerm || !termStats[d.solarTerm]) return;
-        const s = termStats[d.solarTerm];
-        s.count++;
-        s.sumAvg += d.avgTemp;
-        s.sumRain += d.rain;
-
-        if (d.maxTemp > s.maxTemp) {
-          s.maxTemp = d.maxTemp;
-          s.hottestDate = d.date;
-        }
-        if (d.minTemp < s.minTemp) {
-          s.minTemp = d.minTemp;
-          s.coldestDate = d.date;
-        }
-      });
-
-      let list = Object.values(termStats).map(s => {
-        const meanAvg = s.count > 0 ? (s.sumAvg / s.count) : 0;
-        return {
-          ...s,
-          avgTemp: parseFloat(meanAvg.toFixed(2)),
-          maxTemp: s.maxTemp === -999 ? 0 : parseFloat(s.maxTemp.toFixed(1)),
-          minTemp: s.minTemp === 999 ? 0 : parseFloat(s.minTemp.toFixed(1)),
-        };
-      });
-
-      // Sort terms
-      if (order === 'chronological') {
-        list.sort((a, b) => SOLAR_TERMS_ORDER.indexOf(a.term) - SOLAR_TERMS_ORDER.indexOf(b.term));
-      } else {
-        list.sort((a, b) => {
-          let vA = a.avgTemp;
-          let vB = b.avgTemp;
-          if (metric === 'max') { vA = a.maxTemp; vB = b.maxTemp; }
-          if (metric === 'min') { vA = a.minTemp; vB = b.minTemp; }
-          return order === 'desc' ? (vB - vA) : (vA - vB);
-        });
-      }
-
-      // Populate 24 cards
-      const cardsContainer = document.getElementById('solarterms-cards-container');
-      cardsContainer.innerHTML = '';
-      list.forEach((item, idx) => {
-        const card = document.createElement('div');
-        card.className = "bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs hover:border-sky-400 transition cursor-pointer flex flex-col justify-between";
-        card.onclick = () => {
-          document.getElementById('solar-drill-term-select').value = item.term;
-          renderSolarDrilldown();
-        };
-
-        const isHotTerm = item.avgTemp >= 27;
-        const isColdTerm = item.avgTemp <= 17;
-        const tagClass = isHotTerm ? 'bg-rose-100 text-rose-700' : isColdTerm ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-700';
-
-        card.innerHTML = `
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-800">${item.term}</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded ${tagClass} font-semibold">#${idx + 1}</span>
-            </div>
-            <div class="mt-2 space-y-1">
-              <div class="flex justify-between text-[11px]">
-                <span class="text-slate-400">平均</span>
-                <span class="font-bold text-slate-700">${item.avgTemp}°C</span>
-              </div>
-              <div class="flex justify-between text-[11px]">
-                <span class="text-slate-400">極高</span>
-                <span class="font-medium text-rose-600">${item.maxTemp}°C</span>
-              </div>
-              <div class="flex justify-between text-[11px]">
-                <span class="text-slate-400">極低</span>
-                <span class="font-medium text-blue-600">${item.minTemp}°C</span>
-              </div>
-            </div>
-          </div>
-          <div class="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400 text-right">
-            點擊查看細節 &rarr;
-          </div>
-        `;
-        cardsContainer.appendChild(card);
-      });
-
-      // Populate Chart
-      renderSolarTermsChart(list, metric);
-
-      // Populate dropdown for drilldown
-      const drillSelect = document.getElementById('solar-drill-term-select');
-      if (drillSelect.options.length === 0) {
-        SOLAR_TERMS_ORDER.forEach(t => {
-          const opt = document.createElement('option');
-          opt.value = t;
-          opt.textContent = t;
-          drillSelect.appendChild(opt);
-        });
-        drillSelect.value = "大暑";
-      }
-      renderSolarDrilldown();
-    }
-
-    function renderSolarTermsChart(list, metric) {
-      const ctx = document.getElementById('solarTermBarChart').getContext('2d');
-      const labels = list.map(item => item.term);
-      const avgData = list.map(item => item.avgTemp);
-      const maxData = list.map(item => item.maxTemp);
-      const minData = list.map(item => item.minTemp);
-
-      if (solarBarChartInst) {
-        solarBarChartInst.destroy();
-      }
-
-      solarBarChartInst = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            {
-              label: '平均氣溫 (°C)',
-              data: avgData,
-              backgroundColor: '#38bdf8',
-              borderRadius: 4
-            },
-            {
-              label: '極端最高溫 (°C)',
-              data: maxData,
-              backgroundColor: '#f87171',
-              borderRadius: 4
-            },
-            {
-              label: '極端最低溫 (°C)',
-              data: minData,
-              backgroundColor: '#60a5fa',
-              borderRadius: 4
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: { font: { size: 11 }, boxWidth: 12 }
-            },
-            tooltip: { mode: 'index', intersect: false }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { font: { size: 11 } }
-            },
-            y: {
-              grid: { color: '#f1f5f9' },
-              ticks: { font: { size: 10 } }
-            }
-          }
-        }
-      });
-    }
-
-    function renderSolarDrilldown() {
-      const term = document.getElementById('solar-drill-term-select').value;
-      const filtered = weatherData.filter(d => d.solarTerm === term);
-
-      // Sort by MaxTemp desc
-      filtered.sort((a, b) => b.maxTemp - a.maxTemp);
-
-      const tbody = document.getElementById('solar-drill-tbody');
-      tbody.innerHTML = '';
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">尚無「${term}」的標記資料</td></tr>`;
-        return;
-      }
-
-      filtered.forEach(d => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="px-3 py-2 font-medium text-slate-800">${d.date}</td>
-          <td class="px-3 py-2 font-bold text-rose-600">${d.maxTemp.toFixed(1)}</td>
-          <td class="px-3 py-2 font-bold text-sky-600">${d.minTemp.toFixed(1)}</td>
-          <td class="px-3 py-2 font-medium text-slate-700">${d.avgTemp.toFixed(1)}</td>
-          <td class="px-3 py-2 text-cyan-600">${d.rain.toFixed(1)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    /* ==========================================================================
-       MODULE 3: 酷熱與寒冷日數統計與排行 (Hot >= 32.5°C, Cold <= 12.5°C)
-       ========================================================================== */
-    function renderExtremesModule() {
-      if (weatherData.length === 0) return;
-
+    function initExtremesModule() {
       // Group by year
-      const yearStats = new Map();
+      const yearMap = new Map();
 
-      weatherData.forEach(d => {
-        if (!yearStats.has(d.year)) {
-          yearStats.set(d.year, {
+      rawWeatherData.forEach(d => {
+        if (!yearMap.has(d.year)) {
+          yearMap.set(d.year, {
             year: d.year,
             hotDays: 0,
             coldDays: 0,
             maxTemp: -999,
             minTemp: 999,
             sumAvg: 0,
-            count: 0
+            count: 0,
+            firstHotDate: "",
+            lastColdDate: ""
           });
         }
-        const s = yearStats.get(d.year);
+        const s = yearMap.get(d.year);
         s.count++;
         s.sumAvg += d.avgTemp;
-        if (d.maxTemp >= 32.5) s.hotDays++;
-        if (d.minTemp <= 12.5) s.coldDays++;
+
+        if (d.maxTemp >= 32.5) {
+          s.hotDays++;
+          if (!s.firstHotDate) s.firstHotDate = d.date;
+        }
+
+        if (d.minTemp <= 12.5) {
+          s.coldDays++;
+          s.lastColdDate = d.date;
+        }
+
         if (d.maxTemp > s.maxTemp) s.maxTemp = d.maxTemp;
         if (d.minTemp < s.minTemp) s.minTemp = d.minTemp;
       });
 
-      const list = Array.from(yearStats.values()).map(y => ({
+      const list = Array.from(yearMap.values()).map(y => ({
         year: y.year,
         hotDays: y.hotDays,
         coldDays: y.coldDays,
         maxTemp: parseFloat(y.maxTemp.toFixed(1)),
         minTemp: parseFloat(y.minTemp.toFixed(1)),
-        avgTemp: parseFloat((y.sumAvg / y.count).toFixed(2))
+        avgTemp: parseFloat((y.sumAvg / y.count).toFixed(2)),
+        firstHotDate: y.firstHotDate || "無酷熱日",
+        lastColdDate: y.lastColdDate || "無寒冷日"
       }));
 
-      // Top Hot Years
-      const hotRanked = [...list].sort((a, b) => b.hotDays - a.hotDays || b.maxTemp - a.maxTemp);
+      // Top 10 Hot
+      const topHot = [...list].sort((a, b) => b.hotDays - a.hotDays || b.maxTemp - a.maxTemp).slice(0, 10);
       const hotTbody = document.getElementById('top-hot-tbody');
       hotTbody.innerHTML = '';
-      hotRanked.slice(0, 10).forEach((item, idx) => {
+      topHot.forEach((item, idx) => {
         const tr = document.createElement('tr');
+        tr.className = "hover:bg-rose-50/50";
         tr.innerHTML = `
-          <td class="py-2 px-3 font-semibold text-slate-500">#${idx + 1}</td>
-          <td class="py-2 px-3 font-bold text-slate-800">${item.year} 年</td>
-          <td class="py-2 px-3 text-right font-extrabold text-rose-600">${item.hotDays} 天</td>
-          <td class="py-2 px-3 text-right text-slate-600">${item.maxTemp}°C</td>
+          <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+          <td class="px-3 py-2 font-bold text-slate-900">${item.year} 年</td>
+          <td class="px-3 py-2 text-right font-black text-rose-600">${item.hotDays} 天</td>
+          <td class="px-3 py-2 text-right font-semibold text-slate-700">${item.maxTemp.toFixed(1)}</td>
+          <td class="px-3 py-2 text-right text-slate-500 text-[11px]">${item.firstHotDate}</td>
         `;
         hotTbody.appendChild(tr);
       });
 
-      // Top Cold Years
-      const coldRanked = [...list].sort((a, b) => b.coldDays - a.coldDays || a.minTemp - b.minTemp);
+      // Top 10 Cold
+      const topCold = [...list].sort((a, b) => b.coldDays - a.coldDays || a.minTemp - b.minTemp).slice(0, 10);
       const coldTbody = document.getElementById('top-cold-tbody');
       coldTbody.innerHTML = '';
-      coldRanked.slice(0, 10).forEach((item, idx) => {
+      topCold.forEach((item, idx) => {
         const tr = document.createElement('tr');
+        tr.className = "hover:bg-sky-50/50";
         tr.innerHTML = `
-          <td class="py-2 px-3 font-semibold text-slate-500">#${idx + 1}</td>
-          <td class="py-2 px-3 font-bold text-slate-800">${item.year} 年</td>
-          <td class="py-2 px-3 text-right font-extrabold text-sky-600">${item.coldDays} 天</td>
-          <td class="py-2 px-3 text-right text-slate-600">${item.minTemp}°C</td>
+          <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+          <td class="px-3 py-2 font-bold text-slate-900">${item.year} 年</td>
+          <td class="px-3 py-2 text-right font-black text-blue-600">${item.coldDays} 天</td>
+          <td class="px-3 py-2 text-right font-semibold text-slate-700">${item.minTemp.toFixed(1)}</td>
+          <td class="px-3 py-2 text-right text-slate-500 text-[11px]">${item.lastColdDate}</td>
         `;
         coldTbody.appendChild(tr);
       });
 
-      // Full chronological table
-      const chronoList = [...list].sort((a, b) => a.year - b.year);
-      const extremesAllTbody = document.getElementById('extremes-all-tbody');
-      extremesAllTbody.innerHTML = '';
-      chronoList.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="px-3 py-1.5 font-bold text-slate-800">${item.year}</td>
-          <td class="px-3 py-1.5 font-semibold text-rose-600">${item.hotDays} 天</td>
-          <td class="px-3 py-1.5 font-semibold text-sky-600">${item.coldDays} 天</td>
-          <td class="px-3 py-1.5 text-slate-700">${item.maxTemp}°C</td>
-          <td class="px-3 py-1.5 text-slate-700">${item.minTemp}°C</td>
-          <td class="px-3 py-1.5 text-slate-700 font-medium">${item.avgTemp}°C</td>
-        `;
-        extremesAllTbody.appendChild(tr);
-      });
+      // Comprehensive table rendering with sort dropdown
+      const sortSelect = document.getElementById('extremes-sort-select');
+      const renderAllExtremes = () => {
+        const mode = sortSelect.value;
+        const sorted = [...list];
 
-      // Trend Chart
-      renderExtremesChart(chronoList);
-    }
+        if (mode === 'year-desc') sorted.sort((a, b) => b.year - a.year);
+        else if (mode === 'year-asc') sorted.sort((a, b) => a.year - b.year);
+        else if (mode === 'hot-desc') sorted.sort((a, b) => b.hotDays - a.hotDays || b.maxTemp - a.maxTemp);
+        else if (mode === 'cold-desc') sorted.sort((a, b) => b.coldDays - a.coldDays || a.minTemp - b.minTemp);
 
-    function renderExtremesChart(chronoList) {
-      const ctx = document.getElementById('extremesTrendChart').getContext('2d');
-      const years = chronoList.map(item => item.year);
-      const hotData = chronoList.map(item => item.hotDays);
-      const coldData = chronoList.map(item => item.coldDays);
+        const allTbody = document.getElementById('extremes-all-tbody');
+        allTbody.innerHTML = '';
+        sorted.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50";
+          tr.innerHTML = `
+            <td class="px-3.5 py-2 font-bold text-slate-900">${item.year} 年</td>
+            <td class="px-3.5 py-2 text-right font-bold text-rose-600">${item.hotDays} 天</td>
+            <td class="px-3.5 py-2 text-right font-bold text-blue-600">${item.coldDays} 天</td>
+            <td class="px-3.5 py-2 text-right text-slate-800 font-semibold">${item.maxTemp.toFixed(1)}</td>
+            <td class="px-3.5 py-2 text-right text-slate-800 font-semibold">${item.minTemp.toFixed(1)}</td>
+            <td class="px-3.5 py-2 text-right text-slate-700">${item.avgTemp.toFixed(2)}</td>
+          `;
+          allTbody.appendChild(tr);
+        });
+      };
 
-      if (extremesTrendChartInst) {
-        extremesTrendChartInst.destroy();
-      }
-
-      extremesTrendChartInst = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: years,
-          datasets: [
-            {
-              type: 'bar',
-              label: '酷熱日數 (MaxTemp ≥ 32.5°C)',
-              data: hotData,
-              backgroundColor: 'rgba(239, 68, 68, 0.75)',
-              borderRadius: 3
-            },
-            {
-              type: 'bar',
-              label: '寒冷日數 (MinTemp ≤ 12.5°C)',
-              data: coldData,
-              backgroundColor: 'rgba(59, 130, 246, 0.75)',
-              borderRadius: 3
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: { font: { size: 12 }, boxWidth: 14 }
-            },
-            tooltip: {
-              mode: 'index',
-              intersect: false
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxTicksLimit: 20, font: { size: 10 } }
-            },
-            y: {
-              beginAtZero: true,
-              grid: { color: '#f1f5f9' },
-              title: {
-                display: true,
-                text: '日數 (天)',
-                font: { size: 11 }
-              }
-            }
-          }
-        }
-      });
+      sortSelect.addEventListener('change', renderAllExtremes);
+      renderAllExtremes();
     }
 
     /* ==========================================================================
-       MODULE 4: 年總雨量排行 (Annual Total Rainfall Ranking)
+       SECTION 4: 年總雨量排行 (Rainfall)
        ========================================================================== */
-    function renderRainfallModule() {
-      if (weatherData.length === 0) return;
+    function initRainfallModule() {
+      const yearMap = new Map();
+      const allDailyRains = [];
 
-      const order = document.getElementById('rain-sort-order').value;
+      rawWeatherData.forEach(d => {
+        if (d.rain > 0) {
+          allDailyRains.push(d);
+        }
 
-      // Group by year
-      const yearRainMap = new Map();
-      const allDaysRain = [];
-
-      weatherData.forEach(d => {
-        allDaysRain.push(d);
-        if (!yearRainMap.has(d.year)) {
-          yearRainMap.set(d.year, {
+        if (!yearMap.has(d.year)) {
+          yearMap.set(d.year, {
             year: d.year,
             totalRain: 0,
-            maxSingleDayRain: 0,
-            maxRainDate: "",
-            rainDaysCount: 0
+            rainDays: 0,
+            maxSingleDay: 0,
+            maxSingleDate: ""
           });
         }
-        const yData = yearRainMap.get(d.year);
-        yData.totalRain += d.rain;
-        if (d.rain >= 0.1) {
-          yData.rainDaysCount++;
-        }
-        if (d.rain > yData.maxSingleDayRain) {
-          yData.maxSingleDayRain = d.rain;
-          yData.maxRainDate = d.date;
-        }
-      });
-
-      let list = Array.from(yearRainMap.values()).map(item => ({
-        year: item.year,
-        totalRain: parseFloat(item.totalRain.toFixed(1)),
-        maxSingleDayRain: parseFloat(item.maxSingleDayRain.toFixed(1)),
-        maxRainDate: item.maxRainDate,
-        rainDaysCount: item.rainDaysCount
-      }));
-
-      // Top Wettest & Driest
-      const wettestList = [...list].sort((a, b) => b.totalRain - a.totalRain);
-      const driestList = [...list].sort((a, b) => a.totalRain - b.totalRain);
-
-      const wetUl = document.getElementById('top-wettest-list');
-      wetUl.innerHTML = '';
-      wettestList.slice(0, 5).forEach((item, idx) => {
-        const li = document.createElement('li');
-        li.className = "flex justify-between items-center py-1 border-b border-slate-200/50";
-        li.innerHTML = `<span><strong class="text-cyan-700">#${idx + 1}</strong> ${item.year} 年</span> <span class="font-bold text-cyan-800">${item.totalRain.toLocaleString()} mm</span>`;
-        wetUl.appendChild(li);
-      });
-
-      const dryUl = document.getElementById('top-driest-list');
-      dryUl.innerHTML = '';
-      driestList.slice(0, 5).forEach((item, idx) => {
-        const li = document.createElement('li');
-        li.className = "flex justify-between items-center py-1 border-b border-slate-200/50";
-        li.innerHTML = `<span><strong class="text-amber-700">#${idx + 1}</strong> ${item.year} 年</span> <span class="font-bold text-amber-800">${item.totalRain.toLocaleString()} mm</span>`;
-        dryUl.appendChild(li);
-      });
-
-      // Top single day rainfall
-      allDaysRain.sort((a, b) => b.rain - a.rain);
-      const topSingleRainUl = document.getElementById('top-single-day-rain');
-      topSingleRainUl.innerHTML = '';
-      allDaysRain.slice(0, 5).forEach((d, idx) => {
-        const li = document.createElement('li');
-        li.className = "flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/70";
-        li.innerHTML = `
-          <div class="flex items-center space-x-2">
-            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-bold text-[11px]">${idx + 1}</span>
-            <span class="font-medium text-slate-800">${d.date}</span>
-          </div>
-          <span class="font-bold text-cyan-600">${d.rain.toFixed(1)} mm</span>
-        `;
-        topSingleRainUl.appendChild(li);
-      });
-
-      // Sort for table and chart
-      if (order === 'desc') {
-        list.sort((a, b) => b.totalRain - a.totalRain);
-      } else if (order === 'asc') {
-        list.sort((a, b) => a.totalRain - b.totalRain);
-      } else {
-        list.sort((a, b) => a.year - b.year);
-      }
-
-      const tableTbody = document.getElementById('rainfall-table-tbody');
-      tableTbody.innerHTML = '';
-      list.forEach((item, idx) => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50";
-        tr.innerHTML = `
-          <td class="px-3 py-1.5 font-mono text-slate-400">#${idx + 1}</td>
-          <td class="px-3 py-1.5 font-bold text-slate-800">${item.year} 年</td>
-          <td class="px-3 py-1.5 font-extrabold text-cyan-600">${item.totalRain.toLocaleString()} mm</td>
-          <td class="px-3 py-1.5 text-slate-700 font-medium">${item.maxSingleDayRain} mm <span class="text-[10px] text-slate-400">(${item.maxRainDate})</span></td>
-          <td class="px-3 py-1.5 text-slate-600">${item.rainDaysCount} 日</td>
-        `;
-        tableTbody.appendChild(tr);
-      });
-
-      renderRainfallChart(list, order);
-    }
-
-    function renderRainfallChart(list, order) {
-      // For charting, sort chronologically if desired or according to display
-      const chartData = order === 'chronological' ? list : [...list].sort((a, b) => a.year - b.year);
-      const ctx = document.getElementById('rainfallYearlyChart').getContext('2d');
-      const years = chartData.map(d => d.year);
-      const rains = chartData.map(d => d.totalRain);
-
-      // Climatological Average (Macau ~ 2050mm)
-      const avgRain = rains.reduce((acc, v) => acc + v, 0) / (rains.length || 1);
-
-      if (rainfallChartInst) {
-        rainfallChartInst.destroy();
-      }
-
-      rainfallChartInst = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: years,
-          datasets: [
-            {
-              type: 'bar',
-              label: '年總雨量 (mm)',
-              data: rains,
-              backgroundColor: '#06b6d4',
-              borderRadius: 3
-            },
-            {
-              type: 'line',
-              label: `歷史平均雨量 (${avgRain.toFixed(0)} mm)`,
-              data: years.map(() => avgRain),
-              borderColor: '#f59e0b',
-              borderWidth: 2,
-              borderDash: [5, 5],
-              fill: false,
-              pointRadius: 0
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: { font: { size: 11 }, boxWidth: 12 }
-            },
-            tooltip: { mode: 'index', intersect: false }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxTicksLimit: 18, font: { size: 10 } }
-            },
-            y: {
-              grid: { color: '#f1f5f9' },
-              ticks: { font: { size: 10 } },
-              title: { display: true, text: '降雨量 (mm)', font: { size: 10 } }
-            }
-          }
-        }
-      });
-    }
-
-    /* ==========================================================================
-       EXPORT UTILITIES
-       ========================================================================== */
-    function exportRainfallRankingCSV() {
-      if (weatherData.length === 0) return;
-
-      const yearRainMap = new Map();
-      weatherData.forEach(d => {
-        if (!yearRainMap.has(d.year)) {
-          yearRainMap.set(d.year, { year: d.year, totalRain: 0, rainDays: 0, maxDayRain: 0 });
-        }
-        const s = yearRainMap.get(d.year);
+        const s = yearMap.get(d.year);
         s.totalRain += d.rain;
         if (d.rain >= 0.1) s.rainDays++;
-        if (d.rain > s.maxDayRain) s.maxDayRain = d.rain;
+        if (d.rain > s.maxSingleDay) {
+          s.maxSingleDay = d.rain;
+          s.maxSingleDate = d.date;
+        }
       });
 
-      const arr = Array.from(yearRainMap.values()).sort((a, b) => b.totalRain - a.totalRain);
-      let csvContent = "Rank,Year,TotalRain_mm,MaxSingleDayRain_mm,RainDays\n";
-      arr.forEach((r, idx) => {
-        csvContent += `${idx + 1},${r.year},${r.totalRain.toFixed(1)},${r.maxDayRain.toFixed(1)},${r.rainDays}\n`;
+      const list = Array.from(yearMap.values()).map(r => ({
+        year: r.year,
+        totalRain: parseFloat(r.totalRain.toFixed(1)),
+        rainDays: r.rainDays,
+        maxSingleDay: parseFloat(r.maxSingleDay.toFixed(1)),
+        maxSingleDate: r.maxSingleDate || "--"
+      }));
+
+      // Top 5 Wettest Cards
+      const wetSorted = [...list].sort((a, b) => b.totalRain - a.totalRain);
+      const wetContainer = document.getElementById('rain-top-wet-cards');
+      wetContainer.innerHTML = '';
+      wetSorted.slice(0, 5).forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-2 rounded-lg bg-white border border-cyan-100 shadow-2xs";
+        div.innerHTML = `
+          <div class="flex items-center space-x-2">
+            ${getRankBadge(idx + 1)}
+            <span class="font-bold text-slate-800">${item.year} 年</span>
+            <span class="text-[11px] text-slate-400">(${item.rainDays} 雨日)</span>
+          </div>
+          <span class="font-black text-cyan-700 text-sm">${item.totalRain.toLocaleString()} mm</span>
+        `;
+        wetContainer.appendChild(div);
       });
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Rainfall_Rankings_1952-2026.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Top 5 Driest Cards
+      const drySorted = [...list].sort((a, b) => a.totalRain - b.totalRain);
+      const dryContainer = document.getElementById('rain-top-dry-cards');
+      dryContainer.innerHTML = '';
+      drySorted.slice(0, 5).forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = "flex items-center justify-between p-2 rounded-lg bg-white border border-amber-100 shadow-2xs";
+        div.innerHTML = `
+          <div class="flex items-center space-x-2">
+            ${getRankBadge(idx + 1)}
+            <span class="font-bold text-slate-800">${item.year} 年</span>
+            <span class="text-[11px] text-slate-400">(${item.rainDays} 雨日)</span>
+          </div>
+          <span class="font-black text-amber-800 text-sm">${item.totalRain.toLocaleString()} mm</span>
+        `;
+        dryContainer.appendChild(div);
+      });
+
+      // Top 10 Single-day extreme rains
+      allDailyRains.sort((a, b) => b.rain - a.rain);
+      const singleContainer = document.getElementById('rain-top-single-days');
+      singleContainer.innerHTML = '';
+      allDailyRains.slice(0, 10).forEach((d, idx) => {
+        const div = document.createElement('div');
+        div.className = "p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between";
+        div.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">#${idx + 1}</span>
+            <span class="text-[11px] font-mono text-slate-500">${d.date}</span>
+          </div>
+          <div class="mt-2 text-right">
+            <span class="text-base font-black text-cyan-700">${d.rain.toFixed(1)}</span>
+            <span class="text-[11px] text-slate-400 ml-0.5">mm</span>
+          </div>
+        `;
+        singleContainer.appendChild(div);
+      });
+
+      // Table render with sort options
+      const rainSort = document.getElementById('rain-sort-select');
+      const renderRainTable = () => {
+        const mode = rainSort.value;
+        const sorted = [...list];
+
+        if (mode === 'wet-desc') sorted.sort((a, b) => b.totalRain - a.totalRain);
+        else if (mode === 'dry-asc') sorted.sort((a, b) => a.totalRain - b.totalRain);
+        else if (mode === 'year-asc') sorted.sort((a, b) => a.year - b.year);
+        else if (mode === 'year-desc') sorted.sort((a, b) => b.year - a.year);
+
+        const tbody = document.getElementById('rainfall-table-tbody');
+        tbody.innerHTML = '';
+        sorted.forEach((item, idx) => {
+          const rank = idx + 1;
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50";
+          tr.innerHTML = `
+            <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+            <td class="px-4 py-2.5 font-bold text-slate-900">${item.year} 年</td>
+            <td class="px-4 py-2.5 text-right font-black text-cyan-700">${item.totalRain.toLocaleString()}</td>
+            <td class="px-4 py-2.5 text-right text-slate-700 font-medium">${item.rainDays} 日</td>
+            <td class="px-4 py-2.5 text-right font-bold text-slate-800">${item.maxSingleDay.toFixed(1)}</td>
+            <td class="px-4 py-2.5 text-slate-500 font-mono text-[11px]">${item.maxSingleDate}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      };
+
+      rainSort.addEventListener('change', renderRainTable);
+      renderRainTable();
     }
 
     /* ==========================================================================
-       EVENT LISTENERS & LIFECYCLE
+       TAB SWITCHING & INIT
        ========================================================================== */
     window.onload = function () {
-      // 1. Initial attempt to fetch data/1952-2026weather.csv
-      loadInitialData();
+      // Tab switcher
+      const tabs = document.querySelectorAll('.tab-btn');
+      const contents = document.querySelectorAll('.tab-content');
 
-      // 2. Tab Navigation
-      const tabBtns = document.querySelectorAll('.tab-btn');
-      const tabContents = document.querySelectorAll('.tab-content');
-
-      tabBtns.forEach(btn => {
+      tabs.forEach(btn => {
         btn.addEventListener('click', () => {
-          const targetTab = btn.getAttribute('data-tab');
-
-          tabBtns.forEach(b => {
-            b.classList.remove('border-sky-600', 'text-sky-600');
-            b.classList.add('border-transparent', 'text-slate-500');
+          const target = btn.getAttribute('data-tab');
+          tabs.forEach(t => {
+            t.classList.remove('border-sky-600', 'text-sky-600');
+            t.classList.add('border-transparent', 'text-slate-500');
           });
           btn.classList.add('border-sky-600', 'text-sky-600');
           btn.classList.remove('border-transparent', 'text-slate-500');
 
-          tabContents.forEach(tc => {
-            tc.classList.add('hidden');
-          });
-          document.getElementById(targetTab).classList.remove('hidden');
-
-          // Trigger chart resize on tab change
-          if (monthlyChartInst) monthlyChartInst.resize();
-          if (solarBarChartInst) solarBarChartInst.resize();
-          if (extremesTrendChartInst) extremesTrendChartInst.resize();
-          if (rainfallChartInst) rainfallChartInst.resize();
+          contents.forEach(c => c.classList.add('hidden'));
+          document.getElementById(target).classList.remove('hidden');
         });
       });
 
-      // 3. Module 1 Filters
-      document.getElementById('monthly-select-month').addEventListener('change', renderMonthlyModule);
-      document.getElementById('monthly-select-metric').addEventListener('change', renderMonthlyModule);
-      document.getElementById('monthly-select-order').addEventListener('change', renderMonthlyModule);
-
-      // 4. Module 2 Filters
-      document.getElementById('solar-metric-select').addEventListener('change', renderSolarTermsModule);
-      document.getElementById('solar-order-select').addEventListener('change', renderSolarTermsModule);
-      document.getElementById('solar-drill-term-select').addEventListener('change', renderSolarDrilldown);
-
-      // 5. Module 4 Filters & Export
-      document.getElementById('rain-sort-order').addEventListener('change', renderRainfallModule);
-      document.getElementById('btn-export-rain-csv').addEventListener('click', exportRainfallRankingCSV);
-
-      // 6. CSV File Inputs
-      const handleFileInput = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function (event) {
-          try {
-            const records = parseCSVData(event.target.result);
-            initDashboardWithData(records, `已成功載入: ${file.name}`);
-            document.getElementById('upload-modal').classList.add('hidden');
-          } catch (err) {
-            console.error(err);
-          }
-        };
-        reader.readAsText(file);
-      };
-
-      document.getElementById('csv-file-input').addEventListener('change', handleFileInput);
-      document.getElementById('modal-file-input').addEventListener('change', handleFileInput);
-
-      // 7. Generate Mock Button
-      const handleGenMock = () => {
-        const mock = generateRealisticDataset();
-        initDashboardWithData(mock, "已成功生成 1952-2026 高仿真氣候模擬資料 (共約 27,390 筆紀錄)");
-        document.getElementById('upload-modal').classList.add('hidden');
-      };
-      document.getElementById('btn-gen-mock').addEventListener('click', handleGenMock);
-      document.getElementById('modal-gen-mock-btn').addEventListener('click', handleGenMock);
-
-      // 8. Modal Toggles
-      const modal = document.getElementById('upload-modal');
-      document.getElementById('btn-upload-modal').addEventListener('click', () => {
-        modal.classList.remove('hidden');
-      });
-      document.getElementById('modal-close-btn').addEventListener('click', () => {
-        modal.classList.add('hidden');
-      });
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-      });
-
-      // 9. Drag and Drop onto Card
-      const dropCard = document.getElementById('file-drop-card');
-      ['dragenter', 'dragover'].forEach(eventName => {
-        dropCard.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropCard.classList.add('border-sky-600', 'bg-sky-50/50');
-        }, false);
-      });
-      ['dragleave', 'drop'].forEach(eventName => {
-        dropCard.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropCard.classList.remove('border-sky-600', 'bg-sky-50/50');
-        }, false);
-      });
-      dropCard.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const file = dt.files[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = function (event) {
-            try {
-              const records = parseCSVData(event.target.result);
-              initDashboardWithData(records, `已拖放載入: ${file.name}`);
-            } catch (err) {
-              console.error(err);
-            }
-          };
-          reader.readAsText(file);
-        }
-      });
+      // Start automatic fetch
+      fetchWeatherData();
     };
   </script>
 </body>
