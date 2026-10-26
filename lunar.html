@@ -148,6 +148,9 @@
                             <option value="term_小寒">小寒</option>
                             <option value="term_大寒">大寒</option>
                         </optgroup>
+                        <optgroup label="民間氣象諺語專項驗證">
+                            <option value="proverb_solstice_cny">【驗證】冬至 vs 年初一 (乾冬濕年 / 冬唔凍過年凍)</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -178,6 +181,7 @@
                 </div>
             </div>
         </section>
+        <!-- Proverb Verification Result Banner -->
 
         <!-- Summary Statistics Cards -->
         <section id="statsSection" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
@@ -258,6 +262,36 @@
                         </tr>
                     </tbody>
                 </table>
+            </div>
+        </section>
+        <section id="proverbSection" class="hidden bg-slate-800/95 border border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="text-base font-bold text-indigo-300 flex items-center gap-2">
+                    <span>📊</span> 民間氣象諺語大數據檢驗結論
+                </h3>
+                <span id="proverbPairCount" class="text-xs bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 px-3 py-1 rounded-full"></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 乾冬濕年 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-slate-200">諺語一：乾冬濕年？</span>
+                        <span id="wetYearVerdict" class="text-xs font-semibold px-2 py-0.5 rounded"></span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">定義：冬至雨量為 0mm 時，年初一出現降雨 (> 0mm)。</p>
+                    <div class="text-2xl font-black text-amber-400" id="drySolsticeWetNYRate">0%</div>
+                    <p class="text-[11px] text-slate-400 mt-1" id="drySolsticeWetNYDetail"></p>
+                </div>
+                <!-- 冬唔凍過年凍 -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-slate-200">諺語二：冬唔凍，過年凍？</span>
+                        <span id="coldYearVerdict" class="text-xs font-semibold px-2 py-0.5 rounded"></span>
+                    </div>
+                    <p class="text-xs text-slate-400 mb-2">定義：冬至氣溫高於冬至常年平均時，年初一氣溫低於冬至。</p>
+                    <div class="text-2xl font-black text-cyan-400" id="warmSolsticeColdNYRate">0%</div>
+                    <p class="text-[11px] text-slate-400 mt-1" id="warmSolsticeColdNYDetail"></p>
+                </div>
             </div>
         </section>
 
@@ -447,6 +481,7 @@
         }
 
         // Execute Search & Multi-Era Filtering
+// Execute Search & Multi-Era Filtering (包含諺語驗證邏輯)
         function executeSearch() {
             if (allRecords.length === 0) {
                 alert("請先點擊「載入氣象資料檔案」按鈕載入數據。");
@@ -457,6 +492,7 @@
             const filterVal = document.getElementById("festivalSelect").value;
             const customMonthVal = document.getElementById("customMonth").value;
             const customDayVal = document.getElementById("customDay").value;
+            const proverbSection = document.getElementById("proverbSection");
 
             if (checkedEras.length === 0) {
                 alert("請至少勾選一個時代區間進行比較。");
@@ -465,12 +501,106 @@
 
             let filtered = allRecords.filter(r => checkedEras.includes(r.eraKey));
 
+            // ----------------------------------------------------
+            // 分支：氣象諺語專項配對驗證 (冬至 vs 年初一)
+            // ----------------------------------------------------
+            if (filterVal === "proverb_solstice_cny") {
+                // 從全部已載入資料中匹配，確保跨年代臨界點依然能找到對應
+                const allSolstice = allRecords.filter(r => r.solarTerm && r.solarTerm.includes("冬至"));
+                const allCNY = allRecords.filter(r => r.lunarNumericMonth === 1 && r.lunarDayNum === 1);
+
+                // 年份配對：年份 Y 的冬至對應年份 Y+1 的正月初一
+                let pairs = [];
+                allSolstice.forEach(sol => {
+                    // 只統計符合勾選年代區間的冬至記錄
+                    if (!checkedEras.includes(sol.eraKey)) return;
+                    
+                    const nextYear = sol.year + 1;
+                    const cny = allCNY.find(c => c.year === nextYear);
+                    if (cny) {
+                        pairs.push({ sol, cny });
+                    }
+                });
+
+                if (pairs.length === 0) {
+                    alert("所選時代區間未找到足夠的「冬至 ➔ 翌年年初一」完整配對數據。");
+                    if (proverbSection) proverbSection.classList.add("hidden");
+                    renderDashboard([]);
+                    return;
+                }
+
+                proverbSection.classList.remove("hidden");
+
+                // 1. 驗證「乾冬濕年」：冬至無雨 (rain === 0) 且 初一有雨 (rain > 0)
+                const drySolsticePairs = pairs.filter(p => p.sol.rain === 0);
+                const drySolsticeAndWetCNY = drySolsticePairs.filter(p => p.cny.rain > 0);
+                const dryWetRate = drySolsticePairs.length > 0
+                    ? ((drySolsticeAndWetCNY.length / drySolsticePairs.length) * 100).toFixed(1)
+                    : "0.0";
+
+                // 2. 驗證「冬唔凍過年凍」：冬至日均溫 >= 歷史冬至平均均溫 (唔凍)，初一日均溫 < 冬至均溫 (過年凍)
+                const avgSolsticeTemp = pairs.reduce((sum, p) => sum + p.sol.avgT, 0) / pairs.length;
+                const warmSolsticePairs = pairs.filter(p => p.sol.avgT >= avgSolsticeTemp);
+                const warmSolsticeAndColdCNY = warmSolsticePairs.filter(p => p.cny.avgT < p.sol.avgT);
+                const warmColdRate = warmSolsticePairs.length > 0
+                    ? ((warmSolsticeAndColdCNY.length / warmSolsticePairs.length) * 100).toFixed(1)
+                    : "0.0";
+
+                // 更新驗證看板 UI
+                document.getElementById("proverbPairCount").textContent = `成功配對 ${pairs.length} 組「冬至-年初一」`;
+
+                document.getElementById("drySolsticeWetNYRate").textContent = `${dryWetRate}% 吻合`;
+                document.getElementById("drySolsticeWetNYDetail").textContent =
+                    `在 ${drySolsticePairs.length} 次「乾冬至」中，僅 ${drySolsticeAndWetCNY.length} 次年初一有降雨 (${(100 - parseFloat(dryWetRate)).toFixed(1)}% 仍為乾年)。`;
+                
+                const wetBadge = document.getElementById("wetYearVerdict");
+                if (parseFloat(dryWetRate) >= 50) {
+                    wetBadge.textContent = "傾向符合";
+                    wetBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                } else {
+                    wetBadge.textContent = "不成立 (絕大多數為乾冬乾年)";
+                    wetBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30";
+                }
+
+                document.getElementById("warmSolsticeColdNYRate").textContent = `${warmColdRate}% 吻合`;
+                document.getElementById("warmSolsticeColdNYDetail").textContent =
+                    `在 ${warmSolsticePairs.length} 次偏暖冬至中，有 ${warmSolsticeAndColdCNY.length} 次年初一氣溫更冷 (平均基準: ${avgSolsticeTemp.toFixed(1)}°C)。`;
+                
+                const coldBadge = document.getElementById("coldYearVerdict");
+                const coldRateNum = parseFloat(warmColdRate);
+                if (coldRateNum >= 45 && coldRateNum <= 55) {
+                    coldBadge.textContent = "無顯著相關 (等同隨機拋硬幣)";
+                    coldBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30";
+                } else if (coldRateNum > 55) {
+                    coldBadge.textContent = "弱正相關";
+                    coldBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+                } else {
+                    coldBadge.textContent = "傾向不成立";
+                    coldBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30";
+                }
+
+                // 整理交替排序的記錄列表供表格與圖表渲染 (冬至 ➔ 初一 ➔ 冬至 ➔ 初一...)
+                let pairedRecords = [];
+                pairs.forEach(p => {
+                    pairedRecords.push(p.sol);
+                    pairedRecords.push(p.cny);
+                });
+
+                renderDashboard(pairedRecords);
+                return;
+            }
+
+            // 非諺語驗證模式時，隱藏諺語看板
+            if (proverbSection) proverbSection.classList.add("hidden");
+
+            // ----------------------------------------------------
+            // 原有常規節日與日期篩選邏輯
+            // ----------------------------------------------------
             if (filterVal !== "all") {
                 const years = [...new Set(filtered.map(r => r.year))];
                 let matchingDates = new Set();
 
                 if (filterVal.startsWith("g_")) {
-                    // Gregorian fixed filters
                     const mapGF = {
                         "g_jan1": "01-01",
                         "g_may1": "05-01",
@@ -484,11 +614,9 @@
                     const targetMd = mapGF[filterVal];
                     filtered = filtered.filter(r => r.dateStr.endsWith(targetMd));
                 } else if (filterVal.startsWith("term_")) {
-                    // Solar term filter from CSV solarTerm column
                     const termName = filterVal.replace("term_", "");
                     filtered = filtered.filter(r => r.solarTerm && r.solarTerm.includes(termName));
                 } else if (filterVal === "easter" || filterVal === "good_friday") {
-                    // Easter Sunday or Good Friday dynamic calculation per year
                     years.forEach(y => {
                         const easterDate = getEasterDate(y);
                         if (filterVal === "easter") {
@@ -501,7 +629,6 @@
                     });
                     filtered = filtered.filter(r => matchingDates.has(r.dateStr));
                 } else {
-                    // Lunar festival filters
                     years.forEach(y => {
                         const yearRecs = filtered.filter(r => r.year === y);
                         if (filterVal === "ny_28") {
@@ -706,6 +833,8 @@
             document.getElementById("festivalSelect").value = "all";
             document.getElementById("customMonth").value = "";
             document.getElementById("customDay").value = "";
+            const proverbSection = document.getElementById("proverbSection");
+            if (proverbSection) proverbSection.classList.add("hidden");
             if (allRecords.length > 0) executeSearch();
         });
     </script>
