@@ -89,9 +89,13 @@
 
                 <!-- 2. Preset Festival & Solar Term Filter -->
                 <div class="space-y-3 bg-slate-900/50 p-4 rounded-xl border border-slate-700/60">
-                    <label class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider">節日、二十四節氣與宗教節日快選</label>
+                    <label class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider">節日、二十四節氣與氣象諺語驗證</label>
                     <select id="festivalSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="all">不限節日 (顯示該時代所有日子)</option>
+
+                        <optgroup label="民間氣象諺語專項配對驗證">
+                            <option value="proverb_solstice_cny">【驗證】冬至 vs 年初一 (乾冬濕年 / 冬唔凍過年凍)</option>
+                        </optgroup>
                         
                         <optgroup label="公曆固定節日">
                             <option value="g_jan1">1月1日：元旦</option>
@@ -148,9 +152,6 @@
                             <option value="term_小寒">小寒</option>
                             <option value="term_大寒">大寒</option>
                         </optgroup>
-                        <optgroup label="民間氣象諺語專項驗證">
-                            <option value="proverb_solstice_cny">【驗證】冬至 vs 年初一 (乾冬濕年 / 冬唔凍過年凍)</option>
-                        </optgroup>
                     </select>
                 </div>
 
@@ -181,7 +182,39 @@
                 </div>
             </div>
         </section>
-        <!-- Proverb Verification Result Banner -->
+
+        <!-- Proverb Verification Result Banner (放在控制面板正下方) -->
+        <section id="proverbSection" class="hidden bg-slate-800/95 border border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-700/80 pb-3 gap-2">
+                <h3 class="text-base font-bold text-indigo-300 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    民間氣象諺語大數據檢驗結論 (冬至 ➔ 翌年正月初一)
+                </h3>
+                <span id="proverbPairCount" class="text-xs bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 px-3 py-1 rounded-full font-medium"></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 乾冬濕年 -->
+                <div class="bg-slate-900/60 p-5 rounded-xl border border-slate-700/80 space-y-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-slate-200 text-sm">諺語一：乾冬濕年？</span>
+                        <span id="wetYearVerdict" class="text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
+                    </div>
+                    <p class="text-xs text-slate-400">定義：冬至日雨量為 0.0mm 時，翌年年初一出現降雨 (> 0.0mm)。</p>
+                    <div class="text-3xl font-black text-amber-400" id="drySolsticeWetNYRate">0.0%</div>
+                    <p class="text-xs text-slate-400" id="drySolsticeWetNYDetail">-</p>
+                </div>
+                <!-- 冬唔凍過年凍 -->
+                <div class="bg-slate-900/60 p-5 rounded-xl border border-slate-700/80 space-y-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-slate-200 text-sm">諺語二：冬唔凍，過年凍？</span>
+                        <span id="coldYearVerdict" class="text-xs font-semibold px-2.5 py-0.5 rounded-full"></span>
+                    </div>
+                    <p class="text-xs text-slate-400">定義：冬至均溫高於歷史冬至平均 (暖冬至)，翌年年初一均溫低於冬至。</p>
+                    <div class="text-3xl font-black text-cyan-400" id="warmSolsticeColdNYRate">0.0%</div>
+                    <p class="text-xs text-slate-400" id="warmSolsticeColdNYDetail">-</p>
+                </div>
+            </div>
+        </section>
 
         <!-- Summary Statistics Cards -->
         <section id="statsSection" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
@@ -256,42 +289,12 @@
                                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                                     </div>
                                     <p class="font-bold text-slate-200 text-base">請點擊上方「載入氣象資料檔案」按鈕</p>
-                                    <p class="text-xs text-slate-400 max-w-md">系統將自動抓取 <code class="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-300">data/1901-1951weather.csv</code> 與 <code class="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-300">data/1952-2026weather.csv</code> 並提供各類公曆節日、傳統農曆節日與復活節動態運算過濾。</p>
+                                    <p class="text-xs text-slate-400 max-w-md">系統將自動抓取 <code class="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-300">data/1901-1951weather.csv</code> 與 <code class="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-300">data/1952-2026weather.csv</code> 並提供各類公曆節日、傳統農曆節日、氣象諺語與動態運算過濾。</p>
                                 </div>
                             </td>
                         </tr>
                     </tbody>
                 </table>
-            </div>
-        </section>
-        <section id="proverbSection" class="hidden bg-slate-800/95 border border-indigo-500/40 rounded-2xl p-6 shadow-2xl space-y-4">
-            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
-                <h3 class="text-base font-bold text-indigo-300 flex items-center gap-2">
-                    <span>📊</span> 民間氣象諺語大數據檢驗結論
-                </h3>
-                <span id="proverbPairCount" class="text-xs bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 px-3 py-1 rounded-full"></span>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- 乾冬濕年 -->
-                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-bold text-slate-200">諺語一：乾冬濕年？</span>
-                        <span id="wetYearVerdict" class="text-xs font-semibold px-2 py-0.5 rounded"></span>
-                    </div>
-                    <p class="text-xs text-slate-400 mb-2">定義：冬至雨量為 0mm 時，年初一出現降雨 (> 0mm)。</p>
-                    <div class="text-2xl font-black text-amber-400" id="drySolsticeWetNYRate">0%</div>
-                    <p class="text-[11px] text-slate-400 mt-1" id="drySolsticeWetNYDetail"></p>
-                </div>
-                <!-- 冬唔凍過年凍 -->
-                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-bold text-slate-200">諺語二：冬唔凍，過年凍？</span>
-                        <span id="coldYearVerdict" class="text-xs font-semibold px-2 py-0.5 rounded"></span>
-                    </div>
-                    <p class="text-xs text-slate-400 mb-2">定義：冬至氣溫高於冬至常年平均時，年初一氣溫低於冬至。</p>
-                    <div class="text-2xl font-black text-cyan-400" id="warmSolsticeColdNYRate">0%</div>
-                    <p class="text-[11px] text-slate-400 mt-1" id="warmSolsticeColdNYDetail"></p>
-                </div>
             </div>
         </section>
 
@@ -311,6 +314,7 @@
         }
 
         let allRecords = [];
+        let currentDisplayedRecords = []; // 專門儲存目前在前端呈現的記錄，保證匯出一致
         let chartInstance = null;
         const dec20_1999 = new Date(1999, 11, 20);
 
@@ -341,29 +345,43 @@
             return `${y}-${m}-${d}`;
         }
 
-        // Generate robust simulated CSV datasets if fetch fails
+        // Generate robust simulated CSV datasets using lunar astronomical calculations if fetch fails
         function getFallbackDatasets() {
             let csv1 = "date,maxT,minT,avgT,rain,maxRH,minRH,solarTerm\n";
             let csv2 = "date,maxT,minT,avgT,rain,maxRH,minRH,solarTerm\n";
             function fmt(y,m,d){ return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
 
-            for(let y=1901; y<=1951; y++){
-                csv1 += `${fmt(y,1,1)},17.5,11.0,14.2,0.0,80,50,小寒\n`;
-                csv1 += `${fmt(y,5,1)},26.5,21.0,23.8,4.2,88,70,立夏\n`;
-                csv1 += `${fmt(y,10,1)},28.2,22.0,25.1,1.0,76,55,寒露\n`;
-                csv1 += `${fmt(y,12,25)},19.2,12.5,15.8,0.0,70,45,冬至\n`;
-                csv1 += `${fmt(y,1,28)},18.1,11.2,14.6,0.0,85,55,-\n`;
-                csv1 += `${fmt(y,1,29)},17.4,10.5,14.0,1.5,91,64,-\n`;
+            // Helper to generate simulated record for a year range
+            function buildSimulated(startYear, endYear) {
+                let text = "";
+                for(let y = startYear; y <= endYear; y++) {
+                    // 冬至 (約 12 月 21-22 日)
+                    const solDate = (y % 4 === 0 || y % 4 === 3) ? 22 : 21;
+                    const solRain = (y % 6 === 0) ? 2.5 : 0.0; // 冬季大多乾冬 (雨量 0)
+                    const solAvgT = 14.5 + ((y * 7) % 11) - 4; // 10.5 ~ 20.5°C 浮動
+                    text += `${fmt(y, 12, solDate)},${(solAvgT + 4.2).toFixed(1)},${(solAvgT - 3.8).toFixed(1)},${solAvgT.toFixed(1)},${solRain.toFixed(1)},75,50,冬至\n`;
+
+                    // 元旦 1 月 1 日
+                    text += `${fmt(y, 1, 1)},18.0,11.5,14.7,0.0,80,52,小寒\n`;
+                    // 勞動節 5 月 1 日
+                    text += `${fmt(y, 5, 1)},27.0,21.5,24.2,5.0,88,70,立夏\n`;
+                    // 國慶日 10 月 1 日
+                    text += `${fmt(y, 10, 1)},28.5,22.2,25.4,0.5,77,55,寒露\n`;
+
+                    // 真實農曆正月初一計算 (透過 Lunar-javascript 反向取得對應公曆日期)
+                    try {
+                        const lunarNewYear = Lunar.fromYmd(y, 1, 1);
+                        const solarNY = lunarNewYear.getSolar();
+                        const nyRain = (y % 5 === 0) ? 1.8 : 0.0; // 初一多數亦乾燥
+                        const nyAvgT = 13.8 + ((y * 13) % 9) - 3;
+                        text += `${fmt(solarNY.getYear(), solarNY.getMonth(), solarNY.getDay())},${(nyAvgT + 4.5).toFixed(1)},${(nyAvgT - 3.5).toFixed(1)},${nyAvgT.toFixed(1)},${nyRain.toFixed(1)},83,58,-\n`;
+                    } catch(e) {}
+                }
+                return text;
             }
 
-            for(let y=1952; y<=2026; y++){
-                csv2 += `${fmt(y,1,1)},18.0,11.5,14.7,0.0,82,52,小寒\n`;
-                csv2 += `${fmt(y,5,1)},27.2,21.8,24.5,6.1,90,72,立夏\n`;
-                csv2 += `${fmt(y,10,1)},29.0,22.5,25.8,0.0,78,56,寒露\n`;
-                csv2 += `${fmt(y,12,25)},20.1,13.2,16.6,0.0,72,48,冬至\n`;
-                csv2 += `${fmt(y,1,26)},18.4,11.7,15.0,0.0,81,54,-\n`;
-                csv2 += `${fmt(y,1,27)},19.0,12.1,15.5,2.0,90,65,-\n`;
-            }
+            csv1 += buildSimulated(1901, 1951);
+            csv2 += buildSimulated(1952, 2026);
             return { csv1, csv2 };
         }
 
@@ -481,7 +499,6 @@
         }
 
         // Execute Search & Multi-Era Filtering
-// Execute Search & Multi-Era Filtering (包含諺語驗證邏輯)
         function executeSearch() {
             if (allRecords.length === 0) {
                 alert("請先點擊「載入氣象資料檔案」按鈕載入數據。");
@@ -505,14 +522,19 @@
             // 分支：氣象諺語專項配對驗證 (冬至 vs 年初一)
             // ----------------------------------------------------
             if (filterVal === "proverb_solstice_cny") {
-                // 從全部已載入資料中匹配，確保跨年代臨界點依然能找到對應
+                // 從全部已載入資料中匹配，確保跨年代邊界依然能找到對應
                 const allSolstice = allRecords.filter(r => r.solarTerm && r.solarTerm.includes("冬至"));
                 const allCNY = allRecords.filter(r => r.lunarNumericMonth === 1 && r.lunarDayNum === 1);
+
+                // 計算全歷史紀錄中冬至的常年基準均溫 (Climatological Normal)
+                const longTermSolsticeMean = allSolstice.length > 0 
+                    ? allSolstice.reduce((sum, r) => sum + r.avgT, 0) / allSolstice.length 
+                    : 15.0;
 
                 // 年份配對：年份 Y 的冬至對應年份 Y+1 的正月初一
                 let pairs = [];
                 allSolstice.forEach(sol => {
-                    // 只統計符合勾選年代區間的冬至記錄
+                    // 只要冬至所在的年代有被勾選即納入統計
                     if (!checkedEras.includes(sol.eraKey)) return;
                     
                     const nextYear = sol.year + 1;
@@ -538,9 +560,8 @@
                     ? ((drySolsticeAndWetCNY.length / drySolsticePairs.length) * 100).toFixed(1)
                     : "0.0";
 
-                // 2. 驗證「冬唔凍過年凍」：冬至日均溫 >= 歷史冬至平均均溫 (唔凍)，初一日均溫 < 冬至均溫 (過年凍)
-                const avgSolsticeTemp = pairs.reduce((sum, p) => sum + p.sol.avgT, 0) / pairs.length;
-                const warmSolsticePairs = pairs.filter(p => p.sol.avgT >= avgSolsticeTemp);
+                // 2. 驗證「冬唔凍過年凍」：冬至均溫 >= 常年平均 (暖冬至)，年初一均溫 < 冬至均溫 (過年凍)
+                const warmSolsticePairs = pairs.filter(p => p.sol.avgT >= longTermSolsticeMean);
                 const warmSolsticeAndColdCNY = warmSolsticePairs.filter(p => p.cny.avgT < p.sol.avgT);
                 const warmColdRate = warmSolsticePairs.length > 0
                     ? ((warmSolsticeAndColdCNY.length / warmSolsticePairs.length) * 100).toFixed(1)
@@ -551,7 +572,7 @@
 
                 document.getElementById("drySolsticeWetNYRate").textContent = `${dryWetRate}% 吻合`;
                 document.getElementById("drySolsticeWetNYDetail").textContent =
-                    `在 ${drySolsticePairs.length} 次「乾冬至」中，僅 ${drySolsticeAndWetCNY.length} 次年初一有降雨 (${(100 - parseFloat(dryWetRate)).toFixed(1)}% 仍為乾年)。`;
+                    `在 ${drySolsticePairs.length} 次「乾冬至」中，僅 ${drySolsticeAndWetCNY.length} 次年初一有降雨 (${(100 - parseFloat(dryWetRate)).toFixed(1)}% 仍為乾冬乾年)。`;
                 
                 const wetBadge = document.getElementById("wetYearVerdict");
                 if (parseFloat(dryWetRate) >= 50) {
@@ -564,12 +585,12 @@
 
                 document.getElementById("warmSolsticeColdNYRate").textContent = `${warmColdRate}% 吻合`;
                 document.getElementById("warmSolsticeColdNYDetail").textContent =
-                    `在 ${warmSolsticePairs.length} 次偏暖冬至中，有 ${warmSolsticeAndColdCNY.length} 次年初一氣溫更冷 (平均基準: ${avgSolsticeTemp.toFixed(1)}°C)。`;
+                    `在 ${warmSolsticePairs.length} 次偏暖冬至中 (基準: ${longTermSolsticeMean.toFixed(1)}°C)，有 ${warmSolsticeAndColdCNY.length} 次年初一氣溫更冷。`;
                 
                 const coldBadge = document.getElementById("coldYearVerdict");
                 const coldRateNum = parseFloat(warmColdRate);
                 if (coldRateNum >= 45 && coldRateNum <= 55) {
-                    coldBadge.textContent = "無顯著相關 (等同隨機拋硬幣)";
+                    coldBadge.textContent = "無顯著相關 (等同隨機機率)";
                     coldBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30";
                 } else if (coldRateNum > 55) {
                     coldBadge.textContent = "弱正相關";
@@ -579,7 +600,7 @@
                     coldBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30";
                 }
 
-                // 整理交替排序的記錄列表供表格與圖表渲染 (冬至 ➔ 初一 ➔ 冬至 ➔ 初一...)
+                // 整理交替排序的記錄列表 (冬至 ➔ 初一 ➔ 冬至 ➔ 初一...)
                 let pairedRecords = [];
                 pairs.forEach(p => {
                     pairedRecords.push(p.sol);
@@ -671,6 +692,8 @@
 
         // Render UI Components
         function renderDashboard(records) {
+            currentDisplayedRecords = records; // 同步目前呈現之資料
+
             const tbody = document.getElementById("tableBody");
             const badge = document.getElementById("tableCountBadge");
             const statsSection = document.getElementById("statsSection");
@@ -707,10 +730,10 @@
                     <td class="py-3 px-4 text-center font-semibold text-slate-200">${r.dateStr}</td>
                     <td class="py-3 px-4 text-center"><span class="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 rounded-full text-xs font-medium">${eraNames[r.eraKey] || r.eraKey}</span></td>
                     <td class="py-3 px-4 text-center text-rose-400 font-bold">${r.lunarFormatted}</td>
-                    <td class="py-3 px-4 text-center text-slate-200">${r.maxT}</td>
-                    <td class="py-3 px-4 text-center text-slate-200">${r.minT}</td>
-                    <td class="py-3 px-4 text-center text-slate-200">${r.avgT}</td>
-                    <td class="py-3 px-4 text-center text-slate-200">${r.rain}</td>
+                    <td class="py-3 px-4 text-center text-slate-200">${r.maxT.toFixed(1)}</td>
+                    <td class="py-3 px-4 text-center text-slate-200">${r.minT.toFixed(1)}</td>
+                    <td class="py-3 px-4 text-center text-slate-200">${r.avgT.toFixed(1)}</td>
+                    <td class="py-3 px-4 text-center ${r.rain > 0 ? 'text-emerald-400 font-bold' : 'text-slate-400'}">${r.rain.toFixed(1)}</td>
                     <td class="py-3 px-4 text-center text-slate-200">${r.maxRH}</td>
                     <td class="py-3 px-4 text-center text-slate-200">${r.minRH}</td>
                     <td class="py-3 px-4 text-center">${r.solarTerm === '-' ? '-' : '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded font-medium text-xs">' + r.solarTerm + '</span>'}</td>
@@ -730,7 +753,15 @@
         function renderChart(records) {
             const ctx = document.getElementById('weatherChart').getContext('2d');
             const sampleData = records.slice(0, 60);
-            const labels = sampleData.map(r => `${r.dateStr} (${r.lunarFormatted.slice(0,6)})`);
+
+            // 若在配對模式，為 X 軸標籤附加節日身分前綴，方便直觀比對
+            const labels = sampleData.map(r => {
+                const isSolstice = r.solarTerm && r.solarTerm.includes("冬至");
+                const isCNY = r.lunarNumericMonth === 1 && r.lunarDayNum === 1;
+                const prefix = isSolstice ? "【冬】" : (isCNY ? "【年】" : "");
+                return `${prefix}${r.dateStr.slice(2)}`;
+            });
+
             const maxTemps = sampleData.map(r => r.maxT);
             const minTemps = sampleData.map(r => r.minT);
             const rains = sampleData.map(r => r.rain);
@@ -798,21 +829,19 @@
             });
         }
 
-        // Export CSV
+        // Export CSV (匯出與當前表格精確一致的數據)
         function exportCsv() {
-            if (allRecords.length === 0) return;
-            const checkedEras = Array.from(document.querySelectorAll('input[name="eraCheck"]:checked')).map(el => el.value);
-            let filtered = allRecords.filter(r => checkedEras.includes(r.eraKey));
+            if (currentDisplayedRecords.length === 0) return;
 
             let csv = "GregorianDate,Era,LunarDate,MaxTemp,MinTemp,AvgTemp,Rain,MaxRH,MinRH,SolarTerm\n";
-            filtered.forEach(r => {
+            currentDisplayedRecords.forEach(r => {
                 csv += `${r.dateStr},"${r.eraKey}","${r.lunarFormatted}",${r.maxT},${r.minT},${r.avgT},${r.rain},${r.maxRH},${r.minRH},"${r.solarTerm}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `weather_comprehensive_comparison_${Date.now()}.csv`;
+            link.download = `weather_comparison_${Date.now()}.csv`;
             link.click();
         }
 
