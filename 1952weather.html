@@ -2596,6 +2596,762 @@
       const matchedDays = currentWeatherData.filter(d => d.solarTerm === curTerm);
 
       const byMax = [...matchedDays].sort((a, b) => (b.maxTemp || -999) - (a.maxTemp || -999));
+      const maxTbody = document.getElementById('st-max-tbody');
+      if (maxTbody) {
+        maxTbody.innerHTML = '';
+        byMax.slice(0, 50).forEach((d, idx) => {
+          const tr = document.createElement('tr');
+          const highlightClass = getYearHighlightClasses(d.year);
+          tr.className = `hover:bg-rose-50/50 dark:hover:bg-rose-950/30 transition-colors ${highlightClass}`;
+          const targetBadge = getTargetYearBadge(d.year);
+
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 flex items-center flex-wrap gap-1">
+              <span>${d.date}</span>
+              ${targetBadge}
+            </td>
+            <td class="px-3 py-2 text-right">${formatTempWithBadge(d.maxTemp, d.year, 'hot')}</td>
+            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+            <td class="px-3 py-2 text-right font-mono ${d.rain >= 0.1 ? 'font-bold text-cyan-700 dark:text-cyan-400' : 'text-slate-400'}">${d.rain.toFixed(1)}</td>
+          `;
+          maxTbody.appendChild(tr);
+        });
+      }
+
+      const byMin = [...matchedDays].sort((a, b) => (a.minTemp || 999) - (b.minTemp || 999));
+      const minTbody = document.getElementById('st-min-tbody');
+      if (minTbody) {
+        minTbody.innerHTML = '';
+        byMin.slice(0, 50).forEach((d, idx) => {
+          const tr = document.createElement('tr');
+          const highlightClass = getYearHighlightClasses(d.year);
+          tr.className = `hover:bg-sky-50/50 dark:hover:bg-sky-950/30 transition-colors ${highlightClass}`;
+          const targetBadge = getTargetYearBadge(d.year);
+
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 flex items-center flex-wrap gap-1">
+              <span>${d.date}</span>
+              ${targetBadge}
+            </td>
+            <td class="px-3 py-2 text-right">${formatTempWithBadge(d.minTemp, d.year, 'cold')}</td>
+            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400 font-mono">${d.avgTemp !== null ? d.avgTemp.toFixed(1) : '--'}</td>
+            <td class="px-3 py-2 text-right font-mono ${d.rain >= 0.1 ? 'font-bold text-cyan-700 dark:text-cyan-400' : 'text-slate-400'}">${d.rain.toFixed(1)}</td>
+          `;
+          minTbody.appendChild(tr);
+        });
+      }
+    }
+
+    function initSolarTermDrillModule() {
+      const termSelect = document.getElementById('solar-term-select');
+      if (!termSelect) return;
+      termSelect.innerHTML = '';
+      ALL_SOLAR_TERMS.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        termSelect.appendChild(opt);
+      });
+      termSelect.value = "大暑";
+      termSelect.addEventListener('change', renderSolarTermTablesWithCurrent);
+      renderSolarTermTablesWithCurrent();
+    }
+
+    /* ==========================================================================
+       MODULE: 酷熱、寒冷與熱夜綜合分析 (Spells, Hot Nights, Extremes)
+       ========================================================================== */
+    function initSpellsModule() {
+      const hotSpells = [];
+      let curHotSpell = null;
+
+      for (let i = 0; i < currentWeatherData.length; i++) {
+        const d = currentWeatherData[i];
+        if (d.maxTemp !== null && d.maxTemp >= HOT_DAY_THRESHOLD) {
+          if (!curHotSpell) {
+            curHotSpell = { startDate: d.date, endDate: d.date, days: 1, maxTemp: d.maxTemp };
+          } else {
+            curHotSpell.endDate = d.date;
+            curHotSpell.days++;
+            if (d.maxTemp > curHotSpell.maxTemp) curHotSpell.maxTemp = d.maxTemp;
+          }
+        } else {
+          if (curHotSpell) { hotSpells.push(curHotSpell); curHotSpell = null; }
+        }
+      }
+      if (curHotSpell) hotSpells.push(curHotSpell);
+
+      hotSpells.sort((a, b) => b.days - a.days || b.maxTemp - a.maxTemp);
+      const topHotSpells = hotSpells.slice(0, 15);
+      const hotSpellTbody = document.getElementById('spell-hot-tbody');
+      if (hotSpellTbody) {
+        hotSpellTbody.innerHTML = '';
+        topHotSpells.forEach((sp, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-rose-50/50 dark:hover:bg-rose-950/30";
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 text-right font-black text-rose-600 dark:text-rose-400 font-mono text-sm">${sp.days} 天</td>
+            <td class="px-3 py-2 font-mono text-slate-700 dark:text-slate-200">
+              <span>${sp.startDate}</span>
+              <span class="text-slate-400 mx-1">&rarr;</span>
+              <span>${sp.endDate}</span>
+            </td>
+            <td class="px-3 py-2 text-right font-bold font-mono text-rose-600 dark:text-rose-400">${sp.maxTemp.toFixed(1)} °C</td>
+          `;
+          hotSpellTbody.appendChild(tr);
+        });
+      }
+
+      const coldSpells = [];
+      let curColdSpell = null;
+
+      for (let i = 0; i < currentWeatherData.length; i++) {
+        const d = currentWeatherData[i];
+        if (d.minTemp !== null && d.minTemp <= COLD_DAY_THRESHOLD) {
+          if (!curColdSpell) {
+            curColdSpell = { startDate: d.date, endDate: d.date, days: 1, minTemp: d.minTemp };
+          } else {
+            curColdSpell.endDate = d.date;
+            curColdSpell.days++;
+            if (d.minTemp < curColdSpell.minTemp) curColdSpell.minTemp = d.minTemp;
+          }
+        } else {
+          if (curColdSpell) { coldSpells.push(curColdSpell); curColdSpell = null; }
+        }
+      }
+      if (curColdSpell) coldSpells.push(curColdSpell);
+
+      coldSpells.sort((a, b) => b.days - a.days || a.minTemp - b.minTemp);
+      const topColdSpells = coldSpells.slice(0, 15);
+      const coldSpellTbody = document.getElementById('spell-cold-tbody');
+      if (coldSpellTbody) {
+        coldSpellTbody.innerHTML = '';
+        topColdSpells.forEach((sp, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-sky-50/50 dark:hover:bg-sky-950/30";
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 text-right font-black text-blue-600 dark:text-blue-400 font-mono text-sm">${sp.days} 天</td>
+            <td class="px-3 py-2 font-mono text-slate-700 dark:text-slate-200">
+              <span>${sp.startDate}</span>
+              <span class="text-slate-400 mx-1">&rarr;</span>
+              <span>${sp.endDate}</span>
+            </td>
+            <td class="px-3 py-2 text-right font-bold font-mono text-blue-600 dark:text-blue-400">${sp.minTemp.toFixed(1)} °C</td>
+          `;
+          coldSpellTbody.appendChild(tr);
+        });
+      }
+    }
+
+    function initHotNightsModule() {
+      const yearMap = new Map();
+
+      currentWeatherData.forEach(d => {
+        if (!yearMap.has(d.year)) {
+          yearMap.set(d.year, { year: d.year, hotNights: 0, maxMinTemp: -999, firstDate: null, lastDate: null, firstMMDD: null, lastMMDD: null });
+        }
+        const yObj = yearMap.get(d.year);
+
+        if (d.minTemp !== null && d.minTemp >= HOT_NIGHT_THRESHOLD) {
+          yObj.hotNights++;
+          if (!yObj.firstDate) { yObj.firstDate = d.date; yObj.firstMMDD = d.mmdd; }
+          yObj.lastDate = d.date; yObj.lastMMDD = d.mmdd;
+        }
+        if (d.minTemp !== null && d.minTemp > yObj.maxMinTemp) {
+          yObj.maxMinTemp = d.minTemp;
+        }
+      });
+
+      const list = Array.from(yearMap.values());
+      const byHotNights = [...list].sort((a, b) => b.hotNights - a.hotNights);
+      if (byHotNights.length > 0) {
+        document.getElementById('hn-top-days').textContent = byHotNights[0].hotNights;
+        document.getElementById('hn-top-year').textContent = `${byHotNights[0].year} 年創歷史紀錄`;
+      }
+
+      const withHotNights = list.filter(item => item.firstDate !== null);
+      withHotNights.sort((a, b) => (a.firstMMDD || '').localeCompare(b.firstMMDD || ''));
+      if (withHotNights.length > 0) {
+        document.getElementById('hn-earliest-date').textContent = withHotNights[0].firstDate;
+        document.getElementById('hn-earliest-info').textContent = `${withHotNights[0].year} 年首發`;
+      }
+
+      const byLatest = [...withHotNights].sort((a, b) => (b.lastMMDD || '').localeCompare(a.lastMMDD || ''));
+      if (byLatest.length > 0) {
+        document.getElementById('hn-latest-date').textContent = byLatest[0].lastDate;
+        document.getElementById('hn-latest-info').textContent = `${byLatest[0].year} 年終發`;
+      }
+
+      const topHnTbody = document.getElementById('top-hot-nights-tbody');
+      if (topHnTbody) {
+        topHnTbody.innerHTML = '';
+        byHotNights.slice(0, 10).forEach((item, idx) => {
+          const tr = document.createElement('tr');
+          const highlightClass = getYearHighlightClasses(item.year);
+          tr.className = `hover:bg-orange-50/50 dark:hover:bg-orange-950/30 transition-colors ${highlightClass}`;
+          const inc = incompleteYears.has(item.year) ? `<span title="不完整年份" class="text-amber-500 font-bold ml-1">*</span>` : '';
+          const targetBadge = getTargetYearBadge(item.year);
+
+          tr.innerHTML = `
+            <td class="px-4 py-2.5">${getRankBadge(idx + 1)}</td>
+            <td class="px-4 py-2.5 font-bold text-slate-900 dark:text-slate-100 flex items-center flex-wrap gap-1">
+              <span>${item.year} 年${inc}</span>
+              ${targetBadge}
+            </td>
+            <td class="px-4 py-2.5 text-right font-black text-orange-600 dark:text-orange-400 font-mono text-sm">${item.hotNights} 天</td>
+            <td class="px-4 py-2.5 text-right">${formatTempWithBadge(item.maxMinTemp, item.year, 'night')}</td>
+          `;
+          topHnTbody.appendChild(tr);
+        });
+      }
+    }
+
+    let extremesTopHotCache = [];
+    let extremesTopColdCache = [];
+
+    function renderExtremesTablesWithCurrent() {
+      const hotTbody = document.getElementById('top-hot-tbody');
+      if (hotTbody) {
+        hotTbody.innerHTML = '';
+        extremesTopHotCache.forEach((item, idx) => {
+          const tr = document.createElement('tr');
+          const highlightClass = getYearHighlightClasses(item.year);
+          tr.className = `hover:bg-rose-50/50 dark:hover:bg-rose-950/30 transition-colors ${highlightClass}`;
+          const inc = incompleteYears.has(item.year) ? `<span title="不完整年份" class="text-amber-500 font-bold ml-1">*</span>` : '';
+          const targetBadge = getTargetYearBadge(item.year);
+
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 flex items-center flex-wrap gap-1">
+              <span>${item.year} 年${inc}</span>
+              ${targetBadge}
+            </td>
+            <td class="px-3 py-2 text-right font-black text-rose-600 dark:text-rose-400 text-sm font-mono">${item.hotDays} 天</td>
+            <td class="px-3 py-2 text-right">${formatTempWithBadge(item.maxTemp, item.year, 'hot')}</td>
+          `;
+          hotTbody.appendChild(tr);
+        });
+      }
+
+      const coldTbody = document.getElementById('top-cold-tbody');
+      if (coldTbody) {
+        coldTbody.innerHTML = '';
+        extremesTopColdCache.forEach((item, idx) => {
+          const tr = document.createElement('tr');
+          const highlightClass = getYearHighlightClasses(item.year);
+          tr.className = `hover:bg-sky-50/50 dark:hover:bg-sky-950/30 transition-colors ${highlightClass}`;
+          const inc = incompleteYears.has(item.year) ? `<span title="不完整年份" class="text-amber-500 font-bold ml-1">*</span>` : '';
+          const targetBadge = getTargetYearBadge(item.year);
+
+          tr.innerHTML = `
+            <td class="px-3 py-2">${getRankBadge(idx + 1)}</td>
+            <td class="px-3 py-2 font-bold text-slate-900 dark:text-slate-100 flex items-center flex-wrap gap-1">
+              <span>${item.year} 年${inc}</span>
+              ${targetBadge}
+            </td>
+            <td class="px-3 py-2 text-right font-black text-blue-600 dark:text-blue-400 text-sm font-mono">${item.coldDays} 天</td>
+            <td class="px-3 py-2 text-right">${formatTempWithBadge(item.minTemp, item.year, 'cold')}</td>
+          `;
+          coldTbody.appendChild(tr);
+        });
+      }
+    }
+
+    function initExtremesModule() {
+      const yearMap = new Map();
+
+      currentWeatherData.forEach(d => {
+        if (!yearMap.has(d.year)) {
+          yearMap.set(d.year, { year: d.year, hotDays: 0, coldDays: 0, maxTemp: -999, minTemp: 999 });
+        }
+        const s = yearMap.get(d.year);
+        if (d.maxTemp !== null && d.maxTemp >= HOT_DAY_THRESHOLD) s.hotDays++;
+        if (d.minTemp !== null && d.minTemp <= COLD_DAY_THRESHOLD) s.coldDays++;
+        if (d.maxTemp !== null && d.maxTemp > s.maxTemp) s.maxTemp = d.maxTemp;
+        if (d.minTemp !== null && d.minTemp < s.minTemp) s.minTemp = d.minTemp;
+      });
+
+      const list = Array.from(yearMap.values());
+      extremesTopHotCache = [...list].sort((a, b) => b.hotDays - a.hotDays).slice(0, 10);
+      extremesTopColdCache = [...list].sort((a, b) => b.coldDays - a.coldDays).slice(0, 10);
+
+      renderExtremesTablesWithCurrent();
+    }
+
+    /* Decades Module Cards & Table */
+    function initDecadesModule() {
+      const years = currentWeatherData.map(d => d.year);
+      if (years.length === 0) return;
+      const minYear = Math.min(...years);
+      const maxYear = Math.max(...years);
+
+      const decadeDefs = [];
+      const startDecade = Math.floor(minYear / 10) * 10;
+      const endDecade = Math.floor(maxYear / 10) * 10;
+
+      for (let y = startDecade; y <= endDecade; y += 10) {
+        const dStart = Math.max(minYear, y);
+        const dEnd = Math.min(maxYear, y + 9);
+        decadeDefs.push({ label: `${y}s`, start: dStart, end: dEnd, span: `${dStart} – ${dEnd}` });
+      }
+
+      const refMean = annualNormalMean || 23.2;
+
+      const decadeStats = decadeDefs.map(d => {
+        const records = currentWeatherData.filter(item => item.year >= d.start && item.year <= d.end);
+        const uniqueYears = Array.from(new Set(records.map(r => r.year)));
+        const numYears = Math.max(1, uniqueYears.length);
+
+        let sumAvg = 0, countAvg = 0;
+        let totalRain = 0, totalHotDays = 0, totalHotNights = 0, totalColdDays = 0;
+
+        records.forEach(r => {
+          if (r.avgTemp !== null) { sumAvg += r.avgTemp; countAvg++; }
+          totalRain += r.rain;
+          if (r.maxTemp !== null && r.maxTemp >= HOT_DAY_THRESHOLD) totalHotDays++;
+          if (r.minTemp !== null && r.minTemp >= HOT_NIGHT_THRESHOLD) totalHotNights++;
+          if (r.minTemp !== null && r.minTemp <= COLD_DAY_THRESHOLD) totalColdDays++;
+        });
+
+        const meanAvg = countAvg > 0 ? sumAvg / countAvg : 0;
+        const anomaly = meanAvg > 0 ? (meanAvg - refMean) : null;
+
+        return {
+          label: d.label,
+          start: d.start,
+          span: d.span,
+          meanAvg: meanAvg,
+          anomaly: anomaly,
+          annualRain: totalRain / numYears,
+          annualHotDays: totalHotDays / numYears,
+          annualHotNights: totalHotNights / numYears,
+          annualColdDays: totalColdDays / numYears
+        };
+      });
+
+      const cardsGrid = document.getElementById('decades-cards-grid');
+      if (cardsGrid) {
+        cardsGrid.innerHTML = '';
+        decadeStats.forEach(d => {
+          const card = document.createElement('div');
+          card.className = "bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-4 flex flex-col justify-between space-y-3";
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-base font-black text-slate-900 dark:text-white">${d.label}</span>
+                <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">${d.span}</span>
+              </div>
+              <div class="mt-2 flex items-baseline justify-between">
+                <div class="flex items-baseline gap-1.5">
+                  <span class="text-2xl font-black text-sky-700 dark:text-sky-400 font-mono">${d.meanAvg.toFixed(2)}</span>
+                  <span class="text-xs text-slate-500">°C 均溫</span>
+                </div>
+                <div class="text-right">
+                  <span class="text-[10px] text-slate-400 block">年代距平</span>
+                  ${formatAnomalyBadge(d.anomaly)}
+                </div>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-200/70 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-[11px]">
+              <div><span class="text-slate-400 block">年均降雨</span><span class="font-bold text-cyan-700 dark:text-cyan-400 font-mono">${Math.round(d.annualRain)} mm</span></div>
+              <div><span class="text-slate-400 block">年均酷熱日</span><span class="font-bold text-rose-600 dark:text-rose-400 font-mono">${d.annualHotDays.toFixed(1)} 天</span></div>
+              <div><span class="text-slate-400 block">年均熱夜</span><span class="font-bold text-orange-600 dark:text-orange-400 font-mono">${d.annualHotNights.toFixed(1)} 天</span></div>
+              <div><span class="text-slate-400 block">年均寒冷日</span><span class="font-bold text-blue-600 dark:text-blue-400 font-mono">${d.annualColdDays.toFixed(1)} 天</span></div>
+            </div>
+          `;
+          cardsGrid.appendChild(card);
+        });
+      }
+
+      const tbody = document.getElementById('decades-table-tbody');
+      if (tbody) {
+        tbody.innerHTML = '';
+        decadeStats.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/50";
+          tr.innerHTML = `
+            <td class="px-4 py-2.5 font-black text-slate-900 dark:text-white">${d.label}</td>
+            <td class="px-4 py-2.5 font-mono text-slate-500 dark:text-slate-400">${d.span}</td>
+            <td class="px-4 py-2.5 text-right font-black text-slate-800 dark:text-slate-100 font-mono text-sm">${d.meanAvg.toFixed(2)}</td>
+            <td class="px-4 py-2.5 text-right font-mono text-sm">${formatAnomalyBadge(d.anomaly)}</td>
+            <td class="px-4 py-2.5 text-right font-bold text-cyan-700 dark:text-cyan-400 font-mono">${Math.round(d.annualRain).toLocaleString()}</td>
+            <td class="px-4 py-2.5 text-right font-bold text-rose-600 dark:text-rose-400 font-mono">${d.annualHotDays.toFixed(1)}</td>
+            <td class="px-4 py-2.5 text-right font-bold text-orange-600 dark:text-orange-400 font-mono">${d.annualHotNights.toFixed(1)}</td>
+            <td class="px-4 py-2.5 text-right font-bold text-blue-600 dark:text-blue-400 font-mono">${d.annualColdDays.toFixed(1)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        makeTableSortable('decades-table');
+      }
+    }
+
+    /* Cumulative Rainfall Module */
+    let topWetYears = [];
+    let topDryYears = [];
+    let recentYearsList = [];
+    let allYearTotalsCache = [];
+
+    function renderRainTableWithCurrent() {
+      const rainSort = document.getElementById('rain-sort-select');
+      const mode = rainSort ? rainSort.value : 'wet-desc';
+      const sorted = [...allYearTotalsCache];
+
+      if (mode === 'wet-desc') sorted.sort((a, b) => b.totalRain - a.totalRain);
+      else if (mode === 'dry-asc') sorted.sort((a, b) => a.totalRain - b.totalRain);
+      else if (mode === 'year-asc') sorted.sort((a, b) => a.year - b.year);
+      else if (mode === 'year-desc') sorted.sort((a, b) => b.year - a.year);
+
+      const tbody = document.getElementById('rainfall-table-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      sorted.forEach((item, idx) => {
+        const rank = idx + 1;
+        const tr = document.createElement('tr');
+        const highlightClass = getYearHighlightClasses(item.year);
+        tr.className = `hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${highlightClass}`;
+        const inc = incompleteYears.has(item.year) ? `<span title="不完整觀測年份" class="text-amber-500 font-bold ml-1">*</span>` : '';
+        const targetBadge = getTargetYearBadge(item.year);
+
+        tr.innerHTML = `
+          <td class="px-4 py-2.5">${getRankBadge(rank)}</td>
+          <td class="px-4 py-2.5 font-bold text-slate-900 dark:text-slate-100 flex items-center flex-wrap gap-1">
+            <span>${item.year} 年${inc}</span>
+            ${targetBadge}
+          </td>
+          <td class="px-4 py-2.5 text-right font-black text-cyan-700 dark:text-cyan-400 font-mono">${item.totalRain.toLocaleString()}</td>
+          <td class="px-4 py-2.5 text-right text-slate-700 dark:text-slate-300 font-medium font-mono">${item.rainDays} 日</td>
+          <td class="px-4 py-2.5 text-right font-bold text-slate-800 dark:text-slate-200 font-mono">${item.maxSingleDay.toFixed(1)}</td>
+          <td class="px-4 py-2.5 text-slate-500 dark:text-slate-400 font-mono text-[11px]">${item.maxSingleDate}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function initCumulativeRainfallModule() {
+      const yearTotalsMap = new Map();
+
+      currentWeatherData.forEach(d => {
+        if (!yearTotalsMap.has(d.year)) {
+          yearTotalsMap.set(d.year, { year: d.year, totalRain: 0, rainDays: 0, maxSingleDay: 0, maxSingleDate: "" });
+        }
+        const s = yearTotalsMap.get(d.year);
+        s.totalRain += d.rain;
+        if (d.rain >= 0.1) s.rainDays++;
+        if (d.rain > s.maxSingleDay) {
+          s.maxSingleDay = d.rain;
+          s.maxSingleDate = d.date;
+        }
+      });
+
+      allYearTotalsCache = Array.from(yearTotalsMap.values()).map(r => ({
+        year: r.year,
+        totalRain: parseFloat(r.totalRain.toFixed(1)),
+        rainDays: r.rainDays,
+        maxSingleDay: parseFloat(r.maxSingleDay.toFixed(1)),
+        maxSingleDate: r.maxSingleDate || "--"
+      }));
+
+      const completeYearList = allYearTotalsCache.filter(r => !incompleteYears.has(r.year));
+
+      topWetYears = [...completeYearList].sort((a, b) => b.totalRain - a.totalRain).slice(0, 3).map(y => y.year);
+      topDryYears = [...completeYearList].sort((a, b) => a.totalRain - b.totalRain).slice(0, 3).map(y => y.year);
+
+      const allYearsSorted = Array.from(yearTotalsMap.keys()).sort((a, b) => b - a);
+      recentYearsList = allYearsSorted.slice(0, 2);
+
+      const addYearSelect = document.getElementById('chart-add-year-select');
+      if (addYearSelect) {
+        addYearSelect.innerHTML = '<option value="">+ 選擇要加入的年份</option>';
+        allYearsSorted.forEach(y => {
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = `${y} 年`;
+          addYearSelect.appendChild(opt);
+        });
+
+        selectedRainYears.clear();
+        addYearSelect.addEventListener('change', () => {
+          const val = parseInt(addYearSelect.value, 10);
+          if (val) {
+            selectedRainYears.add(val);
+            addYearSelect.value = "";
+            renderCumulativeRainfallChart();
+          }
+        });
+      }
+
+      const resetYearsBtn = document.getElementById('chart-reset-years-btn');
+      if (resetYearsBtn) {
+        resetYearsBtn.addEventListener('click', () => {
+          selectedRainYears.clear();
+          renderCumulativeRainfallChart();
+        });
+      }
+
+      const wetContainer = document.getElementById('rain-top-wet-cards');
+      if (wetContainer) {
+        wetContainer.innerHTML = '';
+        [...completeYearList].sort((a, b) => b.totalRain - a.totalRain).slice(0, 5).forEach((item, idx) => {
+          const div = document.createElement('div');
+          div.className = "flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-cyan-100 dark:border-cyan-900/60 shadow-2xs";
+          div.innerHTML = `
+            <div class="flex items-center space-x-2">
+              ${getRankBadge(idx + 1)}
+              <span class="font-bold text-slate-800 dark:text-slate-100">${item.year} 年</span>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500">(${item.rainDays} 雨日)</span>
+            </div>
+            <span class="font-black text-cyan-700 dark:text-cyan-400 text-sm">${item.totalRain.toLocaleString()} mm</span>
+          `;
+          wetContainer.appendChild(div);
+        });
+      }
+
+      const dryContainer = document.getElementById('rain-top-dry-cards');
+      if (dryContainer) {
+        dryContainer.innerHTML = '';
+        [...completeYearList].sort((a, b) => a.totalRain - b.totalRain).slice(0, 5).forEach((item, idx) => {
+          const div = document.createElement('div');
+          div.className = "flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/60 shadow-2xs";
+          div.innerHTML = `
+            <div class="flex items-center space-x-2">
+              ${getRankBadge(idx + 1)}
+              <span class="font-bold text-slate-800 dark:text-slate-100">${item.year} 年</span>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500">(${item.rainDays} 雨日)</span>
+            </div>
+            <span class="font-black text-amber-800 dark:text-amber-400 text-sm">${item.totalRain.toLocaleString()} mm</span>
+          `;
+          dryContainer.appendChild(div);
+        });
+      }
+
+      const rainSort = document.getElementById('rain-sort-select');
+      if (rainSort) {
+        rainSort.addEventListener('change', renderRainTableWithCurrent);
+      }
+      renderRainTableWithCurrent();
+      makeTableSortable('rainfall-table');
+      renderCumulativeRainfallChart();
+    }
+
+    function renderCumulativeRainfallChart() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const textColor = isDark ? '#cbd5e1' : '#475569';
+      const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+
+      const labels = [];
+      const daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      for (let m = 0; m < 12; m++) {
+        for (let d = 1; d <= daysPerMonth[m]; d++) {
+          labels.push(`${m + 1}/${d}`);
+        }
+      }
+
+      const normalDailyRain = new Array(365).fill(0);
+      const normalCounts = new Array(365).fill(0);
+
+      currentWeatherData.forEach(d => {
+        if (d.year >= NORMAL_START_YEAR && d.year <= NORMAL_END_YEAR) {
+          const startOfYear = new Date(d.year, 0, 1);
+          const cur = new Date(d.year, d.month - 1, d.day);
+          const diffDays = Math.floor((cur - startOfYear) / 86400000);
+          if (diffDays >= 0 && diffDays < 365) {
+            normalDailyRain[diffDays] += d.rain;
+            normalCounts[diffDays]++;
+          }
+        }
+      });
+
+      const normalCumulative = [];
+      let runningNormal = 0;
+      for (let i = 0; i < 365; i++) {
+        const avgDayRain = normalCounts[i] > 0 ? (normalDailyRain[i] / normalCounts[i]) : 0;
+        runningNormal += avgDayRain;
+        normalCumulative.push(parseFloat(runningNormal.toFixed(1)));
+      }
+
+      function getYearCumulativeData(year) {
+        const yearRecords = currentWeatherData.filter(d => d.year === year).sort((a, b) => a.date.localeCompare(b.date));
+        const cumData = [];
+        let runningTotal = 0;
+
+        for (let i = 0; i < 365; i++) {
+          const rec = yearRecords[i];
+          if (!rec) {
+            cumData.push(runningTotal > 0 ? parseFloat(runningTotal.toFixed(1)) : null);
+          } else {
+            runningTotal += rec.rain;
+            cumData.push(parseFloat(runningTotal.toFixed(1)));
+          }
+        }
+        return cumData;
+      }
+
+      const datasets = [];
+
+      datasets.push({
+        label: '1991–2020 常年平均累積',
+        data: normalCumulative,
+        borderColor: isDark ? '#94a3b8' : '#64748b',
+        borderWidth: 2.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        tension: 0.25,
+        order: 9
+      });
+
+      const wetColors = ['#0284c7', '#0ea5e9', '#38bdf8'];
+      topWetYears.forEach((y, idx) => {
+        datasets.push({
+          label: `最高 #${idx + 1} (${y}年)`,
+          data: getYearCumulativeData(y),
+          borderColor: wetColors[idx] || '#0284c7',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.2,
+          order: 6
+        });
+      });
+
+      const dryColors = ['#ea580c', '#f97316', '#fb923c'];
+      topDryYears.forEach((y, idx) => {
+        datasets.push({
+          label: `最低 #${idx + 1} (${y}年)`,
+          data: getYearCumulativeData(y),
+          borderColor: dryColors[idx] || '#ea580c',
+          borderWidth: 1.8,
+          pointRadius: 0,
+          tension: 0.2,
+          order: 7
+        });
+      });
+
+      const mostRecentYear = recentYearsList[0];
+      const secondRecentYear = recentYearsList[1];
+
+      if (secondRecentYear && secondRecentYear !== mostRecentYear) {
+        datasets.push({
+          label: `前一年 (${secondRecentYear}年)`,
+          data: getYearCumulativeData(secondRecentYear),
+          borderColor: '#8b5cf6',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.2,
+          order: 4
+        });
+      }
+
+      if (mostRecentYear) {
+        datasets.push({
+          label: `最新年份 (${mostRecentYear}年) ★最易識別`,
+          data: getYearCumulativeData(mostRecentYear),
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          fill: true,
+          borderWidth: 4.5,
+          pointRadius: (ctx) => {
+            const index = ctx.dataIndex;
+            const dataArr = ctx.dataset.data;
+            const lastValidIdx = dataArr.findLastIndex(v => v !== null);
+            return index === lastValidIdx ? 6 : 0;
+          },
+          pointBackgroundColor: '#10b981',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          tension: 0.2,
+          order: 1
+        });
+      }
+
+      const customColors = ['#ec4899', '#eab308', '#14b8a6', '#6366f1'];
+      let cIdx = 0;
+      selectedRainYears.forEach(y => {
+        if (!datasets.some(d => d.label.includes(String(y)))) {
+          datasets.push({
+            label: `${y} 年 (自選)`,
+            data: getYearCumulativeData(y),
+            borderColor: customColors[cIdx % customColors.length],
+            borderWidth: 2.5,
+            pointRadius: 0,
+            tension: 0.2,
+            order: 3
+          });
+          cIdx++;
+        }
+      });
+
+      const pillsContainer = document.getElementById('chart-active-years-pills');
+      if (pillsContainer) {
+        pillsContainer.innerHTML = '';
+        datasets.forEach(ds => {
+          const pill = document.createElement('span');
+          pill.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border";
+          pill.style.borderColor = ds.borderColor;
+          pill.style.backgroundColor = isDark ? 'rgba(30, 41, 59, 0.8)' : '#ffffff';
+          pill.style.color = ds.borderColor;
+          pill.innerHTML = `
+            <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${ds.borderColor}"></span>
+            <span>${ds.label}</span>
+          `;
+          pillsContainer.appendChild(pill);
+        });
+      }
+
+      const chartCanvas = document.getElementById('cumulativeRainChart');
+      if (!chartCanvas) return;
+
+      if (cumulativeRainChartInstance) {
+        cumulativeRainChartInstance.destroy();
+      }
+
+      const ctx = chartCanvas.getContext('2d');
+      cumulativeRainChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              titleColor: isDark ? '#f8fafc' : '#0f172a',
+              bodyColor: isDark ? '#e2e8f0' : '#334155',
+              borderColor: isDark ? '#334155' : '#e2e8f0',
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                label: function (context) {
+                  const val = context.parsed.y;
+                  return ` ${context.dataset.label}: ${val !== null ? val.toLocaleString() + ' mm' : '--'}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: gridColor },
+              ticks: { color: textColor, maxTicksLimit: 12, font: { size: 10 } }
+            },
+            y: {
+              title: { display: true, text: '累積降雨量 (mm)', color: textColor, font: { size: 11, weight: 'bold' } },
+              grid: { color: gridColor },
+              ticks: { color: textColor, font: { size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
     let annualMeanChartInstance = null;
     let globalActiveLeaderboards = new Map();
 
