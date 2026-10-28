@@ -41,16 +41,6 @@
     .dark ::-webkit-scrollbar-thumb { background: #334155; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    .highlight-target-year {
-      background-color: rgb(254 243 199 / 0.85) !important;
-      border-left: 4px solid #f59e0b !important;
-      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.25);
-    }
-    .dark .highlight-target-year {
-      background-color: rgb(69 26 3 / 0.65) !important;
-      border-left: 4px solid #f59e0b !important;
-      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
-    }
   </style>
   <script>
     if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -80,7 +70,7 @@
         </div>
       </div>
 
-      <!-- Header Controls -->
+      <!-- Controls -->
       <div class="flex items-center space-x-2 shrink-0">
         <div id="status-container" class="hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
           <span id="status-dot" class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
@@ -117,10 +107,10 @@
     </div>
   </div>
 
-  <!-- Main Content Layout (Only Tab: 歷史紀錄檢索與極端排名) -->
+  <!-- Main Content Layout -->
   <main id="dashboard-content" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
-    <!-- Overall KPI Summary -->
+    <!-- KPI Summary Cards -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
       <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div class="flex items-center justify-between text-slate-400 dark:text-slate-500">
@@ -183,7 +173,7 @@
       </div>
     </div>
 
-    <!-- TAB: 歷史紀錄檢索與極端排名 (Single Dedicated View) -->
+    <!-- 歷史紀錄檢索與極端排名 Section -->
     <section id="tab-search-record" class="space-y-4">
       <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
         <div class="pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -192,7 +182,7 @@
             <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">歷史紀錄智慧檢索與 Top 10 極端排名分析</h2>
           </div>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            輸入「年份」、「年份＋月份」或「年份＋月份＋日期」，系統同步比對偏暖/多雨（高）與偏冷/乾旱（低），採用標準跳號競賽名次法則（同分並列、次名跳號）。僅列出位居 Top 10 之項目。
+            輸入「年份」、「年份＋月份」或「年份＋月份＋日期」，系統同步比對偏高與偏低方向，採用標準跳號名次規則（同值並列、次名跳號），僅列出位居 Top 10 之項目。
           </p>
         </div>
 
@@ -279,14 +269,8 @@
           </div>
           <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
             <table class="w-full text-xs text-left">
-              <thead class="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th class="px-3 py-2 w-14">名次</th>
-                  <th class="px-3 py-2">所屬時間 / 觀測標的</th>
-                  <th class="px-3 py-2">創紀錄確切日期</th>
-                  <th class="px-3 py-2 text-right">數值</th>
-                  <th class="px-3 py-2">說明標記</th>
-                </tr>
+              <thead class="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700" id="sr-leaderboard-thead">
+                <!-- Dynamically Rendered Header -->
               </thead>
               <tbody id="sr-leaderboard-tbody" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
             </table>
@@ -303,7 +287,7 @@
     澳門氣象歷史大數據平台 &bull; 酷熱日: &ge; 32.6°C &bull; 熱夜: &ge; 27.5°C &bull; 寒冷日: &le; 12.5°C &bull; 基準常年期: 1991–2020
   </footer>
 
-  <!-- JAVASCRIPT APPLICATION LOGIC -->
+  <!-- JavaScript Application Logic -->
   <script>
     const CSV_URL_MAIN = 'data/1952-2026weather.csv';
     const CSV_URL_EARLY = 'data/1901-1951weather.csv';
@@ -322,7 +306,6 @@
     let annualNormalMean = 23.2;
     let globalActiveLeaderboards = new Map();
 
-    /* Theme */
     function initTheme() {
       const toggleBtn = document.getElementById('theme-toggle-btn');
       const darkIcon = document.getElementById('theme-toggle-dark-icon');
@@ -360,7 +343,6 @@
       return `<span class="text-slate-400 dark:text-slate-500 font-mono font-medium px-1.5">#${rank}</span>`;
     }
 
-    /* CSV Parsing */
     function parseCSVContent(csvString) {
       const result = Papa.parse(csvString, { header: true, skipEmptyLines: true });
       const list = [];
@@ -516,7 +498,11 @@
 
     /* Standard Competition Ranking Algorithm */
     function computeCompetitionRanks(items, key, highIsBetter = true) {
-      const valid = items.filter(it => it[key] !== null && it[key] !== undefined && !isNaN(it[key]));
+      // Deep clone to prevent mutating properties between runs
+      const cloned = items.map(it => ({ ...it }));
+      const valid = cloned.filter(it => it[key] !== null && it[key] !== undefined && !isNaN(it[key]));
+      
+      // Strict sorting: highIsBetter=true -> descending (highest first); false -> ascending (lowest first)
       valid.sort((a, b) => highIsBetter ? (b[key] - a[key]) : (a[key] - b[key]));
 
       let currentRank = 1;
@@ -526,7 +512,7 @@
           const curVal = valid[i][key];
           const diff = Math.abs(prevVal - curVal);
           if (diff > 0.0001) {
-            currentRank = i + 1;
+            currentRank = i + 1; // standard competition skip
           }
         }
         valid[i]._calculatedRank = currentRank;
@@ -695,7 +681,6 @@
         id: `${y.year}年`,
         year: y.year,
         label: `${y.year}年`,
-        recordDate: y.maxTempDate || `${y.year}-??-??`,
         annualAvgTemp: y.countAvg > 0 ? parseFloat((y.sumAvg / y.countAvg).toFixed(2)) : null,
         annualMeanMax: y.countMax > 0 ? parseFloat((y.sumMax / y.countMax).toFixed(2)) : null,
         annualMeanMin: y.countMin > 0 ? parseFloat((y.sumMin / y.countMin).toFixed(2)) : null,
@@ -745,13 +730,13 @@
         if (allZerosInPool) return;
         if (isCountOrRain && Math.abs(numVal) < 0.0001) return;
 
-        // Rank High (descending)
-        const highRanked = computeCompetitionRanks([...pool], key, true);
+        // Rank High: Descending
+        const highRanked = computeCompetitionRanks(pool, key, true);
         const matchHigh = highRanked.find(it => it.id === matchId);
         const rankHigh = matchHigh ? matchHigh._calculatedRank : 99999;
 
-        // Rank Low (ascending)
-        const lowRanked = computeCompetitionRanks([...pool], key, false);
+        // Rank Low: Ascending
+        const lowRanked = computeCompetitionRanks(pool, key, false);
         const matchLow = lowRanked.find(it => it.id === matchId);
         const rankLow = matchLow ? matchLow._calculatedRank : 99999;
 
@@ -770,13 +755,19 @@
 
         if (chosen) {
           const lbKey = `lb_${candidates.length}`;
+          // Get the top 10 elements in their strictly sorted order
           const sortedTop10List = chosen.rankedList.filter(it => it._calculatedRank <= 10);
 
+          // Only 日最高氣溫, 日最低氣溫, 日雨量 / 單日雨量 show record date column
+          const isEligibleDailyMetric = metricName.includes("最高氣溫") || metricName.includes("最低氣溫") || metricName.includes("雨量");
+          const shouldShowRecordDate = (dateKey !== null) && isEligibleDailyMetric && (metricName.includes("日") || metricName.includes("單日"));
+
           globalActiveLeaderboards.set(lbKey, {
-            title: `${metricName} - 歷史第 1 至 10 ${chosen.dir} 榜單 (查詢: ${scopeLabel})`,
+            title: `${metricName} - 歷史第 1 至 10 ${chosen.dir} 榜單 (${chosen.dir === '高' ? '由高至低' : '由低至高'})`,
             unit: unit,
             key: key,
             dateKey: dateKey,
+            showRecordDate: shouldShowRecordDate,
             targetId: matchId,
             list: sortedTop10List
           });
@@ -812,16 +803,16 @@
             rain: d.rain
           }));
 
-          registerCandidate({ metricName: "單日平均氣溫", scopeLabel: targetDate, targetVal: dayRecord.avgTemp !== null ? dayRecord.avgTemp.toFixed(1) : null, pool: dailyPool, key: "avgTemp", unit: "°C", matchId: targetDate, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日最高氣溫", scopeLabel: targetDate, targetVal: dayRecord.maxTemp !== null ? dayRecord.maxTemp.toFixed(1) : null, pool: dailyPool, key: "maxTemp", unit: "°C", matchId: targetDate, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日最低氣溫", scopeLabel: targetDate, targetVal: dayRecord.minTemp !== null ? dayRecord.minTemp.toFixed(1) : null, pool: dailyPool, key: "minTemp", unit: "°C", matchId: targetDate, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日雨量", scopeLabel: targetDate, targetVal: dayRecord.rain !== null ? dayRecord.rain.toFixed(1) : null, pool: dailyPool, key: "rain", unit: "mm", matchId: targetDate, dateKey: "actualDate" });
+          registerCandidate({ metricName: "單日平均氣溫", scopeLabel: targetDate, targetVal: dayRecord.avgTemp !== null ? dayRecord.avgTemp.toFixed(1) : null, pool: dailyPool, key: "avgTemp", unit: "°C", matchId: targetDate, dateKey: null });
+          registerCandidate({ metricName: "日最高氣溫", scopeLabel: targetDate, targetVal: dayRecord.maxTemp !== null ? dayRecord.maxTemp.toFixed(1) : null, pool: dailyPool, key: "maxTemp", unit: "°C", matchId: targetDate, dateKey: "actualDate" });
+          registerCandidate({ metricName: "日最低氣溫", scopeLabel: targetDate, targetVal: dayRecord.minTemp !== null ? dayRecord.minTemp.toFixed(1) : null, pool: dailyPool, key: "minTemp", unit: "°C", matchId: targetDate, dateKey: "actualDate" });
+          registerCandidate({ metricName: "日雨量", scopeLabel: targetDate, targetVal: dayRecord.rain !== null ? dayRecord.rain.toFixed(1) : null, pool: dailyPool, key: "rain", unit: "mm", matchId: targetDate, dateKey: "actualDate" });
         }
       }
       // SCENARIO 2: Year + Month
       else if (mVal !== null && dVal === null) {
         modeBadge.textContent = "層級：月度氣象與單日極端";
-        statusText.innerHTML = `已完成 <strong>${yVal} 年 ${mVal} 月</strong> 於歷史歷次 ${mVal} 月及月內各日之雙向極值比對。`;
+        statusText.innerHTML = `已完成 <strong>${yVal} 年 ${mVal} 月</strong> 於歷史歷次 ${mVal} 月及單日極端比對。`;
 
         const targetYM = `${yVal}-${String(mVal).padStart(2, '0')}`;
         const targetMonthObj = allMonthsMap.get(targetYM);
@@ -835,13 +826,13 @@
           registerCandidate({ metricName: "月平均氣溫", scopeLabel: `${yVal}年${mVal}月`, targetVal: mAvg, pool: sameMonthPool, key: "monthAvgTemp", unit: "°C", matchId: targetYM });
           registerCandidate({ metricName: "月平均最高氣溫", scopeLabel: `${yVal}年${mVal}月`, targetVal: mMax, pool: sameMonthPool, key: "monthMeanMax", unit: "°C", matchId: targetYM });
           registerCandidate({ metricName: "月平均最低氣溫", scopeLabel: `${yVal}年${mVal}月`, targetVal: mMin, pool: sameMonthPool, key: "monthMeanMin", unit: "°C", matchId: targetYM });
-          registerCandidate({ metricName: "月最高氣溫 (極端)", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.maxTemp > -900 ? targetMonthObj.maxTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMax", unit: "°C", matchId: targetYM, dateKey: "monthExtremeMaxDate" });
-          registerCandidate({ metricName: "月最低氣溫 (極端)", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.minTemp < 900 ? targetMonthObj.minTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMin", unit: "°C", matchId: targetYM, dateKey: "monthExtremeMinDate" });
+          registerCandidate({ metricName: "月最高氣溫", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.maxTemp > -900 ? targetMonthObj.maxTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMax", unit: "°C", matchId: targetYM, dateKey: null });
+          registerCandidate({ metricName: "月最低氣溫", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.minTemp < 900 ? targetMonthObj.minTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMin", unit: "°C", matchId: targetYM, dateKey: null });
           registerCandidate({ metricName: "月酷熱日數", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.hotDays, pool: sameMonthPool, key: "hotDays", unit: "天", matchId: targetYM });
           registerCandidate({ metricName: "月寒冷日數", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.coldDays, pool: sameMonthPool, key: "coldDays", unit: "天", matchId: targetYM });
           registerCandidate({ metricName: "月熱夜日數", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.hotNights, pool: sameMonthPool, key: "hotNights", unit: "天", matchId: targetYM });
           registerCandidate({ metricName: "月總雨量", scopeLabel: `${yVal}年${mVal}月`, targetVal: parseFloat(targetMonthObj.totalRain.toFixed(1)), pool: sameMonthPool, key: "totalRain", unit: "mm", matchId: targetYM });
-          registerCandidate({ metricName: "月單日最大雨量", scopeLabel: `${yVal}年${mVal}月`, targetVal: parseFloat(targetMonthObj.maxSingleRain.toFixed(1)), pool: sameMonthPool, key: "maxSingleRain", unit: "mm", matchId: targetYM, dateKey: "maxSingleRainDate" });
+          registerCandidate({ metricName: "月單日最大雨量", scopeLabel: `${yVal}年${mVal}月`, targetVal: parseFloat(targetMonthObj.maxSingleRain.toFixed(1)), pool: sameMonthPool, key: "maxSingleRain", unit: "mm", matchId: targetYM, dateKey: null });
           registerCandidate({ metricName: "月降雨日數", scopeLabel: `${yVal}年${mVal}月`, targetVal: targetMonthObj.rainDays, pool: sameMonthPool, key: "rainDays", unit: "天", matchId: targetYM });
         }
 
@@ -849,15 +840,14 @@
         const dailyPool = allDailyRecords.map(d => ({ id: d.date, label: d.date, actualDate: d.date, maxTemp: d.maxTemp, minTemp: d.minTemp, avgTemp: d.avgTemp, rain: d.rain }));
 
         monthDays.forEach(d => {
-          registerCandidate({ metricName: "單日平均氣溫 (月內極端)", scopeLabel: d.date, targetVal: d.avgTemp !== null ? d.avgTemp.toFixed(1) : null, pool: dailyPool, key: "avgTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日最高氣溫 (月內極端)", scopeLabel: d.date, targetVal: d.maxTemp !== null ? d.maxTemp.toFixed(1) : null, pool: dailyPool, key: "maxTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日最低氣溫 (月內極端)", scopeLabel: d.date, targetVal: d.minTemp !== null ? d.minTemp.toFixed(1) : null, pool: dailyPool, key: "minTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
+          registerCandidate({ metricName: "日最高氣溫 (月內極端)", scopeLabel: d.date, targetVal: d.maxTemp !== null ? d.maxTemp.toFixed(1) : null, pool: dailyPool, key: "maxTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
+          registerCandidate({ metricName: "日最低氣溫 (月內極端)", scopeLabel: d.date, targetVal: d.minTemp !== null ? d.minTemp.toFixed(1) : null, pool: dailyPool, key: "minTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
           registerCandidate({ metricName: "單日雨量 (月內暴雨)", scopeLabel: d.date, targetVal: d.rain > 0 ? d.rain.toFixed(1) : null, pool: dailyPool, key: "rain", unit: "mm", matchId: d.date, dateKey: "actualDate" });
         });
       }
       // SCENARIO 1: Year Only
       else {
-        modeBadge.textContent = "層級：全年宏觀大數據極端";
+        modeBadge.textContent = "層級：全年綜合指標極端";
         statusText.innerHTML = `已完成 <strong>${yVal} 年度</strong> 全年各項指標之雙向極值排位！`;
 
         const curTargetYear = annualPool.find(y => y.year === yVal);
@@ -865,13 +855,13 @@
           registerCandidate({ metricName: "全年平均氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualAvgTemp, pool: annualPool, key: "annualAvgTemp", unit: "°C", matchId: `${yVal}年` });
           registerCandidate({ metricName: "年平均最高氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualMeanMax, pool: annualPool, key: "annualMeanMax", unit: "°C", matchId: `${yVal}年` });
           registerCandidate({ metricName: "年平均最低氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualMeanMin, pool: annualPool, key: "annualMeanMin", unit: "°C", matchId: `${yVal}年` });
-          registerCandidate({ metricName: "全年最高氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualExtremeMax !== null ? curTargetYear.annualExtremeMax.toFixed(1) : null, pool: annualPool, key: "annualExtremeMax", unit: "°C", matchId: `${yVal}年`, dateKey: "annualExtremeMaxDate" });
-          registerCandidate({ metricName: "全年最低氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualExtremeMin !== null ? curTargetYear.annualExtremeMin.toFixed(1) : null, pool: annualPool, key: "annualExtremeMin", unit: "°C", matchId: `${yVal}年`, dateKey: "annualExtremeMinDate" });
+          registerCandidate({ metricName: "全年最高氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualExtremeMax !== null ? curTargetYear.annualExtremeMax.toFixed(1) : null, pool: annualPool, key: "annualExtremeMax", unit: "°C", matchId: `${yVal}年`, dateKey: null });
+          registerCandidate({ metricName: "全年最低氣溫", scopeLabel: `${yVal}年`, targetVal: curTargetYear.annualExtremeMin !== null ? curTargetYear.annualExtremeMin.toFixed(1) : null, pool: annualPool, key: "annualExtremeMin", unit: "°C", matchId: `${yVal}年`, dateKey: null });
           registerCandidate({ metricName: "年酷熱日數", scopeLabel: `${yVal}年`, targetVal: curTargetYear.hotDays, pool: annualPool, key: "hotDays", unit: "天", matchId: `${yVal}年` });
           registerCandidate({ metricName: "年寒冷日數", scopeLabel: `${yVal}年`, targetVal: curTargetYear.coldDays, pool: annualPool, key: "coldDays", unit: "天", matchId: `${yVal}年` });
           registerCandidate({ metricName: "年熱夜日數", scopeLabel: `${yVal}年`, targetVal: curTargetYear.hotNights, pool: annualPool, key: "hotNights", unit: "天", matchId: `${yVal}年` });
           registerCandidate({ metricName: "年總雨量", scopeLabel: `${yVal}年`, targetVal: curTargetYear.totalRain, pool: annualPool, key: "totalRain", unit: "mm", matchId: `${yVal}年` });
-          registerCandidate({ metricName: "年單日最大雨量", scopeLabel: `${yVal}年`, targetVal: curTargetYear.maxSingleRain, pool: annualPool, key: "maxSingleRain", unit: "mm", matchId: `${yVal}年`, dateKey: "maxSingleRainDate" });
+          registerCandidate({ metricName: "年單日最大雨量", scopeLabel: `${yVal}年`, targetVal: curTargetYear.maxSingleRain, pool: annualPool, key: "maxSingleRain", unit: "mm", matchId: `${yVal}年`, dateKey: null });
           registerCandidate({ metricName: "年降雨日數", scopeLabel: `${yVal}年`, targetVal: curTargetYear.rainDays, pool: annualPool, key: "rainDays", unit: "天", matchId: `${yVal}年` });
         }
 
@@ -889,29 +879,28 @@
           registerCandidate({ metricName: `${m}月平均氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mAvg, pool: sameMonthPool, key: "monthAvgTemp", unit: "°C", matchId: ymKey });
           registerCandidate({ metricName: `${m}月平均最高氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mMax, pool: sameMonthPool, key: "monthMeanMax", unit: "°C", matchId: ymKey });
           registerCandidate({ metricName: `${m}月平均最低氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mMin, pool: sameMonthPool, key: "monthMeanMin", unit: "°C", matchId: ymKey });
-          registerCandidate({ metricName: `${m}月最高氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.maxTemp > -900 ? mObj.maxTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMax", unit: "°C", matchId: ymKey, dateKey: "monthExtremeMaxDate" });
-          registerCandidate({ metricName: `${m}月最低氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.minTemp < 900 ? mObj.minTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMin", unit: "°C", matchId: ymKey, dateKey: "monthExtremeMinDate" });
+          registerCandidate({ metricName: `${m}月最高氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.maxTemp > -900 ? mObj.maxTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMax", unit: "°C", matchId: ymKey, dateKey: null });
+          registerCandidate({ metricName: `${m}月最低氣溫`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.minTemp < 900 ? mObj.minTemp.toFixed(1) : null, pool: sameMonthPool, key: "monthExtremeMin", unit: "°C", matchId: ymKey, dateKey: null });
           registerCandidate({ metricName: `${m}月酷熱日數`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.hotDays, pool: sameMonthPool, key: "hotDays", unit: "天", matchId: ymKey });
           registerCandidate({ metricName: `${m}月寒冷日數`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.coldDays, pool: sameMonthPool, key: "coldDays", unit: "天", matchId: ymKey });
           registerCandidate({ metricName: `${m}月熱夜日數`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.hotNights, pool: sameMonthPool, key: "hotNights", unit: "天", matchId: ymKey });
           registerCandidate({ metricName: `${m}月總雨量`, scopeLabel: `${yVal}年${m}月`, targetVal: parseFloat(mObj.totalRain.toFixed(1)), pool: sameMonthPool, key: "totalRain", unit: "mm", matchId: ymKey });
-          registerCandidate({ metricName: `${m}月單日雨量`, scopeLabel: `${yVal}年${m}月`, targetVal: parseFloat(mObj.maxSingleRain.toFixed(1)), pool: sameMonthPool, key: "maxSingleRain", unit: "mm", matchId: ymKey, dateKey: "maxSingleRainDate" });
+          registerCandidate({ metricName: `${m}月單日雨量`, scopeLabel: `${yVal}年${m}月`, targetVal: parseFloat(mObj.maxSingleRain.toFixed(1)), pool: sameMonthPool, key: "maxSingleRain", unit: "mm", matchId: ymKey, dateKey: null });
           registerCandidate({ metricName: `${m}月降雨日數`, scopeLabel: `${yVal}年${m}月`, targetVal: mObj.rainDays, pool: sameMonthPool, key: "rainDays", unit: "天", matchId: ymKey });
         }
 
         // Single days within the entire year
         const dailyPool = allDailyRecords.map(d => ({ id: d.date, label: d.date, actualDate: d.date, maxTemp: d.maxTemp, minTemp: d.minTemp, avgTemp: d.avgTemp, rain: d.rain }));
         yearRecords.forEach(d => {
-          registerCandidate({ metricName: "單日最高氣溫 (創歷史紀錄)", scopeLabel: d.date, targetVal: d.maxTemp !== null ? d.maxTemp.toFixed(1) : null, pool: dailyPool, key: "maxTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日最低氣溫 (創歷史紀錄)", scopeLabel: d.date, targetVal: d.minTemp !== null ? d.minTemp.toFixed(1) : null, pool: dailyPool, key: "minTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
-          registerCandidate({ metricName: "單日平均氣溫 (極端)", scopeLabel: d.date, targetVal: d.avgTemp !== null ? d.avgTemp.toFixed(1) : null, pool: dailyPool, key: "avgTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
+          registerCandidate({ metricName: "日最高氣溫 (創歷史紀錄)", scopeLabel: d.date, targetVal: d.maxTemp !== null ? d.maxTemp.toFixed(1) : null, pool: dailyPool, key: "maxTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
+          registerCandidate({ metricName: "日最低氣溫 (創歷史紀錄)", scopeLabel: d.date, targetVal: d.minTemp !== null ? d.minTemp.toFixed(1) : null, pool: dailyPool, key: "minTemp", unit: "°C", matchId: d.date, dateKey: "actualDate" });
           if (d.rain >= 100) {
             registerCandidate({ metricName: "單日雨量 (特大暴雨)", scopeLabel: d.date, targetVal: d.rain.toFixed(1), pool: dailyPool, key: "rain", unit: "mm", matchId: d.date, dateKey: "actualDate" });
           }
         });
       }
 
-      // Unique by metricName, keep smallest rank
+      // Keep lowest rank for duplicate metric names
       const uniqueMetricMap = new Map();
       candidates.forEach(cand => {
         if (!uniqueMetricMap.has(cand.metricName)) {
@@ -978,10 +967,33 @@
 
       const modal = document.getElementById('sr-leaderboard-modal');
       const title = document.getElementById('sr-leaderboard-title');
+      const thead = document.getElementById('sr-leaderboard-thead');
       const tbody = document.getElementById('sr-leaderboard-tbody');
 
       title.textContent = data.title;
       tbody.innerHTML = '';
+
+      // Dynamically configure columns depending on whether record date is applicable
+      if (data.showRecordDate) {
+        thead.innerHTML = `
+          <tr>
+            <th class="px-3 py-2 w-14 text-center">名次</th>
+            <th class="px-3 py-2">所屬時間 / 觀測標的</th>
+            <th class="px-3 py-2">創紀錄確切日期</th>
+            <th class="px-3 py-2 text-right">數值</th>
+            <th class="px-3 py-2">說明標記</th>
+          </tr>
+        `;
+      } else {
+        thead.innerHTML = `
+          <tr>
+            <th class="px-3 py-2 w-14 text-center">名次</th>
+            <th class="px-3 py-2">所屬時間 / 觀測標的</th>
+            <th class="px-3 py-2 text-right">數值</th>
+            <th class="px-3 py-2">說明標記</th>
+          </tr>
+        `;
+      }
 
       data.list.forEach(row => {
         const isCurrentTarget = row.id === data.targetId;
@@ -992,20 +1004,16 @@
         const val = row[data.key];
         const valFormatted = (val !== null && typeof val === 'number') ? (Number.isInteger(val) ? val : val.toFixed(1)) : val;
 
-        // Resolve actual record date
-        let recordDateStr = "--";
-        if (data.dateKey && row[data.dateKey]) {
-          recordDateStr = row[data.dateKey];
-        } else if (row.actualDate) {
-          recordDateStr = row.actualDate;
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(row.id)) {
-          recordDateStr = row.id;
+        let dateCellHtml = '';
+        if (data.showRecordDate) {
+          let recordDateStr = row.actualDate || (data.dateKey && row[data.dateKey]) || (/^\d{4}-\d{2}-\d{2}$/.test(row.id) ? row.id : '--');
+          dateCellHtml = `<td class="px-3 py-2 font-mono text-slate-700 dark:text-slate-300 text-xs">${recordDateStr}</td>`;
         }
 
         tr.innerHTML = `
           <td class="px-3 py-2 font-mono text-center">${rankBadge}</td>
           <td class="px-3 py-2 font-bold text-slate-900 dark:text-slate-100">${row.label || row.id}</td>
-          <td class="px-3 py-2 font-mono text-slate-700 dark:text-slate-300 text-xs">${recordDateStr}</td>
+          ${dateCellHtml}
           <td class="px-3 py-2 text-right font-black font-mono text-sm">${valFormatted} ${data.unit}</td>
           <td class="px-3 py-2 text-[11px] ${isCurrentTarget ? 'text-amber-700 dark:text-amber-300 font-bold' : 'text-slate-400'}">
             ${isCurrentTarget ? '★ 本次查詢項目' : '歷年觀測紀錄'}
@@ -1018,7 +1026,6 @@
       modal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    /* Window Initializer */
     window.onload = function () {
       initTheme();
       const earlyCheckbox = document.getElementById('toggle-early-data');
