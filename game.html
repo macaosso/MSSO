@@ -97,6 +97,10 @@
           <i class="fa-solid fa-chart-pie"></i>
           <span>月報與檢索</span>
         </button>
+        <button id="navBtn-rankings" onclick="switchTab('rankings')" class="flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-ranking-star"></i>
+          <span>警報及提示排行榜</span>
+        </button>
         <button id="navBtn-settings" onclick="switchTab('settings')" class="flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5">
           <i class="fa-solid fa-gear"></i>
           <span>GitHub 設定</span>
@@ -482,7 +486,55 @@
       </div>
     </section>
 
-    <!-- ==================== TAB 3: GitHub 與設定 ==================== -->
+    <!-- ==================== TAB 3: 警報及提示排行榜 ==================== -->
+    <section id="tab-rankings" class="hidden space-y-4 sm:space-y-6">
+      <!-- Rankings Filter Control Panel -->
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2 text-slate-800 font-bold text-sm sm:text-base">
+            <i class="fa-solid fa-trophy text-amber-500"></i>
+            <span>氣象警報與提示歷史排行榜 &amp; 極值統計</span>
+          </div>
+          <span class="text-xs text-slate-400 font-mono">Top 5 排行榜 &bull; 每項詳細極值</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end">
+          <!-- Time Scope Toggle -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">統計範圍 (Scope)</label>
+            <div class="grid grid-cols-2 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-medium text-slate-600 text-center">
+              <button type="button" onclick="setRankingScope('all')" id="scopeBtn-all" class="py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold">全歷年</button>
+              <button type="button" onclick="setRankingScope('year')" id="scopeBtn-year" class="py-1.5 rounded-lg">特定年份</button>
+            </div>
+          </div>
+
+          <!-- Specific Year Selector -->
+          <div id="rankingYearWrapper" class="hidden">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">選擇年份</label>
+            <select id="rankingYearSelect" onchange="runRankingsAnalysis()" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white font-mono">
+              <!-- Dynamically populated with recorded years -->
+            </select>
+          </div>
+
+          <!-- Entity Type Filter -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">項目類別</label>
+            <select id="rankingCategoryFilter" onchange="runRankingsAnalysis()" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
+              <option value="all">全部 (警報 + 提示/報告)</option>
+              <option value="warning">僅氣象警報</option>
+              <option value="tip">僅提示及特別報告</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rankings Results Container -->
+      <div id="rankingsResultsContainer" class="space-y-6">
+        <!-- Injected via JavaScript -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: GitHub 與設定 ==================== -->
     <section id="tab-settings" class="hidden max-w-2xl mx-auto space-y-6">
       <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-5">
         <div class="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -724,9 +776,10 @@
        NAVIGATION & TABS
        ======================================================== */
     function switchTab(tabId) {
-      ['entry', 'query', 'settings'].forEach(id => {
+      ['entry', 'query', 'rankings', 'settings'].forEach(id => {
         const sec = document.getElementById(`tab-${id}`);
         const btn = document.getElementById(`navBtn-${id}`);
+        if (!sec || !btn) return;
         if (id === tabId) {
           sec.classList.remove('hidden');
           btn.className = "flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-semibold rounded-lg transition-all text-sky-700 bg-sky-50 shadow-sm flex items-center justify-center gap-1.5";
@@ -738,6 +791,9 @@
 
       if (tabId === 'query') {
         runQueryAnalysis();
+      } else if (tabId === 'rankings') {
+        initRankingYearDropdown();
+        runRankingsAnalysis();
       }
     }
 
@@ -2404,6 +2460,406 @@
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ========================================================
+       MODULE: 警報及提示排行榜 (TOP 5 LEADERBOARDS & EXTREMES)
+       ======================================================== */
+    let currentRankingScope = 'all'; // 'all' | 'year'
+
+    function setRankingScope(scope) {
+      currentRankingScope = scope;
+      const allBtn = document.getElementById('scopeBtn-all');
+      const yearBtn = document.getElementById('scopeBtn-year');
+      const yearWrapper = document.getElementById('rankingYearWrapper');
+
+      if (scope === 'all') {
+        allBtn.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
+        yearBtn.className = "py-1.5 rounded-lg text-slate-600 font-medium";
+        yearWrapper.classList.add('hidden');
+      } else {
+        yearBtn.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
+        allBtn.className = "py-1.5 rounded-lg text-slate-600 font-medium";
+        yearWrapper.classList.remove('hidden');
+      }
+
+      runRankingsAnalysis();
+    }
+
+    function initRankingYearDropdown() {
+      const yearSelect = document.getElementById('rankingYearSelect');
+      if (!yearSelect) return;
+
+      const yearsSet = new Set();
+      [...warningData, ...tipData].forEach(ev => {
+        if (ev.start && ev.start.length >= 4) {
+          const y = parseInt(ev.start.substring(0, 4), 10);
+          if (!isNaN(y)) yearsSet.add(y);
+        }
+      });
+
+      getAllWeatherData().forEach(w => {
+        if (w.date && w.date.length >= 4) {
+          const y = parseInt(w.date.substring(0, 4), 10);
+          if (!isNaN(y)) yearsSet.add(y);
+        }
+      });
+
+      const currentY = new Date().getFullYear();
+      yearsSet.add(currentY);
+
+      const sortedYears = Array.from(yearsSet).sort((a, b) => b - a);
+      const prevVal = yearSelect.value;
+      yearSelect.innerHTML = sortedYears.map(y => `<option value="${y}">${y} 年</option>`).join('');
+
+      if (prevVal && sortedYears.includes(parseInt(prevVal, 10))) {
+        yearSelect.value = prevVal;
+      } else {
+        yearSelect.value = sortedYears[0];
+      }
+    }
+
+    function runRankingsAnalysis() {
+      const container = document.getElementById('rankingsResultsContainer');
+      if (!container) return;
+
+      const categoryFilter = document.getElementById('rankingCategoryFilter').value; // 'all' | 'warning' | 'tip'
+      const selectedYear = parseInt(document.getElementById('rankingYearSelect').value, 10);
+
+      // Determine entity pool based on category filter
+      let entityTypes = [];
+      if (categoryFilter === 'warning') {
+        entityTypes = [...WARNING_TYPES];
+      } else if (categoryFilter === 'tip') {
+        entityTypes = [...TIP_TYPES];
+      } else {
+        entityTypes = [...ALL_CLASSIFICATION_ORDER];
+      }
+
+      // Determine time window if year scope is selected
+      let scopeStart = null;
+      let scopeEnd = null;
+      let scopeTitle = '全歷年 (All-time)';
+
+      if (currentRankingScope === 'year' && !isNaN(selectedYear)) {
+        scopeStart = new Date(selectedYear, 0, 1, 0, 0, 0);
+        scopeEnd = new Date(selectedYear + 1, 0, 1, 0, 0, 0);
+        scopeTitle = `${selectedYear} 年度`;
+      }
+
+      // Aggregate stats per entity
+      const entityStatsList = entityTypes.map(type => {
+        const isWarning = WARNING_TYPES.includes(type);
+        const sourceData = isWarning ? warningData : tipData;
+        const matchingEvents = sourceData.filter(ev => ev.type === type);
+
+        let totalMinutes = 0;
+        let issueCount = 0;
+        let earliestDate = null;
+        let latestDate = null;
+        let longestEvent = null; // { minutes, start, end }
+        let shortestEvent = null; // { minutes, start, end }
+
+        const yearCounts = {};
+        const monthCounts = {};
+        const dayCounts = {};
+
+        matchingEvents.forEach(ev => {
+          const sDate = parseDateString(ev.start);
+          const eDate = parseDateString(ev.end);
+          if (!sDate || !eDate || eDate <= sDate) return;
+
+          // Scope minutes calculation
+          let eventMinutesInScope = 0;
+          let isInIssueScope = false;
+
+          if (currentRankingScope === 'year') {
+            eventMinutesInScope = getOverlappingMinutes(ev.start, ev.end, scopeStart, scopeEnd);
+            isInIssueScope = isEventIssuedInWindow(ev.start, scopeStart, scopeEnd);
+          } else {
+            eventMinutesInScope = calculateDurationInMinutes(sDate, eDate);
+            isInIssueScope = true;
+          }
+
+          if (eventMinutesInScope > 0) {
+            totalMinutes += eventMinutesInScope;
+          }
+
+          if (isInIssueScope) {
+            issueCount++;
+
+            // Earliest and latest issue timestamps
+            if (!earliestDate || sDate < earliestDate) {
+              earliestDate = sDate;
+            }
+            if (!latestDate || sDate > latestDate) {
+              latestDate = sDate;
+            }
+
+            // Single longest & shortest duration event
+            const fullDurationMins = calculateDurationInMinutes(sDate, eDate);
+            if (!longestEvent || fullDurationMins > longestEvent.minutes) {
+              longestEvent = { minutes: fullDurationMins, start: ev.start, end: ev.end };
+            }
+            if (!shortestEvent || fullDurationMins < shortestEvent.minutes) {
+              shortestEvent = { minutes: fullDurationMins, start: ev.start, end: ev.end };
+            }
+
+            // Frequency counters for Year, Month, Day peaks
+            const yKey = sDate.getFullYear();
+            const ymKey = `${yKey}年${String(sDate.getMonth() + 1).padStart(2, '0')}月`;
+            const dKey = `${yKey}-${String(sDate.getMonth() + 1).padStart(2, '0')}-${String(sDate.getDate()).padStart(2, '0')}`;
+
+            yearCounts[yKey] = (yearCounts[yKey] || 0) + 1;
+            monthCounts[ymKey] = (monthCounts[ymKey] || 0) + 1;
+            dayCounts[dKey] = (dayCounts[dKey] || 0) + 1;
+          }
+        });
+
+        // Compute peaks
+        let peakYear = null;
+        Object.entries(yearCounts).forEach(([y, c]) => {
+          if (!peakYear || c > peakYear.count) peakYear = { year: y, count: c };
+        });
+
+        let peakMonth = null;
+        Object.entries(monthCounts).forEach(([ym, c]) => {
+          if (!peakMonth || c > peakMonth.count) peakMonth = { month: ym, count: c };
+        });
+
+        let peakDay = null;
+        Object.entries(dayCounts).forEach(([d, c]) => {
+          if (!peakDay || c > peakDay.count) peakDay = { day: d, count: c };
+        });
+
+        return {
+          type,
+          isWarning,
+          totalMinutes,
+          issueCount,
+          durationHhMm: minutesToHhMm(totalMinutes),
+          totalHours: (totalMinutes / 60).toFixed(1),
+          earliestDateStr: earliestDate ? earliestDate.toISOString().replace('T', ' ').substring(0, 16) : '-',
+          latestDateStr: latestDate ? latestDate.toISOString().replace('T', ' ').substring(0, 16) : '-',
+          longestEvent,
+          shortestEvent,
+          peakYear,
+          peakMonth,
+          peakDay
+        };
+      });
+
+      // Top 5 by Duration
+      const top5ByDuration = [...entityStatsList]
+        .filter(item => item.totalMinutes > 0)
+        .sort((a, b) => b.totalMinutes - a.totalMinutes)
+        .slice(0, 5);
+
+      // Top 5 by Issue Count
+      const top5ByCount = [...entityStatsList]
+        .filter(item => item.issueCount > 0)
+        .sort((a, b) => b.issueCount - a.issueCount)
+        .slice(0, 5);
+
+      const maxDurationVal = top5ByDuration.length > 0 ? top5ByDuration[0].totalMinutes : 1;
+      const maxCountVal = top5ByCount.length > 0 ? top5ByCount[0].issueCount : 1;
+
+      // Entities with data for detailed table
+      const recordedEntities = entityStatsList.filter(item => item.issueCount > 0 || item.totalMinutes > 0);
+
+      container.innerHTML = `
+        <!-- Scope Badge Header -->
+        <div class="bg-gradient-to-r from-amber-700 via-orange-700 to-amber-900 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <span class="text-xs uppercase tracking-wider font-semibold text-amber-200">HISTORICAL LEADERBOARDS &amp; EXTREMES</span>
+            <h2 class="text-xl sm:text-2xl font-black mt-1">${scopeTitle} 警報與提示統計排行榜</h2>
+          </div>
+          <div class="flex flex-wrap gap-2 text-xs font-mono">
+            <span class="px-3 py-1.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+              有記錄項目：<strong>${recordedEntities.length}</strong> 種
+            </span>
+            <span class="px-3 py-1.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+              累計總發出：<strong>${entityStatsList.reduce((s, i) => s + i.issueCount, 0)}</strong> 次
+            </span>
+          </div>
+        </div>
+
+        <!-- Top 5 Leaderboards Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <!-- Top 5 by Duration -->
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-hourglass-half text-amber-500"></i>
+                <span>累計生效總時數 Top 5</span>
+              </h3>
+              <span class="text-[11px] text-slate-400 font-mono">${scopeTitle}</span>
+            </div>
+
+            ${top5ByDuration.length > 0 ? `
+              <div class="space-y-2.5">
+                ${top5ByDuration.map((item, idx) => {
+                  const rankBadgeClass = idx === 0 ? 'bg-amber-500 text-white shadow-amber-500/30' :
+                                         idx === 1 ? 'bg-slate-400 text-white' :
+                                         idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600';
+                  const percent = Math.min(100, Math.round((item.totalMinutes / maxDurationVal) * 100));
+                  const color = getWarningCategoryColor(item.type);
+
+                  return `
+                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition space-y-1.5">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <span class="w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center font-mono ${rankBadgeClass} shadow-sm">
+                            ${idx + 1}
+                          </span>
+                          <span class="inline-flex items-center gap-1.5 font-bold text-xs sm:text-sm text-slate-800">
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
+                            ${item.type}
+                          </span>
+                          <span class="text-[10px] px-1.5 py-0.2 rounded font-medium ${item.isWarning ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200'}">
+                            ${item.isWarning ? '警報' : '提示'}
+                          </span>
+                        </div>
+                        <div class="text-right">
+                          <span class="font-mono font-bold text-xs sm:text-sm text-slate-900">${item.durationHhMm}</span>
+                          <span class="text-[10px] text-slate-400 font-mono block">(${item.totalHours} 小時)</span>
+                        </div>
+                      </div>
+                      <div class="w-full bg-slate-200/70 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-1.5 rounded-full transition-all duration-500" style="width: ${percent}%; background-color: ${color};"></div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : `
+              <div class="p-8 text-center text-slate-400 text-xs font-sans">期內無足夠時長記錄</div>
+            `}
+          </div>
+
+          <!-- Top 5 by Issue Count -->
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-bullhorn text-rose-500"></i>
+                <span>累計發出總次數 Top 5</span>
+              </h3>
+              <span class="text-[11px] text-slate-400 font-mono">${scopeTitle}</span>
+            </div>
+
+            ${top5ByCount.length > 0 ? `
+              <div class="space-y-2.5">
+                ${top5ByCount.map((item, idx) => {
+                  const rankBadgeClass = idx === 0 ? 'bg-rose-500 text-white shadow-rose-500/30' :
+                                         idx === 1 ? 'bg-slate-400 text-white' :
+                                         idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600';
+                  const percent = Math.min(100, Math.round((item.issueCount / maxCountVal) * 100));
+                  const color = getWarningCategoryColor(item.type);
+
+                  return `
+                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition space-y-1.5">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <span class="w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center font-mono ${rankBadgeClass} shadow-sm">
+                            ${idx + 1}
+                          </span>
+                          <span class="inline-flex items-center gap-1.5 font-bold text-xs sm:text-sm text-slate-800">
+                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
+                            ${item.type}
+                          </span>
+                          <span class="text-[10px] px-1.5 py-0.2 rounded font-medium ${item.isWarning ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200'}">
+                            ${item.isWarning ? '警報' : '提示'}
+                          </span>
+                        </div>
+                        <div class="text-right">
+                          <span class="font-mono font-bold text-sm text-rose-600">${item.issueCount}</span>
+                          <span class="text-[10px] text-slate-400 font-sans"> 次</span>
+                        </div>
+                      </div>
+                      <div class="w-full bg-slate-200/70 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-1.5 rounded-full transition-all duration-500" style="width: ${percent}%; background-color: ${color};"></div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : `
+              <div class="p-8 text-center text-slate-400 text-xs font-sans">期內無足夠次數記錄</div>
+            `}
+          </div>
+        </div>
+
+        <!-- Detailed Extremes per Warning / Tip (每項警報與提示詳細極值統計表) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-sky-600"></i>
+                <span>每項警報與提示詳細極值統計 (${scopeTitle})</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">涵蓋發出時間界限、單次極限時長及生效峰值年份/月份/單日</p>
+            </div>
+            <span class="text-xs font-mono text-slate-500">共 ${recordedEntities.length} 項有生效記錄</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs min-w-[900px]">
+              <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-3 w-10 text-center">#</th>
+                  <th class="p-3 min-w-[130px]">項目名稱</th>
+                  <th class="p-3 min-w-[80px] text-center">發出總次數</th>
+                  <th class="p-3 min-w-[90px] text-right">累計生效時數</th>
+                  <th class="p-3 min-w-[130px]">最早發出時間</th>
+                  <th class="p-3 min-w-[130px]">最遲發出時間</th>
+                  <th class="p-3 min-w-[140px]">生效最長時間</th>
+                  <th class="p-3 min-w-[140px]">生效最短時間</th>
+                  <th class="p-3 min-w-[110px]">生效最多次數年份</th>
+                  <th class="p-3 min-w-[110px]">生效最多次數月份</th>
+                  <th class="p-3 min-w-[120px]">單日生效最多次數</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-slate-700 font-mono">
+                ${recordedEntities.length > 0 ? recordedEntities.map((item, idx) => {
+                  const color = getWarningCategoryColor(item.type);
+                  const longestStr = item.longestEvent ? `${minutesToHhMm(item.longestEvent.minutes)} <span class="text-[10px] text-slate-400 font-sans block truncate" title="${item.longestEvent.start} ~ ${item.longestEvent.end}">(${item.longestEvent.start.substring(5, 10)})</span>` : '-';
+                  const shortestStr = item.shortestEvent ? `${minutesToHhMm(item.shortestEvent.minutes)} <span class="text-[10px] text-slate-400 font-sans block truncate" title="${item.shortestEvent.start} ~ ${item.shortestEvent.end}">(${item.shortestEvent.start.substring(5, 10)})</span>` : '-';
+                  const peakYearStr = item.peakYear ? `${item.peakYear.year}年 (${item.peakYear.count}次)` : '-';
+                  const peakMonthStr = item.peakMonth ? `${item.peakMonth.month} (${item.peakMonth.count}次)` : '-';
+                  const peakDayStr = item.peakDay ? `${item.peakDay.day} (${item.peakDay.count}次)` : '-';
+
+                  return `
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="p-3 text-center text-slate-400">${idx + 1}</td>
+                      <td class="p-3 font-sans font-semibold text-slate-900 whitespace-nowrap">
+                        <span class="inline-flex items-center gap-1.5">
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
+                          ${item.type}
+                        </span>
+                      </td>
+                      <td class="p-3 text-center font-bold text-rose-600">${item.issueCount}</td>
+                      <td class="p-3 text-right font-bold text-slate-900">${item.durationHhMm}</td>
+                      <td class="p-3 text-slate-600 whitespace-nowrap">${item.earliestDateStr}</td>
+                      <td class="p-3 text-slate-600 whitespace-nowrap">${item.latestDateStr}</td>
+                      <td class="p-3 font-bold text-amber-700">${longestStr}</td>
+                      <td class="p-3 font-bold text-emerald-700">${shortestStr}</td>
+                      <td class="p-3 font-sans text-slate-700 whitespace-nowrap">${peakYearStr}</td>
+                      <td class="p-3 font-sans text-slate-700 whitespace-nowrap">${peakMonthStr}</td>
+                      <td class="p-3 font-sans text-slate-700 whitespace-nowrap">${peakDayStr}</td>
+                    </tr>
+                  `;
+                }).join('') : `
+                  <tr>
+                    <td colspan="11" class="p-8 text-center text-slate-400 font-sans">
+                      所選統計範圍內暫無任何警報或提示資料記錄。
+                    </td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
           </div>
         </div>
       `;
