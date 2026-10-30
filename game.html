@@ -280,15 +280,17 @@
         <!-- Add New Warning Form Card -->
         <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
           <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-            新增氣象警報記錄 (CSV格式: type,start,end)
+            <span id="newWTypeIndicator" class="w-3 h-3 rounded-full transition-colors border border-black/10"></span>
+            <span>新增氣象警報記錄 (CSV格式: type,start,end)</span>
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">警報類型 (type)</label>
-              <select id="newWType" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
-                <!-- Dynamically populated -->
-              </select>
+              <div class="relative">
+                <select id="newWType" onchange="onEventTypeChange('newW')" class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 transition-all shadow-sm">
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">開始時間 (start)</label>
@@ -343,15 +345,17 @@
         <!-- Add New Tip Form Card -->
         <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
           <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
-            新增提示/特別報告記錄 (CSV格式: type,start,end)
+            <span id="newTTypeIndicator" class="w-3 h-3 rounded-full transition-colors border border-black/10"></span>
+            <span>新增提示/特別報告記錄 (CSV格式: type,start,end)</span>
           </h3>
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">提示類型 (type)</label>
-              <select id="newTType" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
-                <!-- Dynamically populated -->
-              </select>
+              <div class="relative">
+                <select id="newTType" onchange="onEventTypeChange('newT')" class="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 transition-all shadow-sm">
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">開始時間 (start)</label>
@@ -493,12 +497,12 @@
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div class="flex items-center gap-2 text-slate-800 font-bold text-sm sm:text-base">
             <i class="fa-solid fa-trophy text-amber-500"></i>
-            <span>氣象警報與提示歷史排行榜 &amp; 極值統計</span>
+            <span>警報及提示獨立專屬排行榜</span>
           </div>
-          <span class="text-xs text-slate-400 font-mono">Top 5 排行榜 &bull; 每項詳細極值</span>
+          <span class="text-xs text-slate-400 font-mono">每項獨立 Top 5 最長/最短/峰值統計</span>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-end">
           <!-- Time Scope Toggle -->
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">統計範圍 (Scope)</label>
@@ -521,16 +525,25 @@
             <label class="block text-xs font-semibold text-slate-600 mb-1">項目類別</label>
             <select id="rankingCategoryFilter" onchange="runRankingsAnalysis()" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
               <option value="all">全部 (警報 + 提示/報告)</option>
-              <option value="warning">僅氣象警報</option>
-              <option value="tip">僅提示及特別報告</option>
+              <option value="warning">僅氣象警報 (23種)</option>
+              <option value="tip">僅提示及特別報告 (10種)</option>
             </select>
+          </div>
+
+          <!-- Quick Search Filter -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">快速搜尋名稱</label>
+            <div class="relative">
+              <input type="text" id="rankingSearchInput" oninput="runRankingsAnalysis()" placeholder="輸入例如: 寒冷、風暴潮..." class="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+              <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Rankings Results Container -->
       <div id="rankingsResultsContainer" class="space-y-6">
-        <!-- Injected via JavaScript -->
+        <!-- Injected via JavaScript: Individual card for each warning & tip -->
       </div>
     </section>
 
@@ -763,6 +776,42 @@
 
       const tSelect = document.getElementById('newTType');
       tSelect.innerHTML = TIP_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+
+      // Initialize color styling on inputs
+      onEventTypeChange('newW');
+      onEventTypeChange('newT');
+    }
+
+    // Helper: Determine ideal contrast text color (black or white) for hex backgrounds
+    function getContrastTextColor(hexColor) {
+      if (!hexColor || hexColor.length < 6) return '#0f172a';
+      const hex = hexColor.replace('#', '');
+      const r = parseInt(hex.substr(0, 2), 16);
+      const g = parseInt(hex.substr(2, 2), 16);
+      const b = parseInt(hex.substr(4, 2), 16);
+      // Relative luminance formula
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 150) ? '#0f172a' : '#ffffff';
+    }
+
+    // Dynamic color updater for event dropdowns in 數據錄入
+    function onEventTypeChange(prefix) {
+      const select = document.getElementById(`${prefix}Type`);
+      const indicator = document.getElementById(`${prefix}TypeIndicator`);
+      if (!select) return;
+
+      const selectedType = select.value;
+      const color = EVENT_COLOR_MAP[selectedType] || '#f1f5f9';
+      const textColor = getContrastTextColor(color);
+
+      // Apply dynamic colors
+      select.style.backgroundColor = color;
+      select.style.color = textColor;
+      select.style.borderColor = color;
+
+      if (indicator) {
+        indicator.style.backgroundColor = color;
+      }
     }
 
     function initDefaultQueryValues() {
@@ -773,1700 +822,8 @@
     }
 
     /* ========================================================
-       NAVIGATION & TABS
-       ======================================================== */
-    function switchTab(tabId) {
-      ['entry', 'query', 'rankings', 'settings'].forEach(id => {
-        const sec = document.getElementById(`tab-${id}`);
-        const btn = document.getElementById(`navBtn-${id}`);
-        if (!sec || !btn) return;
-        if (id === tabId) {
-          sec.classList.remove('hidden');
-          btn.className = "flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-semibold rounded-lg transition-all text-sky-700 bg-sky-50 shadow-sm flex items-center justify-center gap-1.5";
-        } else {
-          sec.classList.add('hidden');
-          btn.className = "flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
-        }
-      });
-
-      if (tabId === 'query') {
-        runQueryAnalysis();
-      } else if (tabId === 'rankings') {
-        initRankingYearDropdown();
-        runRankingsAnalysis();
-      }
-    }
-
-    function switchEntrySubTab(sub) {
-      ['weather', 'wrecord', 'trecord'].forEach(s => {
-        const content = document.getElementById(`subtab-content-${s}`);
-        const btn = document.getElementById(`subtab-btn-${s}`);
-        if (s === sub) {
-          content.classList.remove('hidden');
-          btn.className = "pb-2.5 sm:pb-3 border-b-2 border-sky-600 text-sky-700 whitespace-nowrap flex items-center gap-1.5 font-semibold";
-        } else {
-          content.classList.add('hidden');
-          btn.className = "pb-2.5 sm:pb-3 border-b-2 border-transparent hover:text-slate-700 whitespace-nowrap flex items-center gap-1.5 font-normal text-slate-500";
-        }
-      });
-    }
-
-    /* ========================================================
-       SETTINGS & LOCAL STORAGE
-       ======================================================== */
-    function loadSettingsFromStorage() {
-      const token = localStorage.getItem('gh_token') || sessionStorage.getItem('gh_token') || '';
-      const owner = localStorage.getItem('gh_owner') || sessionStorage.getItem('gh_owner') || '';
-      const repo = localStorage.getItem('gh_repo') || sessionStorage.getItem('gh_repo') || '';
-      const branch = localStorage.getItem('gh_branch') || sessionStorage.getItem('gh_branch') || 'main';
-
-      document.getElementById('ghToken').value = token;
-      document.getElementById('ghOwner').value = owner;
-      document.getElementById('ghRepo').value = repo;
-      document.getElementById('ghBranch').value = branch;
-
-      updateAuthUIState(token, owner, repo);
-    }
-
-    function saveSettings() {
-      const token = document.getElementById('ghToken').value.trim();
-      const owner = document.getElementById('ghOwner').value.trim();
-      const repo = document.getElementById('ghRepo').value.trim();
-      const branch = document.getElementById('ghBranch').value.trim() || 'main';
-
-      localStorage.setItem('gh_token', token);
-      localStorage.setItem('gh_owner', owner);
-      localStorage.setItem('gh_repo', repo);
-      localStorage.setItem('gh_branch', branch);
-
-      updateAuthUIState(token, owner, repo);
-      showToast('設定已成功保存！', 'success');
-    }
-
-    function updateAuthUIState(token, owner, repo) {
-      updateRepoBadge(owner, repo);
-      const authBtnLabel = document.getElementById('authBtnLabel');
-      const logoutBtn = document.getElementById('logoutBtn');
-
-      if (token) {
-        authBtnLabel.innerText = owner ? `${owner} (已登入)` : '已登入';
-        logoutBtn.classList.remove('hidden');
-      } else {
-        authBtnLabel.innerText = '登入 GitHub';
-        logoutBtn.classList.add('hidden');
-      }
-    }
-
-    function updateRepoBadge(owner, repo) {
-      const badge = document.getElementById('repoBadge');
-      if (owner && repo) {
-        badge.innerText = `${owner}/${repo}`;
-        badge.className = "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] bg-sky-100 text-sky-800 font-mono truncate max-w-[120px] sm:max-w-none";
-      } else {
-        badge.innerText = "未連接";
-        badge.className = "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] bg-slate-100 text-slate-500 font-mono";
-      }
-    }
-
-    function openLoginModal() {
-      const token = document.getElementById('ghToken').value;
-      const owner = document.getElementById('ghOwner').value;
-      const repo = document.getElementById('ghRepo').value;
-      const branch = document.getElementById('ghBranch').value || 'main';
-
-      document.getElementById('modalTokenInput').value = token;
-      document.getElementById('modalOwnerInput').value = owner;
-      document.getElementById('modalRepoInput').value = repo;
-      document.getElementById('modalBranchInput').value = branch;
-      document.getElementById('rememberMeCheckbox').checked = !!localStorage.getItem('gh_token');
-
-      document.getElementById('loginModal').classList.remove('hidden');
-    }
-
-    function closeLoginModal() {
-      document.getElementById('loginModal').classList.add('hidden');
-    }
-
-    function handleLoginSubmit(event) {
-      event.preventDefault();
-      const token = document.getElementById('modalTokenInput').value.trim();
-      const owner = document.getElementById('modalOwnerInput').value.trim();
-      const repo = document.getElementById('modalRepoInput').value.trim();
-      const branch = document.getElementById('modalBranchInput').value.trim() || 'main';
-      const remember = document.getElementById('rememberMeCheckbox').checked;
-
-      if (!token || !owner || !repo) {
-        showToast('請完整輸入 Token、Owner 及 Repo！', 'warning');
-        return;
-      }
-
-      document.getElementById('ghToken').value = token;
-      document.getElementById('ghOwner').value = owner;
-      document.getElementById('ghRepo').value = repo;
-      document.getElementById('ghBranch').value = branch;
-
-      if (remember) {
-        localStorage.setItem('gh_token', token);
-        localStorage.setItem('gh_owner', owner);
-        localStorage.setItem('gh_repo', repo);
-        localStorage.setItem('gh_branch', branch);
-        sessionStorage.clear();
-      } else {
-        sessionStorage.setItem('gh_token', token);
-        sessionStorage.setItem('gh_owner', owner);
-        sessionStorage.setItem('gh_repo', repo);
-        sessionStorage.setItem('gh_branch', branch);
-        localStorage.removeItem('gh_token');
-        localStorage.removeItem('gh_owner');
-        localStorage.removeItem('gh_repo');
-        localStorage.removeItem('gh_branch');
-      }
-
-      updateAuthUIState(token, owner, repo);
-      closeLoginModal();
-      showToast('GitHub 憑證配置成功！已可執行拉取與提交操作。', 'success');
-    }
-
-    function logoutGithub() {
-      localStorage.removeItem('gh_token');
-      localStorage.removeItem('gh_owner');
-      localStorage.removeItem('gh_repo');
-      localStorage.removeItem('gh_branch');
-      sessionStorage.clear();
-
-      document.getElementById('ghToken').value = '';
-      document.getElementById('ghOwner').value = '';
-      document.getElementById('ghRepo').value = '';
-      document.getElementById('ghBranch').value = 'main';
-
-      updateAuthUIState('', '', '');
-      showToast('已清除儲存的 GitHub 憑證。', 'info');
-    }
-
-    function toggleTokenVisibility() {
-      const input = document.getElementById('ghToken');
-      const icon = document.getElementById('tokenEyeIcon');
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fa-regular fa-eye-slash';
-      } else {
-        input.type = 'password';
-        icon.className = 'fa-regular fa-eye';
-      }
-    }
-
-    function toggleModalTokenVisibility() {
-      const input = document.getElementById('modalTokenInput');
-      const icon = document.getElementById('modalTokenEyeIcon');
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fa-regular fa-eye-slash';
-      } else {
-        input.type = 'password';
-        icon.className = 'fa-regular fa-eye';
-      }
-    }
-
-    function saveToLocalCache() {
-      localStorage.setItem('local_weather_committed', JSON.stringify(committedWeatherData));
-      localStorage.setItem('local_weather_draft', JSON.stringify(draftWeatherData));
-      localStorage.setItem('local_warning_cache', JSON.stringify(warningData));
-      localStorage.setItem('local_tip_cache', JSON.stringify(tipData));
-    }
-
-    /* Combined weather data accessor for analytics / query page */
-    function getAllWeatherData() {
-      const map = new Map();
-      // Committed records
-      committedWeatherData.forEach(item => {
-        if (item.date) map.set(item.date, item);
-      });
-      // Draft records (can override or complement)
-      draftWeatherData.forEach(item => {
-        if (item.date) {
-          // Only override if draft actually contains numbers or values
-          if (item.minTemp !== '' || item.maxTemp !== '' || !map.has(item.date)) {
-            map.set(item.date, item);
-          }
-        }
-      });
-      return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    /* ========================================================
-       DURATION AUTO-CALCULATION & FORMATTING
-       ======================================================== */
-    function parseDateString(str) {
-      if (!str) return null;
-      return new Date(str.replace(' ', 'T'));
-    }
-
-    function calculateDurationInMinutes(startDate, endDate) {
-      if (!startDate || !endDate || isNaN(startDate) || isNaN(endDate)) return 0;
-      const diffMs = endDate.getTime() - startDate.getTime();
-      return Math.max(0, Math.floor(diffMs / (1000 * 60)));
-    }
-
-    function minutesToHhMm(totalMinutes) {
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-    }
-
-    // Calculate duration directly from start and end strings
-    function getEventDurationHhMm(startStr, endStr) {
-      const s = parseDateString(startStr);
-      const e = parseDateString(endStr);
-      if (!s || !e || e <= s) return '00:00';
-      return minutesToHhMm(calculateDurationInMinutes(s, e));
-    }
-
-    function autoCalcDuration(prefix) {
-      const startVal = document.getElementById(`${prefix}Start`).value;
-      const endVal = document.getElementById(`${prefix}End`).value;
-      const durInput = document.getElementById(`${prefix}Duration`);
-
-      if (!startVal || !endVal) {
-        durInput.value = '';
-        return;
-      }
-
-      const s = new Date(startVal);
-      const e = new Date(endVal);
-
-      if (e < s) {
-        durInput.value = '結束時間早於開始';
-        return;
-      }
-
-      const diffMins = calculateDurationInMinutes(s, e);
-      durInput.value = minutesToHhMm(diffMins);
-    }
-
-    /* ========================================================
-       DATA MANAGEMENT: WEATHER (weather.csv)
-       Requirement: Hide completely uploaded data; only show draft / 15-day batch.
-       ======================================================== */
-    function getLatestWeatherDate() {
-      const all = getAllWeatherData();
-      if (all.length === 0) return null;
-      const dates = all.map(d => d.date).filter(Boolean).sort();
-      return dates.length > 0 ? dates[dates.length - 1] : null;
-    }
-
-    function updateLatestDateDisplay() {
-      const latest = getLatestWeatherDate();
-      const badge = document.getElementById('latestDateBadge');
-      if (latest) {
-        badge.innerText = latest;
-      } else {
-        badge.innerText = '尚無記錄';
-      }
-    }
-
-    /**
-     * Detects latest date from committed history or current drafts,
-     * then appends the next 10 consecutive calendar days.
-     */
-    function autoPopulateNext10DaysWeather(notify = false) {
-      // Find latest date in either committed data or existing drafts
-      let latestDate = null;
-      const allExistingDates = [
-        ...committedWeatherData.map(r => r.date),
-        ...draftWeatherData.map(r => r.date)
-      ].filter(Boolean).sort();
-
-      if (allExistingDates.length > 0) {
-        latestDate = allExistingDates[allExistingDates.length - 1];
-      }
-
-      let startDate;
-      if (latestDate) {
-        const parts = latestDate.split('-');
-        if (parts.length === 3) {
-          startDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-          startDate.setDate(startDate.getDate() + 1);
-        } else {
-          startDate = new Date();
-        }
-      } else {
-        // When completely empty, start from today
-        startDate = new Date();
-      }
-
-      const generatedRows = [];
-      for (let i = 0; i < 10; i++) {
-        const cur = new Date(startDate);
-        cur.setDate(startDate.getDate() + i);
-        const yyyy = cur.getFullYear();
-        const mm = String(cur.getMonth() + 1).padStart(2, '0');
-        const dd = String(cur.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-
-        const isCommitted = committedWeatherData.some(r => r.date === dateStr);
-        const isAlreadyInDraft = draftWeatherData.some(r => r.date === dateStr);
-
-        if (!isCommitted && !isAlreadyInDraft) {
-          generatedRows.push({
-            date: dateStr,
-            minTemp: '',
-            maxTemp: '',
-            minHum: '',
-            maxHum: ''
-          });
-        }
-      }
-
-      if (generatedRows.length === 0) {
-        if (notify) showToast('接續 10 天日期已存在於待填草稿中。', 'info');
-        return;
-      }
-
-      draftWeatherData = draftWeatherData.concat(generatedRows);
-      sortDraftWeatherData();
-      renderWeatherTable();
-      saveToLocalCache();
-
-      if (notify) {
-        showToast(`已成功自 ${latestDate || '今日'} 後自動添加接續 10 天待填表單！`, 'success');
-      }
-    }
-
-    function generateNextDaysWeather(count = 15) {
-      autoPopulateNext10DaysWeather(true);
-    }
-
-    function addNewWeatherRow() {
-      const latest = getLatestWeatherDate();
-      let defaultDate = '';
-      if (latest) {
-        const d = new Date(latest);
-        d.setDate(d.getDate() + 1);
-        defaultDate = d.toISOString().split('T')[0];
-      } else {
-        defaultDate = new Date().toISOString().split('T')[0];
-      }
-
-      draftWeatherData.unshift({
-        date: defaultDate,
-        minTemp: '',
-        maxTemp: '',
-        minHum: '',
-        maxHum: ''
-      });
-      renderWeatherTable();
-      saveToLocalCache();
-    }
-
-    function sortDraftWeatherData() {
-      draftWeatherData.sort((a, b) => (a.date > b.date ? 1 : -1));
-    }
-
-    function updateWeatherField(index, field, value) {
-      if (draftWeatherData[index]) {
-        draftWeatherData[index][field] = value;
-        saveToLocalCache();
-        updateLatestDateDisplay();
-      }
-    }
-
-    function deleteWeatherRow(index) {
-      draftWeatherData.splice(index, 1);
-      renderWeatherTable();
-      saveToLocalCache();
-    }
-
-    function clearAllDraftWeatherRows() {
-      if (draftWeatherData.length === 0) return;
-      draftWeatherData = [];
-      renderWeatherTable();
-      saveToLocalCache();
-      showToast('已清空所有待辦草稿記錄。', 'info');
-    }
-
-    function renderWeatherTable() {
-      const tbody = document.getElementById('weatherTableBody');
-      const pendingCountEl = document.getElementById('weatherPendingCount');
-      const committedCountEl = document.getElementById('weatherCommittedCount');
-
-      pendingCountEl.innerText = draftWeatherData.length;
-      committedCountEl.innerText = committedWeatherData.length;
-      updateLatestDateDisplay();
-
-      if (draftWeatherData.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" class="p-8 text-center text-slate-400 font-sans">
-              <i class="fa-solid fa-clipboard-check text-2xl text-slate-300 mb-2 block"></i>
-              <span>已同步的 ${committedWeatherData.length} 筆歷史數據已儲存並自動隱藏。<br>點擊上方「生成未來 15 天表單」或「新增單日」開始錄入新數據。</span>
-            </td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = draftWeatherData.map((row, idx) => `
-        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-          <td class="p-2.5 text-center text-slate-400 text-xs">${idx + 1}</td>
-          <td class="p-2">
-            <input type="date" value="${row.date || ''}" onchange="updateWeatherField(${idx}, 'date', this.value)" class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono">
-          </td>
-          <td class="p-2">
-            <input type="number" step="0.1" value="${row.minTemp !== undefined ? row.minTemp : ''}" placeholder="22.5" onchange="updateWeatherField(${idx}, 'minTemp', this.value)" class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono">
-          </td>
-          <td class="p-2">
-            <input type="number" step="0.1" value="${row.maxTemp !== undefined ? row.maxTemp : ''}" placeholder="30.2" onchange="updateWeatherField(${idx}, 'maxTemp', this.value)" class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono">
-          </td>
-          <td class="p-2">
-            <input type="number" step="1" min="0" max="100" value="${row.minHum !== undefined ? row.minHum : ''}" placeholder="55" onchange="updateWeatherField(${idx}, 'minHum', this.value)" class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono">
-          </td>
-          <td class="p-2">
-            <input type="number" step="1" min="0" max="100" value="${row.maxHum !== undefined ? row.maxHum : ''}" placeholder="95" onchange="updateWeatherField(${idx}, 'maxHum', this.value)" class="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono">
-          </td>
-          <td class="p-2 text-center">
-            <button onclick="deleteWeatherRow(${idx})" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="刪除">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    /* ========================================================
-       DATA MANAGEMENT: WARNINGS (Wrecord.csv)
-       CSV fields: type,start,end
-       Duration is dynamically calculated.
-       ======================================================== */
-    function addWarningRow() {
-      const type = document.getElementById('newWType').value;
-      const start = document.getElementById('newWStart').value.replace('T', ' ');
-      const end = document.getElementById('newWEnd').value.replace('T', ' ');
-
-      if (!type || !start || !end) {
-        showToast('請完整填寫警報類型、開始時間與結束時間！', 'warning');
-        return;
-      }
-
-      const s = parseDateString(start);
-      const e = parseDateString(end);
-      if (!s || !e || e <= s) {
-        showToast('請確保結束時間晚於開始時間！', 'warning');
-        return;
-      }
-
-      // Store only standard type, start, end
-      warningData.push({ type, start, end });
-      warningData.sort((a, b) => (a.start > b.start ? -1 : 1));
-      renderWarningTable();
-      saveToLocalCache();
-
-      document.getElementById('newWStart').value = '';
-      document.getElementById('newWEnd').value = '';
-      document.getElementById('newWDuration').value = '';
-      showToast(`已成功記錄警報：${type}`, 'success');
-    }
-
-    function deleteWarningRow(index) {
-      warningData.splice(index, 1);
-      renderWarningTable();
-      saveToLocalCache();
-    }
-
-    function renderWarningTable() {
-      const tbody = document.getElementById('wrecordTableBody');
-      document.getElementById('wrecordRowCount').innerText = warningData.length;
-
-      if (warningData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 font-sans">目前尚無警報記錄。</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = warningData.map((row, idx) => {
-        const calculatedDuration = getEventDurationHhMm(row.start, row.end);
-        return `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-            <td class="p-3 text-center text-slate-400 text-xs">${idx + 1}</td>
-            <td class="p-3">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                ${row.type}
-              </span>
-            </td>
-            <td class="p-3 font-mono text-xs text-slate-600 whitespace-nowrap">${row.start}</td>
-            <td class="p-3 font-mono text-xs text-slate-600 whitespace-nowrap">${row.end}</td>
-            <td class="p-3 font-mono text-xs font-bold text-amber-600">${calculatedDuration}</td>
-            <td class="p-3 text-center">
-              <button onclick="deleteWarningRow(${idx})" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="刪除">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    /* ========================================================
-       DATA MANAGEMENT: TIPS (Trecord.csv)
-       CSV fields: type,start,end
-       Duration is dynamically calculated.
-       ======================================================== */
-    function addTipRow() {
-      const type = document.getElementById('newTType').value;
-      const start = document.getElementById('newTStart').value.replace('T', ' ');
-      const end = document.getElementById('newTEnd').value.replace('T', ' ');
-
-      if (!type || !start || !end) {
-        showToast('請完整填寫提示類型、開始時間與結束時間！', 'warning');
-        return;
-      }
-
-      const s = parseDateString(start);
-      const e = parseDateString(end);
-      if (!s || !e || e <= s) {
-        showToast('請確保結束時間晚於開始時間！', 'warning');
-        return;
-      }
-
-      tipData.push({ type, start, end });
-      tipData.sort((a, b) => (a.start > b.start ? -1 : 1));
-      renderTipTable();
-      saveToLocalCache();
-
-      document.getElementById('newTStart').value = '';
-      document.getElementById('newTEnd').value = '';
-      document.getElementById('newTDuration').value = '';
-      showToast(`已成功記錄提示：${type}`, 'success');
-    }
-
-    function deleteTipRow(index) {
-      tipData.splice(index, 1);
-      renderTipTable();
-      saveToLocalCache();
-    }
-
-    function renderTipTable() {
-      const tbody = document.getElementById('trecordTableBody');
-      document.getElementById('trecordRowCount').innerText = tipData.length;
-
-      if (tipData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400 font-sans">目前尚無提示/特別報告記錄。</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = tipData.map((row, idx) => {
-        const calculatedDuration = getEventDurationHhMm(row.start, row.end);
-        return `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-            <td class="p-3 text-center text-slate-400 text-xs">${idx + 1}</td>
-            <td class="p-3">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200">
-                ${row.type}
-              </span>
-            </td>
-            <td class="p-3 font-mono text-xs text-slate-600 whitespace-nowrap">${row.start}</td>
-            <td class="p-3 font-mono text-xs text-slate-600 whitespace-nowrap">${row.end}</td>
-            <td class="p-3 font-mono text-xs font-bold text-cyan-600">${calculatedDuration}</td>
-            <td class="p-3 text-center">
-              <button onclick="deleteTipRow(${idx})" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="刪除">
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function renderAllTables() {
-      renderWeatherTable();
-      renderWarningTable();
-      renderTipTable();
-    }
-
-    /* ========================================================
-       TEMPORAL BOUNDARY & DURATION PARTITIONING CORE ALGORITHM
-       Rule: "If a warning starts from Sep 30 till October 1,
-       the issue count will give to Sep, but issue hours will
-       separate into sep part and Oct part."
-       ======================================================== */
-    function getOverlappingMinutes(eventStart, eventEnd, windowStart, windowEnd) {
-      const eS = parseDateString(eventStart);
-      const eE = parseDateString(eventEnd);
-      if (!eS || !eE || eE <= eS) return 0;
-
-      const overlapStart = new Date(Math.max(eS.getTime(), windowStart.getTime()));
-      const overlapEnd = new Date(Math.min(eE.getTime(), windowEnd.getTime()));
-
-      if (overlapEnd > overlapStart) {
-        return Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60));
-      }
-      return 0;
-    }
-
-    function isEventIssuedInWindow(eventStart, windowStart, windowEnd) {
-      const eS = parseDateString(eventStart);
-      if (!eS) return false;
-      return eS >= windowStart && eS < windowEnd;
-    }
-
-    /* ========================================================
-       CLIMATE STATS HELPER (EXTREMES & SPECIAL WEATHER DAYS)
-       - 酷熱: max temp >= 32.5
-       - 寒冷: min temp <= 12.5
-       - 熱夜: min temp >= 27.5
-       - 非常潮濕: max hum >= 94.5
-       - 非常乾燥: min hum < 30.5
-       - 極端最高溫、極端最低溫、極端最高相對濕度、極端最低相對濕度 (含日期)
-       ======================================================== */
-    function calculateClimateStats(weatherList) {
-      let veryHotDays = 0;   // 最高氣溫 >= 32.5
-      let coldDays = 0;      // 最低氣溫 <= 12.5
-      let hotNights = 0;     // 最低氣溫 >= 27.5
-      let veryHumidDays = 0; // 最高相對濕度 >= 94.5
-      let veryDryDays = 0;   // 最低相對濕度 < 30.5
-
-      let maxTempRecord = { value: -Infinity, date: null };
-      let minTempRecord = { value: Infinity, date: null };
-      let maxHumidRecord = { value: -Infinity, date: null };
-      let minHumidRecord = { value: Infinity, date: null };
-      let maxDiurnalRange = { value: 0, date: null };
-
-      weatherList.forEach(w => {
-        const minT = (w.minTemp !== '' && w.minTemp !== undefined) ? parseFloat(w.minTemp) : null;
-        const maxT = (w.maxTemp !== '' && w.maxTemp !== undefined) ? parseFloat(w.maxTemp) : null;
-        const minH = (w.minHum !== '' && w.minHum !== undefined) ? parseFloat(w.minHum) : null;
-        const maxH = (w.maxHum !== '' && w.maxHum !== undefined) ? parseFloat(w.maxHum) : null;
-
-        if (maxT !== null && !isNaN(maxT)) {
-          if (maxT >= 32.5) veryHotDays++;
-          if (maxT > maxTempRecord.value) {
-            maxTempRecord = { value: maxT, date: w.date };
-          }
-        }
-
-        if (minT !== null && !isNaN(minT)) {
-          if (minT <= 12.5) coldDays++;
-          if (minT >= 27.5) hotNights++;
-          if (minT < minTempRecord.value) {
-            minTempRecord = { value: minT, date: w.date };
-          }
-        }
-
-        if (maxT !== null && minT !== null && !isNaN(maxT) && !isNaN(minT)) {
-          const range = parseFloat((maxT - minT).toFixed(1));
-          if (range > maxDiurnalRange.value) {
-            maxDiurnalRange = { value: range, date: w.date };
-          }
-        }
-
-        if (maxH !== null && !isNaN(maxH)) {
-          if (maxH >= 94.5) veryHumidDays++;
-          if (maxH > maxHumidRecord.value) {
-            maxHumidRecord = { value: maxH, date: w.date };
-          }
-        }
-
-        if (minH !== null && !isNaN(minH)) {
-          if (minH < 30.5) veryDryDays++;
-          if (minH < minHumidRecord.value) {
-            minHumidRecord = { value: minH, date: w.date };
-          }
-        }
-      });
-
-      return {
-        totalDays: weatherList.length,
-        veryHotDays,
-        coldDays,
-        hotNights,
-        veryHumidDays,
-        veryDryDays,
-        maxTempRecord: maxTempRecord.date ? maxTempRecord : null,
-        minTempRecord: minTempRecord.date ? minTempRecord : null,
-        maxHumidRecord: maxHumidRecord.date ? maxHumidRecord : null,
-        minHumidRecord: minHumidRecord.date ? minHumidRecord : null,
-        maxDiurnalRange: maxDiurnalRange.date ? maxDiurnalRange : null
-      };
-    }
-
-    function renderClimateStatsCardsHtml(stats, titleLabel = '期內') {
-      return `
-        <!-- Climate Indicators & Extremes -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <!-- Special Days Badges (6 cols) -->
-          <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-temperature-arrow-up text-rose-500"></i>
-                <span>${titleLabel}氣候指標統計日數</span>
-              </h3>
-              <span class="text-[11px] text-slate-400 font-mono">觀測天數: ${stats.totalDays} 天</span>
-            </div>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 text-center">
-              <div class="bg-rose-50/80 border border-rose-100 rounded-xl p-2.5">
-                <div class="text-[11px] text-rose-700 font-medium">酷熱日數</div>
-                <div class="text-[10px] text-rose-400">最高溫 ≥ 32.5°C</div>
-                <div class="text-xl font-bold font-mono text-rose-700 mt-1">${stats.veryHotDays} <span class="text-xs font-normal">天</span></div>
-              </div>
-
-              <div class="bg-sky-50/80 border border-sky-100 rounded-xl p-2.5">
-                <div class="text-[11px] text-sky-700 font-medium">寒冷日數</div>
-                <div class="text-[10px] text-sky-400">最低溫 ≤ 12.5°C</div>
-                <div class="text-xl font-bold font-mono text-sky-700 mt-1">${stats.coldDays} <span class="text-xs font-normal">天</span></div>
-              </div>
-
-              <div class="bg-amber-50/80 border border-amber-100 rounded-xl p-2.5">
-                <div class="text-[11px] text-amber-700 font-medium">熱夜日數</div>
-                <div class="text-[10px] text-amber-400">最低溫 ≥ 27.5°C</div>
-                <div class="text-xl font-bold font-mono text-amber-700 mt-1">${stats.hotNights} <span class="text-xs font-normal">天</span></div>
-              </div>
-
-              <div class="bg-cyan-50/80 border border-cyan-100 rounded-xl p-2.5">
-                <div class="text-[11px] text-cyan-700 font-medium">非常潮濕日數</div>
-                <div class="text-[10px] text-cyan-400">最高濕度 ≥ 94.5%</div>
-                <div class="text-xl font-bold font-mono text-cyan-700 mt-1">${stats.veryHumidDays} <span class="text-xs font-normal">天</span></div>
-              </div>
-
-              <div class="bg-orange-50/80 border border-orange-100 rounded-xl p-2.5">
-                <div class="text-[11px] text-orange-700 font-medium">非常乾燥日數</div>
-                <div class="text-[10px] text-orange-400">最低濕度 &lt; 30.5%</div>
-                <div class="text-xl font-bold font-mono text-orange-700 mt-1">${stats.veryDryDays} <span class="text-xs font-normal">天</span></div>
-              </div>
-
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col justify-center">
-                <div class="text-[11px] text-slate-500 font-medium">最大日溫差</div>
-                <div class="text-[10px] text-slate-400 font-mono">${stats.maxDiurnalRange ? stats.maxDiurnalRange.date : '-'}</div>
-                <div class="text-lg font-bold font-mono text-slate-700 mt-1">
-                  ${stats.maxDiurnalRange ? `${stats.maxDiurnalRange.value} <span class="text-xs font-normal">°C</span>` : '-'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Extremes Records (6 cols: Max Temp, Min Temp, Max Humid, Min Humid) -->
-          <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-award text-amber-500"></i>
-                <span>${titleLabel}極端氣象紀錄</span>
-              </h3>
-              <span class="text-[11px] text-slate-400">最高/最低溫與濕度</span>
-            </div>
-            <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
-              <!-- Highest Temp -->
-              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-rose-50 to-orange-50/40 rounded-xl border border-rose-100">
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
-                  <i class="fa-solid fa-sun text-rose-500"></i> 極端最高氣溫
-                </div>
-                <div class="text-xl font-black font-mono text-rose-600 mt-1">
-                  ${stats.maxTempRecord ? `${stats.maxTempRecord.value}°C` : '-'}
-                </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
-                  <i class="fa-regular fa-calendar mr-1 text-rose-400"></i>${stats.maxTempRecord ? stats.maxTempRecord.date : '無紀錄'}
-                </div>
-              </div>
-
-              <!-- Lowest Temp -->
-              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-sky-50 to-indigo-50/40 rounded-xl border border-sky-100">
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-sky-700">
-                  <i class="fa-solid fa-snowflake text-sky-500"></i> 極端最低氣溫
-                </div>
-                <div class="text-xl font-black font-mono text-sky-600 mt-1">
-                  ${stats.minTempRecord ? `${stats.minTempRecord.value}°C` : '-'}
-                </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
-                  <i class="fa-regular fa-calendar mr-1 text-sky-400"></i>${stats.minTempRecord ? stats.minTempRecord.date : '無紀錄'}
-                </div>
-              </div>
-
-              <!-- Highest Humidity (New) -->
-              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-cyan-50 to-blue-50/40 rounded-xl border border-cyan-100">
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-cyan-800">
-                  <i class="fa-solid fa-droplet text-cyan-600"></i> 最高相對濕度
-                </div>
-                <div class="text-xl font-black font-mono text-cyan-700 mt-1">
-                  ${stats.maxHumidRecord ? `${stats.maxHumidRecord.value}%` : '-'}
-                </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
-                  <i class="fa-regular fa-calendar mr-1 text-cyan-500"></i>${stats.maxHumidRecord ? stats.maxHumidRecord.date : '無紀錄'}
-                </div>
-              </div>
-
-              <!-- Lowest Humidity (New) -->
-              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-amber-50 to-orange-50/40 rounded-xl border border-amber-100">
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
-                  <i class="fa-solid fa-wind text-amber-600"></i> 最低相對濕度
-                </div>
-                <div class="text-xl font-black font-mono text-amber-700 mt-1">
-                  ${stats.minHumidRecord ? `${stats.minHumidRecord.value}%` : '-'}
-                </div>
-                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
-                  <i class="fa-regular fa-calendar mr-1 text-amber-500"></i>${stats.minHumidRecord ? stats.minHumidRecord.date : '無紀錄'}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    /* ========================================================
-       ECHARTS WARNING & TIP TIMELINE GENERATOR
-       Follows strict classification order and specified colors
-       ======================================================== */
-    let warningChartInstance = null;
-
-    function getWarningCategoryColor(type) {
-      return EVENT_COLOR_MAP[type] || '#64748b';
-    }
-
-    function renderWarningTimelineChart(chartDomId, events, windowStart, windowEnd) {
-      const chartDom = document.getElementById(chartDomId);
-      if (!chartDom) return;
-
-      if (warningChartInstance) {
-        warningChartInstance.dispose();
-        warningChartInstance = null;
-      }
-
-      if (!events || events.length === 0) {
-        chartDom.innerHTML = `
-          <div class="flex items-center justify-center h-48 text-slate-400 text-xs font-sans">
-            <i class="fa-solid fa-timeline text-slate-300 mr-2"></i> 期內無生效之警報或提示事件
-          </div>
-        `;
-        return;
-      }
-
-      // Filter classification order to only include types active in the current period,
-      // strictly preserving the predefined hierarchy:
-      // 寒冷 -> 酷熱 -> 大雨 -> 風暴潮 -> 注意/戒備/強風 -> 烈風/暴風/颶風 -> 海嘯 -> 提示系列
-      const activeTypesSet = new Set(events.map(e => e.type));
-      const orderedTypes = ALL_CLASSIFICATION_ORDER.filter(t => activeTypesSet.has(t));
-
-      // Append any unlisted type if applicable
-      events.forEach(e => {
-        if (!orderedTypes.includes(e.type)) {
-          orderedTypes.push(e.type);
-        }
-      });
-
-      const typeIndexMap = new Map();
-      orderedTypes.forEach((t, i) => typeIndexMap.set(t, i));
-
-      // Construct ECharts custom series data
-      const data = events.map(e => {
-        const s = Math.max(parseDateString(e.start).getTime(), windowStart.getTime());
-        const eTime = Math.min(parseDateString(e.end).getTime(), windowEnd.getTime());
-        const durationStr = getEventDurationHhMm(e.start, e.end);
-        const yIndex = typeIndexMap.get(e.type);
-        const color = getWarningCategoryColor(e.type);
-
-        return {
-          name: e.type,
-          value: [yIndex, s, eTime, durationStr, e.start, e.end],
-          itemStyle: { color: color }
-        };
-      });
-
-      const chart = echarts.init(chartDom);
-      warningChartInstance = chart;
-
-      const dynamicHeight = Math.max(220, orderedTypes.length * 32 + 80);
-      chartDom.style.height = `${dynamicHeight}px`;
-      chart.resize();
-
-      const option = {
-        tooltip: {
-          formatter: function (params) {
-            const val = params.value;
-            return `
-              <div style="font-family: inherit; font-size: 12px; line-height: 1.4;">
-                <strong style="color: ${params.color}; font-size: 13px;">${params.name}</strong><br/>
-                <span style="color:#64748b;">發佈時間:</span> <span style="font-family: monospace;">${val[4]}</span><br/>
-                <span style="color:#64748b;">結束時間:</span> <span style="font-family: monospace;">${val[5]}</span><br/>
-                <span style="color:#64748b;">總計時長:</span> <strong style="font-family: monospace;">${val[3]}</strong>
-              </div>
-            `;
-          }
-        },
-        grid: {
-          top: 25,
-          left: 130,
-          right: 30,
-          bottom: 35
-        },
-        xAxis: {
-          type: 'time',
-          min: windowStart.getTime(),
-          max: windowEnd.getTime(),
-          axisLabel: {
-            fontSize: 10,
-            color: '#64748b'
-          },
-          splitLine: {
-            lineStyle: {
-              color: '#f1f5f9'
-            }
-          }
-        },
-        yAxis: {
-          type: 'category',
-          data: orderedTypes,
-          inverse: true,
-          axisLabel: {
-            fontSize: 11,
-            color: '#334155',
-            fontWeight: 500,
-            formatter: function (value) {
-              return value;
-            }
-          },
-          axisTick: { show: false },
-          axisLine: { lineStyle: { color: '#e2e8f0' } }
-        },
-        series: [{
-          type: 'custom',
-          renderItem: function (params, api) {
-            const categoryIndex = api.value(0);
-            const timeStart = api.coord([api.value(1), categoryIndex]);
-            const timeEnd = api.coord([api.value(2), categoryIndex]);
-            const barHeight = 16;
-
-            const width = Math.max(4, timeEnd[0] - timeStart[0]);
-            const x = timeStart[0];
-            const y = timeStart[1] - barHeight / 2;
-
-            const rectShape = echarts.graphic.clipRectByRect({
-              x: x,
-              y: y,
-              width: width,
-              height: barHeight
-            }, {
-              x: params.coordSys.x,
-              y: params.coordSys.y,
-              width: params.coordSys.width,
-              height: params.coordSys.height
-            });
-
-            return rectShape && {
-              type: 'rect',
-              transition: ['shape'],
-              shape: { ...rectShape, r: [4, 4, 4, 4] },
-              style: api.style()
-            };
-          },
-          encode: {
-            x: [1, 2],
-            y: 0
-          },
-          data: data
-        }]
-      };
-
-      chart.setOption(option);
-      window.removeEventListener('resize', chart.resize);
-      window.addEventListener('resize', chart.resize);
-    }
-
-    /* ========================================================
-       HISTORICAL SEARCH & ANALYTICS (TAB 2)
-       ======================================================== */
-    function setQueryGranularity(gran) {
-      currentGranularity = gran;
-      ['year', 'month', 'date'].forEach(g => {
-        const btn = document.getElementById(`granBtn-${g}`);
-        if (g === gran) {
-          btn.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
-        } else {
-          btn.className = "py-1.5 rounded-lg text-slate-600 font-medium";
-        }
-      });
-
-      const mWrap = document.getElementById('queryMonthWrapper');
-      const dWrap = document.getElementById('queryDateWrapper');
-
-      if (gran === 'year') {
-        mWrap.classList.add('hidden');
-        dWrap.classList.add('hidden');
-      } else if (gran === 'month') {
-        mWrap.classList.remove('hidden');
-        dWrap.classList.add('hidden');
-      } else if (gran === 'date') {
-        mWrap.classList.remove('hidden');
-        dWrap.classList.remove('hidden');
-      }
-
-      runQueryAnalysis();
-    }
-
-    function runQueryAnalysis() {
-      const year = parseInt(document.getElementById('queryYear').value, 10);
-      const month = parseInt(document.getElementById('queryMonth').value, 10);
-      const day = parseInt(document.getElementById('queryDate').value, 10);
-      const sortBy = document.getElementById('querySortBy').value;
-
-      const container = document.getElementById('queryResultsContainer');
-      if (isNaN(year)) {
-        container.innerHTML = `<div class="p-6 bg-white rounded-2xl border text-center text-slate-400">請輸入有效年份進行檢索</div>`;
-        return;
-      }
-
-      if (currentGranularity === 'year') {
-        renderYearAnalysis(year, sortBy);
-      } else if (currentGranularity === 'month') {
-        renderYearMonthAnalysis(year, month, sortBy);
-      } else if (currentGranularity === 'date') {
-        renderYearMonthDateAnalysis(year, month, day, sortBy);
-      }
-    }
-
-    /**
-     * 1. YEAR VIEW:
-     * - List all weather records for that year in table format
-     * - Count total issue time and duration for every warning & tip in that year
-     * - Climate statistics days (酷熱, 寒冷, 熱夜, 非常潮濕, 非常乾燥, 最高/最低溫)
-     * - Warning Timeline Visualization (ECharts)
-     */
-    function renderYearAnalysis(year, sortBy) {
-      const container = document.getElementById('queryResultsContainer');
-      const yearStart = new Date(year, 0, 1, 0, 0, 0);
-      const yearEnd = new Date(year + 1, 0, 1, 0, 0, 0);
-
-      const allWeather = getAllWeatherData();
-      const filteredWeather = allWeather
-        .filter(w => w.date && w.date.startsWith(`${year}-`))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      // 1. Calculate Climate Stats & Extremes
-      const climateStats = calculateClimateStats(filteredWeather);
-
-      // 2. Aggregate Warnings & Tips
-      const warningStats = WARNING_TYPES.map(type => {
-        const events = warningData.filter(w => w.type === type);
-        let totalMinutes = 0;
-        let count = 0;
-
-        events.forEach(ev => {
-          totalMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearEnd);
-          if (isEventIssuedInWindow(ev.start, yearStart, yearEnd)) {
-            count++;
-          }
-        });
-
-        return { type, count, totalMinutes, durationHhMm: minutesToHhMm(totalMinutes) };
-      }).filter(item => item.count > 0 || item.totalMinutes > 0);
-
-      const tipStats = TIP_TYPES.map(type => {
-        const events = tipData.filter(t => t.type === type);
-        let totalMinutes = 0;
-        let count = 0;
-
-        events.forEach(ev => {
-          totalMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearEnd);
-          if (isEventIssuedInWindow(ev.start, yearStart, yearEnd)) {
-            count++;
-          }
-        });
-
-        return { type, count, totalMinutes, durationHhMm: minutesToHhMm(totalMinutes) };
-      }).filter(item => item.count > 0 || item.totalMinutes > 0);
-
-      if (sortBy === 'type') {
-        warningStats.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
-        tipStats.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
-      } else {
-        warningStats.sort((a, b) => b.totalMinutes - a.totalMinutes);
-        tipStats.sort((a, b) => b.totalMinutes - a.totalMinutes);
-      }
-
-      // Filter events active within this year for the Timeline
-      const allActiveEventsThisYear = [
-        ...warningData.filter(w => getOverlappingMinutes(w.start, w.end, yearStart, yearEnd) > 0),
-        ...tipData.filter(t => getOverlappingMinutes(t.start, t.end, yearStart, yearEnd) > 0)
-      ];
-
-      container.innerHTML = `
-        <div class="space-y-6">
-          <!-- Summary Header -->
-          <div class="bg-gradient-to-r from-sky-700 to-indigo-800 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
-            <div>
-              <span class="text-xs uppercase tracking-wider font-semibold text-sky-200">年度全覽總報</span>
-              <h2 class="text-xl sm:text-2xl font-black mt-1">${year} 年 氣象與警報統計數據</h2>
-            </div>
-            <div class="flex flex-wrap gap-2.5 sm:gap-4 text-center">
-              <div class="bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm border border-white/10 flex-1 min-w-[80px]">
-                <div class="text-[11px] sm:text-xs text-sky-200">觀測天數</div>
-                <div class="text-lg sm:text-xl font-bold font-mono">${filteredWeather.length} 天</div>
-              </div>
-              <div class="bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm border border-white/10 flex-1 min-w-[80px]">
-                <div class="text-[11px] sm:text-xs text-sky-200">警報總次數</div>
-                <div class="text-lg sm:text-xl font-bold font-mono text-amber-300">
-                  ${warningStats.reduce((sum, item) => sum + item.count, 0)} 次
-                </div>
-              </div>
-              <div class="bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm border border-white/10 flex-1 min-w-[80px]">
-                <div class="text-[11px] sm:text-xs text-sky-200">提示總次數</div>
-                <div class="text-lg sm:text-xl font-bold font-mono text-cyan-300">
-                  ${tipStats.reduce((sum, item) => sum + item.count, 0)} 次
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Climate Statistics Days & Extremes (New Feature) -->
-          ${renderClimateStatsCardsHtml(climateStats, `${year} 年`)}
-
-          <!-- Interactive Warning & Tip Timeline (New Feature) -->
-          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-timeline text-sky-600"></i>
-                <span>${year} 年度 氣象警報與提示生效時序圖 (Warning Timeline)</span>
-              </h3>
-              <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>酷熱</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>寒冷</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>雨量</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>強烈季候風/風暴</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>風暴潮</span>
-              </div>
-            </div>
-            <div id="yearWarningTimelineChart" class="w-full"></div>
-          </div>
-
-          <!-- Warnings & Tips Annual Tables -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <!-- Warnings summary -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
-              <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-xs sm:text-sm">
-                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                <span>${year} 年度 警報統計總結</span>
-              </h3>
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs">
-                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
-                    <tr>
-                      <th class="p-2.5 text-left">警報類型</th>
-                      <th class="p-2.5 text-center">生效次數</th>
-                      <th class="p-2.5 text-right">年度生效時數</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    ${warningStats.length > 0 ? warningStats.map(w => `
-                      <tr class="hover:bg-slate-50">
-                        <td class="p-2 font-medium">${w.type}</td>
-                        <td class="p-2 text-center font-bold text-amber-600 font-mono">${w.count}</td>
-                        <td class="p-2 text-right font-mono font-bold text-slate-700">${w.durationHhMm}</td>
-                      </tr>
-                    `).join('') : `<tr><td colspan="3" class="p-4 text-center text-slate-400">該年度無警報記錄</td></tr>`}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Tips summary -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
-              <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-xs sm:text-sm">
-                <i class="fa-solid fa-bell text-cyan-600"></i>
-                <span>${year} 年度 提示/特別報告統計總結</span>
-              </h3>
-              <div class="overflow-x-auto">
-                <table class="w-full text-xs">
-                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
-                    <tr>
-                      <th class="p-2.5 text-left">提示類型</th>
-                      <th class="p-2.5 text-center">生效次數</th>
-                      <th class="p-2.5 text-right">年度生效時數</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    ${tipStats.length > 0 ? tipStats.map(t => `
-                      <tr class="hover:bg-slate-50">
-                        <td class="p-2 font-medium">${t.type}</td>
-                        <td class="p-2 text-center font-bold text-cyan-600 font-mono">${t.count}</td>
-                        <td class="p-2 text-right font-mono font-bold text-slate-700">${t.durationHhMm}</td>
-                      </tr>
-                    `).join('') : `<tr><td colspan="3" class="p-4 text-center text-slate-400">該年度無提示記錄</td></tr>`}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- Weather Data Table -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
-            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-xs sm:text-sm">
-              <i class="fa-solid fa-table text-sky-600"></i>
-              <span>${year} 年度 每日氣象觀測數據表</span>
-            </h3>
-            <div class="overflow-x-auto max-h-[500px]">
-              <table class="w-full text-xs font-mono min-w-[500px]">
-                <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b">
-                  <tr>
-                    <th class="p-2.5 text-left">日期</th>
-                    <th class="p-2.5 text-right">最低氣溫 (°C)</th>
-                    <th class="p-2.5 text-right">最高氣溫 (°C)</th>
-                    <th class="p-2.5 text-right">最低濕度 (%)</th>
-                    <th class="p-2.5 text-right">最高濕度 (%)</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${filteredWeather.length > 0 ? filteredWeather.map(w => `
-                    <tr class="hover:bg-slate-50">
-                      <td class="p-2 text-slate-900 font-bold">${w.date}</td>
-                      <td class="p-2 text-right text-sky-600">${w.minTemp !== '' ? w.minTemp : '-'}</td>
-                      <td class="p-2 text-right text-rose-600">${w.maxTemp !== '' ? w.maxTemp : '-'}</td>
-                      <td class="p-2 text-right text-amber-600">${w.minHum !== '' ? w.minHum : '-'}</td>
-                      <td class="p-2 text-right text-cyan-600">${w.maxHum !== '' ? w.maxHum : '-'}</td>
-                    </tr>
-                  `).join('') : `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-sans">無 ${year} 年的天氣記錄</td></tr>`}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `;
-
-      // Render the ECharts timeline after the DOM is rendered
-      setTimeout(() => {
-        renderWarningTimelineChart('yearWarningTimelineChart', allActiveEventsThisYear, yearStart, yearEnd);
-      }, 50);
-    }
-
-    /**
-     * 2. YEAR + MONTH VIEW:
-     * - List all record data in that month
-     * - Weather data in table format
-     * - Two Addition Tables (Mandatory):
-     *   1. 提示/特別報告, x月總生效時數, (yyyy)累計生效時數, x月總生效次數, (yyyy)累計生效次數
-     *   2. 警報, x月總生效時數, (yyyy)累計生效時數, x月總生效次數, (yyyy)累計生效次數
-     * - Monthly Climate statistics days (酷熱, 寒冷, 熱夜, 非常潮濕, 非常乾燥, 最高/最低溫)
-     * - Warning Timeline Visualization (ECharts)
-     */
-    function renderYearMonthAnalysis(year, month, sortBy) {
-      const container = document.getElementById('queryResultsContainer');
-      const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
-
-      // Time boundaries
-      const monthStart = new Date(year, month - 1, 1, 0, 0, 0);
-      const monthEnd = new Date(year, month, 1, 0, 0, 0);
-
-      const yearStart = new Date(year, 0, 1, 0, 0, 0);
-      const yearToMonthEnd = new Date(year, month, 1, 0, 0, 0);
-
-      const allWeather = getAllWeatherData();
-      const filteredWeather = allWeather
-        .filter(w => w.date && w.date.startsWith(monthPrefix))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      // Calculate Monthly Climate Stats & Extremes
-      const climateStats = calculateClimateStats(filteredWeather);
-
-      // Build Warning Stats Table
-      const warningStats = WARNING_TYPES.map(type => {
-        const events = warningData.filter(w => w.type === type);
-
-        let mMinutes = 0;
-        let mCount = 0;
-        let ytdMinutes = 0;
-        let ytdCount = 0;
-
-        events.forEach(ev => {
-          mMinutes += getOverlappingMinutes(ev.start, ev.end, monthStart, monthEnd);
-          if (isEventIssuedInWindow(ev.start, monthStart, monthEnd)) {
-            mCount++;
-          }
-
-          ytdMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearToMonthEnd);
-          if (isEventIssuedInWindow(ev.start, yearStart, yearToMonthEnd)) {
-            ytdCount++;
-          }
-        });
-
-        return {
-          type,
-          mDuration: minutesToHhMm(mMinutes),
-          ytdDuration: minutesToHhMm(ytdMinutes),
-          mCount,
-          ytdCount,
-          mMinutes,
-          ytdMinutes
-        };
-      });
-
-      // Build Tip Stats Table
-      const tipStats = TIP_TYPES.map(type => {
-        const events = tipData.filter(t => t.type === type);
-
-        let mMinutes = 0;
-        let mCount = 0;
-        let ytdMinutes = 0;
-        let ytdCount = 0;
-
-        events.forEach(ev => {
-          mMinutes += getOverlappingMinutes(ev.start, ev.end, monthStart, monthEnd);
-          if (isEventIssuedInWindow(ev.start, monthStart, monthEnd)) {
-            mCount++;
-          }
-
-          ytdMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearToMonthEnd);
-          if (isEventIssuedInWindow(ev.start, yearStart, yearToMonthEnd)) {
-            ytdCount++;
-          }
-        });
-
-        return {
-          type,
-          mDuration: minutesToHhMm(mMinutes),
-          ytdDuration: minutesToHhMm(ytdMinutes),
-          mCount,
-          ytdCount,
-          mMinutes,
-          ytdMinutes
-        };
-      });
-
-      const monthWarningsLog = warningData.filter(w => getOverlappingMinutes(w.start, w.end, monthStart, monthEnd) > 0);
-      const monthTipsLog = tipData.filter(t => getOverlappingMinutes(t.start, t.end, monthStart, monthEnd) > 0);
-
-      if (sortBy === 'type') {
-        monthWarningsLog.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
-        monthTipsLog.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
-      } else {
-        monthWarningsLog.sort((a, b) => a.start.localeCompare(b.start));
-        monthTipsLog.sort((a, b) => a.start.localeCompare(b.start));
-      }
-
-      const allActiveEventsThisMonth = [
-        ...monthWarningsLog,
-        ...monthTipsLog
-      ];
-
-      container.innerHTML = `
-        <div class="space-y-6">
-          <!-- Monthly Header -->
-          <div class="bg-gradient-to-r from-cyan-800 to-sky-700 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
-            <div>
-              <span class="text-xs uppercase tracking-wider font-semibold text-cyan-200">月度氣象月報</span>
-              <h2 class="text-xl sm:text-2xl font-black mt-1">${year} 年 ${month} 月 綜合統計報表</h2>
-            </div>
-            <div class="flex flex-wrap gap-2.5 sm:gap-4 text-center">
-              <div class="bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm border border-white/10 flex-1 min-w-[80px]">
-                <div class="text-[11px] sm:text-xs text-cyan-200">當月天數</div>
-                <div class="text-lg sm:text-xl font-bold font-mono">${filteredWeather.length} 天</div>
-              </div>
-              <div class="bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm border border-white/10 flex-1 min-w-[80px]">
-                <div class="text-[11px] sm:text-xs text-cyan-200">${month}月警報次數</div>
-                <div class="text-lg sm:text-xl font-bold font-mono text-amber-300">
-                  ${warningStats.reduce((sum, item) => sum + item.mCount, 0)} 次
-                </div>
-              </div>
-              <div class="bg-white/10 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl backdrop-blur-sm border border-white/10 flex-1 min-w-[80px]">
-                <div class="text-[11px] sm:text-xs text-cyan-200">${month}月提示次數</div>
-                <div class="text-lg sm:text-xl font-bold font-mono text-cyan-300">
-                  ${tipStats.reduce((sum, item) => sum + item.mCount, 0)} 次
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Climate Statistics Days & Extremes (New Feature) -->
-          ${renderClimateStatsCardsHtml(climateStats, `${month} 月`)}
-
-          <!-- Interactive Warning Timeline for Month (New Feature) -->
-          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-timeline text-sky-600"></i>
-                <span>${year} 年 ${month} 月 氣象警報與提示時序圖 (Warning Timeline)</span>
-              </h3>
-              <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>酷熱</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>寒冷</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>雨量</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>強烈季候風/風暴</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>風暴潮</span>
-              </div>
-            </div>
-            <div id="monthWarningTimelineChart" class="w-full"></div>
-          </div>
-
-          <!-- Mandatory Addition Table 1: 提示/特別報告統計表 -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="p-3 sm:p-4 bg-cyan-50/60 border-b border-cyan-100 flex flex-wrap items-center justify-between gap-1">
-              <h3 class="font-bold text-cyan-950 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-bell text-cyan-600"></i>
-                <span>提示/特別報告 統計表 (${month}月與${year}年累計)</span>
-              </h3>
-              <span class="text-[11px] text-cyan-800 font-medium">包含生效時數與生效次數</span>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs text-left border-collapse min-w-[550px]">
-                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th class="p-3">提示/特別報告</th>
-                    <th class="p-3 text-right font-mono">${month}月總生效時數</th>
-                    <th class="p-3 text-right font-mono">(${year})累計生效時數</th>
-                    <th class="p-3 text-center">${month}月總生效次數</th>
-                    <th class="p-3 text-center">(${year})累計生效次數</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 font-mono">
-                  ${tipStats.map(item => `
-                    <tr class="hover:bg-slate-50 ${item.mCount > 0 || item.mMinutes > 0 ? 'bg-cyan-50/20 font-semibold' : 'text-slate-600'}">
-                      <td class="p-3 font-sans font-medium text-slate-800">${item.type}</td>
-                      <td class="p-3 text-right ${item.mMinutes > 0 ? 'text-cyan-700 font-bold' : 'text-slate-400'}">${item.mDuration}</td>
-                      <td class="p-3 text-right ${item.ytdMinutes > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdDuration}</td>
-                      <td class="p-3 text-center ${item.mCount > 0 ? 'text-cyan-600 font-bold' : 'text-slate-400'}">${item.mCount}</td>
-                      <td class="p-3 text-center ${item.ytdCount > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdCount}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Mandatory Addition Table 2: 警報統計表 -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="p-3 sm:p-4 bg-amber-50/60 border-b border-amber-100 flex flex-wrap items-center justify-between gap-1">
-              <h3 class="font-bold text-amber-950 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
-                <span>警報 統計表 (${month}月與${year}年累計)</span>
-              </h3>
-              <span class="text-[11px] text-amber-800 font-medium">包含跨月切分時長與發佈月份原則</span>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs text-left border-collapse min-w-[550px]">
-                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th class="p-3">警報</th>
-                    <th class="p-3 text-right font-mono">${month}月總生效時數</th>
-                    <th class="p-3 text-right font-mono">(${year})累計生效時數</th>
-                    <th class="p-3 text-center">${month}月總生效次數</th>
-                    <th class="p-3 text-center">(${year})累計生效次數</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 font-mono">
-                  ${warningStats.map(item => `
-                    <tr class="hover:bg-slate-50 ${item.mCount > 0 || item.mMinutes > 0 ? 'bg-amber-50/20 font-semibold' : 'text-slate-600'}">
-                      <td class="p-3 font-sans font-medium text-slate-800">${item.type}</td>
-                      <td class="p-3 text-right ${item.mMinutes > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">${item.mDuration}</td>
-                      <td class="p-3 text-right ${item.ytdMinutes > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdDuration}</td>
-                      <td class="p-3 text-center ${item.mCount > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">${item.mCount}</td>
-                      <td class="p-3 text-center ${item.ytdCount > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdCount}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Monthly Weather Data Table -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
-            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-xs sm:text-sm">
-              <i class="fa-solid fa-calendar-days text-sky-600"></i>
-              <span>${year} 年 ${month} 月 氣象觀測數據表</span>
-            </h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs font-mono text-left border-collapse min-w-[500px]">
-                <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
-                  <tr>
-                    <th class="p-2.5">日期</th>
-                    <th class="p-2.5 text-right">最低氣溫 (°C)</th>
-                    <th class="p-2.5 text-right">最高氣溫 (°C)</th>
-                    <th class="p-2.5 text-right">最低相對濕度 (%)</th>
-                    <th class="p-2.5 text-right">最高相對濕度 (%)</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${filteredWeather.length > 0 ? filteredWeather.map(w => `
-                    <tr class="hover:bg-slate-50">
-                      <td class="p-2.5 text-slate-900 font-bold">${w.date}</td>
-                      <td class="p-2.5 text-right text-sky-600">${w.minTemp !== '' ? w.minTemp : '-'}</td>
-                      <td class="p-2.5 text-right text-rose-600">${w.maxTemp !== '' ? w.maxTemp : '-'}</td>
-                      <td class="p-2.5 text-right text-amber-600">${w.minHum !== '' ? w.minHum : '-'}</td>
-                      <td class="p-2.5 text-right text-cyan-600">${w.maxHum !== '' ? w.maxHum : '-'}</td>
-                    </tr>
-                  `).join('') : `<tr><td colspan="5" class="p-6 text-center text-slate-400 font-sans">未找到 ${monthPrefix} 的日氣象數據</td></tr>`}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `;
-
-      // Render the ECharts timeline after the DOM is rendered
-      setTimeout(() => {
-        renderWarningTimelineChart('monthWarningTimelineChart', allActiveEventsThisMonth, monthStart, monthEnd);
-      }, 50);
-    }
-
-    /**
-     * 3. YEAR + MONTH + DATE VIEW:
-     * - Show that exact day's weather + warnings/tips issued or active
-     */
-    function renderYearMonthDateAnalysis(year, month, day, sortBy) {
-      const container = document.getElementById('queryResultsContainer');
-      const targetDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-      const dayStart = new Date(year, month - 1, day, 0, 0, 0);
-      const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0);
-
-      const allWeather = getAllWeatherData();
-      const weatherRecord = allWeather.find(w => w.date === targetDateStr);
-
-      const activeWarnings = warningData.filter(w => getOverlappingMinutes(w.start, w.end, dayStart, dayEnd) > 0);
-      const activeTips = tipData.filter(t => getOverlappingMinutes(t.start, t.end, dayStart, dayEnd) > 0);
-
-      if (sortBy === 'type') {
-        activeWarnings.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
-        activeTips.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
-      } else {
-        activeWarnings.sort((a, b) => a.start.localeCompare(b.start));
-        activeTips.sort((a, b) => a.start.localeCompare(b.start));
-      }
-
-      container.innerHTML = `
-        <div class="space-y-6">
-          <!-- Daily Header -->
-          <div class="bg-gradient-to-r from-slate-900 to-sky-900 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
-            <div>
-              <span class="text-xs uppercase tracking-wider font-semibold text-sky-300">單日氣象與警報檢索</span>
-              <h2 class="text-xl sm:text-2xl font-black mt-1 font-mono">${targetDateStr}</h2>
-            </div>
-            <div class="flex gap-2">
-              <span class="px-2.5 py-1 bg-white/10 rounded-lg text-xs font-mono">
-                當日警報：${activeWarnings.length}
-              </span>
-              <span class="px-2.5 py-1 bg-white/10 rounded-lg text-xs font-mono">
-                當日提示：${activeTips.length}
-              </span>
-            </div>
-          </div>
-
-          <!-- Day Weather Highlight Card -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
-            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 text-xs sm:text-sm">
-              <i class="fa-solid fa-cloud-sun text-sky-500"></i>
-              <span>當日氣象觀測指標</span>
-            </h3>
-            ${weatherRecord ? `
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-center">
-                <div class="p-3 sm:p-4 rounded-xl bg-sky-50 border border-sky-100">
-                  <div class="text-xs text-sky-700 font-semibold mb-1">日最低氣溫</div>
-                  <div class="text-xl sm:text-2xl font-bold font-mono text-sky-800">${weatherRecord.minTemp || '-'} <span class="text-xs font-normal">°C</span></div>
-                </div>
-                <div class="p-3 sm:p-4 rounded-xl bg-rose-50 border border-rose-100">
-                  <div class="text-xs text-rose-700 font-semibold mb-1">日最高氣溫</div>
-                  <div class="text-xl sm:text-2xl font-bold font-mono text-rose-800">${weatherRecord.maxTemp || '-'} <span class="text-xs font-normal">°C</span></div>
-                </div>
-                <div class="p-3 sm:p-4 rounded-xl bg-amber-50 border border-amber-100">
-                  <div class="text-xs text-amber-700 font-semibold mb-1">日最低相對濕度</div>
-                  <div class="text-xl sm:text-2xl font-bold font-mono text-amber-800">${weatherRecord.minHum || '-'} <span class="text-xs font-normal">%</span></div>
-                </div>
-                <div class="p-3 sm:p-4 rounded-xl bg-cyan-50 border border-cyan-100">
-                  <div class="text-xs text-cyan-700 font-semibold mb-1">日最高相對濕度</div>
-                  <div class="text-xl sm:text-2xl font-bold font-mono text-cyan-800">${weatherRecord.maxHum || '-'} <span class="text-xs font-normal">%</span></div>
-                </div>
-              </div>
-            ` : `
-              <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-xl font-sans text-xs">
-                <i class="fa-solid fa-calendar-xmark text-2xl mb-2 text-slate-300 block"></i>
-                <p>未登記該日的天氣觀測數據。</p>
-              </div>
-            `}
-          </div>
-
-          <!-- Active Warnings for that day -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
-            <h3 class="font-bold text-slate-800 mb-3 flex items-center justify-between text-xs sm:text-sm">
-              <span class="flex items-center gap-2">
-                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                該日生效之氣象警報
-              </span>
-              <span class="text-xs text-slate-400 font-mono">${activeWarnings.length} 項</span>
-            </h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs font-mono min-w-[500px]">
-                <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
-                  <tr>
-                    <th class="p-2.5 text-left font-sans">警報類型</th>
-                    <th class="p-2.5 text-left">發佈/開始時間</th>
-                    <th class="p-2.5 text-left">結束時間</th>
-                    <th class="p-2.5 text-right font-sans">總時長</th>
-                    <th class="p-2.5 text-right font-sans">該日生效時數</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${activeWarnings.length > 0 ? activeWarnings.map(w => {
-                    const dayMins = getOverlappingMinutes(w.start, w.end, dayStart, dayEnd);
-                    const totalDur = getEventDurationHhMm(w.start, w.end);
-                    const isNewIssueToday = isEventIssuedInWindow(w.start, dayStart, dayEnd);
-                    return `
-                      <tr class="hover:bg-slate-50">
-                        <td class="p-2.5 font-sans font-medium flex items-center gap-2">
-                          <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800">${w.type}</span>
-                          ${isNewIssueToday ? '<span class="text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded font-bold">今日首發</span>' : ''}
-                        </td>
-                        <td class="p-2.5 text-slate-600">${w.start}</td>
-                        <td class="p-2.5 text-slate-600">${w.end}</td>
-                        <td class="p-2.5 text-right font-bold text-slate-700">${totalDur}</td>
-                        <td class="p-2.5 text-right font-bold text-amber-600">${minutesToHhMm(dayMins)}</td>
-                      </tr>
-                    `;
-                  }).join('') : `<tr><td colspan="5" class="p-4 text-center text-slate-400 font-sans">該日無任何警報生效</td></tr>`}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Active Tips for that day -->
-          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
-            <h3 class="font-bold text-slate-800 mb-3 flex items-center justify-between text-xs sm:text-sm">
-              <span class="flex items-center gap-2">
-                <i class="fa-solid fa-bell text-cyan-600"></i>
-                該日生效之提示/特別報告
-              </span>
-              <span class="text-xs text-slate-400 font-mono">${activeTips.length} 項</span>
-            </h3>
-            <div class="overflow-x-auto">
-              <table class="w-full text-xs font-mono min-w-[500px]">
-                <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
-                  <tr>
-                    <th class="p-2.5 text-left font-sans">提示類型</th>
-                    <th class="p-2.5 text-left">發佈/開始時間</th>
-                    <th class="p-2.5 text-left">結束時間</th>
-                    <th class="p-2.5 text-right font-sans">總時長</th>
-                    <th class="p-2.5 text-right font-sans">該日生效時數</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${activeTips.length > 0 ? activeTips.map(t => {
-                    const dayMins = getOverlappingMinutes(t.start, t.end, dayStart, dayEnd);
-                    const totalDur = getEventDurationHhMm(t.start, t.end);
-                    const isNewIssueToday = isEventIssuedInWindow(t.start, dayStart, dayEnd);
-                    return `
-                      <tr class="hover:bg-slate-50">
-                        <td class="p-2.5 font-sans font-medium flex items-center gap-2">
-                          <span class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">${t.type}</span>
-                          ${isNewIssueToday ? '<span class="text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded font-bold">今日首發</span>' : ''}
-                        </td>
-                        <td class="p-2.5 text-slate-600">${t.start}</td>
-                        <td class="p-2.5 text-slate-600">${t.end}</td>
-                        <td class="p-2.5 text-right font-bold text-slate-700">${totalDur}</td>
-                        <td class="p-2.5 text-right font-bold text-cyan-600">${minutesToHhMm(dayMins)}</td>
-                      </tr>
-                    `;
-                  }).join('') : `<tr><td colspan="5" class="p-4 text-center text-slate-400 font-sans">該日無任何提示生效</td></tr>`}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    /* ========================================================
-       MODULE: 警報及提示排行榜 (TOP 5 LEADERBOARDS & EXTREMES)
+       MODULE: 警報及提示排行榜 (INDIVIDUAL LEADERBOARDS PER TYPE)
+       Every warning & tip has its own dedicated Top 5 rankings & extremes
        ======================================================== */
     let currentRankingScope = 'all'; // 'all' | 'year'
 
@@ -2528,6 +885,7 @@
 
       const categoryFilter = document.getElementById('rankingCategoryFilter').value; // 'all' | 'warning' | 'tip'
       const selectedYear = parseInt(document.getElementById('rankingYearSelect').value, 10);
+      const searchTerm = (document.getElementById('rankingSearchInput')?.value || '').trim().toLowerCase();
 
       // Determine entity pool based on category filter
       let entityTypes = [];
@@ -2537,6 +895,10 @@
         entityTypes = [...TIP_TYPES];
       } else {
         entityTypes = [...ALL_CLASSIFICATION_ORDER];
+      }
+
+      if (searchTerm) {
+        entityTypes = entityTypes.filter(t => t.toLowerCase().includes(searchTerm));
       }
 
       // Determine time window if year scope is selected
@@ -2550,8 +912,8 @@
         scopeTitle = `${selectedYear} 年度`;
       }
 
-      // Aggregate stats per entity
-      const entityStatsList = entityTypes.map(type => {
+      // Process stats for every warning and tip independently
+      const individualRankingsList = entityTypes.map(type => {
         const isWarning = WARNING_TYPES.includes(type);
         const sourceData = isWarning ? warningData : tipData;
         const matchingEvents = sourceData.filter(ev => ev.type === type);
@@ -2560,9 +922,8 @@
         let issueCount = 0;
         let earliestDate = null;
         let latestDate = null;
-        let longestEvent = null; // { minutes, start, end }
-        let shortestEvent = null; // { minutes, start, end }
 
+        const episodeList = [];
         const yearCounts = {};
         const monthCounts = {};
         const dayCounts = {};
@@ -2572,43 +933,35 @@
           const eDate = parseDateString(ev.end);
           if (!sDate || !eDate || eDate <= sDate) return;
 
-          // Scope minutes calculation
-          let eventMinutesInScope = 0;
+          let inScopeMinutes = 0;
           let isInIssueScope = false;
 
           if (currentRankingScope === 'year') {
-            eventMinutesInScope = getOverlappingMinutes(ev.start, ev.end, scopeStart, scopeEnd);
+            inScopeMinutes = getOverlappingMinutes(ev.start, ev.end, scopeStart, scopeEnd);
             isInIssueScope = isEventIssuedInWindow(ev.start, scopeStart, scopeEnd);
           } else {
-            eventMinutesInScope = calculateDurationInMinutes(sDate, eDate);
+            inScopeMinutes = calculateDurationInMinutes(sDate, eDate);
             isInIssueScope = true;
           }
 
-          if (eventMinutesInScope > 0) {
-            totalMinutes += eventMinutesInScope;
+          if (inScopeMinutes > 0) {
+            totalMinutes += inScopeMinutes;
           }
 
           if (isInIssueScope) {
             issueCount++;
+            const singleDurationMinutes = calculateDurationInMinutes(sDate, eDate);
 
-            // Earliest and latest issue timestamps
-            if (!earliestDate || sDate < earliestDate) {
-              earliestDate = sDate;
-            }
-            if (!latestDate || sDate > latestDate) {
-              latestDate = sDate;
-            }
+            episodeList.push({
+              start: ev.start,
+              end: ev.end,
+              minutes: singleDurationMinutes,
+              durationHhMm: minutesToHhMm(singleDurationMinutes)
+            });
 
-            // Single longest & shortest duration event
-            const fullDurationMins = calculateDurationInMinutes(sDate, eDate);
-            if (!longestEvent || fullDurationMins > longestEvent.minutes) {
-              longestEvent = { minutes: fullDurationMins, start: ev.start, end: ev.end };
-            }
-            if (!shortestEvent || fullDurationMins < shortestEvent.minutes) {
-              shortestEvent = { minutes: fullDurationMins, start: ev.start, end: ev.end };
-            }
+            if (!earliestDate || sDate < earliestDate) earliestDate = sDate;
+            if (!latestDate || sDate > latestDate) latestDate = sDate;
 
-            // Frequency counters for Year, Month, Day peaks
             const yKey = sDate.getFullYear();
             const ymKey = `${yKey}年${String(sDate.getMonth() + 1).padStart(2, '0')}月`;
             const dKey = `${yKey}-${String(sDate.getMonth() + 1).padStart(2, '0')}-${String(sDate.getDate()).padStart(2, '0')}`;
@@ -2619,248 +972,231 @@
           }
         });
 
-        // Compute peaks
-        let peakYear = null;
-        Object.entries(yearCounts).forEach(([y, c]) => {
-          if (!peakYear || c > peakYear.count) peakYear = { year: y, count: c };
-        });
+        // Top 5 Longest Episodes
+        const top5Longest = [...episodeList]
+          .sort((a, b) => b.minutes - a.minutes)
+          .slice(0, 5);
 
-        let peakMonth = null;
-        Object.entries(monthCounts).forEach(([ym, c]) => {
-          if (!peakMonth || c > peakMonth.count) peakMonth = { month: ym, count: c };
-        });
+        // Top 5 Shortest Episodes
+        const top5Shortest = [...episodeList]
+          .sort((a, b) => a.minutes - b.minutes)
+          .slice(0, 5);
 
-        let peakDay = null;
-        Object.entries(dayCounts).forEach(([d, c]) => {
-          if (!peakDay || c > peakDay.count) peakDay = { day: d, count: c };
-        });
+        // Top 5 Peak Years
+        const top5Years = Object.entries(yearCounts)
+          .map(([y, c]) => ({ label: `${y}年`, count: c }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // Top 5 Peak Months
+        const top5Months = Object.entries(monthCounts)
+          .map(([ym, c]) => ({ label: ym, count: c }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // Top 5 Peak Days
+        const top5Days = Object.entries(dayCounts)
+          .map(([d, c]) => ({ label: d, count: c }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
 
         return {
           type,
           isWarning,
+          color: getWarningCategoryColor(type),
           totalMinutes,
-          issueCount,
-          durationHhMm: minutesToHhMm(totalMinutes),
           totalHours: (totalMinutes / 60).toFixed(1),
+          totalHhMm: minutesToHhMm(totalMinutes),
+          issueCount,
           earliestDateStr: earliestDate ? earliestDate.toISOString().replace('T', ' ').substring(0, 16) : '-',
           latestDateStr: latestDate ? latestDate.toISOString().replace('T', ' ').substring(0, 16) : '-',
-          longestEvent,
-          shortestEvent,
-          peakYear,
-          peakMonth,
-          peakDay
+          top5Longest,
+          top5Shortest,
+          top5Years,
+          top5Months,
+          top5Days
         };
       });
 
-      // Top 5 by Duration
-      const top5ByDuration = [...entityStatsList]
-        .filter(item => item.totalMinutes > 0)
-        .sort((a, b) => b.totalMinutes - a.totalMinutes)
-        .slice(0, 5);
-
-      // Top 5 by Issue Count
-      const top5ByCount = [...entityStatsList]
-        .filter(item => item.issueCount > 0)
-        .sort((a, b) => b.issueCount - a.issueCount)
-        .slice(0, 5);
-
-      const maxDurationVal = top5ByDuration.length > 0 ? top5ByDuration[0].totalMinutes : 1;
-      const maxCountVal = top5ByCount.length > 0 ? top5ByCount[0].issueCount : 1;
-
-      // Entities with data for detailed table
-      const recordedEntities = entityStatsList.filter(item => item.issueCount > 0 || item.totalMinutes > 0);
+      const recordedCount = individualRankingsList.filter(i => i.issueCount > 0 || i.totalMinutes > 0).length;
 
       container.innerHTML = `
         <!-- Scope Badge Header -->
-        <div class="bg-gradient-to-r from-amber-700 via-orange-700 to-amber-900 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
+        <div class="bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-950 text-white rounded-2xl p-4 sm:p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
           <div>
-            <span class="text-xs uppercase tracking-wider font-semibold text-amber-200">HISTORICAL LEADERBOARDS &amp; EXTREMES</span>
-            <h2 class="text-xl sm:text-2xl font-black mt-1">${scopeTitle} 警報與提示統計排行榜</h2>
+            <span class="text-xs uppercase tracking-wider font-semibold text-sky-300">INDIVIDUAL CATEGORY LEADERBOARDS</span>
+            <h2 class="text-lg sm:text-2xl font-black mt-1">${scopeTitle} 警報與提示專屬獨立排行榜</h2>
           </div>
-          <div class="flex flex-wrap gap-2 text-xs font-mono">
+          <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
             <span class="px-3 py-1.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
-              有記錄項目：<strong>${recordedEntities.length}</strong> 種
+              篩選項目：<strong>${individualRankingsList.length}</strong> 種
             </span>
             <span class="px-3 py-1.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
-              累計總發出：<strong>${entityStatsList.reduce((s, i) => s + i.issueCount, 0)}</strong> 次
+              有生效記錄：<strong>${recordedCount}</strong> 種
             </span>
           </div>
         </div>
 
-        <!-- Top 5 Leaderboards Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          <!-- Top 5 by Duration -->
-          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-hourglass-half text-amber-500"></i>
-                <span>累計生效總時數 Top 5</span>
-              </h3>
-              <span class="text-[11px] text-slate-400 font-mono">${scopeTitle}</span>
-            </div>
+        <!-- Individual Ranking Cards Grid -->
+        <div class="space-y-6">
+          ${individualRankingsList.map(item => {
+            const hasData = item.issueCount > 0 || item.totalMinutes > 0;
+            const contrastText = getContrastTextColor(item.color);
 
-            ${top5ByDuration.length > 0 ? `
-              <div class="space-y-2.5">
-                ${top5ByDuration.map((item, idx) => {
-                  const rankBadgeClass = idx === 0 ? 'bg-amber-500 text-white shadow-amber-500/30' :
-                                         idx === 1 ? 'bg-slate-400 text-white' :
-                                         idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600';
-                  const percent = Math.min(100, Math.round((item.totalMinutes / maxDurationVal) * 100));
-                  const color = getWarningCategoryColor(item.type);
+            return `
+              <div class="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden transition-all hover:border-slate-300">
+                <!-- Card Header with Dynamic Event Color -->
+                <div class="p-3.5 sm:p-4 border-b flex flex-wrap items-center justify-between gap-3" style="background-color: ${item.color}15; border-color: ${item.color}35;">
+                  <div class="flex items-center gap-2.5">
+                    <span class="px-3 py-1 rounded-xl text-xs sm:text-sm font-bold shadow-sm flex items-center gap-1.5 border" style="background-color: ${item.color}; color: ${contrastText}; border-color: ${item.color};">
+                      <i class="fa-solid ${item.isWarning ? 'fa-triangle-exclamation' : 'fa-bell'} text-xs"></i>
+                      <span>${item.type}</span>
+                    </span>
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full ${item.isWarning ? 'bg-amber-100/70 text-amber-900' : 'bg-cyan-100/70 text-cyan-900'}">
+                      ${item.isWarning ? '氣象警報' : '提示/特別報告'}
+                    </span>
+                  </div>
 
-                  return `
-                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition space-y-1.5">
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <span class="w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center font-mono ${rankBadgeClass} shadow-sm">
-                            ${idx + 1}
-                          </span>
-                          <span class="inline-flex items-center gap-1.5 font-bold text-xs sm:text-sm text-slate-800">
-                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
-                            ${item.type}
-                          </span>
-                          <span class="text-[10px] px-1.5 py-0.2 rounded font-medium ${item.isWarning ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200'}">
-                            ${item.isWarning ? '警報' : '提示'}
-                          </span>
-                        </div>
-                        <div class="text-right">
-                          <span class="font-mono font-bold text-xs sm:text-sm text-slate-900">${item.durationHhMm}</span>
-                          <span class="text-[10px] text-slate-400 font-mono block">(${item.totalHours} 小時)</span>
-                        </div>
-                      </div>
-                      <div class="w-full bg-slate-200/70 rounded-full h-1.5 overflow-hidden">
-                        <div class="h-1.5 rounded-full transition-all duration-500" style="width: ${percent}%; background-color: ${color};"></div>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            ` : `
-              <div class="p-8 text-center text-slate-400 text-xs font-sans">期內無足夠時長記錄</div>
-            `}
-          </div>
+                  <div class="flex flex-wrap items-center gap-3 text-xs font-mono">
+                    <span class="text-slate-500">累計發出：<strong class="text-slate-800 text-sm font-bold">${item.issueCount}</strong> 次</span>
+                    <span class="text-slate-300">&bull;</span>
+                    <span class="text-slate-500">生效時長：<strong class="text-slate-800 text-sm font-bold">${item.totalHhMm}</strong> (${item.totalHours}h)</span>
+                  </div>
+                </div>
 
-          <!-- Top 5 by Issue Count -->
-          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-bullhorn text-rose-500"></i>
-                <span>累計發出總次數 Top 5</span>
-              </h3>
-              <span class="text-[11px] text-slate-400 font-mono">${scopeTitle}</span>
-            </div>
-
-            ${top5ByCount.length > 0 ? `
-              <div class="space-y-2.5">
-                ${top5ByCount.map((item, idx) => {
-                  const rankBadgeClass = idx === 0 ? 'bg-rose-500 text-white shadow-rose-500/30' :
-                                         idx === 1 ? 'bg-slate-400 text-white' :
-                                         idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600';
-                  const percent = Math.min(100, Math.round((item.issueCount / maxCountVal) * 100));
-                  const color = getWarningCategoryColor(item.type);
-
-                  return `
-                    <div class="p-2.5 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition space-y-1.5">
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <span class="w-6 h-6 rounded-lg font-bold text-xs flex items-center justify-center font-mono ${rankBadgeClass} shadow-sm">
-                            ${idx + 1}
-                          </span>
-                          <span class="inline-flex items-center gap-1.5 font-bold text-xs sm:text-sm text-slate-800">
-                            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
-                            ${item.type}
-                          </span>
-                          <span class="text-[10px] px-1.5 py-0.2 rounded font-medium ${item.isWarning ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200'}">
-                            ${item.isWarning ? '警報' : '提示'}
-                          </span>
-                        </div>
-                        <div class="text-right">
-                          <span class="font-mono font-bold text-sm text-rose-600">${item.issueCount}</span>
-                          <span class="text-[10px] text-slate-400 font-sans"> 次</span>
-                        </div>
-                      </div>
-                      <div class="w-full bg-slate-200/70 rounded-full h-1.5 overflow-hidden">
-                        <div class="h-1.5 rounded-full transition-all duration-500" style="width: ${percent}%; background-color: ${color};"></div>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            ` : `
-              <div class="p-8 text-center text-slate-400 text-xs font-sans">期內無足夠次數記錄</div>
-            `}
-          </div>
-        </div>
-
-        <!-- Detailed Extremes per Warning / Tip (每項警報與提示詳細極值統計表) -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
-                <i class="fa-solid fa-list-check text-sky-600"></i>
-                <span>每項警報與提示詳細極值統計 (${scopeTitle})</span>
-              </h3>
-              <p class="text-[11px] text-slate-400 mt-0.5">涵蓋發出時間界限、單次極限時長及生效峰值年份/月份/單日</p>
-            </div>
-            <span class="text-xs font-mono text-slate-500">共 ${recordedEntities.length} 項有生效記錄</span>
-          </div>
-
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs min-w-[900px]">
-              <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                <tr>
-                  <th class="p-3 w-10 text-center">#</th>
-                  <th class="p-3 min-w-[130px]">項目名稱</th>
-                  <th class="p-3 min-w-[80px] text-center">發出總次數</th>
-                  <th class="p-3 min-w-[90px] text-right">累計生效時數</th>
-                  <th class="p-3 min-w-[130px]">最早發出時間</th>
-                  <th class="p-3 min-w-[130px]">最遲發出時間</th>
-                  <th class="p-3 min-w-[140px]">生效最長時間</th>
-                  <th class="p-3 min-w-[140px]">生效最短時間</th>
-                  <th class="p-3 min-w-[110px]">生效最多次數年份</th>
-                  <th class="p-3 min-w-[110px]">生效最多次數月份</th>
-                  <th class="p-3 min-w-[120px]">單日生效最多次數</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100 text-slate-700 font-mono">
-                ${recordedEntities.length > 0 ? recordedEntities.map((item, idx) => {
-                  const color = getWarningCategoryColor(item.type);
-                  const longestStr = item.longestEvent ? `${minutesToHhMm(item.longestEvent.minutes)} <span class="text-[10px] text-slate-400 font-sans block truncate" title="${item.longestEvent.start} ~ ${item.longestEvent.end}">(${item.longestEvent.start.substring(5, 10)})</span>` : '-';
-                  const shortestStr = item.shortestEvent ? `${minutesToHhMm(item.shortestEvent.minutes)} <span class="text-[10px] text-slate-400 font-sans block truncate" title="${item.shortestEvent.start} ~ ${item.shortestEvent.end}">(${item.shortestEvent.start.substring(5, 10)})</span>` : '-';
-                  const peakYearStr = item.peakYear ? `${item.peakYear.year}年 (${item.peakYear.count}次)` : '-';
-                  const peakMonthStr = item.peakMonth ? `${item.peakMonth.month} (${item.peakMonth.count}次)` : '-';
-                  const peakDayStr = item.peakDay ? `${item.peakDay.day} (${item.peakDay.count}次)` : '-';
-
-                  return `
-                    <tr class="hover:bg-slate-50 transition">
-                      <td class="p-3 text-center text-slate-400">${idx + 1}</td>
-                      <td class="p-3 font-sans font-semibold text-slate-900 whitespace-nowrap">
-                        <span class="inline-flex items-center gap-1.5">
-                          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${color};"></span>
-                          ${item.type}
+                ${hasData ? `
+                  <div class="p-4 sm:p-5 space-y-4">
+                    <!-- Issue Limits (Earliest & Latest) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/60 font-mono">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500 font-sans flex items-center gap-1.5">
+                          <i class="fa-regular fa-clock text-sky-500"></i> 最早發出時間:
                         </span>
-                      </td>
-                      <td class="p-3 text-center font-bold text-rose-600">${item.issueCount}</td>
-                      <td class="p-3 text-right font-bold text-slate-900">${item.durationHhMm}</td>
-                      <td class="p-3 text-slate-600 whitespace-nowrap">${item.earliestDateStr}</td>
-                      <td class="p-3 text-slate-600 whitespace-nowrap">${item.latestDateStr}</td>
-                      <td class="p-3 font-bold text-amber-700">${longestStr}</td>
-                      <td class="p-3 font-bold text-emerald-700">${shortestStr}</td>
-                      <td class="p-3 font-sans text-slate-700 whitespace-nowrap">${peakYearStr}</td>
-                      <td class="p-3 font-sans text-slate-700 whitespace-nowrap">${peakMonthStr}</td>
-                      <td class="p-3 font-sans text-slate-700 whitespace-nowrap">${peakDayStr}</td>
-                    </tr>
-                  `;
-                }).join('') : `
-                  <tr>
-                    <td colspan="11" class="p-8 text-center text-slate-400 font-sans">
-                      所選統計範圍內暫無任何警報或提示資料記錄。
-                    </td>
-                  </tr>
+                        <span class="font-bold text-slate-800">${item.earliestDateStr}</span>
+                      </div>
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-slate-500 font-sans flex items-center gap-1.5">
+                          <i class="fa-regular fa-clock text-amber-500"></i> 最遲發出時間:
+                        </span>
+                        <span class="font-bold text-slate-800">${item.latestDateStr}</span>
+                      </div>
+                    </div>
+
+                    <!-- Top 5 Episode Durations (Longest & Shortest) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <!-- Top 5 Longest Episodes -->
+                      <div class="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm space-y-2">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrow-up-right-dots text-rose-500"></i>
+                            <span>頭五位最長單次生效時數 (Top 5 Longest)</span>
+                          </h4>
+                          <span class="text-[10px] text-slate-400 font-mono">時長 (hh:mm)</span>
+                        </div>
+                        <div class="space-y-1.5 text-xs font-mono">
+                          ${item.top5Longest.map((ep, idx) => `
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-rose-50/40 border border-rose-100/70 hover:bg-rose-50 transition">
+                              <div class="flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-md font-bold text-[11px] flex items-center justify-center ${idx === 0 ? 'bg-rose-500 text-white' : 'bg-slate-200 text-slate-700'}">
+                                  ${idx + 1}
+                                </span>
+                                <span class="text-[11px] text-slate-600 truncate max-w-[150px] sm:max-w-none font-sans" title="${ep.start} 至 ${ep.end}">
+                                  ${ep.start.substring(0, 16)} &rarr; ${ep.end.substring(0, 16)}
+                                </span>
+                              </div>
+                              <span class="font-bold text-rose-700 text-xs sm:text-sm shrink-0">${ep.durationHhMm}</span>
+                            </div>
+                          `).join('')}
+                        </div>
+                      </div>
+
+                      <!-- Top 5 Shortest Episodes -->
+                      <div class="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm space-y-2">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                          <h4 class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrow-down-right-dots text-emerald-500"></i>
+                            <span>頭五位最短單次生效時數 (Top 5 Shortest)</span>
+                          </h4>
+                          <span class="text-[10px] text-slate-400 font-mono">時長 (hh:mm)</span>
+                        </div>
+                        <div class="space-y-1.5 text-xs font-mono">
+                          ${item.top5Shortest.map((ep, idx) => `
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-emerald-50/40 border border-emerald-100/70 hover:bg-emerald-50 transition">
+                              <div class="flex items-center gap-2">
+                                <span class="w-5 h-5 rounded-md font-bold text-[11px] flex items-center justify-center ${idx === 0 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-700'}">
+                                  ${idx + 1}
+                                </span>
+                                <span class="text-[11px] text-slate-600 truncate max-w-[150px] sm:max-w-none font-sans" title="${ep.start} 至 ${ep.end}">
+                                  ${ep.start.substring(0, 16)} &rarr; ${ep.end.substring(0, 16)}
+                                </span>
+                              </div>
+                              <span class="font-bold text-emerald-700 text-xs sm:text-sm shrink-0">${ep.durationHhMm}</span>
+                            </div>
+                          `).join('')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Peak Frequencies: Years, Months, and Days -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      <!-- Peak Years -->
+                      <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/60 space-y-2">
+                        <div class="text-[11px] font-bold text-slate-700 flex items-center justify-between border-b border-slate-200/50 pb-1.5">
+                          <span>生效最多年份 Top 5</span>
+                          <i class="fa-regular fa-calendar text-slate-400"></i>
+                        </div>
+                        <div class="space-y-1 text-xs font-mono">
+                          ${item.top5Years.length > 0 ? item.top5Years.map((y, idx) => `
+                            <div class="flex justify-between items-center py-0.5">
+                              <span class="text-slate-600 font-sans"><span class="text-slate-400 mr-1">#${idx+1}</span>${y.label}</span>
+                              <span class="font-bold text-slate-800">${y.count} <span class="text-[10px] text-slate-400 font-sans">次</span></span>
+                            </div>
+                          `).join('') : '<span class="text-slate-400 text-[11px]">無年份統計</span>'}
+                        </div>
+                      </div>
+
+                      <!-- Peak Months -->
+                      <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/60 space-y-2">
+                        <div class="text-[11px] font-bold text-slate-700 flex items-center justify-between border-b border-slate-200/50 pb-1.5">
+                          <span>生效最多月份 Top 5</span>
+                          <i class="fa-solid fa-calendar-week text-slate-400"></i>
+                        </div>
+                        <div class="space-y-1 text-xs font-mono">
+                          ${item.top5Months.length > 0 ? item.top5Months.map((m, idx) => `
+                            <div class="flex justify-between items-center py-0.5">
+                              <span class="text-slate-600 font-sans"><span class="text-slate-400 mr-1">#${idx+1}</span>${m.label}</span>
+                              <span class="font-bold text-slate-800">${m.count} <span class="text-[10px] text-slate-400 font-sans">次</span></span>
+                            </div>
+                          `).join('') : '<span class="text-slate-400 text-[11px]">無月份統計</span>'}
+                        </div>
+                      </div>
+
+                      <!-- Peak Single Days -->
+                      <div class="bg-slate-50/80 p-3 rounded-xl border border-slate-200/60 space-y-2">
+                        <div class="text-[11px] font-bold text-slate-700 flex items-center justify-between border-b border-slate-200/50 pb-1.5">
+                          <span>單日生效最多 Top 5</span>
+                          <i class="fa-solid fa-calendar-day text-slate-400"></i>
+                        </div>
+                        <div class="space-y-1 text-xs font-mono">
+                          ${item.top5Days.length > 0 ? item.top5Days.map((d, idx) => `
+                            <div class="flex justify-between items-center py-0.5">
+                              <span class="text-slate-600 font-sans"><span class="text-slate-400 mr-1">#${idx+1}</span>${d.label}</span>
+                              <span class="font-bold text-slate-800">${d.count} <span class="text-[10px] text-slate-400 font-sans">次</span></span>
+                            </div>
+                          `).join('') : '<span class="text-slate-400 text-[11px]">無單日統計</span>'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ` : `
+                  <div class="p-6 text-center text-slate-400 text-xs font-sans">
+                    <i class="fa-regular fa-folder-open text-slate-300 text-lg mb-1 block"></i>
+                    <span>於所選統計範圍 (${scopeTitle}) 內，尚無「${item.type}」的生效記錄。</span>
+                  </div>
                 `}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
     }
@@ -3174,6 +1510,1416 @@
         toast.classList.add('opacity-0', 'translate-y-2');
         setTimeout(() => toast.remove(), 300);
       }, 3500);
+    }
+
+    /* ========================================================
+       SETTINGS & LOCAL STORAGE MANAGEMENT
+       ======================================================== */
+    function loadSettingsFromStorage() {
+      // Check localStorage first, then sessionStorage
+      const token = localStorage.getItem('gh_token') || sessionStorage.getItem('gh_token') || '';
+      const owner = localStorage.getItem('gh_owner') || sessionStorage.getItem('gh_owner') || '';
+      const repo = localStorage.getItem('gh_repo') || sessionStorage.getItem('gh_repo') || '';
+      const branch = localStorage.getItem('gh_branch') || sessionStorage.getItem('gh_branch') || 'main';
+
+      document.getElementById('ghToken').value = token;
+      document.getElementById('ghOwner').value = owner;
+      document.getElementById('ghRepo').value = repo;
+      document.getElementById('ghBranch').value = branch;
+
+      updateAuthUIState(token, owner, repo);
+    }
+
+    function saveSettings() {
+      const token = document.getElementById('ghToken').value.trim();
+      const owner = document.getElementById('ghOwner').value.trim();
+      const repo = document.getElementById('ghRepo').value.trim();
+      const branch = document.getElementById('ghBranch').value.trim() || 'main';
+
+      localStorage.setItem('gh_token', token);
+      localStorage.setItem('gh_owner', owner);
+      localStorage.setItem('gh_repo', repo);
+      localStorage.setItem('gh_branch', branch);
+
+      updateAuthUIState(token, owner, repo);
+      showToast('設定已成功儲存至本機！', 'success');
+    }
+
+    function saveToLocalCache() {
+      localStorage.setItem('local_weather_committed', JSON.stringify(committedWeatherData));
+      localStorage.setItem('local_weather_draft', JSON.stringify(draftWeatherData));
+      localStorage.setItem('local_warning_cache', JSON.stringify(warningData));
+      localStorage.setItem('local_tip_cache', JSON.stringify(tipData));
+    }
+
+    function updateAuthUIState(token, owner, repo) {
+      const badge = document.getElementById('repoBadge');
+      const authBtnLabel = document.getElementById('authBtnLabel');
+      const logoutBtn = document.getElementById('logoutBtn');
+
+      if (owner && repo) {
+        badge.textContent = `${owner}/${repo}`;
+        badge.className = "inline-flex items-center px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-700 font-mono truncate max-w-[120px] sm:max-w-none border border-emerald-200";
+        authBtnLabel.textContent = "已連接 GitHub";
+        logoutBtn.classList.remove('hidden');
+      } else {
+        badge.textContent = "未連接";
+        badge.className = "inline-flex items-center px-1.5 py-0.2 rounded text-[9px] sm:text-[10px] bg-slate-100 text-slate-600 font-mono truncate max-w-[120px] sm:max-w-none";
+        authBtnLabel.textContent = "登入 GitHub";
+        logoutBtn.classList.add('hidden');
+      }
+    }
+
+    function openLoginModal() {
+      document.getElementById('modalTokenInput').value = document.getElementById('ghToken').value;
+      document.getElementById('modalOwnerInput').value = document.getElementById('ghOwner').value;
+      document.getElementById('modalRepoInput').value = document.getElementById('ghRepo').value;
+      document.getElementById('modalBranchInput').value = document.getElementById('ghBranch').value || 'main';
+      document.getElementById('rememberMeCheckbox').checked = !!localStorage.getItem('gh_token');
+      document.getElementById('loginModal').classList.remove('hidden');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.add('hidden');
+    }
+
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      const token = document.getElementById('modalTokenInput').value.trim();
+      const owner = document.getElementById('modalOwnerInput').value.trim();
+      const repo = document.getElementById('modalRepoInput').value.trim();
+      const branch = document.getElementById('modalBranchInput').value.trim() || 'main';
+      const remember = document.getElementById('rememberMeCheckbox').checked;
+
+      document.getElementById('ghToken').value = token;
+      document.getElementById('ghOwner').value = owner;
+      document.getElementById('ghRepo').value = repo;
+      document.getElementById('ghBranch').value = branch;
+
+      if (remember) {
+        localStorage.setItem('gh_token', token);
+        localStorage.setItem('gh_owner', owner);
+        localStorage.setItem('gh_repo', repo);
+        localStorage.setItem('gh_branch', branch);
+        sessionStorage.clear();
+      } else {
+        sessionStorage.setItem('gh_token', token);
+        sessionStorage.setItem('gh_owner', owner);
+        sessionStorage.setItem('gh_repo', repo);
+        sessionStorage.setItem('gh_branch', branch);
+        localStorage.removeItem('gh_token');
+        localStorage.removeItem('gh_owner');
+        localStorage.removeItem('gh_repo');
+        localStorage.removeItem('gh_branch');
+      }
+
+      updateAuthUIState(token, owner, repo);
+      closeLoginModal();
+      showToast('GitHub 憑證驗證並儲存成功！', 'success');
+      fetchAllDataFromGithub();
+    }
+
+    function logoutGithub() {
+      localStorage.removeItem('gh_token');
+      localStorage.removeItem('gh_owner');
+      localStorage.removeItem('gh_repo');
+      localStorage.removeItem('gh_branch');
+      sessionStorage.clear();
+
+      document.getElementById('ghToken').value = '';
+      document.getElementById('ghOwner').value = '';
+      document.getElementById('ghRepo').value = '';
+      document.getElementById('ghBranch').value = 'main';
+
+      updateAuthUIState('', '', '');
+      showToast('已登出並清除本機存儲的憑證。', 'info');
+    }
+
+    function toggleTokenVisibility() {
+      const input = document.getElementById('ghToken');
+      const icon = document.getElementById('tokenEyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-regular fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
+
+    function toggleModalTokenVisibility() {
+      const input = document.getElementById('modalTokenInput');
+      const icon = document.getElementById('modalTokenEyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-regular fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
+
+    /* ========================================================
+       TAB SWITCHING
+       ======================================================== */
+    function switchTab(tabKey) {
+      const tabs = ['entry', 'query', 'rankings', 'settings'];
+      tabs.forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`navBtn-${t}`);
+        if (sec && btn) {
+          if (t === tabKey) {
+            sec.classList.remove('hidden');
+            btn.className = "flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-semibold rounded-lg transition-all text-sky-700 bg-sky-50 flex items-center justify-center gap-1.5";
+          } else {
+            sec.classList.add('hidden');
+            btn.className = "flex-1 min-w-[100px] text-center py-2 px-2 text-xs font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5";
+          }
+        }
+      });
+
+      if (tabKey === 'query') {
+        runQueryAnalysis();
+      } else if (tabKey === 'rankings') {
+        initRankingYearDropdown();
+        runRankingsAnalysis();
+      }
+    }
+
+    function switchEntrySubTab(subTabKey) {
+      const subTabs = ['weather', 'wrecord', 'trecord'];
+      subTabs.forEach(st => {
+        const content = document.getElementById(`subtab-content-${st}`);
+        const btn = document.getElementById(`subtab-btn-${st}`);
+        if (content && btn) {
+          if (st === subTabKey) {
+            content.classList.remove('hidden');
+            btn.className = "pb-2.5 sm:pb-3 border-b-2 border-sky-600 text-sky-700 whitespace-nowrap flex items-center gap-1.5 font-bold";
+          } else {
+            content.classList.add('hidden');
+            btn.className = "pb-2.5 sm:pb-3 border-b-2 border-transparent hover:text-slate-700 whitespace-nowrap flex items-center gap-1.5";
+          }
+        }
+      });
+    }
+
+    /* ========================================================
+       WEATHER DATA LOGIC & AUTOMATIC 10-DAY POPULATION
+       ======================================================== */
+    function getAllWeatherData() {
+      const map = new Map();
+      committedWeatherData.forEach(r => map.set(r.date, r));
+      draftWeatherData.forEach(r => {
+        if (r.date && (r.minTemp !== '' || r.maxTemp !== '')) {
+          map.set(r.date, r);
+        }
+      });
+      return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    function getLatestRecordedDate() {
+      let maxDateStr = null;
+      // Scan committed data
+      committedWeatherData.forEach(r => {
+        if (r.date && (!maxDateStr || r.date > maxDateStr)) {
+          maxDateStr = r.date;
+        }
+      });
+      // Scan drafts
+      draftWeatherData.forEach(r => {
+        if (r.date && (!maxDateStr || r.date > maxDateStr)) {
+          maxDateStr = r.date;
+        }
+      });
+      return maxDateStr;
+    }
+
+    function autoPopulateNext10DaysWeather(showToastMsg = true) {
+      const latestDateStr = getLatestRecordedDate();
+      let baseDate;
+
+      if (latestDateStr) {
+        const parts = latestDateStr.split('-');
+        if (parts.length === 3) {
+          baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        } else {
+          baseDate = new Date();
+        }
+      } else {
+        baseDate = new Date();
+        baseDate.setDate(baseDate.getDate() - 1); // Start with today as next day
+      }
+
+      const existingDates = new Set([
+        ...committedWeatherData.map(r => r.date),
+        ...draftWeatherData.map(r => r.date)
+      ]);
+
+      let addedCount = 0;
+      let curr = new Date(baseDate);
+
+      for (let i = 1; i <= 30 && addedCount < 10; i++) {
+        curr.setDate(curr.getDate() + 1);
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, '0');
+        const d = String(curr.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${d}`;
+
+        if (!existingDates.has(dateStr)) {
+          draftWeatherData.push({
+            date: dateStr,
+            minTemp: '',
+            maxTemp: '',
+            minHum: '',
+            maxHum: ''
+          });
+          existingDates.add(dateStr);
+          addedCount++;
+        }
+      }
+
+      draftWeatherData.sort((a, b) => a.date.localeCompare(b.date));
+      renderWeatherDraftTable();
+      saveToLocalCache();
+
+      if (showToastMsg) {
+        showToast(`已自最新日期後自動填充 ${addedCount} 天待填表單！`, 'success');
+      }
+    }
+
+    function addNewWeatherRow() {
+      const latestDateStr = getLatestRecordedDate();
+      let newDateStr = '';
+      if (latestDateStr) {
+        const p = latestDateStr.split('-');
+        const d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+        d.setDate(d.getDate() + 1);
+        newDateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      } else {
+        const now = new Date();
+        newDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      }
+
+      draftWeatherData.push({
+        date: newDateStr,
+        minTemp: '',
+        maxTemp: '',
+        minHum: '',
+        maxHum: ''
+      });
+      renderWeatherDraftTable();
+      saveToLocalCache();
+    }
+
+    function deleteDraftWeatherRow(idx) {
+      draftWeatherData.splice(idx, 1);
+      renderWeatherDraftTable();
+      saveToLocalCache();
+    }
+
+    function clearAllDraftWeatherRows() {
+      draftWeatherData = [];
+      renderWeatherDraftTable();
+      saveToLocalCache();
+      showToast('已清空所有待填氣象草稿。', 'info');
+    }
+
+    function updateDraftWeatherField(idx, field, value) {
+      if (!draftWeatherData[idx]) return;
+      if (field === 'date') {
+        draftWeatherData[idx].date = value;
+      } else {
+        draftWeatherData[idx][field] = value !== '' ? parseFloat(value) : '';
+      }
+      saveToLocalCache();
+    }
+
+    function renderWeatherDraftTable() {
+      const tbody = document.getElementById('weatherTableBody');
+      const latestBadge = document.getElementById('latestDateBadge');
+      const pendingCount = document.getElementById('weatherPendingCount');
+      const committedCount = document.getElementById('weatherCommittedCount');
+
+      const latest = getLatestRecordedDate();
+      latestBadge.textContent = latest || '無記錄';
+      pendingCount.textContent = draftWeatherData.length;
+      committedCount.textContent = committedWeatherData.length;
+
+      if (draftWeatherData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center py-8 text-slate-400 font-sans text-xs">
+              <i class="fa-solid fa-clipboard-check text-slate-300 text-2xl mb-1 block"></i>
+              目前沒有待提交的草稿。請點擊上方按鈕「自動填充接續 10 天」或「新增單日」。
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = draftWeatherData.map((r, idx) => `
+        <tr class="hover:bg-slate-50/80 transition">
+          <td class="p-2.5 text-center text-slate-400 font-sans text-xs">${idx + 1}</td>
+          <td class="p-2.5">
+            <input type="date" value="${r.date}" onchange="updateDraftWeatherField(${idx}, 'date', this.value)" class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-mono">
+          </td>
+          <td class="p-2.5">
+            <input type="number" step="0.1" value="${r.minTemp !== '' ? r.minTemp : ''}" placeholder="最低溫" onchange="updateDraftWeatherField(${idx}, 'minTemp', this.value)" class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-mono">
+          </td>
+          <td class="p-2.5">
+            <input type="number" step="0.1" value="${r.maxTemp !== '' ? r.maxTemp : ''}" placeholder="最高溫" onchange="updateDraftWeatherField(${idx}, 'maxTemp', this.value)" class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-mono">
+          </td>
+          <td class="p-2.5">
+            <input type="number" step="1" min="0" max="100" value="${r.minHum !== '' ? r.minHum : ''}" placeholder="最低濕度" onchange="updateDraftWeatherField(${idx}, 'minHum', this.value)" class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-mono">
+          </td>
+          <td class="p-2.5">
+            <input type="number" step="1" min="0" max="100" value="${r.maxHum !== '' ? r.maxHum : ''}" placeholder="最高濕度" onchange="updateDraftWeatherField(${idx}, 'maxHum', this.value)" class="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-sky-500 font-mono">
+          </td>
+          <td class="p-2.5 text-center font-sans">
+            <button onclick="deleteDraftWeatherRow(${idx})" class="text-rose-500 hover:text-rose-700 p-1" title="刪除本列">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    /* ========================================================
+       DURATION CALCULATION & ENTRY HELPERS
+       ======================================================== */
+    function parseDateString(str) {
+      if (!str) return null;
+      const d = new Date(str.replace(' ', 'T'));
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function calculateDurationInMinutes(sDate, eDate) {
+      if (!sDate || !eDate || eDate <= sDate) return 0;
+      return Math.round((eDate.getTime() - sDate.getTime()) / (1000 * 60));
+    }
+
+    function minutesToHhMm(totalMinutes) {
+      if (totalMinutes === undefined || totalMinutes === null || isNaN(totalMinutes) || totalMinutes <= 0) {
+        return '00:00';
+      }
+      const hrs = Math.floor(totalMinutes / 60);
+      const mins = Math.round(totalMinutes % 60);
+      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    }
+
+    function autoCalcDuration(prefix) {
+      const sVal = document.getElementById(`${prefix}Start`).value;
+      const eVal = document.getElementById(`${prefix}End`).value;
+      const out = document.getElementById(`${prefix}Duration`);
+
+      if (!sVal || !eVal) {
+        out.value = '自動計算';
+        return;
+      }
+
+      const s = parseDateString(sVal);
+      const e = parseDateString(eVal);
+
+      if (!s || !e || e <= s) {
+        out.value = '結束需大於開始';
+        return;
+      }
+
+      const mins = calculateDurationInMinutes(s, e);
+      out.value = minutesToHhMm(mins);
+    }
+
+    function addWarningRow() {
+      const type = document.getElementById('newWType').value;
+      const start = document.getElementById('newWStart').value;
+      const end = document.getElementById('newWEnd').value;
+
+      if (!type || !start || !end) {
+        showToast('請完整輸入警報類型、開始時間與結束時間！', 'warning');
+        return;
+      }
+
+      const s = parseDateString(start);
+      const e = parseDateString(end);
+      if (e <= s) {
+        showToast('結束時間必須晚於開始時間！', 'warning');
+        return;
+      }
+
+      // Add to warningData (strictly type, start, end)
+      warningData.unshift({
+        type,
+        start: start.replace('T', ' '),
+        end: end.replace('T', ' ')
+      });
+
+      renderWarningTable();
+      saveToLocalCache();
+      showToast(`已成功添加「${type}」警報記錄！`, 'success');
+
+      // Clear input fields
+      document.getElementById('newWStart').value = '';
+      document.getElementById('newWEnd').value = '';
+      document.getElementById('newWDuration').value = '自動計算';
+    }
+
+    function deleteWarningRow(idx) {
+      warningData.splice(idx, 1);
+      renderWarningTable();
+      saveToLocalCache();
+    }
+
+    function renderWarningTable() {
+      const tbody = document.getElementById('wrecordTableBody');
+      const count = document.getElementById('wrecordRowCount');
+      count.textContent = warningData.length;
+
+      if (warningData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-8 text-slate-400 font-sans text-xs">
+              <i class="fa-solid fa-triangle-exclamation text-slate-300 text-2xl mb-1 block"></i>
+              目前尚無氣象警報記錄。
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = warningData.map((r, idx) => {
+        const s = parseDateString(r.start);
+        const e = parseDateString(r.end);
+        const mins = calculateDurationInMinutes(s, e);
+        const dur = minutesToHhMm(mins);
+        const color = getWarningCategoryColor(r.type);
+        const contrastText = getContrastTextColor(color);
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="p-3 text-center text-slate-400 font-sans text-xs">${idx + 1}</td>
+            <td class="p-3 font-semibold">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs border" style="background-color: ${color}; color: ${contrastText}; border-color: ${color};">
+                ${r.type}
+              </span>
+            </td>
+            <td class="p-3 font-mono text-xs text-slate-600">${r.start}</td>
+            <td class="p-3 font-mono text-xs text-slate-600">${r.end}</td>
+            <td class="p-3 font-mono text-xs font-bold text-amber-700">${dur}</td>
+            <td class="p-3 text-center">
+              <button onclick="deleteWarningRow(${idx})" class="text-rose-500 hover:text-rose-700 p-1" title="刪除記錄">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function addTipRow() {
+      const type = document.getElementById('newTType').value;
+      const start = document.getElementById('newTStart').value;
+      const end = document.getElementById('newTEnd').value;
+
+      if (!type || !start || !end) {
+        showToast('請完整輸入提示類型、開始時間與結束時間！', 'warning');
+        return;
+      }
+
+      const s = parseDateString(start);
+      const e = parseDateString(end);
+      if (e <= s) {
+        showToast('結束時間必須晚於開始時間！', 'warning');
+        return;
+      }
+
+      tipData.unshift({
+        type,
+        start: start.replace('T', ' '),
+        end: end.replace('T', ' ')
+      });
+
+      renderTipTable();
+      saveToLocalCache();
+      showToast(`已成功添加「${type}」提示記錄！`, 'success');
+
+      document.getElementById('newTStart').value = '';
+      document.getElementById('newTEnd').value = '';
+      document.getElementById('newTDuration').value = '自動計算';
+    }
+
+    function deleteTipRow(idx) {
+      tipData.splice(idx, 1);
+      renderTipTable();
+      saveToLocalCache();
+    }
+
+    function renderTipTable() {
+      const tbody = document.getElementById('trecordTableBody');
+      const count = document.getElementById('trecordRowCount');
+      count.textContent = tipData.length;
+
+      if (tipData.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center py-8 text-slate-400 font-sans text-xs">
+              <i class="fa-solid fa-bell text-slate-300 text-2xl mb-1 block"></i>
+              目前尚無提示或特別報告記錄。
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = tipData.map((r, idx) => {
+        const s = parseDateString(r.start);
+        const e = parseDateString(r.end);
+        const mins = calculateDurationInMinutes(s, e);
+        const dur = minutesToHhMm(mins);
+        const color = getWarningCategoryColor(r.type);
+        const contrastText = getContrastTextColor(color);
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition">
+            <td class="p-3 text-center text-slate-400 font-sans text-xs">${idx + 1}</td>
+            <td class="p-3 font-semibold">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs border" style="background-color: ${color}; color: ${contrastText}; border-color: ${color};">
+                ${r.type}
+              </span>
+            </td>
+            <td class="p-3 font-mono text-xs text-slate-600">${r.start}</td>
+            <td class="p-3 font-mono text-xs text-slate-600">${r.end}</td>
+            <td class="p-3 font-mono text-xs font-bold text-cyan-700">${dur}</td>
+            <td class="p-3 text-center">
+              <button onclick="deleteTipRow(${idx})" class="text-rose-500 hover:text-rose-700 p-1" title="刪除記錄">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderAllTables() {
+      renderWeatherDraftTable();
+      renderWarningTable();
+      renderTipTable();
+    }
+
+    function getWarningCategoryColor(type) {
+      return EVENT_COLOR_MAP[type] || '#94a3b8';
+    }
+
+    /* ========================================================
+       CROSS-MONTH TIME SPLITTING & STATISTICAL ALGORITHMS
+       Rule:
+       - Issue count belongs strictly to the start timestamp's month.
+       - Duration hours split cleanly between month segments.
+       ======================================================== */
+    function getOverlappingMinutes(eventStartStr, eventEndStr, windowStart, windowEnd) {
+      const eStart = parseDateString(eventStartStr);
+      const eEnd = parseDateString(eventEndStr);
+      if (!eStart || !eEnd || eEnd <= eStart) return 0;
+
+      const overlapStart = new Date(Math.max(eStart.getTime(), windowStart.getTime()));
+      const overlapEnd = new Date(Math.min(eEnd.getTime(), windowEnd.getTime()));
+
+      if (overlapEnd <= overlapStart) return 0;
+      return Math.round((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60));
+    }
+
+    function isEventIssuedInWindow(eventStartStr, windowStart, windowEnd) {
+      const eStart = parseDateString(eventStartStr);
+      if (!eStart) return false;
+      return eStart >= windowStart && eStart < windowEnd;
+    }
+
+    /* ========================================================
+       CLIMATE METRICS CALCULATION
+       ======================================================== */
+    function calculateClimateStats(weatherList) {
+      let hotDays = 0;        // Max Temp >= 32.5
+      let coldDays = 0;       // Min Temp <= 12.5
+      let hotNights = 0;      // Min Temp >= 27.5
+      let humidDays = 0;      // Max Humid >= 94.5
+      let dryDays = 0;        // Min Humid < 30.5
+
+      let maxTempRecord = null;
+      let minTempRecord = null;
+      let maxHumRecord = null;
+      let minHumRecord = null;
+
+      weatherList.forEach(w => {
+        // Temperature
+        if (w.maxTemp !== '' && w.maxTemp !== undefined && !isNaN(w.maxTemp)) {
+          if (w.maxTemp >= 32.5) hotDays++;
+          if (!maxTempRecord || w.maxTemp > maxTempRecord.val) {
+            maxTempRecord = { val: w.maxTemp, date: w.date };
+          }
+        }
+        if (w.minTemp !== '' && w.minTemp !== undefined && !isNaN(w.minTemp)) {
+          if (w.minTemp <= 12.5) coldDays++;
+          if (w.minTemp >= 27.5) hotNights++;
+          if (!minTempRecord || w.minTemp < minTempRecord.val) {
+            minTempRecord = { val: w.minTemp, date: w.date };
+          }
+        }
+
+        // Relative Humidity
+        if (w.maxHum !== '' && w.maxHum !== undefined && !isNaN(w.maxHum)) {
+          if (w.maxHum >= 94.5) humidDays++;
+          if (!maxHumRecord || w.maxHum > maxHumRecord.val) {
+            maxHumRecord = { val: w.maxHum, date: w.date };
+          }
+        }
+        if (w.minHum !== '' && w.minHum !== undefined && !isNaN(w.minHum)) {
+          if (w.minHum < 30.5) dryDays++;
+          if (!minHumRecord || w.minHum < minHumRecord.val) {
+            minHumRecord = { val: w.minHum, date: w.date };
+          }
+        }
+      });
+
+      return {
+        hotDays,
+        coldDays,
+        hotNights,
+        humidDays,
+        dryDays,
+        maxTempRecord,
+        minTempRecord,
+        maxHumRecord,
+        minHumRecord
+      };
+    }
+
+    /* ========================================================
+       QUERY & ANALYTICAL CONTROLS
+       ======================================================== */
+    function setQueryGranularity(gran) {
+      currentGranularity = gran;
+      const bYear = document.getElementById('granBtn-year');
+      const bMonth = document.getElementById('granBtn-month');
+      const bDate = document.getElementById('granBtn-date');
+      const mW = document.getElementById('queryMonthWrapper');
+      const dW = document.getElementById('queryDateWrapper');
+
+      [bYear, bMonth, bDate].forEach(b => {
+        b.className = "py-1.5 rounded-lg text-slate-600";
+      });
+
+      if (gran === 'year') {
+        bYear.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
+        mW.classList.add('hidden');
+        dW.classList.add('hidden');
+      } else if (gran === 'month') {
+        bMonth.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
+        mW.classList.remove('hidden');
+        dW.classList.remove('hidden');
+      } else if (gran === 'date') {
+        bDate.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
+        mW.classList.remove('hidden');
+        dW.classList.remove('hidden');
+      }
+
+      runQueryAnalysis();
+    }
+
+    function runQueryAnalysis() {
+      const y = parseInt(document.getElementById('queryYear').value, 10);
+      const m = parseInt(document.getElementById('queryMonth').value, 10);
+      const d = parseInt(document.getElementById('queryDate').value, 10);
+      const sortBy = document.getElementById('querySortBy').value;
+      const container = document.getElementById('queryResultsContainer');
+
+      if (isNaN(y)) {
+        container.innerHTML = '<div class="p-6 bg-white rounded-2xl border text-center text-slate-400">請輸入有效年份進行統計。</div>';
+        return;
+      }
+
+      if (currentGranularity === 'year') {
+        renderYearAnalysis(y, sortBy);
+      } else if (currentGranularity === 'month') {
+        renderYearMonthAnalysis(y, m, sortBy);
+      } else if (currentGranularity === 'date') {
+        renderYearMonthDateAnalysis(y, m, d, sortBy);
+      }
+    }
+
+    /* 1. YEAR VIEW */
+    function renderYearAnalysis(year, sortBy) {
+      const container = document.getElementById('queryResultsContainer');
+      const weatherList = getAllWeatherData().filter(r => r.date.startsWith(`${year}-`));
+
+      const yearStart = new Date(year, 0, 1, 0, 0, 0);
+      const yearEnd = new Date(year + 1, 0, 1, 0, 0, 0);
+
+      const warningStats = WARNING_TYPES.map(type => {
+        const events = warningData.filter(ev => ev.type === type);
+        let totalMinutes = 0;
+        let issueCount = 0;
+
+        events.forEach(ev => {
+          totalMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearEnd);
+          if (isEventIssuedInWindow(ev.start, yearStart, yearEnd)) {
+            issueCount++;
+          }
+        });
+
+        return {
+          type,
+          issueCount,
+          totalMinutes,
+          totalHhMm: minutesToHhMm(totalMinutes),
+          color: getWarningCategoryColor(type)
+        };
+      });
+
+      const climateStats = calculateClimateStats(weatherList);
+
+      container.innerHTML = `
+        <!-- Climate stats header cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div class="bg-amber-50/70 border border-amber-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-amber-800 font-semibold block">酷熱日數 (最高溫 ≥32.5)</span>
+            <span class="text-2xl font-black text-amber-900 mt-1 block">${climateStats.hotDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-blue-50/70 border border-blue-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-blue-800 font-semibold block">寒冷日數 (最低溫 ≤12.5)</span>
+            <span class="text-2xl font-black text-blue-900 mt-1 block">${climateStats.coldDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-rose-50/70 border border-rose-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-rose-800 font-semibold block">熱夜日數 (最低溫 ≥27.5)</span>
+            <span class="text-2xl font-black text-rose-900 mt-1 block">${climateStats.hotNights} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-cyan-50/70 border border-cyan-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-cyan-800 font-semibold block">非常潮濕日數 (濕度 ≥94.5)</span>
+            <span class="text-2xl font-black text-cyan-900 mt-1 block">${climateStats.humidDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-orange-50/70 border border-orange-200/80 p-3.5 rounded-2xl col-span-2 sm:col-span-1">
+            <span class="text-xs text-orange-800 font-semibold block">非常乾燥日數 (濕度 <30.5)</span>
+            <span class="text-2xl font-black text-orange-900 mt-1 block">${climateStats.dryDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+        </div>
+
+        <!-- Extremes Banner -->
+        <div class="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div>
+            <span class="text-slate-400 block mb-0.5">年度最高氣溫</span>
+            <span class="text-lg font-bold text-amber-400 font-mono">${climateStats.maxTempRecord ? `${climateStats.maxTempRecord.val}°C` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.maxTempRecord?.date || ''}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block mb-0.5">年度最低氣溫</span>
+            <span class="text-lg font-bold text-sky-400 font-mono">${climateStats.minTempRecord ? `${climateStats.minTempRecord.val}°C` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.minTempRecord?.date || ''}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block mb-0.5">年度最高相對濕度</span>
+            <span class="text-lg font-bold text-cyan-400 font-mono">${climateStats.maxHumRecord ? `${climateStats.maxHumRecord.val}%` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.maxHumRecord?.date || ''}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block mb-0.5">年度最低相對濕度</span>
+            <span class="text-lg font-bold text-orange-400 font-mono">${climateStats.minHumRecord ? `${climateStats.minHumRecord.val}%` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.minHumRecord?.date || ''}</span>
+          </div>
+        </div>
+
+        <!-- Warning Timeline Chart Container -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-chart-gantt text-sky-600"></i>
+            <span>${year} 年度氣象警報與提示生效時序圖</span>
+          </h3>
+          <div id="warningTimelineChart" class="w-full h-80"></div>
+        </div>
+
+        <!-- Warning Frequency Summary -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs sm:text-sm">${year} 年度各項警報累計統計</h4>
+            <span class="text-xs text-slate-400 font-mono">共 23 項警報類別</span>
+          </div>
+          <div class="overflow-x-auto max-h-[400px]">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="p-3">警報類型</th>
+                  <th class="p-3 text-center">年度發出總次數</th>
+                  <th class="p-3 text-right">年度累計生效時數 (hh:mm)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono">
+                ${warningStats.map(s => {
+                  const contrastText = getContrastTextColor(s.color);
+                  return `
+                    <tr class="hover:bg-slate-50/70">
+                      <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold border" style="background-color: ${s.color}; color: ${contrastText}; border-color: ${s.color};">
+                          ${s.type}
+                        </span>
+                      </td>
+                      <td class="p-3 text-center font-bold ${s.issueCount > 0 ? 'text-slate-800' : 'text-slate-300'}">${s.issueCount} 次</td>
+                      <td class="p-3 text-right font-bold ${s.totalMinutes > 0 ? 'text-amber-700' : 'text-slate-300'}">${s.totalHhMm}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Weather Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs sm:text-sm">${year} 年度日氣象觀測數據明細</h4>
+            <span class="text-xs text-slate-400 font-mono">共 ${weatherList.length} 筆觀測</span>
+          </div>
+          <div class="overflow-x-auto max-h-[400px]">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="p-3">日期</th>
+                  <th class="p-3">最低氣溫 (°C)</th>
+                  <th class="p-3">最高氣溫 (°C)</th>
+                  <th class="p-3">最低相對濕度 (%)</th>
+                  <th class="p-3">最高相對濕度 (%)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono">
+                ${weatherList.length > 0 ? weatherList.map(w => `
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="p-3 font-semibold text-slate-800">${w.date}</td>
+                    <td class="p-3 text-sky-700 font-bold">${w.minTemp !== '' ? w.minTemp : '-'}</td>
+                    <td class="p-3 text-rose-700 font-bold">${w.maxTemp !== '' ? w.maxTemp : '-'}</td>
+                    <td class="p-3 text-orange-700 font-bold">${w.minHum !== '' ? w.minHum : '-'}</td>
+                    <td class="p-3 text-cyan-700 font-bold">${w.maxHum !== '' ? w.maxHum : '-'}</td>
+                  </tr>
+                `).join('') : `
+                  <tr><td colspan="5" class="p-6 text-center text-slate-400 font-sans">無此年度氣象觀測資料</td></tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      // Render timeline chart
+      renderWarningTimelineChart(yearStart, yearEnd, sortBy);
+    }
+
+    /* 2. YEAR + MONTH VIEW */
+    function renderYearMonthAnalysis(year, month, sortBy) {
+      const container = document.getElementById('queryResultsContainer');
+      const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+      const weatherList = getAllWeatherData().filter(r => r.date.startsWith(monthPrefix));
+
+      const monthStart = new Date(year, month - 1, 1, 0, 0, 0);
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const monthEnd = new Date(nextYear, nextMonth - 1, 1, 0, 0, 0);
+
+      const yearStart = new Date(year, 0, 1, 0, 0, 0);
+      const climateStats = calculateClimateStats(weatherList);
+
+      // Warning Statistics for month and cumulative year
+      const warningStats = WARNING_TYPES.map(type => {
+        const events = warningData.filter(ev => ev.type === type);
+        let mMinutes = 0;
+        let yMinutes = 0;
+        let mCount = 0;
+        let yCount = 0;
+
+        events.forEach(ev => {
+          mMinutes += getOverlappingMinutes(ev.start, ev.end, monthStart, monthEnd);
+          yMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, monthEnd);
+
+          if (isEventIssuedInWindow(ev.start, monthStart, monthEnd)) {
+            mCount++;
+          }
+          if (isEventIssuedInWindow(ev.start, yearStart, monthEnd)) {
+            yCount++;
+          }
+        });
+
+        return {
+          type,
+          mMinutes,
+          yMinutes,
+          mHhMm: minutesToHhMm(mMinutes),
+          yHhMm: minutesToHhMm(yMinutes),
+          mCount,
+          yCount,
+          color: getWarningCategoryColor(type)
+        };
+      });
+
+      // Tip Statistics for month and cumulative year
+      const tipStats = TIP_TYPES.map(type => {
+        const events = tipData.filter(ev => ev.type === type);
+        let mMinutes = 0;
+        let yMinutes = 0;
+        let mCount = 0;
+        let yCount = 0;
+
+        events.forEach(ev => {
+          mMinutes += getOverlappingMinutes(ev.start, ev.end, monthStart, monthEnd);
+          yMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, monthEnd);
+
+          if (isEventIssuedInWindow(ev.start, monthStart, monthEnd)) {
+            mCount++;
+          }
+          if (isEventIssuedInWindow(ev.start, yearStart, monthEnd)) {
+            yCount++;
+          }
+        });
+
+        return {
+          type,
+          mMinutes,
+          yMinutes,
+          mHhMm: minutesToHhMm(mMinutes),
+          yHhMm: minutesToHhMm(yMinutes),
+          mCount,
+          yCount,
+          color: getWarningCategoryColor(type)
+        };
+      });
+
+      container.innerHTML = `
+        <!-- Climate stats header cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div class="bg-amber-50/70 border border-amber-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-amber-800 font-semibold block">酷熱日數 (最高溫 ≥32.5)</span>
+            <span class="text-2xl font-black text-amber-900 mt-1 block">${climateStats.hotDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-blue-50/70 border border-blue-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-blue-800 font-semibold block">寒冷日數 (最低溫 ≤12.5)</span>
+            <span class="text-2xl font-black text-blue-900 mt-1 block">${climateStats.coldDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-rose-50/70 border border-rose-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-rose-800 font-semibold block">熱夜日數 (最低溫 ≥27.5)</span>
+            <span class="text-2xl font-black text-rose-900 mt-1 block">${climateStats.hotNights} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-cyan-50/70 border border-cyan-200/80 p-3.5 rounded-2xl">
+            <span class="text-xs text-cyan-800 font-semibold block">非常潮濕日數 (濕度 ≥94.5)</span>
+            <span class="text-2xl font-black text-cyan-900 mt-1 block">${climateStats.humidDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+          <div class="bg-orange-50/70 border border-orange-200/80 p-3.5 rounded-2xl col-span-2 sm:col-span-1">
+            <span class="text-xs text-orange-800 font-semibold block">非常乾燥日數 (濕度 <30.5)</span>
+            <span class="text-2xl font-black text-orange-900 mt-1 block">${climateStats.dryDays} <span class="text-xs font-normal">天</span></span>
+          </div>
+        </div>
+
+        <!-- Extremes Banner -->
+        <div class="bg-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-sm grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div>
+            <span class="text-slate-400 block mb-0.5">${month}月最高氣溫</span>
+            <span class="text-lg font-bold text-amber-400 font-mono">${climateStats.maxTempRecord ? `${climateStats.maxTempRecord.val}°C` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.maxTempRecord?.date || ''}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block mb-0.5">${month}月最低氣溫</span>
+            <span class="text-lg font-bold text-sky-400 font-mono">${climateStats.minTempRecord ? `${climateStats.minTempRecord.val}°C` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.minTempRecord?.date || ''}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block mb-0.5">${month}月最高相對濕度</span>
+            <span class="text-lg font-bold text-cyan-400 font-mono">${climateStats.maxHumRecord ? `${climateStats.maxHumRecord.val}%` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.maxHumRecord?.date || ''}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block mb-0.5">${month}月最低相對濕度</span>
+            <span class="text-lg font-bold text-orange-400 font-mono">${climateStats.minHumRecord ? `${climateStats.minHumRecord.val}%` : '-'}</span>
+            <span class="text-[10px] text-slate-400 block font-mono">${climateStats.minHumRecord?.date || ''}</span>
+          </div>
+        </div>
+
+        <!-- Warning Timeline Chart Container -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+          <h3 class="text-xs sm:text-sm font-bold text-slate-800 mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-chart-gantt text-sky-600"></i>
+            <span>${year}年${month}月 氣象警報與提示生效時序圖</span>
+          </h3>
+          <div id="warningTimelineChart" class="w-full h-80"></div>
+        </div>
+
+        <!-- MANDATORY TABLE 1: 警報月度與年度累計 -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs sm:text-sm">警報月度及 (${year}) 累計統計表</h4>
+            <span class="text-xs text-slate-400 font-mono">警報, ${month}月總生效時數, (${year})累計生效時數, ${month}月總生效次數, (${year})累計生效次數</span>
+          </div>
+          <div class="overflow-x-auto max-h-[400px]">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="p-3">警報</th>
+                  <th class="p-3 text-right">${month}月總生效時數</th>
+                  <th class="p-3 text-right">(${year})累計生效時數</th>
+                  <th class="p-3 text-center">${month}月總生效次數</th>
+                  <th class="p-3 text-center">(${year})累計生效次數</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono">
+                ${warningStats.map(s => {
+                  const contrastText = getContrastTextColor(s.color);
+                  return `
+                    <tr class="hover:bg-slate-50/70">
+                      <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold border" style="background-color: ${s.color}; color: ${contrastText}; border-color: ${s.color};">
+                          ${s.type}
+                        </span>
+                      </td>
+                      <td class="p-3 text-right font-bold ${s.mMinutes > 0 ? 'text-amber-700' : 'text-slate-300'}">${s.mHhMm}</td>
+                      <td class="p-3 text-right font-bold ${s.yMinutes > 0 ? 'text-slate-700' : 'text-slate-300'}">${s.yHhMm}</td>
+                      <td class="p-3 text-center font-bold ${s.mCount > 0 ? 'text-amber-700' : 'text-slate-300'}">${s.mCount}</td>
+                      <td class="p-3 text-center font-bold ${s.yCount > 0 ? 'text-slate-700' : 'text-slate-300'}">${s.yCount}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- MANDATORY TABLE 2: 提示/特別報告月度與年度累計 -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs sm:text-sm">提示/特別報告月度及 (${year}) 累計統計表</h4>
+            <span class="text-xs text-slate-400 font-mono">提示/特別報告, ${month}月總生效時數, (${year})累計生效時數, ${month}月總生效次數, (${year})累計生效次數</span>
+          </div>
+          <div class="overflow-x-auto max-h-[400px]">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="p-3">提示/特別報告</th>
+                  <th class="p-3 text-right">${month}月總生效時數</th>
+                  <th class="p-3 text-right">(${year})累計生效時數</th>
+                  <th class="p-3 text-center">${month}月總生效次數</th>
+                  <th class="p-3 text-center">(${year})累計生效次數</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono">
+                ${tipStats.map(s => {
+                  const contrastText = getContrastTextColor(s.color);
+                  return `
+                    <tr class="hover:bg-slate-50/70">
+                      <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold border" style="background-color: ${s.color}; color: ${contrastText}; border-color: ${s.color};">
+                          ${s.type}
+                        </span>
+                      </td>
+                      <td class="p-3 text-right font-bold ${s.mMinutes > 0 ? 'text-cyan-700' : 'text-slate-300'}">${s.mHhMm}</td>
+                      <td class="p-3 text-right font-bold ${s.yMinutes > 0 ? 'text-slate-700' : 'text-slate-300'}">${s.yHhMm}</td>
+                      <td class="p-3 text-center font-bold ${s.mCount > 0 ? 'text-cyan-700' : 'text-slate-300'}">${s.mCount}</td>
+                      <td class="p-3 text-center font-bold ${s.yCount > 0 ? 'text-slate-700' : 'text-slate-300'}">${s.yCount}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Weather Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-xs sm:text-sm">${year}年${month}月 日氣象觀測數據明細</h4>
+            <span class="text-xs text-slate-400 font-mono">共 ${weatherList.length} 筆觀測</span>
+          </div>
+          <div class="overflow-x-auto max-h-[400px]">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-600 sticky top-0 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th class="p-3">日期</th>
+                  <th class="p-3">最低氣溫 (°C)</th>
+                  <th class="p-3">最高氣溫 (°C)</th>
+                  <th class="p-3">最低相對濕度 (%)</th>
+                  <th class="p-3">最高相對濕度 (%)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 font-mono">
+                ${weatherList.length > 0 ? weatherList.map(w => `
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="p-3 font-semibold text-slate-800">${w.date}</td>
+                    <td class="p-3 text-sky-700 font-bold">${w.minTemp !== '' ? w.minTemp : '-'}</td>
+                    <td class="p-3 text-rose-700 font-bold">${w.maxTemp !== '' ? w.maxTemp : '-'}</td>
+                    <td class="p-3 text-orange-700 font-bold">${w.minHum !== '' ? w.minHum : '-'}</td>
+                    <td class="p-3 text-cyan-700 font-bold">${w.maxHum !== '' ? w.maxHum : '-'}</td>
+                  </tr>
+                `).join('') : `
+                  <tr><td colspan="5" class="p-6 text-center text-slate-400 font-sans">無此月份氣象觀測資料</td></tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      renderWarningTimelineChart(monthStart, monthEnd, sortBy);
+    }
+
+    /* 3. YEAR + MONTH + DATE VIEW */
+    function renderYearMonthDateAnalysis(year, month, date, sortBy) {
+      const container = document.getElementById('queryResultsContainer');
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+      const weather = getAllWeatherData().find(r => r.date === dateStr);
+
+      const dayStart = new Date(year, month - 1, date, 0, 0, 0);
+      const dayEnd = new Date(year, month - 1, date + 1, 0, 0, 0);
+
+      // Filter warnings active during that calendar day
+      let activeWarnings = warningData.filter(ev => {
+        return getOverlappingMinutes(ev.start, ev.end, dayStart, dayEnd) > 0;
+      });
+
+      // Sort
+      if (sortBy === 'time') {
+        activeWarnings.sort((a, b) => a.start.localeCompare(b.start));
+      } else {
+        activeWarnings.sort((a, b) => ALL_CLASSIFICATION_ORDER.indexOf(a.type) - ALL_CLASSIFICATION_ORDER.indexOf(b.type));
+      }
+
+      container.innerHTML = `
+        <div class="bg-gradient-to-r from-sky-900 to-indigo-950 text-white rounded-2xl p-5 sm:p-6 shadow-md">
+          <div class="flex items-center gap-2 text-sky-300 text-xs font-semibold uppercase tracking-wider mb-1">
+            <i class="fa-regular fa-calendar-check"></i>
+            <span>單日氣象與警報報告</span>
+          </div>
+          <h3 class="text-xl sm:text-2xl font-bold font-mono">${dateStr}</h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Weather Card -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2 border-b border-slate-100 pb-3">
+              <i class="fa-solid fa-temperature-half text-sky-600"></i>
+              <span>當日氣象觀測數據</span>
+            </h4>
+            ${weather ? `
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-500 block mb-1">最低氣溫</span>
+                  <span class="text-xl font-bold text-sky-600 font-mono">${weather.minTemp !== '' ? `${weather.minTemp} °C` : '-'}</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-500 block mb-1">最高氣溫</span>
+                  <span class="text-xl font-bold text-rose-600 font-mono">${weather.maxTemp !== '' ? `${weather.maxTemp} °C` : '-'}</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-500 block mb-1">最低相對濕度</span>
+                  <span class="text-xl font-bold text-orange-600 font-mono">${weather.minHum !== '' ? `${weather.minHum} %` : '-'}</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl">
+                  <span class="text-slate-500 block mb-1">最高相對濕度</span>
+                  <span class="text-xl font-bold text-cyan-600 font-mono">${weather.maxHum !== '' ? `${weather.maxHum} %` : '-'}</span>
+                </div>
+              </div>
+            ` : `
+              <div class="p-8 text-center text-slate-400 text-xs">
+                <i class="fa-solid fa-cloud-moon text-slate-300 text-2xl mb-2 block"></i>
+                尚未登錄此日之氣象數據。
+              </div>
+            `}
+          </div>
+
+          <!-- Warnings Issued on that day -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                <span>當日生效或發出警報</span>
+              </h4>
+              <span class="text-xs text-amber-600 font-bold">${activeWarnings.length} 項警報</span>
+            </div>
+
+            <div class="space-y-2 max-h-[300px] overflow-y-auto">
+              ${activeWarnings.length > 0 ? activeWarnings.map(w => {
+                const s = parseDateString(w.start);
+                const e = parseDateString(w.end);
+                const dur = minutesToHhMm(calculateDurationInMinutes(s, e));
+                const color = getWarningCategoryColor(w.type);
+                const contrastText = getContrastTextColor(color);
+
+                return `
+                  <div class="p-3 rounded-xl border border-slate-100 bg-slate-50/60 flex items-center justify-between text-xs">
+                    <div>
+                      <span class="px-2 py-0.5 rounded text-xs font-semibold border" style="background-color: ${color}; color: ${contrastText}; border-color: ${color};">
+                        ${w.type}
+                      </span>
+                      <div class="text-[11px] text-slate-500 font-mono mt-1">
+                        ${w.start} &rarr; ${w.end}
+                      </div>
+                    </div>
+                    <span class="font-mono font-bold text-amber-700">${dur}</span>
+                  </div>
+                `;
+              }).join('') : `
+                <div class="p-8 text-center text-slate-400 text-xs">
+                  <i class="fa-regular fa-sun text-slate-300 text-2xl mb-2 block"></i>
+                  當日無任何警報生效記錄。
+                </div>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ========================================================
+       ECHARTS TIMELINE VISUALIZATION
+       Strict classification ordering & custom colors
+       ======================================================== */
+    let timelineChartInstance = null;
+
+    function renderWarningTimelineChart(windowStart, windowEnd, sortBy) {
+      const chartDom = document.getElementById('warningTimelineChart');
+      if (!chartDom) return;
+
+      if (timelineChartInstance) {
+        timelineChartInstance.dispose();
+      }
+      timelineChartInstance = echarts.init(chartDom);
+
+      const allEvents = [
+        ...warningData.map(ev => ({ ...ev, isWarning: true })),
+        ...tipData.map(ev => ({ ...ev, isWarning: false }))
+      ];
+
+      // Filter events overlapping with target window
+      const activeEvents = allEvents.filter(ev => {
+        return getOverlappingMinutes(ev.start, ev.end, windowStart, windowEnd) > 0;
+      });
+
+      if (activeEvents.length === 0) {
+        chartDom.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-slate-400 text-xs font-sans">
+            <i class="fa-regular fa-calendar-xmark text-2xl mb-2 text-slate-300"></i>
+            所選時間區間內尚無任何氣象警報或提示生效記錄。
+          </div>
+        `;
+        return;
+      }
+
+      // Determine active categories and sort according to strict hierarchy
+      const presentTypesSet = new Set(activeEvents.map(ev => ev.type));
+      let categoryAxisData = ALL_CLASSIFICATION_ORDER.filter(t => presentTypesSet.has(t));
+
+      if (sortBy === 'time') {
+        const earliestTimeMap = {};
+        activeEvents.forEach(ev => {
+          const t = new Date(ev.start.replace(' ', 'T')).getTime();
+          if (!earliestTimeMap[ev.type] || t < earliestTimeMap[ev.type]) {
+            earliestTimeMap[ev.type] = t;
+          }
+        });
+        categoryAxisData.sort((a, b) => (earliestTimeMap[a] || 0) - (earliestTimeMap[b] || 0));
+      }
+
+      // Prepare custom renderItem data
+      const seriesData = activeEvents.map(ev => {
+        const catIndex = categoryAxisData.indexOf(ev.type);
+        const sTime = Math.max(new Date(ev.start.replace(' ', 'T')).getTime(), windowStart.getTime());
+        const eTime = Math.min(new Date(ev.end.replace(' ', 'T')).getTime(), windowEnd.getTime());
+        const rawMinutes = calculateDurationInMinutes(parseDateString(ev.start), parseDateString(ev.end));
+
+        return {
+          name: ev.type,
+          value: [catIndex, sTime, eTime, rawMinutes],
+          itemStyle: {
+            color: EVENT_COLOR_MAP[ev.type] || '#0284c7'
+          },
+          originalStart: ev.start,
+          originalEnd: ev.end
+        };
+      });
+
+      const option = {
+        tooltip: {
+          formatter: function (params) {
+            const data = params.data;
+            return `
+              <div class="font-sans text-xs space-y-1">
+                <div class="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${data.itemStyle.color};"></span>
+                  ${data.name}
+                </div>
+                <div class="font-mono text-slate-600">開始: ${data.originalStart}</div>
+                <div class="font-mono text-slate-600">結束: ${data.originalEnd}</div>
+                <div class="font-mono text-slate-800 font-bold">總時長: ${minutesToHhMm(data.value[3])}</div>
+              </div>
+            `;
+          }
+        },
+        grid: {
+          top: 20,
+          left: 120,
+          right: 30,
+          bottom: 40
+        },
+        xAxis: {
+          type: 'time',
+          min: windowStart.getTime(),
+          max: windowEnd.getTime(),
+          axisLabel: {
+            fontSize: 10,
+            color: '#64748b'
+          },
+          splitLine: {
+            lineStyle: { color: '#f1f5f9' }
+          }
+        },
+        yAxis: {
+          type: 'category',
+          data: categoryAxisData,
+          axisLabel: {
+            fontSize: 11,
+            color: '#334155',
+            fontWeight: 'bold'
+          },
+          splitLine: {
+            show: true,
+            lineStyle: { color: '#f8fafc' }
+          }
+        },
+        series: [{
+          type: 'custom',
+          renderItem: function (params, api) {
+            const categoryIndex = api.value(0);
+            const start = api.coord([api.value(1), categoryIndex]);
+            const end = api.coord([api.value(2), categoryIndex]);
+            const height = api.size([0, 1])[1] * 0.55;
+
+            const rectShape = echarts.graphic.clipRectByRect({
+              x: start[0],
+              y: start[1] - height / 2,
+              width: Math.max(end[0] - start[0], 3),
+              height: height
+            }, {
+              x: params.coordSys.x,
+              y: params.coordSys.y,
+              width: params.coordSys.width,
+              height: params.coordSys.height
+            });
+
+            return rectShape && {
+              type: 'rect',
+              transition: ['shape'],
+              shape: rectShape,
+              style: api.style()
+            };
+          },
+          encode: {
+            x: [1, 2],
+            y: 0
+          },
+          data: seriesData
+        }]
+      };
+
+      timelineChartInstance.setOption(option);
+      window.addEventListener('resize', () => timelineChartInstance && timelineChartInstance.resize());
     }
   </script>
 </body>
