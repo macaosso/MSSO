@@ -218,13 +218,13 @@
             </div>
             <p class="text-xs text-slate-600 mt-1 leading-relaxed">
               最新已收錄日期：<span id="latestDateBadge" class="font-bold text-sky-700 font-mono">未載入</span>。
-              <span class="block sm:inline text-slate-500 mt-0.5 sm:mt-0">（已成功上傳的歷史數據自動隱藏，僅顯示待填寫/待提交的新增數據）</span>
+              <span class="block sm:inline text-slate-500 mt-0.5 sm:mt-0">（已成功上傳的歷史數據自動隱藏；系統已自最新日期後自動建立接續 10 天待填表單）</span>
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <button onclick="generateNextDaysWeather(15)" class="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-semibold bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
+            <button onclick="autoPopulateNext10DaysWeather(true)" class="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-semibold bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
               <i class="fa-solid fa-calendar-plus text-sky-500"></i>
-              <span>生成未來 15 天表單</span>
+              <span>自動填充接續 10 天</span>
             </button>
             <button onclick="addNewWeatherRow()" class="flex-1 sm:flex-initial px-3.5 py-2 text-xs font-semibold bg-sky-600 text-white hover:bg-sky-700 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
               <i class="fa-solid fa-plus"></i>
@@ -652,6 +652,11 @@
         loadSampleMockData(false);
       }
 
+      // Automatically detect latest date and pre-populate next 10 days if drafts are empty
+      if (draftWeatherData.length === 0) {
+        autoPopulateNext10DaysWeather(false);
+      }
+
       renderAllTables();
       runQueryAnalysis();
     });
@@ -959,32 +964,49 @@
       }
     }
 
-    function generateNextDaysWeather(count = 15) {
-      const latest = getLatestWeatherDate();
-      let startFrom;
-      if (latest) {
-        const d = new Date(latest);
-        d.setDate(d.getDate() + 1);
-        startFrom = d;
-      } else {
-        startFrom = new Date();
+    /**
+     * Detects latest date from committed history or current drafts,
+     * then appends the next 10 consecutive calendar days.
+     */
+    function autoPopulateNext10DaysWeather(notify = false) {
+      // Find latest date in either committed data or existing drafts
+      let latestDate = null;
+      const allExistingDates = [
+        ...committedWeatherData.map(r => r.date),
+        ...draftWeatherData.map(r => r.date)
+      ].filter(Boolean).sort();
+
+      if (allExistingDates.length > 0) {
+        latestDate = allExistingDates[allExistingDates.length - 1];
       }
 
-      const newRows = [];
-      for (let i = 0; i < count; i++) {
-        const cur = new Date(startFrom);
-        cur.setDate(startFrom.getDate() + i);
+      let startDate;
+      if (latestDate) {
+        const parts = latestDate.split('-');
+        if (parts.length === 3) {
+          startDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          startDate.setDate(startDate.getDate() + 1);
+        } else {
+          startDate = new Date();
+        }
+      } else {
+        startDate = new Date();
+      }
+
+      const generatedRows = [];
+      for (let i = 0; i < 10; i++) {
+        const cur = new Date(startDate);
+        cur.setDate(startDate.getDate() + i);
         const yyyy = cur.getFullYear();
         const mm = String(cur.getMonth() + 1).padStart(2, '0');
         const dd = String(cur.getDate()).padStart(2, '0');
         const dateStr = `${yyyy}-${mm}-${dd}`;
 
-        // Ensure no duplicate in drafts or committed
-        const alreadyInDraft = draftWeatherData.some(r => r.date === dateStr);
-        const alreadyInCommitted = committedWeatherData.some(r => r.date === dateStr);
+        const isCommitted = committedWeatherData.some(r => r.date === dateStr);
+        const isAlreadyInDraft = draftWeatherData.some(r => r.date === dateStr);
 
-        if (!alreadyInDraft && !alreadyInCommitted) {
-          newRows.push({
+        if (!isCommitted && !isAlreadyInDraft) {
+          generatedRows.push({
             date: dateStr,
             minTemp: '',
             maxTemp: '',
@@ -994,16 +1016,23 @@
         }
       }
 
-      if (newRows.length === 0) {
-        showToast('未來 15 天日期已全部排程或已在資料庫中。', 'info');
+      if (generatedRows.length === 0) {
+        if (notify) showToast('接續 10 天日期已存在於草稿或歷史中。', 'info');
         return;
       }
 
-      draftWeatherData = draftWeatherData.concat(newRows);
+      draftWeatherData = draftWeatherData.concat(generatedRows);
       sortDraftWeatherData();
       renderWeatherTable();
       saveToLocalCache();
-      showToast(`已生成未來 ${newRows.length} 天待填表單！`, 'success');
+
+      if (notify) {
+        showToast(`已成功自 ${latestDate || '今日'} 後自動添加接續 10 天待填表單！`, 'success');
+      }
+    }
+
+    function generateNextDaysWeather(count = 15) {
+      autoPopulateNext10DaysWeather(true);
     }
 
     function addNewWeatherRow() {
@@ -2075,6 +2104,11 @@
           fileShaMap.trecord = trRes.sha;
         }
 
+        // Auto-generate next 10 consecutive days if no pending drafts exist
+        if (draftWeatherData.length === 0) {
+          autoPopulateNext10DaysWeather(false);
+        }
+
         renderAllTables();
         saveToLocalCache();
         showToast(`已成功同步最新資料！(已同步歷史氣象: ${committedWeatherData.length} 筆)`, 'success');
@@ -2125,6 +2159,11 @@
         // After successful commit, promote mergedWeather to committedWeatherData, clear committed drafts
         committedWeatherData = mergedWeather;
         draftWeatherData = draftWeatherData.filter(r => !validDrafts.includes(r));
+
+        // Auto pre-populate next 10 days based on newly committed latest date
+        if (draftWeatherData.length === 0) {
+          autoPopulateNext10DaysWeather(false);
+        }
 
         // 2. Commit Wrecord.csv (type,start,end)
         const warningCsv = recordToCSV(warningData);
