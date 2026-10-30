@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Apache ECharts for Warning Timeline Visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
   <!-- Google Fonts Inter & Noto Sans TC -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1307,6 +1309,321 @@
     }
 
     /* ========================================================
+       CLIMATE STATS HELPER (EXTREMES & SPECIAL WEATHER DAYS)
+       - 酷熱: max temp >= 32.5
+       - 寒冷: min temp <= 12.5
+       - 熱夜: min temp >= 27.5
+       - 非常潮濕: max hum >= 94.5
+       - 非常乾燥: min hum < 30.5
+       - 極端最高溫 & 極端最低溫 (含日期)
+       ======================================================== */
+    function calculateClimateStats(weatherList) {
+      let veryHotDays = 0;   // 最高氣溫 >= 32.5
+      let coldDays = 0;      // 最低氣溫 <= 12.5
+      let hotNights = 0;     // 最低氣溫 >= 27.5
+      let veryHumidDays = 0; // 最高相對濕度 >= 94.5
+      let veryDryDays = 0;   // 最低相對濕度 < 30.5
+
+      let maxTempRecord = { value: -Infinity, date: null };
+      let minTempRecord = { value: Infinity, date: null };
+      let maxDiurnalRange = { value: 0, date: null };
+
+      weatherList.forEach(w => {
+        const minT = (w.minTemp !== '' && w.minTemp !== undefined) ? parseFloat(w.minTemp) : null;
+        const maxT = (w.maxTemp !== '' && w.maxTemp !== undefined) ? parseFloat(w.maxTemp) : null;
+        const minH = (w.minHum !== '' && w.minHum !== undefined) ? parseFloat(w.minHum) : null;
+        const maxH = (w.maxHum !== '' && w.maxHum !== undefined) ? parseFloat(w.maxHum) : null;
+
+        if (maxT !== null && !isNaN(maxT)) {
+          if (maxT >= 32.5) veryHotDays++;
+          if (maxT > maxTempRecord.value) {
+            maxTempRecord = { value: maxT, date: w.date };
+          }
+        }
+
+        if (minT !== null && !isNaN(minT)) {
+          if (minT <= 12.5) coldDays++;
+          if (minT >= 27.5) hotNights++;
+          if (minT < minTempRecord.value) {
+            minTempRecord = { value: minT, date: w.date };
+          }
+        }
+
+        if (maxT !== null && minT !== null && !isNaN(maxT) && !isNaN(minT)) {
+          const range = parseFloat((maxT - minT).toFixed(1));
+          if (range > maxDiurnalRange.value) {
+            maxDiurnalRange = { value: range, date: w.date };
+          }
+        }
+
+        if (maxH !== null && !isNaN(maxH) && maxH >= 94.5) veryHumidDays++;
+        if (minH !== null && !isNaN(minH) && minH < 30.5) veryDryDays++;
+      });
+
+      return {
+        totalDays: weatherList.length,
+        veryHotDays,
+        coldDays,
+        hotNights,
+        veryHumidDays,
+        veryDryDays,
+        maxTempRecord: maxTempRecord.date ? maxTempRecord : null,
+        minTempRecord: minTempRecord.date ? minTempRecord : null,
+        maxDiurnalRange: maxDiurnalRange.date ? maxDiurnalRange : null
+      };
+    }
+
+    function renderClimateStatsCardsHtml(stats, titleLabel = '期內') {
+      return `
+        <!-- Climate Indicators & Extremes -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <!-- Special Days Badges (7 cols) -->
+          <div class="lg:col-span-7 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-temperature-arrow-up text-rose-500"></i>
+                <span>${titleLabel}氣候指標統計日數</span>
+              </h3>
+              <span class="text-[11px] text-slate-400 font-mono">觀測天數: ${stats.totalDays} 天</span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 text-center">
+              <div class="bg-rose-50/80 border border-rose-100 rounded-xl p-2.5">
+                <div class="text-[11px] text-rose-700 font-medium">酷熱日數</div>
+                <div class="text-[10px] text-rose-400">最高溫 ≥ 32.5°C</div>
+                <div class="text-xl font-bold font-mono text-rose-700 mt-1">${stats.veryHotDays} <span class="text-xs font-normal">天</span></div>
+              </div>
+
+              <div class="bg-sky-50/80 border border-sky-100 rounded-xl p-2.5">
+                <div class="text-[11px] text-sky-700 font-medium">寒冷日數</div>
+                <div class="text-[10px] text-sky-400">最低溫 ≤ 12.5°C</div>
+                <div class="text-xl font-bold font-mono text-sky-700 mt-1">${stats.coldDays} <span class="text-xs font-normal">天</span></div>
+              </div>
+
+              <div class="bg-amber-50/80 border border-amber-100 rounded-xl p-2.5">
+                <div class="text-[11px] text-amber-700 font-medium">熱夜日數</div>
+                <div class="text-[10px] text-amber-400">最低溫 ≥ 27.5°C</div>
+                <div class="text-xl font-bold font-mono text-amber-700 mt-1">${stats.hotNights} <span class="text-xs font-normal">天</span></div>
+              </div>
+
+              <div class="bg-cyan-50/80 border border-cyan-100 rounded-xl p-2.5">
+                <div class="text-[11px] text-cyan-700 font-medium">非常潮濕日數</div>
+                <div class="text-[10px] text-cyan-400">最高濕度 ≥ 94.5%</div>
+                <div class="text-xl font-bold font-mono text-cyan-700 mt-1">${stats.veryHumidDays} <span class="text-xs font-normal">天</span></div>
+              </div>
+
+              <div class="bg-orange-50/80 border border-orange-100 rounded-xl p-2.5">
+                <div class="text-[11px] text-orange-700 font-medium">非常乾燥日數</div>
+                <div class="text-[10px] text-orange-400">最低濕度 &lt; 30.5%</div>
+                <div class="text-xl font-bold font-mono text-orange-700 mt-1">${stats.veryDryDays} <span class="text-xs font-normal">天</span></div>
+              </div>
+
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col justify-center">
+                <div class="text-[11px] text-slate-500 font-medium">最大日溫差</div>
+                <div class="text-[10px] text-slate-400 font-mono">${stats.maxDiurnalRange ? stats.maxDiurnalRange.date : '-'}</div>
+                <div class="text-lg font-bold font-mono text-slate-700 mt-1">
+                  ${stats.maxDiurnalRange ? `${stats.maxDiurnalRange.value} <span class="text-xs font-normal">°C</span>` : '-'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Extremes Records (5 cols) -->
+          <div class="lg:col-span-5 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-award text-amber-500"></i>
+                <span>${titleLabel}極端氣溫紀錄</span>
+              </h3>
+              <span class="text-[11px] text-slate-400">觀測站最高 / 最低</span>
+            </div>
+            <div class="grid grid-cols-2 gap-3 h-full">
+              <!-- Highest -->
+              <div class="p-3 bg-gradient-to-br from-rose-50 to-orange-50/50 rounded-xl border border-rose-100/80 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
+                    <i class="fa-solid fa-sun text-rose-500"></i> 極端最高氣溫
+                  </div>
+                  <div class="text-2xl font-black font-mono text-rose-600 mt-2">
+                    ${stats.maxTempRecord ? `${stats.maxTempRecord.value}°C` : '-'}
+                  </div>
+                </div>
+                <div class="text-[11px] font-mono text-slate-500 mt-2 bg-white/70 px-2 py-1 rounded border border-rose-100 inline-block">
+                  <i class="fa-regular fa-calendar mr-1 text-rose-400"></i>${stats.maxTempRecord ? stats.maxTempRecord.date : '無紀錄'}
+                </div>
+              </div>
+
+              <!-- Lowest -->
+              <div class="p-3 bg-gradient-to-br from-sky-50 to-indigo-50/50 rounded-xl border border-sky-100/80 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5 text-xs font-semibold text-sky-700">
+                    <i class="fa-solid fa-snowflake text-sky-500"></i> 極端最低氣溫
+                  </div>
+                  <div class="text-2xl font-black font-mono text-sky-600 mt-2">
+                    ${stats.minTempRecord ? `${stats.minTempRecord.value}°C` : '-'}
+                  </div>
+                </div>
+                <div class="text-[11px] font-mono text-slate-500 mt-2 bg-white/70 px-2 py-1 rounded border border-sky-100 inline-block">
+                  <i class="fa-regular fa-calendar mr-1 text-sky-400"></i>${stats.minTempRecord ? stats.minTempRecord.date : '無紀錄'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ========================================================
+       ECHARTS WARNING & TIP TIMELINE GENERATOR
+       Renders an interactive Gantt / horizontal range timeline
+       ======================================================== */
+    let warningChartInstance = null;
+
+    function getWarningCategoryColor(type) {
+      if (type.includes('寒冷')) return '#0284c7';
+      if (type.includes('酷熱')) return '#ef4444';
+      if (type.includes('雨')) return '#06b6d4';
+      if (type.includes('風暴潮')) return '#8b5cf6';
+      if (type.includes('風') || type.includes('颶風')) return '#f59e0b';
+      if (type.includes('海嘯')) return '#10b981';
+      return '#64748b'; // default / tips
+    }
+
+    function renderWarningTimelineChart(chartDomId, events, windowStart, windowEnd) {
+      const chartDom = document.getElementById(chartDomId);
+      if (!chartDom) return;
+
+      if (warningChartInstance) {
+        warningChartInstance.dispose();
+        warningChartInstance = null;
+      }
+
+      if (!events || events.length === 0) {
+        chartDom.innerHTML = `
+          <div class="flex items-center justify-center h-48 text-slate-400 text-xs font-sans">
+            <i class="fa-solid fa-timeline text-slate-300 mr-2"></i> 期內無生效之警報或提示事件
+          </div>
+        `;
+        return;
+      }
+
+      // Unique types present in these events
+      const uniqueTypes = Array.from(new Set(events.map(e => e.type)));
+      const typeIndexMap = new Map();
+      uniqueTypes.forEach((t, i) => typeIndexMap.set(t, i));
+
+      // Construct ECharts custom renderItem series data
+      const data = events.map(e => {
+        const s = Math.max(parseDateString(e.start).getTime(), windowStart.getTime());
+        const eTime = Math.min(parseDateString(e.end).getTime(), windowEnd.getTime());
+        const durationStr = getEventDurationHhMm(e.start, e.end);
+        const yIndex = typeIndexMap.get(e.type);
+        const color = getWarningCategoryColor(e.type);
+
+        return {
+          name: e.type,
+          value: [yIndex, s, eTime, durationStr, e.start, e.end],
+          itemStyle: { color: color }
+        };
+      });
+
+      const chart = echarts.init(chartDom);
+      warningChartInstance = chart;
+
+      const dynamicHeight = Math.max(220, uniqueTypes.length * 34 + 80);
+      chartDom.style.height = `${dynamicHeight}px`;
+      chart.resize();
+
+      const option = {
+        tooltip: {
+          formatter: function (params) {
+            const val = params.value;
+            return `
+              <div style="font-family: inherit; font-size: 12px; line-height: 1.4;">
+                <strong style="color: ${params.color}; font-size: 13px;">${params.name}</strong><br/>
+                <span style="color:#64748b;">發佈時間:</span> <span style="font-family: monospace;">${val[4]}</span><br/>
+                <span style="color:#64748b;">結束時間:</span> <span style="font-family: monospace;">${val[5]}</span><br/>
+                <span style="color:#64748b;">總計時長:</span> <strong style="font-family: monospace;">${val[3]}</strong>
+              </div>
+            `;
+          }
+        },
+        grid: {
+          top: 25,
+          left: 110,
+          right: 30,
+          bottom: 35
+        },
+        xAxis: {
+          type: 'time',
+          min: windowStart.getTime(),
+          max: windowEnd.getTime(),
+          axisLabel: {
+            fontSize: 10,
+            color: '#64748b'
+          },
+          splitLine: {
+            lineStyle: {
+              color: '#f1f5f9'
+            }
+          }
+        },
+        yAxis: {
+          type: 'category',
+          data: uniqueTypes,
+          inverse: true,
+          axisLabel: {
+            fontSize: 11,
+            color: '#334155',
+            fontWeight: 500
+          },
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: '#e2e8f0' } }
+        },
+        series: [{
+          type: 'custom',
+          renderItem: function (params, api) {
+            const categoryIndex = api.value(0);
+            const timeStart = api.coord([api.value(1), categoryIndex]);
+            const timeEnd = api.coord([api.value(2), categoryIndex]);
+            const barHeight = 16;
+
+            const width = Math.max(3, timeEnd[0] - timeStart[0]);
+            const x = timeStart[0];
+            const y = timeStart[1] - barHeight / 2;
+
+            const rectShape = echarts.graphic.clipRectByRect({
+              x: x,
+              y: y,
+              width: width,
+              height: barHeight
+            }, {
+              x: params.coordSys.x,
+              y: params.coordSys.y,
+              width: params.coordSys.width,
+              height: params.coordSys.height
+            });
+
+            return rectShape && {
+              type: 'rect',
+              transition: ['shape'],
+              shape: { ...rectShape, r: [4, 4, 4, 4] },
+              style: api.style()
+            };
+          },
+          encode: {
+            x: [1, 2],
+            y: 0
+          },
+          data: data
+        }]
+      };
+
+      chart.setOption(option);
+      window.removeEventListener('resize', chart.resize);
+      window.addEventListener('resize', chart.resize);
+    }
+
+    /* ========================================================
        HISTORICAL SEARCH & ANALYTICS (TAB 2)
        ======================================================== */
     function setQueryGranularity(gran) {
@@ -1362,6 +1679,8 @@
      * 1. YEAR VIEW:
      * - List all weather records for that year in table format
      * - Count total issue time and duration for every warning & tip in that year
+     * - Climate statistics days (酷熱, 寒冷, 熱夜, 非常潮濕, 非常乾燥, 最高/最低溫)
+     * - Warning Timeline Visualization (ECharts)
      */
     function renderYearAnalysis(year, sortBy) {
       const container = document.getElementById('queryResultsContainer');
@@ -1373,6 +1692,10 @@
         .filter(w => w.date && w.date.startsWith(`${year}-`))
         .sort((a, b) => a.date.localeCompare(b.date));
 
+      // 1. Calculate Climate Stats & Extremes
+      const climateStats = calculateClimateStats(filteredWeather);
+
+      // 2. Aggregate Warnings & Tips
       const warningStats = WARNING_TYPES.map(type => {
         const events = warningData.filter(w => w.type === type);
         let totalMinutes = 0;
@@ -1411,6 +1734,12 @@
         tipStats.sort((a, b) => b.totalMinutes - a.totalMinutes);
       }
 
+      // Filter events active within this year for the Timeline
+      const allActiveEventsThisYear = [
+        ...warningData.filter(w => getOverlappingMinutes(w.start, w.end, yearStart, yearEnd) > 0),
+        ...tipData.filter(t => getOverlappingMinutes(t.start, t.end, yearStart, yearEnd) > 0)
+      ];
+
       container.innerHTML = `
         <div class="space-y-6">
           <!-- Summary Header -->
@@ -1437,6 +1766,27 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Climate Statistics Days & Extremes (New Feature) -->
+          ${renderClimateStatsCardsHtml(climateStats, `${year} 年`)}
+
+          <!-- Interactive Warning & Tip Timeline (New Feature) -->
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-timeline text-sky-600"></i>
+                <span>${year} 年度 氣象警報與提示生效時序圖 (Warning Timeline)</span>
+              </h3>
+              <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>酷熱</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>寒冷</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>雨量</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>強烈季候風/風暴</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>風暴潮</span>
+              </div>
+            </div>
+            <div id="yearWarningTimelineChart" class="w-full"></div>
           </div>
 
           <!-- Warnings & Tips Annual Tables -->
@@ -1531,6 +1881,11 @@
           </div>
         </div>
       `;
+
+      // Render the ECharts timeline after the DOM is rendered
+      setTimeout(() => {
+        renderWarningTimelineChart('yearWarningTimelineChart', allActiveEventsThisYear, yearStart, yearEnd);
+      }, 50);
     }
 
     /**
@@ -1540,6 +1895,8 @@
      * - Two Addition Tables (Mandatory):
      *   1. 提示/特別報告, x月總生效時數, (yyyy)累計生效時數, x月總生效次數, (yyyy)累計生效次數
      *   2. 警報, x月總生效時數, (yyyy)累計生效時數, x月總生效次數, (yyyy)累計生效次數
+     * - Monthly Climate statistics days (酷熱, 寒冷, 熱夜, 非常潮濕, 非常乾燥, 最高/最低溫)
+     * - Warning Timeline Visualization (ECharts)
      */
     function renderYearMonthAnalysis(year, month, sortBy) {
       const container = document.getElementById('queryResultsContainer');
@@ -1556,6 +1913,9 @@
       const filteredWeather = allWeather
         .filter(w => w.date && w.date.startsWith(monthPrefix))
         .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate Monthly Climate Stats & Extremes
+      const climateStats = calculateClimateStats(filteredWeather);
 
       // Build Warning Stats Table
       const warningStats = WARNING_TYPES.map(type => {
@@ -1632,6 +1992,11 @@
         monthTipsLog.sort((a, b) => a.start.localeCompare(b.start));
       }
 
+      const allActiveEventsThisMonth = [
+        ...monthWarningsLog,
+        ...monthTipsLog
+      ];
+
       container.innerHTML = `
         <div class="space-y-6">
           <!-- Monthly Header -->
@@ -1658,6 +2023,27 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Climate Statistics Days & Extremes (New Feature) -->
+          ${renderClimateStatsCardsHtml(climateStats, `${month} 月`)}
+
+          <!-- Interactive Warning Timeline for Month (New Feature) -->
+          <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-timeline text-sky-600"></i>
+                <span>${year} 年 ${month} 月 氣象警報與提示時序圖 (Warning Timeline)</span>
+              </h3>
+              <div class="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>酷熱</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>寒冷</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>雨量</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>強烈季候風/風暴</span>
+                <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>風暴潮</span>
+              </div>
+            </div>
+            <div id="monthWarningTimelineChart" class="w-full"></div>
           </div>
 
           <!-- Mandatory Addition Table 1: 提示/特別報告統計表 -->
@@ -1763,6 +2149,11 @@
           </div>
         </div>
       `;
+
+      // Render the ECharts timeline after the DOM is rendered
+      setTimeout(() => {
+        renderWarningTimelineChart('monthWarningTimelineChart', allActiveEventsThisMonth, monthStart, monthEnd);
+      }, 50);
     }
 
     /**
