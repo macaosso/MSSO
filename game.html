@@ -1,1148 +1,2269 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AtmosQuest: Weather Master</title>
+  <title>氣象觀察月報數據</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Font: Inter & Space Grotesk -->
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts Inter & Noto Sans TC -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+            sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
           },
           colors: {
-            radar: {
-              green: '#10b981',
-              bright: '#34d399',
-              amber: '#f59e0b',
-              red: '#ef4444',
-              purple: '#a855f7',
-              dark: '#030712'
-            }
-          },
-          animation: {
-            'radar-sweep': 'sweep 4s linear infinite',
-            'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-          },
-          keyframes: {
-            sweep: {
-              '0%': { transform: 'rotate(0deg)' },
-              '100%': { transform: 'rotate(360deg)' }
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
             }
           }
         }
       }
     }
   </script>
-
   <style>
-    /* Custom glow and backdrop filters */
-    .radar-grid {
-      background-image: 
-        radial-gradient(circle, rgba(16, 185, 129, 0.15) 1px, transparent 1px),
-        linear-gradient(to right, rgba(16, 185, 129, 0.08) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(16, 185, 129, 0.08) 1px, transparent 1px);
-      background-size: 24px 24px, 48px 48px, 48px 48px;
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
-    .crt-scanlines {
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
-      background-size: 100% 4px;
-      pointer-events: none;
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
     }
-    .hud-border {
-      border: 1px solid rgba(16, 185, 129, 0.2);
-      box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.05);
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
     }
-    /* Hide scrollbars for aesthetic command deck */
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col select-none overflow-x-hidden">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
 
-  <!-- Audio Synthesizer Controller (Web Audio API) -->
-  <script>
-    class SoundEngine {
-      constructor() {
-        this.ctx = null;
-        this.muted = false;
-      }
-      init() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioContext();
-        }
-      }
-      playBlip(freq = 600, duration = 0.08) {
-        if (this.muted || !this.ctx) return;
-        try {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-          gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start();
-          osc.stop(this.ctx.currentTime + duration);
-        } catch (e) {}
-      }
-      playAlert(urgent = false) {
-        if (this.muted || !this.ctx) return;
-        try {
-          const now = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = urgent ? 'sawtooth' : 'triangle';
-          osc.frequency.setValueAtTime(urgent ? 880 : 540, now);
-          osc.frequency.linearRampToValueAtTime(urgent ? 440 : 360, now + 0.35);
-          gain.gain.setValueAtTime(0.18, now);
-          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 0.4);
-        } catch (e) {}
-      }
-      playThunder() {
-        if (this.muted || !this.ctx) return;
-        try {
-          const bufferSize = this.ctx.sampleRate * 1.5;
-          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-          const data = buffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
-          }
-          const noise = this.ctx.createBufferSource();
-          noise.buffer = buffer;
-          const filter = this.ctx.createBiquadFilter();
-          filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(140, this.ctx.currentTime);
-          filter.frequency.linearRampToValueAtTime(40, this.ctx.currentTime + 1.2);
-          const gain = this.ctx.createGain();
-          gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.4);
-          noise.connect(filter);
-          filter.connect(gain);
-          gain.connect(this.ctx.destination);
-          noise.start();
-        } catch(e) {}
-      }
-    }
-    const audio = new SoundEngine();
-  </script>
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-  <!-- TOP HEADER / HUD NAVIGATION -->
-  <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40 px-4 py-2.5">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-      
-      <!-- Brand & Status -->
-      <div class="flex items-center space-x-3">
-        <div class="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-          <i data-lucide="cloud-lightning" class="w-6 h-6 animate-pulse"></i>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-bold tracking-wider text-base md:text-lg text-emerald-400 font-mono">ATMOS<span class="text-white">QUEST</span></span>
-            <span class="text-[10px] bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded border border-slate-700">STATION HKG-07</span>
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+            <i class="fa-solid fa-cloud-sun-rain text-xl"></i>
           </div>
-          <p class="text-xs text-slate-400 flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-            DEFENSE SECTOR: COASTAL METROPOLIS
-          </p>
+          <div>
+            <h1 class="text-xl font-bold bg-gradient-to-r from-sky-800 to-cyan-700 bg-clip-text text-transparent">氣象觀察月報數據</h1>
+            <p class="text-xs text-slate-400 flex items-center gap-1">
+              <span>數據同步中樞</span>
+              <span id="repoBadge" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 font-mono">未連接</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs & Auth Button -->
+        <div class="flex items-center space-x-2">
+          <nav class="flex space-x-1 sm:space-x-2 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/70">
+            <button id="navBtn-entry" onclick="switchTab('entry')" class="flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all text-sky-700 bg-white shadow-sm">
+              <i class="fa-solid fa-pen-to-square"></i>
+              <span class="hidden sm:inline">數據錄入與維護</span>
+              <span class="sm:hidden">錄入</span>
+            </button>
+            <button id="navBtn-query" onclick="switchTab('query')" class="flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900">
+              <i class="fa-solid fa-chart-pie"></i>
+              <span class="hidden sm:inline">月報與歷史檢索</span>
+              <span class="sm:hidden">檢索</span>
+            </button>
+            <button id="navBtn-settings" onclick="switchTab('settings')" class="flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900">
+              <i class="fa-solid fa-gear"></i>
+              <span class="hidden sm:inline">GitHub 設定</span>
+              <span class="sm:hidden">設定</span>
+            </button>
+          </nav>
+          <button id="authBtn" onclick="openLoginModal()" class="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            <i class="fa-brands fa-github text-sm"></i>
+            <span id="authBtnLabel">登入 GitHub</span>
+          </button>
         </div>
       </div>
-
-      <!-- Turn & Day Tracker -->
-      <div class="flex items-center bg-slate-950/70 border border-slate-800 rounded-lg px-4 py-1.5 space-x-4">
-        <div>
-          <span class="text-[10px] text-slate-500 uppercase tracking-widest block font-mono">SEASON PROGRESS</span>
-          <span id="day-display" class="font-mono text-sm font-semibold text-emerald-400">DAY 1 / 5</span>
-        </div>
-        <div class="h-6 w-px bg-slate-800"></div>
-        <div>
-          <span class="text-[10px] text-slate-500 uppercase tracking-widest block font-mono">CITY BUDGET</span>
-          <span id="budget-display" class="font-mono text-sm font-bold text-amber-400">$120,000</span>
-        </div>
-      </div>
-
-      <!-- Critical Metrics Status Bars -->
-      <div class="flex items-center gap-4 text-xs font-mono w-full sm:w-auto justify-between sm:justify-start">
-        <!-- Public Safety -->
-        <div class="flex flex-col gap-1 w-24">
-          <div class="flex justify-between text-[11px]">
-            <span class="text-slate-400 flex items-center gap-1"><i data-lucide="shield" class="w-3 h-3 text-cyan-400"></i> Safety</span>
-            <span id="val-safety" class="text-cyan-400 font-bold">85%</span>
-          </div>
-          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div id="bar-safety" class="bg-cyan-500 h-1.5 rounded-full transition-all duration-500" style="width: 85%"></div>
-          </div>
-        </div>
-
-        <!-- Economic Flow -->
-        <div class="flex flex-col gap-1 w-24">
-          <div class="flex justify-between text-[11px]">
-            <span class="text-slate-400 flex items-center gap-1"><i data-lucide="coins" class="w-3 h-3 text-amber-400"></i> Economy</span>
-            <span id="val-economy" class="text-amber-400 font-bold">90%</span>
-          </div>
-          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div id="bar-economy" class="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style="width: 90%"></div>
-          </div>
-        </div>
-
-        <!-- Trust / Credibility -->
-        <div class="flex flex-col gap-1 w-24">
-          <div class="flex justify-between text-[11px]">
-            <span class="text-slate-400 flex items-center gap-1"><i data-lucide="award" class="w-3 h-3 text-purple-400"></i> Trust</span>
-            <span id="val-trust" class="text-purple-400 font-bold">80%</span>
-          </div>
-          <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-            <div id="bar-trust" class="bg-purple-500 h-1.5 rounded-full transition-all duration-500" style="width: 80%"></div>
-          </div>
-        </div>
-
-        <!-- Audio mute toggle -->
-        <button id="btn-sound" class="p-2 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 transition" title="Toggle Audio">
-          <i data-lucide="volume-2" id="sound-icon" class="w-4 h-4"></i>
-        </button>
-      </div>
-
     </div>
   </header>
 
-  <!-- MAIN OPERATIONAL WORKSPACE -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-    <!-- LEFT & CENTER: RADAR & ATMOSPHERIC SENSORS (7 COLS) -->
-    <section class="lg:col-span-7 flex flex-col gap-4">
-      
-      <!-- RADAR & SYNOPTIC MAP VIEW -->
-      <div class="relative bg-slate-900 rounded-xl border border-slate-800 overflow-hidden flex flex-col shadow-2xl">
-        
-        <!-- Radar Top Toolbar -->
-        <div class="px-4 py-2 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between text-xs font-mono">
-          <div class="flex items-center gap-2 text-slate-300">
-            <i data-lucide="crosshair" class="w-4 h-4 text-emerald-400"></i>
-            <span class="font-bold text-emerald-400">DOPPLER RADAR DUAL-POL</span>
-            <span class="text-slate-500">| RANGE 256KM</span>
-          </div>
-          
-          <!-- Map Layer Switches -->
-          <div class="flex items-center space-x-1">
-            <button onclick="setRadarMode('rain')" id="mode-rain" class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-medium transition">Precip</button>
-            <button onclick="setRadarMode('wind')" id="mode-wind" class="px-2.5 py-1 rounded bg-slate-800 text-slate-400 hover:text-white text-[11px] font-medium transition">Wind</button>
-            <button onclick="setRadarMode('sat')" id="mode-sat" class="px-2.5 py-1 rounded bg-slate-800 text-slate-400 hover:text-white text-[11px] font-medium transition">Isobars</button>
-          </div>
-        </div>
-
-        <!-- Radar Canvas Container -->
-        <div class="relative aspect-video w-full bg-slate-950 radar-grid overflow-hidden flex items-center justify-center cursor-crosshair">
-          <canvas id="radar-canvas" class="w-full h-full block"></canvas>
-          
-          <!-- CRT Scanline overlay effect -->
-          <div class="absolute inset-0 crt-scanlines pointer-events-none"></div>
-
-          <!-- Radar Sweep Rotating Beam -->
-          <div id="radar-beam" class="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div class="w-full h-full rounded-full border border-emerald-500/10 relative">
-              <div class="absolute top-1/2 left-1/2 w-1/2 h-[2px] bg-gradient-to-r from-emerald-500/80 to-transparent origin-left animate-radar-sweep pointer-events-none"></div>
-            </div>
-          </div>
-
-          <!-- Metropolis Coastline & Target Markers (Overlay) -->
-          <div class="absolute bottom-3 left-3 bg-slate-950/90 border border-slate-800/80 rounded px-2.5 py-1.5 text-[11px] font-mono pointer-events-none backdrop-blur">
-            <div class="text-emerald-400 font-semibold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-              METRO HARBOR (URBAN ZONE)
-            </div>
-            <div class="text-slate-400 text-[10px]">Pop: 4.8M • High Density Coast</div>
-          </div>
-
-          <div class="absolute top-3 right-3 bg-slate-950/90 border border-slate-800 rounded px-2.5 py-1 text-[10px] font-mono pointer-events-none text-right">
-            <span class="text-slate-400">ECHO REFLECTIVITY</span>
-            <div class="flex items-center gap-1 mt-0.5">
-              <span class="w-3 h-2 bg-emerald-500 rounded-sm"></span>
-              <span class="w-3 h-2 bg-yellow-500 rounded-sm"></span>
-              <span class="w-3 h-2 bg-orange-600 rounded-sm"></span>
-              <span class="w-3 h-2 bg-red-600 rounded-sm"></span>
-              <span class="w-3 h-2 bg-purple-600 rounded-sm"></span>
-              <span class="text-slate-300 ml-1">65 dBZ</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Telemetry Station Gauges -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800 bg-slate-900 border-t border-slate-800 text-xs font-mono">
-          <div class="p-3">
-            <span class="text-slate-400 text-[10px] uppercase block">Barometric Pres.</span>
-            <div class="flex items-baseline gap-1 mt-0.5">
-              <span id="val-pres" class="text-lg font-bold text-white tracking-tight">1008.2</span>
-              <span class="text-slate-400 text-xs">hPa</span>
-            </div>
-            <span id="trend-pres" class="text-[10px] text-red-400 flex items-center">▼ Falling rapidly</span>
-          </div>
-
-          <div class="p-3">
-            <span class="text-slate-400 text-[10px] uppercase block">Max Gust / Speed</span>
-            <div class="flex items-baseline gap-1 mt-0.5">
-              <span id="val-wind" class="text-lg font-bold text-emerald-400 tracking-tight">64</span>
-              <span class="text-slate-400 text-xs">km/h</span>
-            </div>
-            <span id="trend-wind" class="text-[10px] text-amber-400">Gusts to 92 km/h</span>
-          </div>
-
-          <div class="p-3">
-            <span class="text-slate-400 text-[10px] uppercase block">Precipitation Rate</span>
-            <div class="flex items-baseline gap-1 mt-0.5">
-              <span id="val-rain" class="text-lg font-bold text-cyan-400 tracking-tight">48.5</span>
-              <span class="text-slate-400 text-xs">mm/hr</span>
-            </div>
-            <span id="trend-rain" class="text-[10px] text-cyan-300">Violent torrential</span>
-          </div>
-
-          <div class="p-3">
-            <span class="text-slate-400 text-[10px] uppercase block">Storm Surge Risk</span>
-            <div class="flex items-baseline gap-1 mt-0.5">
-              <span id="val-surge" class="text-lg font-bold text-purple-400 tracking-tight">+2.4</span>
-              <span class="text-slate-400 text-xs">meters</span>
-            </div>
-            <span id="trend-surge" class="text-[10px] text-purple-300">Astronomical Spring Tide</span>
-          </div>
-        </div>
+  <!-- Login / Token Input Modal -->
+  <div id="loginModal" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+          <i class="fa-brands fa-github text-sky-600 text-lg"></i>
+          <span id="loginModalTitle">連接 GitHub 倉庫</span>
+        </h3>
+        <button onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
 
-      <!-- INTERACTIVE FORECAST MINI-TOOL: HURRICANE TRACKER SPLINE / ENSEMBLE -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow">
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2">
-            <i data-lucide="navigation-2" class="w-4 h-4 text-emerald-400"></i>
-            <h3 class="text-sm font-semibold text-white">Consensus Model Track Calibrator</h3>
-          </div>
-          <span class="text-[11px] font-mono text-slate-400">Interactive Forecast Path Adjustment</span>
-        </div>
-        <p class="text-xs text-slate-400 mb-3">
-          Tweak the projected cyclone landfall trajectory based on numerical ensemble spaghetti runs. Closer calibration unlocks extra forecast confidence!
-        </p>
+      <p class="text-xs text-slate-500">
+        系統不會將 Token 硬編碼在前端原始碼中。請輸入您的 Personal Access Token (PAT) 以存取或更新倉庫中的 CSV 數據檔案。
+      </p>
 
-        <!-- Path Calibration Slider -->
-        <div class="space-y-2 bg-slate-950/60 p-3 rounded-lg border border-slate-800">
-          <div class="flex justify-between text-xs font-mono">
-            <span class="text-slate-400">West Deflection (Open Sea)</span>
-            <span id="track-offset-label" class="text-emerald-400 font-bold">Direct Hit Metro Center</span>
-            <span class="text-slate-400">East Deflection (Bay)</span>
-          </div>
-          <input type="range" id="track-slider" min="-50" max="50" value="0" class="w-full accent-emerald-500 cursor-pointer">
-          <div class="flex justify-between items-center text-[10px] font-mono text-slate-500 pt-1">
-            <span>ECMWF Ensemble Mode: Active</span>
-            <span id="track-accuracy-tag" class="text-emerald-400 font-semibold">Track Match: 100% (+5% Trust Bonus)</span>
-          </div>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- RIGHT: SCENARIO BRIEFING & DECISION DISPATCH CENTER (5 COLS) -->
-    <section class="lg:col-span-5 flex flex-col gap-4">
-      
-      <!-- ACTIVE WEATHER EVENT REPORT -->
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 shadow flex-1 flex flex-col justify-between">
+      <form onsubmit="handleLoginSubmit(event)" class="space-y-3.5 text-xs sm:text-sm">
         <div>
-          <!-- Scenario Badge -->
-          <div class="flex items-center justify-between mb-2">
-            <span id="event-severity-badge" class="px-2.5 py-1 rounded text-xs font-bold font-mono tracking-wider uppercase bg-red-500/20 text-red-400 border border-red-500/40 flex items-center gap-1.5">
-              <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-              CRITICAL THREAT
-            </span>
-            <span id="event-type-tag" class="text-xs font-mono text-slate-400">SUPER TYPHOON 'AQUILA'</span>
+          <label class="block font-semibold text-slate-700 mb-1">GitHub Personal Access Token (PAT) <span class="text-rose-500">*</span></label>
+          <div class="relative">
+            <input type="password" id="modalTokenInput" placeholder="ghp_..." required class="w-full px-3 py-2 font-mono text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 pr-10">
+            <button type="button" onclick="toggleModalTokenVisibility()" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+              <i id="modalTokenEyeIcon" class="fa-regular fa-eye"></i>
+            </button>
           </div>
+          <span class="text-[11px] text-slate-400">需具備 <code>repo</code> 讀寫權限。</span>
+        </div>
 
-          <h2 id="event-title" class="text-lg sm:text-xl font-bold text-white tracking-tight mt-2">
-            Category 4 Super Typhoon Aquila Approaching
-          </h2>
-          
-          <!-- Narrative Incident Briefing -->
-          <div class="mt-3 p-3 bg-slate-950/70 border-l-4 border-emerald-500 rounded-r-lg text-xs leading-relaxed text-slate-300 font-normal">
-            <p id="event-desc">
-              Doppler imagery confirms outer rainbands have made landfall. The eye is currently 140km SE, moving WNW at 22km/h. Coastal sea surge threatens critical transport tunnels, and peak astronomical tide coincides with projected landfall in 4 hours.
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">倉庫擁有者 (Owner) <span class="text-rose-500">*</span></label>
+            <input type="text" id="modalOwnerInput" placeholder="帳號或組織名" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">倉庫名稱 (Repo) <span class="text-rose-500">*</span></label>
+            <input type="text" id="modalRepoInput" placeholder="例如 weather-repo" required class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">分支 (Branch)</label>
+          <input type="text" id="modalBranchInput" value="main" class="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="rememberMeCheckbox" class="rounded text-sky-600 focus:ring-sky-500 h-4 w-4 border-slate-300">
+          <label for="rememberMeCheckbox" class="text-xs text-slate-600 select-none cursor-pointer">
+            記住憑證於本機 (localStorage)，取消勾選則僅限於本次會話 (sessionStorage)
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeLoginModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-md shadow-sky-600/20 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-link"></i> 驗證並儲存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- ==================== TAB 1: 數據錄入與維護 ==================== -->
+    <section id="tab-entry" class="space-y-6">
+      <!-- Quick Action Toolbar -->
+      <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-xl bg-sky-50 text-sky-600 border border-sky-100">
+            <i class="fa-solid fa-database text-lg"></i>
+          </div>
+          <div>
+            <h2 class="font-semibold text-slate-800">CSV 數據同步狀態</h2>
+            <p class="text-xs text-slate-500">管理 `weather.csv`, `Wrecord.csv`, `Trecord.csv`</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="fetchAllDataFromGithub()" class="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+            <i class="fa-solid fa-rotate"></i>
+            <span>從 GitHub 拉取</span>
+          </button>
+          <button onclick="openCommitModal()" class="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-md shadow-sky-600/20 transition">
+            <i class="fa-brands fa-github text-sm"></i>
+            <span>保存並提交至 GitHub</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sub Tabs for Entry: Weather vs Warnings vs Tips -->
+      <div class="flex border-b border-slate-200 gap-6 text-sm font-semibold text-slate-500">
+        <button id="subtab-btn-weather" onclick="switchEntrySubTab('weather')" class="pb-3 border-b-2 border-sky-600 text-sky-700 flex items-center gap-2">
+          <i class="fa-solid fa-temperature-half"></i> 日氣象數據 (weather.csv)
+        </button>
+        <button id="subtab-btn-wrecord" onclick="switchEntrySubTab('wrecord')" class="pb-3 border-b-2 border-transparent hover:text-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation"></i> 警報記錄 (Wrecord.csv)
+        </button>
+        <button id="subtab-btn-trecord" onclick="switchEntrySubTab('trecord')" class="pb-3 border-b-2 border-transparent hover:text-slate-700 flex items-center gap-2">
+          <i class="fa-solid fa-bell"></i> 提示/特別報告 (Trecord.csv)
+        </button>
+      </div>
+
+      <!-- ENTRY PANEL 1: Weather Data -->
+      <div id="subtab-content-weather" class="space-y-4">
+        <!-- 15-day batch generation banner -->
+        <div class="bg-gradient-to-r from-sky-50 via-indigo-50 to-white rounded-2xl p-4 sm:p-5 border border-sky-100 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 text-sky-900 font-semibold text-sm">
+              <i class="fa-solid fa-wand-magic-sparkles text-sky-600"></i>
+              <span>連續排程與快速批量生成</span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1">
+              當前最新記錄日期：<span id="latestDateBadge" class="font-bold text-sky-700 font-mono">未載入</span>。系統可從翌日起自動預填未來 15 天連續日期，方便快速輸入氣溫與濕度。
             </p>
           </div>
+          <div class="flex items-center gap-2">
+            <button onclick="generateNextDaysWeather(15)" class="px-3.5 py-2 text-xs font-semibold bg-white border border-sky-300 text-sky-700 hover:bg-sky-50 rounded-xl shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-calendar-plus text-sky-500"></i>
+              <span>生成未來 15 天表單</span>
+            </button>
+            <button onclick="addNewWeatherRow()" class="px-3.5 py-2 text-xs font-semibold bg-sky-600 text-white hover:bg-sky-700 rounded-xl shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>新增單日</span>
+            </button>
+          </div>
+        </div>
 
-          <!-- Key Scientific Dilemma -->
-          <div class="mt-4 grid grid-cols-2 gap-2 text-xs font-mono">
-            <div class="bg-slate-950/50 p-2.5 rounded border border-slate-800/80">
-              <span class="text-slate-500 block text-[10px]">POTENTIAL RISK</span>
-              <span id="event-risk" class="text-red-400 font-medium">Catastrophic Flooding & Severe Grid Outage</span>
+        <!-- Weather Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              共 <span id="weatherRowCount" class="text-sky-600 font-bold">0</span> 筆記錄
+            </span>
+            <button onclick="clearEmptyWeatherRows()" class="text-xs text-slate-400 hover:text-slate-600">
+              <i class="fa-solid fa-broom mr-1"></i>清理空白行
+            </button>
+          </div>
+          <div class="overflow-x-auto max-h-[500px]">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 z-10 border-b border-slate-200">
+                <tr>
+                  <th class="p-3 w-12 text-center">#</th>
+                  <th class="p-3 min-w-[130px]">日期</th>
+                  <th class="p-3 min-w-[140px]">日最低氣溫 (°C)</th>
+                  <th class="p-3 min-w-[140px]">日最高氣溫 (°C)</th>
+                  <th class="p-3 min-w-[140px]">日最低相對濕度 (%)</th>
+                  <th class="p-3 min-w-[140px]">日最高相對濕度 (%)</th>
+                  <th class="p-3 w-16 text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="weatherTableBody" class="divide-y divide-slate-100 text-slate-700 font-mono">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENTRY PANEL 2: Wrecord (Warnings) -->
+      <div id="subtab-content-wrecord" class="hidden space-y-4">
+        <!-- Add New Warning Form Card -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+            新增氣象警報記錄 (Wrecord)
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">警報類型 (type)</label>
+              <select id="newWType" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
+                <!-- Dynamically populated or static -->
+              </select>
             </div>
-            <div class="bg-slate-950/50 p-2.5 rounded border border-slate-800/80">
-              <span class="text-slate-500 block text-[10px]">CITY IMPACT</span>
-              <span id="event-econ-impact" class="text-amber-400 font-medium">Business halt costs ~$40,000 / day</span>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">開始時間 (start)</label>
+              <input type="datetime-local" id="newWStart" onchange="autoCalcDuration('newW')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">結束時間 (end)</label>
+              <input type="datetime-local" id="newWEnd" onchange="autoCalcDuration('newW')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">生效時長 (duration - hh:mm)</label>
+              <div class="flex gap-2">
+                <input type="text" id="newWDuration" placeholder="自動計算" readonly class="w-full px-3 py-2 text-xs font-mono bg-slate-100 border border-slate-300 rounded-xl text-slate-700">
+                <button onclick="addWarningRow()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition flex items-center gap-1">
+                  <i class="fa-solid fa-plus"></i> 添加
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- DECISION ACTION OPTIONS -->
-        <div class="mt-5 space-y-2.5">
-          <label class="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">
-            Choose Your Operational Action Directive:
-          </label>
-
-          <!-- Decision Option 1 -->
-          <button onclick="makeDecision(0)" class="w-full text-left p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-emerald-500/60 hover:bg-slate-900 transition group flex items-start gap-3">
-            <div class="w-6 h-6 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:bg-emerald-500 group-hover:text-slate-950 transition">
-              A
-            </div>
-            <div class="flex-1">
-              <div id="opt-0-title" class="text-xs font-bold text-slate-200 group-hover:text-emerald-400 transition">
-                Maximum Emergency: Hoist Signal No. 10 & Order Total Lockdown
-              </div>
-              <div id="opt-0-desc" class="text-[11px] text-slate-400 mt-0.5">
-                Halt stock market, ground flights, mandate sandbags and close flood gates.
-              </div>
-            </div>
-          </button>
-
-          <!-- Decision Option 2 -->
-          <button onclick="makeDecision(1)" class="w-full text-left p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-amber-500/60 hover:bg-slate-900 transition group flex items-start gap-3">
-            <div class="w-6 h-6 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:bg-amber-500 group-hover:text-slate-950 transition">
-              B
-            </div>
-            <div class="flex-1">
-              <div id="opt-1-title" class="text-xs font-bold text-slate-200 group-hover:text-amber-400 transition">
-                Targeted Mitigation: Hoist Signal No. 8 & Coastal Evacuation
-              </div>
-              <div id="opt-1-desc" class="text-[11px] text-slate-400 mt-0.5">
-                Suspend schools & ferry links; keep inland metro trains rolling at reduced speeds.
-              </div>
-            </div>
-          </button>
-
-          <!-- Decision Option 3 -->
-          <button onclick="makeDecision(2)" class="w-full text-left p-3 rounded-lg border border-slate-800 bg-slate-950 hover:border-cyan-500/60 hover:bg-slate-900 transition group flex items-start gap-3">
-            <div class="w-6 h-6 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-mono font-bold text-xs shrink-0 group-hover:bg-cyan-500 group-hover:text-slate-950 transition">
-              C
-            </div>
-            <div class="flex-1">
-              <div id="opt-2-title" class="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition">
-                Low Disruptive Advisory: Pre-Alert Only, Protect Commerce
-              </div>
-              <div id="opt-2-desc" class="text-[11px] text-slate-400 mt-0.5">
-                Avoid premature false-alarms. Monitor radar until storm eye reaches 50km threshold.
-              </div>
-            </div>
-          </button>
+        <!-- Warning Records Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              共 <span id="wrecordRowCount" class="text-amber-600 font-bold">0</span> 筆警報
+            </span>
+          </div>
+          <div class="overflow-x-auto max-h-[500px]">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 z-10 border-b border-slate-200">
+                <tr>
+                  <th class="p-3 w-12 text-center">#</th>
+                  <th class="p-3 min-w-[160px]">警報類型 (type)</th>
+                  <th class="p-3 min-w-[160px]">開始時間 (start)</th>
+                  <th class="p-3 min-w-[160px]">結束時間 (end)</th>
+                  <th class="p-3 min-w-[120px]">持續時長 (duration)</th>
+                  <th class="p-3 w-16 text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="wrecordTableBody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
         </div>
-
-        <!-- Dispatch Status Logs -->
-        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-500">
-          <span class="flex items-center gap-1.5"><i data-lucide="radio" class="w-3.5 h-3.5 text-emerald-400"></i> TRANSMITTER STABLE</span>
-          <span>CIVIL DEFENSE LINK READY</span>
-        </div>
-
       </div>
 
+      <!-- ENTRY PANEL 3: Trecord (Tips) -->
+      <div id="subtab-content-trecord" class="hidden space-y-4">
+        <!-- Add New Tip Form Card -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+            新增提示/特別報告記錄 (Trecord)
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">提示類型 (type)</label>
+              <select id="newTType" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
+                <!-- Dynamically populated or static -->
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">開始時間 (start)</label>
+              <input type="datetime-local" id="newTStart" onchange="autoCalcDuration('newT')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">結束時間 (end)</label>
+              <input type="datetime-local" id="newTEnd" onchange="autoCalcDuration('newT')" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">生效時長 (duration - hh:mm)</label>
+              <div class="flex gap-2">
+                <input type="text" id="newTDuration" placeholder="自動計算" readonly class="w-full px-3 py-2 text-xs font-mono bg-slate-100 border border-slate-300 rounded-xl text-slate-700">
+                <button onclick="addTipRow()" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1">
+                  <i class="fa-solid fa-plus"></i> 添加
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tip Records Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              共 <span id="trecordRowCount" class="text-cyan-600 font-bold">0</span> 筆提示
+            </span>
+          </div>
+          <div class="overflow-x-auto max-h-[500px]">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+              <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 z-10 border-b border-slate-200">
+                <tr>
+                  <th class="p-3 w-12 text-center">#</th>
+                  <th class="p-3 min-w-[160px]">提示/報告類型 (type)</th>
+                  <th class="p-3 min-w-[160px]">開始時間 (start)</th>
+                  <th class="p-3 min-w-[160px]">結束時間 (end)</th>
+                  <th class="p-3 min-w-[120px]">持續時長 (duration)</th>
+                  <th class="p-3 w-16 text-center">操作</th>
+                </tr>
+              </thead>
+              <tbody id="trecordTableBody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 月報與歷史檢索 ==================== -->
+    <section id="tab-query" class="hidden space-y-6">
+      <!-- Search Filter Control Panel -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2 text-slate-800 font-bold text-base">
+            <i class="fa-solid fa-magnifying-glass-chart text-sky-600"></i>
+            <span>氣象資料檢索與統計維度</span>
+          </div>
+          <!-- Sort warning option -->
+          <div class="flex items-center gap-2 text-xs text-slate-600">
+            <span>警報/提示排序依據：</span>
+            <select id="querySortBy" onchange="runQueryAnalysis()" class="px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-slate-50 font-medium">
+              <option value="time">按時間順序 (Chronological)</option>
+              <option value="type">按警報類型 (Type)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filter Dimension Selectors -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <!-- Filter Level Selector -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">檢索顆粒度 (Level)</label>
+            <div class="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-xs font-medium text-slate-600 text-center">
+              <button type="button" onclick="setQueryGranularity('year')" id="granBtn-year" class="py-1.5 rounded-lg">整年</button>
+              <button type="button" onclick="setQueryGranularity('month')" id="granBtn-month" class="py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold">年月</button>
+              <button type="button" onclick="setQueryGranularity('date')" id="granBtn-date" class="py-1.5 rounded-lg">年月日</button>
+            </div>
+          </div>
+
+          <!-- Year & Month & Date inputs -->
+          <div class="sm:col-span-2 flex flex-wrap items-center gap-3">
+            <div class="flex-1 min-w-[100px]">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">年份 (YYYY)</label>
+              <input type="number" id="queryYear" min="1990" max="2099" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-mono">
+            </div>
+
+            <div id="queryMonthWrapper" class="flex-1 min-w-[100px]">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">月份 (MM)</label>
+              <select id="queryMonth" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
+                <option value="1">1月</option>
+                <option value="2">2月</option>
+                <option value="3">3月</option>
+                <option value="4">4月</option>
+                <option value="5">5月</option>
+                <option value="6">6月</option>
+                <option value="7">7月</option>
+                <option value="8">8月</option>
+                <option value="9">9月</option>
+                <option value="10">10月</option>
+                <option value="11">11月</option>
+                <option value="12">12月</option>
+              </select>
+            </div>
+
+            <div id="queryDateWrapper" class="flex-1 min-w-[120px] hidden">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">具體日期 (DD)</label>
+              <input type="number" id="queryDate" min="1" max="31" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-mono">
+            </div>
+
+            <div class="flex items-end self-end">
+              <button onclick="runQueryAnalysis()" class="px-5 py-2 text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-md shadow-sky-600/20 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-filter"></i> 執行統計檢索
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logic description badge -->
+        <div class="p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-[11px] text-slate-500 flex items-start gap-2">
+          <i class="fa-solid fa-circle-info text-sky-500 mt-0.5"></i>
+          <span>
+            <strong>跨月時長分割原則說明：</strong> 若警報自 9月30日 生效至 10月1日，生效次數歸入 9 月，生效時數則精確切分，分別計入 9 月與 10 月。
+          </span>
+        </div>
+      </div>
+
+      <!-- Results View Container -->
+      <div id="queryResultsContainer" class="space-y-6">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: GitHub 與設定 ==================== -->
+    <section id="tab-settings" class="hidden max-w-2xl mx-auto space-y-6">
+      <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xl">
+              <i class="fa-brands fa-github"></i>
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-slate-800">GitHub Repository 連接設定</h2>
+              <p class="text-xs text-slate-500">手動輸入 Personal Access Token 與目標倉庫資訊</p>
+            </div>
+          </div>
+          <button id="logoutBtn" onclick="logoutGithub()" class="hidden text-xs text-rose-600 font-semibold hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 transition">
+            <i class="fa-solid fa-right-from-bracket mr-1"></i>清除登入狀態
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs sm:text-sm">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">GitHub Personal Access Token</label>
+            <div class="relative">
+              <input type="password" id="ghToken" placeholder="請手動輸入 ghp_ 開頭之個人金鑰" class="w-full px-3 py-2 font-mono text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 pr-10" value="">
+              <button type="button" onclick="toggleTokenVisibility()" class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                <i id="tokenEyeIcon" class="fa-regular fa-eye"></i>
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">原始碼無任何硬編碼 Token，憑證儲存於瀏覽器本地空間。</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">倉庫擁有者 (Owner / User / Org)</label>
+              <input type="text" id="ghOwner" placeholder="例如: your-username" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">倉庫名稱 (Repository Name)</label>
+              <input type="text" id="ghRepo" placeholder="例如: weather-data" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">分支 (Branch)</label>
+            <input type="text" id="ghBranch" value="main" class="w-full px-3 py-2 text-xs font-mono border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
+          </div>
+
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+            <i class="fa-solid fa-folder-tree mr-1"></i> 目標檔案路徑：
+            <ul class="list-disc list-inside mt-1 font-mono text-[11px]">
+              <li>data/weather.csv</li>
+              <li>data/Wrecord.csv</li>
+              <li>data/Trecord.csv</li>
+            </ul>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <button onclick="saveSettings()" class="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i> 保存設定
+            </button>
+            <button onclick="loadSampleMockData()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition flex items-center gap-2">
+              <i class="fa-solid fa-flask"></i> 載入演示範例資料
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
-  <!-- POPUP MODAL: DAY OUTCOME REPORT & DEBRIEF -->
-  <div id="outcome-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl p-6 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in duration-200">
-      <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-cyan-500 to-amber-500"></div>
-      
-      <div class="flex items-center justify-between mt-1 mb-4">
-        <div class="flex items-center gap-2">
-          <div class="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg">
-            <i data-lucide="file-check-2" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h3 class="text-base font-bold text-white">Post-Event Incident Review</h3>
-            <span id="modal-day-tag" class="text-xs font-mono text-slate-400">DAY 1 METEOROLOGICAL EVALUATION</span>
-          </div>
-        </div>
+  <!-- Commit Modal -->
+  <div id="commitModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+          <i class="fa-brands fa-github text-sky-600"></i> 提交變更至 GitHub
+        </h3>
+        <button onclick="closeCommitModal()" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
 
-      <!-- Outcome Message -->
-      <div id="modal-outcome-text" class="text-xs sm:text-sm text-slate-300 leading-relaxed bg-slate-950 p-4 rounded-xl border border-slate-800">
-        <!-- Filled dynamically -->
-      </div>
-
-      <!-- Delta Stat Badges -->
-      <div class="grid grid-cols-3 gap-2 my-4 text-center font-mono">
-        <div class="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">SAFETY</span>
-          <span id="delta-safety" class="text-xs font-bold text-emerald-400">+10%</span>
-        </div>
-        <div class="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">ECONOMY</span>
-          <span id="delta-econ" class="text-xs font-bold text-red-400">-15%</span>
-        </div>
-        <div class="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">TRUST</span>
-          <span id="delta-trust" class="text-xs font-bold text-emerald-400">+5%</span>
-        </div>
-      </div>
-
-      <button id="btn-next-day" onclick="advanceToNextDay()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-500/20">
-        <span>Proceed to Next Shift</span>
-        <i data-lucide="arrow-right" class="w-4 h-4"></i>
-      </button>
-    </div>
-  </div>
-
-  <!-- POPUP MODAL: END OF CAREER SUMMARY REPORT CARD -->
-  <div id="gameover-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-2xl p-6 sm:p-8 shadow-2xl relative">
-      <div class="text-center">
-        <div class="inline-flex p-3 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-3">
-          <i data-lucide="award" class="w-8 h-8"></i>
-        </div>
-        <h2 class="text-2xl font-bold text-white tracking-tight">Meteorologist Evaluation Record</h2>
-        <p class="text-xs text-slate-400 font-mono mt-1">FINAL WEATHER DIRECTORATE COMMENDATION</p>
-      </div>
-
-      <!-- Rank & Title -->
-      <div class="my-6 bg-slate-950 p-5 rounded-xl border border-slate-800 text-center">
-        <span class="text-xs font-mono uppercase text-slate-500 tracking-wider">Conferred Title</span>
-        <div id="final-rank-title" class="text-xl sm:text-2xl font-bold text-emerald-400 mt-1">
-          CHIEF WEATHER OFFICER (CWO)
-        </div>
-        <p id="final-rank-desc" class="text-xs text-slate-300 mt-2 max-w-md mx-auto">
-          Your accurate weather forecasts kept casualties minimal while preventing needless city-wide lockdowns!
+      <div class="space-y-3 text-xs sm:text-sm">
+        <p class="text-slate-600">
+          系統將對應更新或新建 <code class="font-mono text-sky-700 bg-sky-50 px-1 py-0.5 rounded">data/</code> 目錄下的三份 CSV 檔案。
         </p>
-      </div>
-
-      <!-- Final Scoreboard -->
-      <div class="grid grid-cols-4 gap-2 mb-6 font-mono text-center">
-        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">SAFETY</span>
-          <span id="final-safety" class="text-base font-bold text-cyan-400">92%</span>
-        </div>
-        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">ECONOMY</span>
-          <span id="final-econ" class="text-base font-bold text-amber-400">78%</span>
-        </div>
-        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">TRUST</span>
-          <span id="final-trust" class="text-base font-bold text-purple-400">88%</span>
-        </div>
-        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
-          <span class="text-[10px] text-slate-400 block">BUDGET</span>
-          <span id="final-budget" class="text-base font-bold text-emerald-400">$85K</span>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Commit Message</label>
+          <input type="text" id="commitMessageInput" value="Update weather, warning and tip records" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500">
         </div>
       </div>
 
-      <button onclick="resetGame()" class="w-full py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90 text-slate-950 font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-xl">
-        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-        <span>Start New Meteorological Season</span>
-      </button>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeCommitModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">取消</button>
+        <button id="commitSubmitBtn" onclick="commitAllDataToGithub()" class="px-5 py-2 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-xl shadow-md shadow-sky-600/20 transition flex items-center gap-2">
+          <span id="commitSpinner" class="hidden"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+          <span>確認並推送 Commit</span>
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- GAME LOGIC SCRIPT -->
+  <footer class="bg-white border-t border-slate-200 mt-auto py-4 text-center text-xs text-slate-400">
+    氣象觀察月報數據系統 &bull; 支援 GitHub API 自動同步與跨月精確統計
+  </footer>
+
+  <!-- Application Logic -->
   <script>
-    // --- 1. GAME SCENARIOS & ENGINE STATE ---
-    const scenarios = [
-      {
-        day: 1,
-        title: "Category 4 Super Typhoon 'Aquila'",
-        type: "TROPICAL CYCLONE",
-        severity: "CRITICAL THREAT",
-        severityColor: "red",
-        telemetry: { pres: 938, wind: 185, rain: 65, surge: 3.2 },
-        desc: "A tightening eye-wall with sustained gales of 185 km/h is tracking directly toward the metropolis. Coinciding with astronomical spring tide, coastal storm surges threaten to inundate low-lying subways and business hubs within 5 hours.",
-        risk: "Catastrophic Storm Surge & Structural Glass Shatter",
-        econLoss: "Economic pause: -$35,000",
-        options: [
-          {
-            title: "Issue Highest Warning (Signal 10) & Citywide Lockdown",
-            desc: "Suspend all trains, shutter airports, evacuate 40,000 coastal citizens to inland gymnasiums.",
-            safety: +25,
-            econ: -25,
-            trust: +15,
-            cost: 30000,
-            feedback: "The storm's eye passed 20km from harbor. Coastal flood walls held due to early sandbagging! Zero casualties recorded. Business leaders grumbled about costs, but your decisiveness saved hundreds of lives."
-          },
-          {
-            title: "Issue Gale Warning (Signal 8) & Target Lowland Dykes Only",
-            desc: "Suspend schools and small vessels, but keep arterial subways open until 2 hours before landfall.",
-            safety: +5,
-            econ: -10,
-            trust: +5,
-            cost: 15000,
-            feedback: "Balancing mobility and caution worked reasonably well. Two flooded underground parking garages sustained damage, but commercial disruption was contained."
-          },
-          {
-            title: "Maintain Standby Signal (Signal 3) to Avert False-Alarm",
-            desc: "Rely on offshore steering winds pushing the vortex north; keep markets running normally.",
-            safety: -35,
-            econ: +15,
-            trust: -30,
-            cost: 5000,
-            feedback: "DISASTER: The storm maintained course! Commuters were stranded on flooded roads as 140km/h gusts tore roofs off bus terminals. Public trust plummeted and civil inquiry launched."
-          }
-        ]
-      },
-      {
-        day: 2,
-        title: "Severe Convective 'Black Rainstorm' & Mudslides",
-        type: "MESOSCALE CONVECTIVE SYSTEM",
-        severity: "HEAVY PRECIPITATION",
-        severityColor: "amber",
-        telemetry: { pres: 1002, wind: 58, rain: 110, surge: 0.8 },
-        desc: "A stationary trough has trapped super-dense rain clouds over the mountain hillsides. Rain gauges record 110 mm/hr. Saturated soil stability tests report impending slope failure near residential hillside estates.",
-        risk: "Massive Mudslides & Flash Flooding",
-        econLoss: "Production halt: -$20,000",
-        options: [
-          {
-            title: "Trigger Black Rainstorm Warning & Activate Emergency Pumps",
-            desc: "Mandate non-essential staff stay home; open high-capacity subterranean runoff tunnels.",
-            safety: +20,
-            econ: -15,
-            trust: +15,
-            cost: 20000,
-            feedback: "Torrential downpours broke a 50-year rainfall record! The storm drainage channels redirected 1.2 million cubic meters of mud, saving hillside complexes."
-          },
-          {
-            title: "Issue Amber Warning & Advise Driver Caution",
-            desc: "Keep standard school schedules while alerting municipal maintenance teams on call.",
-            safety: -15,
-            econ: +5,
-            trust: -10,
-            cost: 5000,
-            feedback: "A localized landslide cut off a key highway for 9 hours. Multiple buses were marooned in axle-deep torrents. Citizens questioned why warnings weren't raised sooner."
-          },
-          {
-            title: "Pre-emptively Shut Hillsides but Keep City Operating",
-            desc: "Focused evacuation of 4 high-risk mountain sectors with specialized soil telemetry.",
-            safety: +15,
-            econ: -5,
-            trust: +20,
-            cost: 12000,
-            feedback: "Masterstroke of targeted risk management! You evacuated exactly the endangered foothills without paralyzing downtown commercial banking."
-          }
-        ]
-      },
-      {
-        day: 3,
-        title: "Prolonged Heat Dome & Grid Overload Crisis",
-        type: "HEATWAVE & DROUGHT",
-        severity: "EXTREME TEMPERATURE",
-        severityColor: "amber",
-        telemetry: { pres: 1018, wind: 12, rain: 0, surge: 0.1 },
-        desc: "A massive subtropical ridge has settled overhead for 8 days. Mercury hits 39.4°C with a wet-bulb temperature of 31°C. Transformer substations are heating dangerously as air-conditioning demands breach 98% reserve capacity.",
-        risk: "Mass Heatstrokes & Metro-Wide Blackout",
-        econLoss: "Factory throttling: -$15,000",
-        options: [
-          {
-            title: "Issue Extreme Heat Alert & Implement Rolling Industrial Curtailment",
-            desc: "Order heavy manufacturing to shift to nighttime; open 120 air-conditioned public respite centers.",
-            safety: +18,
-            econ: -12,
-            trust: +10,
-            cost: 15000,
-            feedback: "Respite shelters accommodated 45,000 vulnerable elderly residents. The electrical grid avoided cascade tripping by a narrow 2% margin."
-          },
-          {
-            title: "Urge Voluntary Energy Savings & Deploy Water Mist Trucks",
-            desc: "Public service announcements on television asking citizens to set AC to 25.5°C.",
-            safety: -5,
-            econ: +5,
-            trust: -5,
-            cost: 6000,
-            feedback: "Voluntary compliance was insufficient. A critical substation blew out in the afternoon, causing a 4-hour blackout across two commercial districts."
-          },
-          {
-            title: "Subsidize Commercial Power & Tap Neighboring Region Emergency Intertie",
-            desc: "Purchase expensive off-grid megawatt hours to prevent any business interruptions.",
-            safety: +10,
-            econ: -25,
-            trust: +10,
-            cost: 35000,
-            feedback: "The lights stayed on and businesses boomed without interruption, but the municipal energy emergency contingency budget took a painful hit."
-          }
-        ]
-      },
-      {
-        day: 4,
-        title: "Winter Gale & Sudden Maritime Freeze Surge",
-        type: "COLD FRONT & GALES",
-        severity: "SUDDEN MARITIME HAZARD",
-        severityColor: "cyan",
-        telemetry: { pres: 1029, wind: 78, rain: 15, surge: 1.1 },
-        desc: "A severe Siberian continental surge is plunging south. Temperatures are predicted to plummet by 16°C in 6 hours. Heavy sea spray and Beaufort Force 9 gales threaten container ships maneuvering in the coastal shipping straits.",
-        risk: "Harbor Vessel Collisions & Hypothermia",
-        econLoss: "Port delays: -$25,000",
-        options: [
-          {
-            title: "Close Maritime Port Channel & Issue Gale Warning",
-            desc: "Order container cargo vessels to anchor in protected shelter bays; deploy winter blankets to unhoused.",
-            safety: +20,
-            econ: -20,
-            trust: +15,
-            cost: 18000,
-            feedback: "A 400-meter container ship avoided drifting onto rocky shallows thanks to compulsory anchorage. Cold relief teams saved dozens of lives outdoors."
-          },
-          {
-            title: "Restrict Small Craft Only; Keep Deep-Draft Vessels Sailing",
-            desc: "Permit large freighters to continue cargo loading with specialized harbor pilots.",
-            safety: +5,
-            econ: -5,
-            trust: +5,
-            cost: 8000,
-            feedback: "Challenging conditions, but expert pilotage kept the port operating at 60% capacity with only minor barge fender abrasions."
-          },
-          {
-            title: "Issue Standard Weather Notice Without Port Interruption",
-            desc: "Assume commercial fleet captains will gauge sea state risks on their own discretion.",
-            safety: -25,
-            econ: +10,
-            trust: -20,
-            cost: 2000,
-            feedback: "Two bulk carriers collided near the western breakwater under violent cross-gales, partially obstructing shipping traffic and spilling fuel oil."
-          }
-        ]
-      },
-      {
-        day: 5,
-        title: "Compound Threat: Unpredictable Polar Vortex & Coastal Inversion Smog",
-        type: "MULTI-HAZARD COMPLEX",
-        severity: "CRITICAL COMPLEX EVENT",
-        severityColor: "red",
-        telemetry: { pres: 1012, wind: 95, rain: 80, surge: 2.8 },
-        desc: "The final test of your season: A twin-core coastal squall line collides with a strong temperature inversion, producing destructive downburst winds (120 km/h) and choking surface smog with visibility under 300 meters.",
-        risk: "Airport Ground Stoppage & Aviation Windshear Hazard",
-        econLoss: "Terminal shutdown: -$30,000",
-        options: [
-          {
-            title: "Comprehensive Emergency Declaration & Dual Runways Closure",
-            desc: "Halt all airport arrivals, initiate ground stop, issue Flash Flood & Severe Wind alerts across all media.",
-            safety: +25,
-            econ: -25,
-            trust: +20,
-            cost: 25000,
-            feedback: "A violent 62-knot microburst hammered runway 07L right when a widebody jet would have been on final approach. Your decisive ground stop averted a catastrophic aviation disaster!"
-          },
-          {
-            title: "Instrument Flight Rules (IFR) Spacing & Urban Wind Advisory",
-            desc: "Increase aircraft separation to 15 nautical miles; avoid total shutdown while monitoring lidar.",
-            safety: 0,
-            econ: -5,
-            trust: +5,
-            cost: 10000,
-            feedback: "Three aircraft aborted landings during windshear alerts and diverted safely to alternate airfields. Airport operated in high-stress mode but pulled through."
-          },
-          {
-            title: "Minimal Intervention: Maintain Normal City Flight Capacity",
-            desc: "Rely on automated autopilot glide slopes to bypass visual smog and variable winds.",
-            safety: -35,
-            econ: +15,
-            trust: -35,
-            cost: 2000,
-            feedback: "Multiple cargo pallets were blown across the tarmac, injuring baggage handlers. Severe turbulence injured passengers during approach. International aviation regulators opened an audit."
-          }
-        ]
-      }
+    /* ========================================================
+       CONSTANTS & DEFINITIONS
+       ======================================================== */
+    const WARNING_TYPES = [
+      "寒冷警報", "非常寒冷警報", "極為寒冷警報",
+      "酷熱警報", "非常酷熱警報", "極為酷熱警報",
+      "大雨警報", "暴雨警報", "大暴雨警報",
+      "風暴潮觀察警報", "風暴潮戒備警報", "風暴潮危險警報",
+      "注意警報", "戒備警報", "強風警報",
+      "東北烈風警報", "東南烈風警報", "西北烈風警報", "西南烈風警報",
+      "暴風警報", "颶風警報", "海嘯警報", "嚴重海嘯警報"
     ];
 
-    // Player State
-    let currentDayIndex = 0;
-    let safety = 82;
-    let economy = 88;
-    let trust = 80;
-    let budget = 120000;
-    let radarMode = 'rain'; // 'rain', 'wind', 'sat'
-    let trackBonusTrust = 5;
+    const TIP_TYPES = [
+      "低温預警提示", "高温預警提示", "火災危險提示",
+      "黃色大風提示", "橙色大風提示", "紅色大風提示",
+      "空氣質量提示", "豪雨特別報告", "大豪雨特別報告", "超大豪雨特別報告"
+    ];
 
-    // --- 2. CANVAS RADAR SIMULATION ---
-    const canvas = document.getElementById('radar-canvas');
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
-    let radarAngle = 0;
+    // In-memory data structures
+    let weatherData = []; // [{ date: '2026-09-01', minTemp: 24.2, maxTemp: 31.5, minHum: 65, maxHum: 92 }, ...]
+    let warningData = []; // [{ type: '寒冷警報', start: '2026-09-30 20:00', end: '2026-10-01 08:30', duration: '12:30' }]
+    let tipData = [];     // [{ type: '低温預警提示', start: '2026-09-30 22:00', end: '2026-10-01 06:00', duration: '08:00' }]
 
-    function resizeCanvas() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    // File SHA storage for GitHub API commits
+    let fileShaMap = {
+      weather: null,
+      wrecord: null,
+      trecord: null
+    };
 
-    // Radar echo storm cloud particles
-    let particles = [];
-    function initParticles() {
-      particles = [];
-      const count = 90;
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * 400 - 200,
-          y: Math.random() * 400 - 200,
-          radius: Math.random() * 22 + 8,
-          intensity: Math.random(),
-          angle: Math.random() * Math.PI * 2,
-          speed: Math.random() * 0.02 + 0.01,
-          dist: Math.random() * 140 + 20
-        });
-      }
-    }
-    initParticles();
+    // Current Query Granularity: 'year' | 'month' | 'date'
+    let currentGranularity = 'month';
 
-    function drawRadar() {
-      if (!ctx) return;
-      const w = canvas.width;
-      const h = canvas.height;
-      const cx = w / 2;
-      const cy = h / 2;
+    /* ========================================================
+       INITIALIZATION
+       ======================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSettingsFromStorage();
+      populateSelectOptions();
+      initDefaultQueryValues();
 
-      ctx.clearRect(0, 0, w, h);
+      // Check if we already have local or stored records; if not, load initial sample
+      const savedWeather = localStorage.getItem('local_weather_cache');
+      const savedWarnings = localStorage.getItem('local_warning_cache');
+      const savedTips = localStorage.getItem('local_tip_cache');
 
-      // 1. Concentric Range Rings
-      ctx.strokeStyle = 'rgba(16, 185, 129, 0.18)';
-      ctx.lineWidth = 1;
-      const maxR = Math.min(cx, cy) * 0.9;
-      for (let r = maxR * 0.25; r <= maxR; r += maxR * 0.25) {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.4)';
-        ctx.font = '9px JetBrains Mono';
-        ctx.fillText(`${Math.round(r * 0.8)}km`, cx + 4, cy - r + 11);
-      }
-
-      // 2. Crosshair Grid Axis
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - maxR);
-      ctx.lineTo(cx, cy + maxR);
-      ctx.moveTo(cx - maxR, cy);
-      ctx.lineTo(cx + maxR, cy);
-      ctx.stroke();
-
-      // 3. Render Simulated Atmospheric Layer
-      const currentScen = scenarios[currentDayIndex];
-      const isCyclone = currentScen.type.includes('CYCLONE') || currentScen.type.includes('COMPLEX');
-
-      if (radarMode === 'rain') {
-        // Rain Bands & Vortex Spiral
-        particles.forEach(p => {
-          p.angle += p.speed;
-          const px = cx + Math.cos(p.angle) * p.dist;
-          const py = cy + Math.sin(p.angle) * p.dist * 0.75;
-
-          const grad = ctx.createRadialGradient(px, py, 1, px, py, p.radius);
-          if (p.intensity > 0.7) {
-            grad.addColorStop(0, 'rgba(239, 68, 68, 0.65)'); // intense red core
-            grad.addColorStop(0.5, 'rgba(245, 158, 11, 0.4)');
-            grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
-          } else if (p.intensity > 0.4) {
-            grad.addColorStop(0, 'rgba(234, 179, 8, 0.55)'); // yellow moderate
-            grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
-          } else {
-            grad.addColorStop(0, 'rgba(16, 185, 129, 0.45)'); // green light
-            grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
-          }
-          ctx.fillStyle = grad;
-          ctx.beginPath();
-          ctx.arc(px, py, p.radius, 0, Math.PI * 2);
-          ctx.fill();
-        });
-
-        // Cyclone Eye depiction if applicable
-        if (isCyclone) {
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(cx + 35, cy - 25, 12, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-          ctx.font = '10px JetBrains Mono';
-          ctx.fillText('EYE: 938 hPa', cx + 52, cy - 22);
-        }
-
-      } else if (radarMode === 'wind') {
-        // Wind Streamline Vector field
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-        ctx.lineWidth = 1.2;
-        const step = 38;
-        for (let x = 30; x < w - 20; x += step) {
-          for (let y = 30; y < h - 20; y += step) {
-            const dx = x - cx;
-            const dy = y - cy;
-            const angle = Math.atan2(dy, dx) + Math.PI / 2 + 0.3;
-            const len = 12;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-            ctx.stroke();
-            // Arrowhead tip
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
-            ctx.fillRect(x + Math.cos(angle) * len - 1, y + Math.sin(angle) * len - 1, 2, 2);
-          }
+      if (savedWeather && savedWarnings && savedTips) {
+        try {
+          weatherData = JSON.parse(savedWeather);
+          warningData = JSON.parse(savedWarnings);
+          tipData = JSON.parse(savedTips);
+        } catch(e) {
+          loadSampleMockData(false);
         }
       } else {
-        // Isobars & Synoptic Pressure Contours
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
-        ctx.lineWidth = 1.5;
-        for (let i = 1; i <= 4; i++) {
-          ctx.beginPath();
-          ctx.ellipse(cx + 20, cy - 10, i * 45, i * 32, Math.PI / 6, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.fillStyle = 'rgba(168, 85, 247, 0.9)';
-          ctx.font = '9px JetBrains Mono';
-          ctx.fillText(`${980 + i * 8} hPa`, cx + 20 + i * 40, cy - 10);
-        }
+        loadSampleMockData(false);
       }
 
-      // 4. Urban Coastline Simulation (Harbor polygon)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(cx - maxR * 0.8, cy + maxR * 0.4);
-      ctx.bezierCurveTo(cx - maxR * 0.3, cy + maxR * 0.2, cx, cy + maxR * 0.6, cx + maxR * 0.7, cy + maxR * 0.3);
-      ctx.stroke();
+      renderAllTables();
+      runQueryAnalysis();
+    });
 
-      // Metropolis marker
-      ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.arc(cx - 30, cy + 40, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+    function populateSelectOptions() {
+      const wSelect = document.getElementById('newWType');
+      wSelect.innerHTML = WARNING_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px JetBrains Mono';
-      ctx.fillText('METRO CENTRAL', cx - 20, cy + 44);
-
-      animationFrameId = requestAnimationFrame(drawRadar);
+      const tSelect = document.getElementById('newTType');
+      tSelect.innerHTML = TIP_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
     }
-    drawRadar();
 
-    function setRadarMode(mode) {
-      audio.init();
-      audio.playBlip(720);
-      radarMode = mode;
-      ['rain', 'wind', 'sat'].forEach(m => {
-        const btn = document.getElementById(`mode-${m}`);
-        if (m === mode) {
-          btn.className = "px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[11px] font-medium transition";
+    function initDefaultQueryValues() {
+      const now = new Date();
+      document.getElementById('queryYear').value = now.getFullYear();
+      document.getElementById('queryMonth').value = now.getMonth() + 1;
+      document.getElementById('queryDate').value = now.getDate();
+    }
+
+    /* ========================================================
+       NAVIGATION & TABS
+       ======================================================== */
+    function switchTab(tabId) {
+      ['entry', 'query', 'settings'].forEach(id => {
+        const sec = document.getElementById(`tab-${id}`);
+        const btn = document.getElementById(`navBtn-${id}`);
+        if (id === tabId) {
+          sec.classList.remove('hidden');
+          btn.className = "flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all text-sky-700 bg-white shadow-sm";
         } else {
-          btn.className = "px-2.5 py-1 rounded bg-slate-800 text-slate-400 hover:text-white text-[11px] font-medium transition";
+          sec.classList.add('hidden');
+          btn.className = "flex items-center gap-2 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-900";
+        }
+      });
+
+      if (tabId === 'query') {
+        runQueryAnalysis();
+      }
+    }
+
+    function switchEntrySubTab(sub) {
+      ['weather', 'wrecord', 'trecord'].forEach(s => {
+        const content = document.getElementById(`subtab-content-${s}`);
+        const btn = document.getElementById(`subtab-btn-${s}`);
+        if (s === sub) {
+          content.classList.remove('hidden');
+          btn.className = "pb-3 border-b-2 border-sky-600 text-sky-700 flex items-center gap-2 font-semibold";
+        } else {
+          content.classList.add('hidden');
+          btn.className = "pb-3 border-b-2 border-transparent hover:text-slate-700 flex items-center gap-2 font-normal text-slate-500";
         }
       });
     }
 
-    // --- 3. TRACK PREDICTION MINI-GAME INTERACTION ---
-    const trackSlider = document.getElementById('track-slider');
-    const trackOffsetLabel = document.getElementById('track-offset-label');
-    const trackAccuracyTag = document.getElementById('track-accuracy-tag');
+    /* ========================================================
+       SETTINGS & LOCAL STORAGE
+       ======================================================== */
+    function loadSettingsFromStorage() {
+      // Check localStorage first, then sessionStorage
+      const token = localStorage.getItem('gh_token') || sessionStorage.getItem('gh_token') || '';
+      const owner = localStorage.getItem('gh_owner') || sessionStorage.getItem('gh_owner') || '';
+      const repo = localStorage.getItem('gh_repo') || sessionStorage.getItem('gh_repo') || '';
+      const branch = localStorage.getItem('gh_branch') || sessionStorage.getItem('gh_branch') || 'main';
 
-    trackSlider.addEventListener('input', (e) => {
-      audio.init();
-      const val = parseInt(e.target.value);
-      if (Math.abs(val) < 6) {
-        trackOffsetLabel.innerText = "DIRECT HIT METRO CENTER (CONVERGED)";
-        trackOffsetLabel.className = "text-emerald-400 font-bold";
-        trackAccuracyTag.innerText = "Track Match: 100% (+5% Trust Bonus)";
-        trackAccuracyTag.className = "text-emerald-400 font-semibold";
-        trackBonusTrust = 5;
-      } else if (val < -6) {
-        trackOffsetLabel.innerText = `West Deflection (${Math.abs(val)}km off-peak)`;
-        trackOffsetLabel.className = "text-amber-400 font-bold";
-        trackAccuracyTag.innerText = "Track Match: 68% (Uncertainty High)";
-        trackAccuracyTag.className = "text-amber-400 font-semibold";
-        trackBonusTrust = 0;
-      } else {
-        trackOffsetLabel.innerText = `East Deflection (${val}km off-peak)`;
-        trackOffsetLabel.className = "text-amber-400 font-bold";
-        trackAccuracyTag.innerText = "Track Match: 65% (Uncertainty High)";
-        trackAccuracyTag.className = "text-amber-400 font-semibold";
-        trackBonusTrust = 0;
-      }
-    });
+      document.getElementById('ghToken').value = token;
+      document.getElementById('ghOwner').value = owner;
+      document.getElementById('ghRepo').value = repo;
+      document.getElementById('ghBranch').value = branch;
 
-    // --- 4. GAME ENGINE & SCENARIO CONTROLLER ---
-    function updateHUD() {
-      document.getElementById('day-display').innerText = `DAY ${currentDayIndex + 1} / ${scenarios.length}`;
-      document.getElementById('budget-display').innerText = `$${budget.toLocaleString()}`;
-      
-      // Update gauges
-      document.getElementById('val-safety').innerText = `${Math.max(0, Math.min(100, safety))}%`;
-      document.getElementById('bar-safety').style.width = `${Math.max(0, Math.min(100, safety))}%`;
-      
-      document.getElementById('val-economy').innerText = `${Math.max(0, Math.min(100, economy))}%`;
-      document.getElementById('bar-economy').style.width = `${Math.max(0, Math.min(100, economy))}%`;
-
-      document.getElementById('val-trust').innerText = `${Math.max(0, Math.min(100, trust))}%`;
-      document.getElementById('bar-trust').style.width = `${Math.max(0, Math.min(100, trust))}%`;
+      updateAuthUIState(token, owner, repo);
     }
 
-    function loadScenario(index) {
-      if (index >= scenarios.length) {
-        triggerEndGame();
+    function saveSettings() {
+      const token = document.getElementById('ghToken').value.trim();
+      const owner = document.getElementById('ghOwner').value.trim();
+      const repo = document.getElementById('ghRepo').value.trim();
+      const branch = document.getElementById('ghBranch').value.trim() || 'main';
+
+      localStorage.setItem('gh_token', token);
+      localStorage.setItem('gh_owner', owner);
+      localStorage.setItem('gh_repo', repo);
+      localStorage.setItem('gh_branch', branch);
+
+      updateAuthUIState(token, owner, repo);
+      showToast('設定已成功保存！', 'success');
+    }
+
+    function updateAuthUIState(token, owner, repo) {
+      updateRepoBadge(owner, repo);
+      const authBtnLabel = document.getElementById('authBtnLabel');
+      const logoutBtn = document.getElementById('logoutBtn');
+
+      if (token) {
+        authBtnLabel.innerText = owner ? `${owner} (已登入)` : '憑證已就緒';
+        logoutBtn.classList.remove('hidden');
+      } else {
+        authBtnLabel.innerText = '登入 GitHub';
+        logoutBtn.classList.add('hidden');
+      }
+    }
+
+    function updateRepoBadge(owner, repo) {
+      const badge = document.getElementById('repoBadge');
+      if (owner && repo) {
+        badge.innerText = `${owner}/${repo}`;
+        badge.className = "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-sky-100 text-sky-800 font-mono";
+      } else {
+        badge.innerText = "未配置倉庫";
+        badge.className = "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-500 font-mono";
+      }
+    }
+
+    function openLoginModal() {
+      const token = document.getElementById('ghToken').value;
+      const owner = document.getElementById('ghOwner').value;
+      const repo = document.getElementById('ghRepo').value;
+      const branch = document.getElementById('ghBranch').value || 'main';
+
+      document.getElementById('modalTokenInput').value = token;
+      document.getElementById('modalOwnerInput').value = owner;
+      document.getElementById('modalRepoInput').value = repo;
+      document.getElementById('modalBranchInput').value = branch;
+      document.getElementById('rememberMeCheckbox').checked = !!localStorage.getItem('gh_token');
+
+      document.getElementById('loginModal').classList.remove('hidden');
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').classList.add('hidden');
+    }
+
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      const token = document.getElementById('modalTokenInput').value.trim();
+      const owner = document.getElementById('modalOwnerInput').value.trim();
+      const repo = document.getElementById('modalRepoInput').value.trim();
+      const branch = document.getElementById('modalBranchInput').value.trim() || 'main';
+      const remember = document.getElementById('rememberMeCheckbox').checked;
+
+      if (!token || !owner || !repo) {
+        showToast('請完整輸入 Token、Owner 及 Repo！', 'warning');
         return;
       }
 
-      const scen = scenarios[index];
-      // Title and Description
-      document.getElementById('event-title').innerText = scen.title;
-      document.getElementById('event-type-tag').innerText = scen.type;
-      document.getElementById('event-desc').innerText = scen.desc;
-      document.getElementById('event-risk').innerText = scen.risk;
-      document.getElementById('event-econ-impact').innerText = scen.econLoss;
+      // Sync form fields in tab-settings
+      document.getElementById('ghToken').value = token;
+      document.getElementById('ghOwner').value = owner;
+      document.getElementById('ghRepo').value = repo;
+      document.getElementById('ghBranch').value = branch;
 
-      // Telemetry Station
-      document.getElementById('val-pres').innerText = scen.telemetry.pres;
-      document.getElementById('val-wind').innerText = scen.telemetry.wind;
-      document.getElementById('val-rain').innerText = scen.telemetry.rain;
-      document.getElementById('val-surge').innerText = `+${scen.telemetry.surge}`;
-
-      // Options Titles & Subtitles
-      for (let i = 0; i < 3; i++) {
-        document.getElementById(`opt-${i}-title`).innerText = scen.options[i].title;
-        document.getElementById(`opt-${i}-desc`).innerText = scen.options[i].desc;
+      if (remember) {
+        localStorage.setItem('gh_token', token);
+        localStorage.setItem('gh_owner', owner);
+        localStorage.setItem('gh_repo', repo);
+        localStorage.setItem('gh_branch', branch);
+        sessionStorage.clear();
+      } else {
+        sessionStorage.setItem('gh_token', token);
+        sessionStorage.setItem('gh_owner', owner);
+        sessionStorage.setItem('gh_repo', repo);
+        sessionStorage.setItem('gh_branch', branch);
+        localStorage.removeItem('gh_token');
+        localStorage.removeItem('gh_owner');
+        localStorage.removeItem('gh_repo');
+        localStorage.removeItem('gh_branch');
       }
 
-      // Reset Track slider
-      trackSlider.value = 0;
-      trackOffsetLabel.innerText = "DIRECT HIT METRO CENTER (CONVERGED)";
-      trackAccuracyTag.innerText = "Track Match: 100% (+5% Trust Bonus)";
-      trackBonusTrust = 5;
-
-      updateHUD();
-      lucide.createIcons();
+      updateAuthUIState(token, owner, repo);
+      closeLoginModal();
+      showToast('GitHub 憑證配置成功！已可執行拉取與提交操作。', 'success');
     }
 
-    function makeDecision(optionIndex) {
-      audio.init();
-      audio.playAlert(optionIndex === 0);
-      if (optionIndex === 0) audio.playThunder();
+    function logoutGithub() {
+      localStorage.removeItem('gh_token');
+      localStorage.removeItem('gh_owner');
+      localStorage.removeItem('gh_repo');
+      localStorage.removeItem('gh_branch');
+      sessionStorage.clear();
 
-      const scen = scenarios[currentDayIndex];
-      const choice = scen.options[optionIndex];
+      document.getElementById('ghToken').value = '';
+      document.getElementById('ghOwner').value = '';
+      document.getElementById('ghRepo').value = '';
+      document.getElementById('ghBranch').value = 'main';
 
-      // Calculate deltas
-      const deltaSafe = choice.safety;
-      const deltaEcon = choice.econ;
-      const deltaTrust = choice.trust + trackBonusTrust;
-      const cost = choice.cost;
+      updateAuthUIState('', '', '');
+      showToast('已清除儲存的 GitHub 憑證。', 'info');
+    }
 
-      // Apply
-      safety = Math.max(5, Math.min(100, safety + deltaSafe));
-      economy = Math.max(5, Math.min(100, economy + deltaEcon));
-      trust = Math.max(5, Math.min(100, trust + deltaTrust));
-      budget = Math.max(0, budget - cost);
+    function toggleTokenVisibility() {
+      const input = document.getElementById('ghToken');
+      const icon = document.getElementById('tokenEyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-regular fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
 
-      // Display Outcome Modal
-      document.getElementById('modal-day-tag').innerText = `SHIFT ${currentDayIndex + 1} DEBRIEFING`;
-      document.getElementById('modal-outcome-text').innerHTML = `
-        <p class="font-semibold text-slate-100 mb-1.5">${choice.title}</p>
-        <p class="text-slate-300">${choice.feedback}</p>
-        <p class="text-[11px] text-amber-400 mt-2 font-mono">Resource Expenditures: -$${cost.toLocaleString()} | Path Model Calibration: +${trackBonusTrust}% Trust</p>
+    function toggleModalTokenVisibility() {
+      const input = document.getElementById('modalTokenInput');
+      const icon = document.getElementById('modalTokenEyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-regular fa-eye-slash';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-regular fa-eye';
+      }
+    }
+
+    function saveToLocalCache() {
+      localStorage.setItem('local_weather_cache', JSON.stringify(weatherData));
+      localStorage.setItem('local_warning_cache', JSON.stringify(warningData));
+      localStorage.setItem('local_tip_cache', JSON.stringify(tipData));
+    }
+
+    /* ========================================================
+       DURATION AUTO-CALCULATION & FORMATTING
+       ======================================================== */
+    function parseDateString(str) {
+      if (!str) return null;
+      // Handles 'YYYY-MM-DD HH:mm' or 'YYYY-MM-DDTHH:mm'
+      return new Date(str.replace(' ', 'T'));
+    }
+
+    function calculateDurationInMinutes(startDate, endDate) {
+      if (!startDate || !endDate || isNaN(startDate) || isNaN(endDate)) return 0;
+      const diffMs = endDate.getTime() - startDate.getTime();
+      return Math.max(0, Math.floor(diffMs / (1000 * 60)));
+    }
+
+    function minutesToHhMm(totalMinutes) {
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function autoCalcDuration(prefix) {
+      const startVal = document.getElementById(`${prefix}Start`).value;
+      const endVal = document.getElementById(`${prefix}End`).value;
+      const durInput = document.getElementById(`${prefix}Duration`);
+
+      if (!startVal || !endVal) {
+        durInput.value = '';
+        return;
+      }
+
+      const s = new Date(startVal);
+      const e = new Date(endVal);
+
+      if (e < s) {
+        durInput.value = '結束時間早於開始';
+        return;
+      }
+
+      const diffMins = calculateDurationInMinutes(s, e);
+      durInput.value = minutesToHhMm(diffMins);
+    }
+
+    /* ========================================================
+       DATA MANAGEMENT: WEATHER (weather.csv)
+       ======================================================== */
+    function getLatestWeatherDate() {
+      if (!weatherData || weatherData.length === 0) return null;
+      // Filter valid dates
+      const dates = weatherData.map(d => d.date).filter(Boolean).sort();
+      return dates.length > 0 ? dates[dates.length - 1] : null;
+    }
+
+    function updateLatestDateDisplay() {
+      const latest = getLatestWeatherDate();
+      const badge = document.getElementById('latestDateBadge');
+      if (latest) {
+        badge.innerText = latest;
+      } else {
+        badge.innerText = '尚無記錄';
+      }
+    }
+
+    function generateNextDaysWeather(count = 15) {
+      const latest = getLatestWeatherDate();
+      let startFrom;
+      if (latest) {
+        const d = new Date(latest);
+        d.setDate(d.getDate() + 1);
+        startFrom = d;
+      } else {
+        startFrom = new Date();
+      }
+
+      const newRows = [];
+      for (let i = 0; i < count; i++) {
+        const cur = new Date(startFrom);
+        cur.setDate(startFrom.getDate() + i);
+        const yyyy = cur.getFullYear();
+        const mm = String(cur.getMonth() + 1).padStart(2, '0');
+        const dd = String(cur.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
+
+        // Ensure no duplicate date
+        if (!weatherData.some(r => r.date === dateStr)) {
+          newRows.push({
+            date: dateStr,
+            minTemp: '',
+            maxTemp: '',
+            minHum: '',
+            maxHum: ''
+          });
+        }
+      }
+
+      if (newRows.length === 0) {
+        showToast('連續日期已存在，無需重複生成。', 'info');
+        return;
+      }
+
+      weatherData = weatherData.concat(newRows);
+      sortWeatherData();
+      renderWeatherTable();
+      saveToLocalCache();
+      showToast(`已成功批量新增 ${newRows.length} 天待填表單！`, 'success');
+    }
+
+    function addNewWeatherRow() {
+      const latest = getLatestWeatherDate();
+      let defaultDate = '';
+      if (latest) {
+        const d = new Date(latest);
+        d.setDate(d.getDate() + 1);
+        defaultDate = d.toISOString().split('T')[0];
+      } else {
+        defaultDate = new Date().toISOString().split('T')[0];
+      }
+
+      weatherData.unshift({
+        date: defaultDate,
+        minTemp: '',
+        maxTemp: '',
+        minHum: '',
+        maxHum: ''
+      });
+      renderWeatherTable();
+      saveToLocalCache();
+    }
+
+    function sortWeatherData() {
+      weatherData.sort((a, b) => (a.date > b.date ? 1 : -1));
+    }
+
+    function updateWeatherField(index, field, value) {
+      if (weatherData[index]) {
+        weatherData[index][field] = value;
+        saveToLocalCache();
+        updateLatestDateDisplay();
+      }
+    }
+
+    function deleteWeatherRow(index) {
+      weatherData.splice(index, 1);
+      renderWeatherTable();
+      saveToLocalCache();
+    }
+
+    function clearEmptyWeatherRows() {
+      const initialCount = weatherData.length;
+      weatherData = weatherData.filter(r => r.date && (r.minTemp !== '' || r.maxTemp !== ''));
+      const removed = initialCount - weatherData.length;
+      renderWeatherTable();
+      saveToLocalCache();
+      showToast(`已清除 ${removed} 行空白記錄。`, 'info');
+    }
+
+    function renderWeatherTable() {
+      const tbody = document.getElementById('weatherTableBody');
+      const countEl = document.getElementById('weatherRowCount');
+      countEl.innerText = weatherData.length;
+      updateLatestDateDisplay();
+
+      if (weatherData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400">目前尚無天氣數據，請點擊上方按鈕新增或從 GitHub 拉取。</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = weatherData.map((row, idx) => `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="p-2.5 text-center text-slate-400 text-xs">${idx + 1}</td>
+          <td class="p-2">
+            <input type="date" value="${row.date || ''}" onchange="updateWeatherField(${idx}, 'date', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </td>
+          <td class="p-2">
+            <input type="number" step="0.1" value="${row.minTemp !== undefined ? row.minTemp : ''}" placeholder="22.5" onchange="updateWeatherField(${idx}, 'minTemp', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </td>
+          <td class="p-2">
+            <input type="number" step="0.1" value="${row.maxTemp !== undefined ? row.maxTemp : ''}" placeholder="30.2" onchange="updateWeatherField(${idx}, 'maxTemp', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </td>
+          <td class="p-2">
+            <input type="number" step="1" min="0" max="100" value="${row.minHum !== undefined ? row.minHum : ''}" placeholder="55" onchange="updateWeatherField(${idx}, 'minHum', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </td>
+          <td class="p-2">
+            <input type="number" step="1" min="0" max="100" value="${row.maxHum !== undefined ? row.maxHum : ''}" placeholder="95" onchange="updateWeatherField(${idx}, 'maxHum', this.value)" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </td>
+          <td class="p-2 text-center">
+            <button onclick="deleteWeatherRow(${idx})" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="刪除">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    /* ========================================================
+       DATA MANAGEMENT: WARNINGS (Wrecord.csv)
+       ======================================================== */
+    function addWarningRow() {
+      const type = document.getElementById('newWType').value;
+      const start = document.getElementById('newWStart').value.replace('T', ' ');
+      const end = document.getElementById('newWEnd').value.replace('T', ' ');
+      const dur = document.getElementById('newWDuration').value;
+
+      if (!type || !start || !end) {
+        showToast('請完整填寫警報類型、開始時間與結束時間！', 'warning');
+        return;
+      }
+
+      if (dur === '結束時間早於開始' || !dur) {
+        showToast('請確保結束時間晚於開始時間！', 'warning');
+        return;
+      }
+
+      warningData.push({ type, start, end, duration: dur });
+      warningData.sort((a, b) => (a.start > b.start ? -1 : 1)); // Descending by start
+      renderWarningTable();
+      saveToLocalCache();
+
+      // Reset form
+      document.getElementById('newWStart').value = '';
+      document.getElementById('newWEnd').value = '';
+      document.getElementById('newWDuration').value = '';
+      showToast(`已成功記錄警報：${type}`, 'success');
+    }
+
+    function deleteWarningRow(index) {
+      warningData.splice(index, 1);
+      renderWarningTable();
+      saveToLocalCache();
+    }
+
+    function renderWarningTable() {
+      const tbody = document.getElementById('wrecordTableBody');
+      document.getElementById('wrecordRowCount').innerText = warningData.length;
+
+      if (warningData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">目前尚無警報記錄。</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = warningData.map((row, idx) => `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="p-3 text-center text-slate-400 text-xs">${idx + 1}</td>
+          <td class="p-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              ${row.type}
+            </span>
+          </td>
+          <td class="p-3 font-mono text-xs text-slate-600">${row.start}</td>
+          <td class="p-3 font-mono text-xs text-slate-600">${row.end}</td>
+          <td class="p-3 font-mono text-xs font-bold text-amber-600">${row.duration}</td>
+          <td class="p-3 text-center">
+            <button onclick="deleteWarningRow(${idx})" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="刪除">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    /* ========================================================
+       DATA MANAGEMENT: TIPS (Trecord.csv)
+       ======================================================== */
+    function addTipRow() {
+      const type = document.getElementById('newTType').value;
+      const start = document.getElementById('newTStart').value.replace('T', ' ');
+      const end = document.getElementById('newTEnd').value.replace('T', ' ');
+      const dur = document.getElementById('newTDuration').value;
+
+      if (!type || !start || !end) {
+        showToast('請完整填寫提示類型、開始時間與結束時間！', 'warning');
+        return;
+      }
+
+      if (dur === '結束時間早於開始' || !dur) {
+        showToast('請確保結束時間晚於開始時間！', 'warning');
+        return;
+      }
+
+      tipData.push({ type, start, end, duration: dur });
+      tipData.sort((a, b) => (a.start > b.start ? -1 : 1));
+      renderTipTable();
+      saveToLocalCache();
+
+      // Reset form
+      document.getElementById('newTStart').value = '';
+      document.getElementById('newTEnd').value = '';
+      document.getElementById('newTDuration').value = '';
+      showToast(`已成功記錄提示：${type}`, 'success');
+    }
+
+    function deleteTipRow(index) {
+      tipData.splice(index, 1);
+      renderTipTable();
+      saveToLocalCache();
+    }
+
+    function renderTipTable() {
+      const tbody = document.getElementById('trecordTableBody');
+      document.getElementById('trecordRowCount').innerText = tipData.length;
+
+      if (tipData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">目前尚無提示/特別報告記錄。</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = tipData.map((row, idx) => `
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <td class="p-3 text-center text-slate-400 text-xs">${idx + 1}</td>
+          <td class="p-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200">
+              ${row.type}
+            </span>
+          </td>
+          <td class="p-3 font-mono text-xs text-slate-600">${row.start}</td>
+          <td class="p-3 font-mono text-xs text-slate-600">${row.end}</td>
+          <td class="p-3 font-mono text-xs font-bold text-cyan-600">${row.duration}</td>
+          <td class="p-3 text-center">
+            <button onclick="deleteTipRow(${idx})" class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="刪除">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAllTables() {
+      renderWeatherTable();
+      renderWarningTable();
+      renderTipTable();
+    }
+
+    /* ========================================================
+       TEMPORAL BOUNDARY & DURATION PARTITIONING CORE ALGORITHM
+       Rule: "If a warning starts from Sep 30 till October 1,
+       the issue count will give to Sep, but issue hours will
+       separate into sep part and Oct part."
+       ======================================================== */
+
+    /**
+     * Calculates the exact overlapping duration (in minutes) between an event
+     * [eventStart, eventEnd] and a query boundary window [windowStart, windowEnd].
+     */
+    function getOverlappingMinutes(eventStart, eventEnd, windowStart, windowEnd) {
+      const eS = parseDateString(eventStart);
+      const eE = parseDateString(eventEnd);
+      if (!eS || !eE || eE <= eS) return 0;
+
+      const overlapStart = new Date(Math.max(eS.getTime(), windowStart.getTime()));
+      const overlapEnd = new Date(Math.min(eE.getTime(), windowEnd.getTime()));
+
+      if (overlapEnd > overlapStart) {
+        return Math.floor((overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60));
+      }
+      return 0;
+    }
+
+    /**
+     * Checks if the event's start timestamp falls inside the window [windowStart, windowEnd).
+     * This governs the "issue count".
+     */
+    function isEventIssuedInWindow(eventStart, windowStart, windowEnd) {
+      const eS = parseDateString(eventStart);
+      if (!eS) return false;
+      return eS >= windowStart && eS < windowEnd;
+    }
+
+    /* ========================================================
+       HISTORICAL SEARCH & ANALYTICS (TAB 2)
+       ======================================================== */
+    function setQueryGranularity(gran) {
+      currentGranularity = gran;
+      ['year', 'month', 'date'].forEach(g => {
+        const btn = document.getElementById(`granBtn-${g}`);
+        if (g === gran) {
+          btn.className = "py-1.5 rounded-lg bg-white text-sky-700 shadow-sm font-semibold";
+        } else {
+          btn.className = "py-1.5 rounded-lg text-slate-600 font-medium";
+        }
+      });
+
+      const mWrap = document.getElementById('queryMonthWrapper');
+      const dWrap = document.getElementById('queryDateWrapper');
+
+      if (gran === 'year') {
+        mWrap.classList.add('hidden');
+        dWrap.classList.add('hidden');
+      } else if (gran === 'month') {
+        mWrap.classList.remove('hidden');
+        dWrap.classList.add('hidden');
+      } else if (gran === 'date') {
+        mWrap.classList.remove('hidden');
+        dWrap.classList.remove('hidden');
+      }
+
+      runQueryAnalysis();
+    }
+
+    function runQueryAnalysis() {
+      const year = parseInt(document.getElementById('queryYear').value, 10);
+      const month = parseInt(document.getElementById('queryMonth').value, 10);
+      const day = parseInt(document.getElementById('queryDate').value, 10);
+      const sortBy = document.getElementById('querySortBy').value;
+
+      const container = document.getElementById('queryResultsContainer');
+      if (isNaN(year)) {
+        container.innerHTML = `<div class="p-6 bg-white rounded-2xl border text-center text-slate-400">請輸入有效年份進行檢索</div>`;
+        return;
+      }
+
+      if (currentGranularity === 'year') {
+        renderYearAnalysis(year, sortBy);
+      } else if (currentGranularity === 'month') {
+        renderYearMonthAnalysis(year, month, sortBy);
+      } else if (currentGranularity === 'date') {
+        renderYearMonthDateAnalysis(year, month, day, sortBy);
+      }
+    }
+
+    /**
+     * 1. YEAR VIEW:
+     * - List all weather records for that year in table format
+     * - Count total issue time and duration for every warning & tip in that year
+     */
+    function renderYearAnalysis(year, sortBy) {
+      const container = document.getElementById('queryResultsContainer');
+      const yearStart = new Date(year, 0, 1, 0, 0, 0);
+      const yearEnd = new Date(year + 1, 0, 1, 0, 0, 0);
+
+      // Filter weather records in this year
+      const filteredWeather = weatherData
+        .filter(w => w.date && w.date.startsWith(`${year}-`))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate warning totals for this year
+      const warningStats = WARNING_TYPES.map(type => {
+        const events = warningData.filter(w => w.type === type);
+        let totalMinutes = 0;
+        let count = 0;
+
+        events.forEach(ev => {
+          totalMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearEnd);
+          if (isEventIssuedInWindow(ev.start, yearStart, yearEnd)) {
+            count++;
+          }
+        });
+
+        return { type, count, totalMinutes, durationHhMm: minutesToHhMm(totalMinutes) };
+      }).filter(item => item.count > 0 || item.totalMinutes > 0);
+
+      // Calculate tip totals for this year
+      const tipStats = TIP_TYPES.map(type => {
+        const events = tipData.filter(t => t.type === type);
+        let totalMinutes = 0;
+        let count = 0;
+
+        events.forEach(ev => {
+          totalMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearEnd);
+          if (isEventIssuedInWindow(ev.start, yearStart, yearEnd)) {
+            count++;
+          }
+        });
+
+        return { type, count, totalMinutes, durationHhMm: minutesToHhMm(totalMinutes) };
+      }).filter(item => item.count > 0 || item.totalMinutes > 0);
+
+      // Apply sorting if requested
+      if (sortBy === 'type') {
+        warningStats.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
+        tipStats.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
+      } else {
+        // Default: most issue times descending
+        warningStats.sort((a, b) => b.totalMinutes - a.totalMinutes);
+        tipStats.sort((a, b) => b.totalMinutes - a.totalMinutes);
+      }
+
+      // Render View
+      container.innerHTML = `
+        <div class="space-y-6">
+          <!-- Summary Header -->
+          <div class="bg-gradient-to-r from-sky-700 to-indigo-800 text-white rounded-2xl p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <span class="text-xs uppercase tracking-wider font-semibold text-sky-200">年度全覽總報</span>
+              <h2 class="text-2xl font-black mt-1">${year} 年 氣象與警報統計數據</h2>
+            </div>
+            <div class="flex gap-4 text-center">
+              <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <div class="text-xs text-sky-200">觀測天數</div>
+                <div class="text-xl font-bold font-mono">${filteredWeather.length} 天</div>
+              </div>
+              <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <div class="text-xs text-sky-200">發佈警報次數</div>
+                <div class="text-xl font-bold font-mono text-amber-300">
+                  ${warningStats.reduce((sum, item) => sum + item.count, 0)} 次
+                </div>
+              </div>
+              <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <div class="text-xs text-sky-200">發佈提示次數</div>
+                <div class="text-xl font-bold font-mono text-cyan-300">
+                  ${tipStats.reduce((sum, item) => sum + item.count, 0)} 次
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Warnings & Tips Annual Tables -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Warnings summary -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                <span>${year} 年度 警報統計總結</span>
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                    <tr>
+                      <th class="p-2.5 text-left">警報類型</th>
+                      <th class="p-2.5 text-center">生效次數</th>
+                      <th class="p-2.5 text-right">年度生效時數 (hh:mm)</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    ${warningStats.length > 0 ? warningStats.map(w => `
+                      <tr class="hover:bg-slate-50">
+                        <td class="p-2 font-medium">${w.type}</td>
+                        <td class="p-2 text-center font-bold text-amber-600 font-mono">${w.count}</td>
+                        <td class="p-2 text-right font-mono font-bold text-slate-700">${w.durationHhMm}</td>
+                      </tr>
+                    `).join('') : `<tr><td colspan="3" class="p-4 text-center text-slate-400">該年度無警報記錄</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tips summary -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+              <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-bell text-cyan-600"></i>
+                <span>${year} 年度 提示/特別報告統計總結</span>
+              </h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                    <tr>
+                      <th class="p-2.5 text-left">提示類型</th>
+                      <th class="p-2.5 text-center">生效次數</th>
+                      <th class="p-2.5 text-right">年度生效時數 (hh:mm)</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    ${tipStats.length > 0 ? tipStats.map(t => `
+                      <tr class="hover:bg-slate-50">
+                        <td class="p-2 font-medium">${t.type}</td>
+                        <td class="p-2 text-center font-bold text-cyan-600 font-mono">${t.count}</td>
+                        <td class="p-2 text-right font-mono font-bold text-slate-700">${t.durationHhMm}</td>
+                      </tr>
+                    `).join('') : `<tr><td colspan="3" class="p-4 text-center text-slate-400">該年度無提示記錄</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weather Data Table -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-table text-sky-600"></i>
+              <span>${year} 年度 每日氣象觀測數據表</span>
+            </h3>
+            <div class="overflow-x-auto max-h-[500px]">
+              <table class="w-full text-xs font-mono">
+                <thead class="bg-slate-50 text-slate-600 font-semibold sticky top-0 border-b">
+                  <tr>
+                    <th class="p-2.5 text-left">日期</th>
+                    <th class="p-2.5 text-right">最低氣溫 (°C)</th>
+                    <th class="p-2.5 text-right">最高氣溫 (°C)</th>
+                    <th class="p-2.5 text-right">最低濕度 (%)</th>
+                    <th class="p-2.5 text-right">最高濕度 (%)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${filteredWeather.length > 0 ? filteredWeather.map(w => `
+                    <tr class="hover:bg-slate-50">
+                      <td class="p-2 text-slate-900 font-bold">${w.date}</td>
+                      <td class="p-2 text-right text-sky-600">${w.minTemp !== '' ? w.minTemp : '-'}</td>
+                      <td class="p-2 text-right text-rose-600">${w.maxTemp !== '' ? w.maxTemp : '-'}</td>
+                      <td class="p-2 text-right text-amber-600">${w.minHum !== '' ? w.minHum : '-'}</td>
+                      <td class="p-2 text-right text-cyan-600">${w.maxHum !== '' ? w.maxHum : '-'}</td>
+                    </tr>
+                  `).join('') : `<tr><td colspan="5" class="p-6 text-center text-slate-400">無 ${year} 年的天氣記錄</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       `;
+    }
 
-      const formatDelta = (v) => (v >= 0 ? `+${v}%` : `${v}%`);
-      const setDeltaEl = (id, val) => {
-        const el = document.getElementById(id);
-        el.innerText = formatDelta(val);
-        el.className = val >= 0 ? "text-xs font-bold text-emerald-400" : "text-xs font-bold text-red-400";
+    /**
+     * 2. YEAR + MONTH VIEW:
+     * - List all record data in that month
+     * - Weather data in table format
+     * - Two Addition Tables (Mandatory):
+     *   1. 提示/特別報告, x月總生效時數, (yyyy)累計生效時數, x月總生效次數, (yyyy)累計生效次數
+     *   2. 警報, x月總生效時數, (yyyy)累計生效時數, x月總生效次數, (yyyy)累計生效次數
+     */
+    function renderYearMonthAnalysis(year, month, sortBy) {
+      const container = document.getElementById('queryResultsContainer');
+      const monthPrefix = `${year}-${String(month).padStart(2, '0')}`;
+
+      // Time boundaries
+      const monthStart = new Date(year, month - 1, 1, 0, 0, 0);
+      const monthEnd = new Date(year, month, 1, 0, 0, 0);
+
+      const yearStart = new Date(year, 0, 1, 0, 0, 0);
+      const yearToMonthEnd = new Date(year, month, 1, 0, 0, 0); // Cumulative up to end of this month
+
+      // Filter weather for this month
+      const filteredWeather = weatherData
+        .filter(w => w.date && w.date.startsWith(monthPrefix))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Build Warning Stats Table
+      const warningStats = WARNING_TYPES.map(type => {
+        const events = warningData.filter(w => w.type === type);
+
+        let mMinutes = 0;
+        let mCount = 0;
+        let ytdMinutes = 0;
+        let ytdCount = 0;
+
+        events.forEach(ev => {
+          // Month specific
+          mMinutes += getOverlappingMinutes(ev.start, ev.end, monthStart, monthEnd);
+          if (isEventIssuedInWindow(ev.start, monthStart, monthEnd)) {
+            mCount++;
+          }
+
+          // Year Cumulative up to this month
+          ytdMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearToMonthEnd);
+          if (isEventIssuedInWindow(ev.start, yearStart, yearToMonthEnd)) {
+            ytdCount++;
+          }
+        });
+
+        return {
+          type,
+          mDuration: minutesToHhMm(mMinutes),
+          ytdDuration: minutesToHhMm(ytdMinutes),
+          mCount,
+          ytdCount,
+          mMinutes,
+          ytdMinutes
+        };
+      });
+
+      // Build Tip Stats Table
+      const tipStats = TIP_TYPES.map(type => {
+        const events = tipData.filter(t => t.type === type);
+
+        let mMinutes = 0;
+        let mCount = 0;
+        let ytdMinutes = 0;
+        let ytdCount = 0;
+
+        events.forEach(ev => {
+          mMinutes += getOverlappingMinutes(ev.start, ev.end, monthStart, monthEnd);
+          if (isEventIssuedInWindow(ev.start, monthStart, monthEnd)) {
+            mCount++;
+          }
+
+          ytdMinutes += getOverlappingMinutes(ev.start, ev.end, yearStart, yearToMonthEnd);
+          if (isEventIssuedInWindow(ev.start, yearStart, yearToMonthEnd)) {
+            ytdCount++;
+          }
+        });
+
+        return {
+          type,
+          mDuration: minutesToHhMm(mMinutes),
+          ytdDuration: minutesToHhMm(ytdMinutes),
+          mCount,
+          ytdCount,
+          mMinutes,
+          ytdMinutes
+        };
+      });
+
+      // Filter Active and History in Detailed logs
+      const monthWarningsLog = warningData.filter(w => getOverlappingMinutes(w.start, w.end, monthStart, monthEnd) > 0);
+      const monthTipsLog = tipData.filter(t => getOverlappingMinutes(t.start, t.end, monthStart, monthEnd) > 0);
+
+      // Sorting
+      if (sortBy === 'type') {
+        monthWarningsLog.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
+        monthTipsLog.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
+      } else {
+        monthWarningsLog.sort((a, b) => a.start.localeCompare(b.start));
+        monthTipsLog.sort((a, b) => a.start.localeCompare(b.start));
+      }
+
+      container.innerHTML = `
+        <div class="space-y-6">
+          <!-- Monthly Header -->
+          <div class="bg-gradient-to-r from-cyan-800 to-sky-700 text-white rounded-2xl p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <span class="text-xs uppercase tracking-wider font-semibold text-cyan-200">月度氣象月報</span>
+              <h2 class="text-2xl font-black mt-1">${year} 年 ${month} 月 綜合統計報表</h2>
+            </div>
+            <div class="flex gap-4 text-center">
+              <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <div class="text-xs text-cyan-200">當月天數</div>
+                <div class="text-xl font-bold font-mono">${filteredWeather.length} 天</div>
+              </div>
+              <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <div class="text-xs text-cyan-200">${month}月警報次數</div>
+                <div class="text-xl font-bold font-mono text-amber-300">
+                  ${warningStats.reduce((sum, item) => sum + item.mCount, 0)} 次
+                </div>
+              </div>
+              <div class="bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10">
+                <div class="text-xs text-cyan-200">${month}月提示次數</div>
+                <div class="text-xl font-bold font-mono text-cyan-300">
+                  ${tipStats.reduce((sum, item) => sum + item.mCount, 0)} 次
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mandatory Addition Table 1: 提示/特別報告統計表 -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 bg-cyan-50/60 border-b border-cyan-100 flex items-center justify-between">
+              <h3 class="font-bold text-cyan-950 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-bell text-cyan-600"></i>
+                <span>提示/特別報告 統計表 (${month}月與${year}年累計)</span>
+              </h3>
+              <span class="text-[11px] text-cyan-800 font-medium">包含生效時數與生效次數對比</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-left border-collapse">
+                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th class="p-3 min-w-[150px]">提示/特別報告</th>
+                    <th class="p-3 text-right font-mono min-w-[120px]">${month}月總生效時數</th>
+                    <th class="p-3 text-right font-mono min-w-[130px]">(${year})累計生效時數</th>
+                    <th class="p-3 text-center min-w-[110px]">${month}月總生效次數</th>
+                    <th class="p-3 text-center min-w-[120px]">(${year})累計生效次數</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-mono">
+                  ${tipStats.map(item => `
+                    <tr class="hover:bg-slate-50 ${item.mCount > 0 || item.mMinutes > 0 ? 'bg-cyan-50/20 font-semibold' : 'text-slate-600'}">
+                      <td class="p-3 font-sans font-medium text-slate-800">${item.type}</td>
+                      <td class="p-3 text-right ${item.mMinutes > 0 ? 'text-cyan-700 font-bold' : 'text-slate-400'}">${item.mDuration}</td>
+                      <td class="p-3 text-right ${item.ytdMinutes > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdDuration}</td>
+                      <td class="p-3 text-center ${item.mCount > 0 ? 'text-cyan-600 font-bold' : 'text-slate-400'}">${item.mCount}</td>
+                      <td class="p-3 text-center ${item.ytdCount > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdCount}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mandatory Addition Table 2: 警報統計表 -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-4 bg-amber-50/60 border-b border-amber-100 flex items-center justify-between">
+              <h3 class="font-bold text-amber-950 text-sm flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+                <span>警報 統計表 (${month}月與${year}年累計)</span>
+              </h3>
+              <span class="text-[11px] text-amber-800 font-medium">包含跨月切分時長與發佈所屬月份</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-left border-collapse">
+                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th class="p-3 min-w-[150px]">警報</th>
+                    <th class="p-3 text-right font-mono min-w-[120px]">${month}月總生效時數</th>
+                    <th class="p-3 text-right font-mono min-w-[130px]">(${year})累計生效時數</th>
+                    <th class="p-3 text-center min-w-[110px]">${month}月總生效次數</th>
+                    <th class="p-3 text-center min-w-[120px]">(${year})累計生效次數</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-mono">
+                  ${warningStats.map(item => `
+                    <tr class="hover:bg-slate-50 ${item.mCount > 0 || item.mMinutes > 0 ? 'bg-amber-50/20 font-semibold' : 'text-slate-600'}">
+                      <td class="p-3 font-sans font-medium text-slate-800">${item.type}</td>
+                      <td class="p-3 text-right ${item.mMinutes > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">${item.mDuration}</td>
+                      <td class="p-3 text-right ${item.ytdMinutes > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdDuration}</td>
+                      <td class="p-3 text-center ${item.mCount > 0 ? 'text-amber-600 font-bold' : 'text-slate-400'}">${item.mCount}</td>
+                      <td class="p-3 text-center ${item.ytdCount > 0 ? 'text-slate-800 font-bold' : 'text-slate-400'}">${item.ytdCount}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Monthly Warnings & Tips Log Detail -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Warnings active in month -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+              <h3 class="font-bold text-slate-800 text-sm flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-amber-500"></i>
+                  ${month}月份生效中警報明細
+                </span>
+                <span class="text-xs font-mono font-normal text-slate-400">${monthWarningsLog.length} 筆</span>
+              </h3>
+              <div class="overflow-x-auto max-h-[300px]">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                    <tr>
+                      <th class="p-2 text-left">類型</th>
+                      <th class="p-2 text-left font-mono">開始時間</th>
+                      <th class="p-2 text-left font-mono">結束時間</th>
+                      <th class="p-2 text-right font-mono">${month}月時長</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-mono">
+                    ${monthWarningsLog.length > 0 ? monthWarningsLog.map(w => {
+                      const mOverMins = getOverlappingMinutes(w.start, w.end, monthStart, monthEnd);
+                      return `
+                        <tr class="hover:bg-slate-50">
+                          <td class="p-2 font-sans font-medium text-amber-900">${w.type}</td>
+                          <td class="p-2 text-slate-600 text-[11px]">${w.start}</td>
+                          <td class="p-2 text-slate-600 text-[11px]">${w.end}</td>
+                          <td class="p-2 text-right font-bold text-amber-600">${minutesToHhMm(mOverMins)}</td>
+                        </tr>
+                      `;
+                    }).join('') : `<tr><td colspan="4" class="p-4 text-center text-slate-400">當月無任何警報生效</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tips active in month -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-3">
+              <h3 class="font-bold text-slate-800 text-sm flex items-center justify-between">
+                <span class="flex items-center gap-2">
+                  <i class="fa-solid fa-clock-rotate-left text-cyan-600"></i>
+                  ${month}月份生效中提示明細
+                </span>
+                <span class="text-xs font-mono font-normal text-slate-400">${monthTipsLog.length} 筆</span>
+              </h3>
+              <div class="overflow-x-auto max-h-[300px]">
+                <table class="w-full text-xs">
+                  <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                    <tr>
+                      <th class="p-2 text-left">類型</th>
+                      <th class="p-2 text-left font-mono">開始時間</th>
+                      <th class="p-2 text-left font-mono">結束時間</th>
+                      <th class="p-2 text-right font-mono">${month}月時長</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100 font-mono">
+                    ${monthTipsLog.length > 0 ? monthTipsLog.map(t => {
+                      const mOverMins = getOverlappingMinutes(t.start, t.end, monthStart, monthEnd);
+                      return `
+                        <tr class="hover:bg-slate-50">
+                          <td class="p-2 font-sans font-medium text-cyan-900">${t.type}</td>
+                          <td class="p-2 text-slate-600 text-[11px]">${t.start}</td>
+                          <td class="p-2 text-slate-600 text-[11px]">${t.end}</td>
+                          <td class="p-2 text-right font-bold text-cyan-600">${minutesToHhMm(mOverMins)}</td>
+                        </tr>
+                      `;
+                    }).join('') : `<tr><td colspan="4" class="p-4 text-center text-slate-400">當月無任何提示生效</td></tr>`}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly Weather Data Table -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-calendar-days text-sky-600"></i>
+              <span>${year} 年 ${month} 月 氣象觀測數據表</span>
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs font-mono text-left border-collapse">
+                <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                  <tr>
+                    <th class="p-2.5">日期</th>
+                    <th class="p-2.5 text-right">最低氣溫 (°C)</th>
+                    <th class="p-2.5 text-right">最高氣溫 (°C)</th>
+                    <th class="p-2.5 text-right">最低相對濕度 (%)</th>
+                    <th class="p-2.5 text-right">最高相對濕度 (%)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${filteredWeather.length > 0 ? filteredWeather.map(w => `
+                    <tr class="hover:bg-slate-50">
+                      <td class="p-2.5 text-slate-900 font-bold">${w.date}</td>
+                      <td class="p-2.5 text-right text-sky-600">${w.minTemp !== '' ? w.minTemp : '-'}</td>
+                      <td class="p-2.5 text-right text-rose-600">${w.maxTemp !== '' ? w.maxTemp : '-'}</td>
+                      <td class="p-2.5 text-right text-amber-600">${w.minHum !== '' ? w.minHum : '-'}</td>
+                      <td class="p-2.5 text-right text-cyan-600">${w.maxHum !== '' ? w.maxHum : '-'}</td>
+                    </tr>
+                  `).join('') : `<tr><td colspan="5" class="p-6 text-center text-slate-400">未找到 ${monthPrefix} 的日氣象數據</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * 3. YEAR + MONTH + DATE VIEW:
+     * - Show that exact day's weather + warnings/tips issued or active
+     */
+    function renderYearMonthDateAnalysis(year, month, day, sortBy) {
+      const container = document.getElementById('queryResultsContainer');
+      const targetDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+      const dayStart = new Date(year, month - 1, day, 0, 0, 0);
+      const dayEnd = new Date(year, month - 1, day + 1, 0, 0, 0);
+
+      // Find weather record
+      const weatherRecord = weatherData.find(w => w.date === targetDateStr);
+
+      // Find warnings intersecting this day
+      const activeWarnings = warningData.filter(w => getOverlappingMinutes(w.start, w.end, dayStart, dayEnd) > 0);
+      const activeTips = tipData.filter(t => getOverlappingMinutes(t.start, t.end, dayStart, dayEnd) > 0);
+
+      // Sorting
+      if (sortBy === 'type') {
+        activeWarnings.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
+        activeTips.sort((a, b) => a.type.localeCompare(b.type, 'zh-Hant'));
+      } else {
+        activeWarnings.sort((a, b) => a.start.localeCompare(b.start));
+        activeTips.sort((a, b) => a.start.localeCompare(b.start));
+      }
+
+      container.innerHTML = `
+        <div class="space-y-6">
+          <!-- Daily Header -->
+          <div class="bg-gradient-to-r from-slate-900 to-sky-900 text-white rounded-2xl p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
+            <div>
+              <span class="text-xs uppercase tracking-wider font-semibold text-sky-300">單日氣象與警報檢索</span>
+              <h2 class="text-2xl font-black mt-1 font-mono">${targetDateStr}</h2>
+            </div>
+            <div class="flex gap-2">
+              <span class="px-3 py-1 bg-white/10 rounded-lg text-xs font-mono">
+                當日生效警報：${activeWarnings.length}
+              </span>
+              <span class="px-3 py-1 bg-white/10 rounded-lg text-xs font-mono">
+                當日生效提示：${activeTips.length}
+              </span>
+            </div>
+          </div>
+
+          <!-- Day Weather Highlight Card -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <i class="fa-solid fa-cloud-sun text-sky-500"></i>
+              <span>當日氣象觀測指標</span>
+            </h3>
+            ${weatherRecord ? `
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div class="p-4 rounded-xl bg-sky-50 border border-sky-100">
+                  <div class="text-xs text-sky-700 font-semibold mb-1">日最低氣溫</div>
+                  <div class="text-2xl font-bold font-mono text-sky-800">${weatherRecord.minTemp || '-'} <span class="text-xs font-normal">°C</span></div>
+                </div>
+                <div class="p-4 rounded-xl bg-rose-50 border border-rose-100">
+                  <div class="text-xs text-rose-700 font-semibold mb-1">日最高氣溫</div>
+                  <div class="text-2xl font-bold font-mono text-rose-800">${weatherRecord.maxTemp || '-'} <span class="text-xs font-normal">°C</span></div>
+                </div>
+                <div class="p-4 rounded-xl bg-amber-50 border border-amber-100">
+                  <div class="text-xs text-amber-700 font-semibold mb-1">日最低相對濕度</div>
+                  <div class="text-2xl font-bold font-mono text-amber-800">${weatherRecord.minHum || '-'} <span class="text-xs font-normal">%</span></div>
+                </div>
+                <div class="p-4 rounded-xl bg-cyan-50 border border-cyan-100">
+                  <div class="text-xs text-cyan-700 font-semibold mb-1">日最高相對濕度</div>
+                  <div class="text-2xl font-bold font-mono text-cyan-800">${weatherRecord.maxHum || '-'} <span class="text-xs font-normal">%</span></div>
+                </div>
+              </div>
+            ` : `
+              <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-xl">
+                <i class="fa-solid fa-calendar-xmark text-2xl mb-2 text-slate-300"></i>
+                <p>未登記該日的天氣觀測數據，可在「數據錄入」頁面進行維護。</p>
+              </div>
+            `}
+          </div>
+
+          <!-- Active Warnings for that day -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center justify-between">
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                該日生效之氣象警報
+              </span>
+              <span class="text-xs text-slate-400 font-mono">${activeWarnings.length} 項</span>
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs font-mono">
+                <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                  <tr>
+                    <th class="p-2.5 text-left font-sans">警報類型</th>
+                    <th class="p-2.5 text-left">發佈/開始時間</th>
+                    <th class="p-2.5 text-left">結束時間</th>
+                    <th class="p-2.5 text-right">總持續時長</th>
+                    <th class="p-2.5 text-right font-sans">該日生效時數</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${activeWarnings.length > 0 ? activeWarnings.map(w => {
+                    const dayMins = getOverlappingMinutes(w.start, w.end, dayStart, dayEnd);
+                    const isNewIssueToday = isEventIssuedInWindow(w.start, dayStart, dayEnd);
+                    return `
+                      <tr class="hover:bg-slate-50">
+                        <td class="p-2.5 font-sans font-medium flex items-center gap-2">
+                          <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800">${w.type}</span>
+                          ${isNewIssueToday ? '<span class="text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded font-bold">今日首發</span>' : ''}
+                        </td>
+                        <td class="p-2.5 text-slate-600">${w.start}</td>
+                        <td class="p-2.5 text-slate-600">${w.end}</td>
+                        <td class="p-2.5 text-right font-bold text-slate-700">${w.duration}</td>
+                        <td class="p-2.5 text-right font-bold text-amber-600">${minutesToHhMm(dayMins)}</td>
+                      </tr>
+                    `;
+                  }).join('') : `<tr><td colspan="5" class="p-4 text-center text-slate-400 font-sans">該日無任何警報生效</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Active Tips for that day -->
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+            <h3 class="font-bold text-slate-800 mb-3 flex items-center justify-between">
+              <span class="flex items-center gap-2">
+                <i class="fa-solid fa-bell text-cyan-600"></i>
+                該日生效之提示/特別報告
+              </span>
+              <span class="text-xs text-slate-400 font-mono">${activeTips.length} 項</span>
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs font-mono">
+                <thead class="bg-slate-50 text-slate-600 font-semibold border-b">
+                  <tr>
+                    <th class="p-2.5 text-left font-sans">提示類型</th>
+                    <th class="p-2.5 text-left">發佈/開始時間</th>
+                    <th class="p-2.5 text-left">結束時間</th>
+                    <th class="p-2.5 text-right">總持續時長</th>
+                    <th class="p-2.5 text-right font-sans">該日生效時數</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${activeTips.length > 0 ? activeTips.map(t => {
+                    const dayMins = getOverlappingMinutes(t.start, t.end, dayStart, dayEnd);
+                    const isNewIssueToday = isEventIssuedInWindow(t.start, dayStart, dayEnd);
+                    return `
+                      <tr class="hover:bg-slate-50">
+                        <td class="p-2.5 font-sans font-medium flex items-center gap-2">
+                          <span class="px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">${t.type}</span>
+                          ${isNewIssueToday ? '<span class="text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded font-bold">今日首發</span>' : ''}
+                        </td>
+                        <td class="p-2.5 text-slate-600">${t.start}</td>
+                        <td class="p-2.5 text-slate-600">${t.end}</td>
+                        <td class="p-2.5 text-right font-bold text-slate-700">${t.duration}</td>
+                        <td class="p-2.5 text-right font-bold text-cyan-600">${minutesToHhMm(dayMins)}</td>
+                      </tr>
+                    `;
+                  }).join('') : `<tr><td colspan="5" class="p-4 text-center text-slate-400 font-sans">該日無任何提示生效</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ========================================================
+       CSV SERIALIZATION & PARSING
+       ======================================================== */
+    function weatherToCSV(data) {
+      const header = '日期,日最低氣溫 (°C),日最高氣溫 (°C),日最低相對濕度 (%),日最高相對濕度 (%)';
+      const lines = data.map(r => `${r.date || ''},${r.minTemp !== undefined ? r.minTemp : ''},${r.maxTemp !== undefined ? r.maxTemp : ''},${r.minHum !== undefined ? r.minHum : ''},${r.maxHum !== undefined ? r.maxHum : ''}`);
+      return [header, ...lines].join('\n');
+    }
+
+    function recordToCSV(data) {
+      const header = 'type,start,end,duration';
+      const lines = data.map(r => `${r.type || ''},${r.start || ''},${r.end || ''},${r.duration || ''}`);
+      return [header, ...lines].join('\n');
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length === 0) return [];
+      const rows = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        rows.push(line.split(',').map(s => s.trim()));
+      }
+      return rows;
+    }
+
+    function parseWeatherCSV(text) {
+      const rows = parseCSV(text);
+      if (rows.length <= 1) return [];
+      const list = [];
+      for (let i = 1; i < rows.length; i++) {
+        const [date, minTemp, maxTemp, minHum, maxHum] = rows[i];
+        if (date) {
+          list.push({
+            date,
+            minTemp: minTemp !== undefined && minTemp !== '' ? parseFloat(minTemp) : '',
+            maxTemp: maxTemp !== undefined && maxTemp !== '' ? parseFloat(maxTemp) : '',
+            minHum: minHum !== undefined && minHum !== '' ? parseFloat(minHum) : '',
+            maxHum: maxHum !== undefined && maxHum !== '' ? parseFloat(maxHum) : ''
+          });
+        }
+      }
+      return list;
+    }
+
+    function parseRecordCSV(text) {
+      const rows = parseCSV(text);
+      if (rows.length <= 1) return [];
+      const list = [];
+      for (let i = 1; i < rows.length; i++) {
+        const [type, start, end, duration] = rows[i];
+        if (type && start) {
+          list.push({ type, start, end, duration });
+        }
+      }
+      return list;
+    }
+
+    /* UTF-8 base64 helpers for browser */
+    function utf8_to_b64(str) {
+      return window.btoa(unescape(encodeURIComponent(str)));
+    }
+    function b64_to_utf8(str) {
+      return decodeURIComponent(escape(window.atob(str)));
+    }
+
+    /* ========================================================
+       GITHUB API INTEGRATION
+       ======================================================== */
+    function getGhConfig() {
+      return {
+        token: document.getElementById('ghToken').value.trim(),
+        owner: document.getElementById('ghOwner').value.trim(),
+        repo: document.getElementById('ghRepo').value.trim(),
+        branch: document.getElementById('ghBranch').value.trim() || 'main'
+      };
+    }
+
+    async function fetchGithubFile(path) {
+      const { token, owner, repo, branch } = getGhConfig();
+      if (!owner || !repo) {
+        throw new Error('請在「GitHub 設定」中輸入倉庫擁有者 (Owner) 與倉庫名稱 (Repo)。');
+      }
+
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+      const headers = { 'Accept': 'application/vnd.github.v3+json' };
+      if (token) headers['Authorization'] = `token ${token}`;
+
+      const res = await fetch(url, { headers });
+      if (res.status === 404) {
+        return { content: null, sha: null, notFound: true };
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`讀取 ${path} 失敗 (${res.status}): ${err.message || res.statusText}`);
+      }
+
+      const data = await res.json();
+      const content = b64_to_utf8(data.content.replace(/\s/g, ''));
+      return { content, sha: data.sha, notFound: false };
+    }
+
+    async function commitGithubFile(path, contentStr, sha, commitMsg) {
+      const { token, owner, repo, branch } = getGhConfig();
+      if (!token) throw new Error('缺少 GitHub Token，無法執行寫入 Commit 操作！');
+      if (!owner || !repo) throw new Error('請先設定目標倉庫 (Owner / Repo)。');
+
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      const headers = {
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
       };
 
-      setDeltaEl('delta-safety', deltaSafe);
-      setDeltaEl('delta-econ', deltaEcon);
-      setDeltaEl('delta-trust', deltaTrust);
+      const payload = {
+        message: commitMsg,
+        content: utf8_to_b64(contentStr),
+        branch: branch
+      };
 
-      document.getElementById('outcome-modal').classList.remove('hidden');
-      updateHUD();
+      if (sha) payload.sha = sha;
+
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`更新 ${path} 失敗: ${err.message || res.statusText}`);
+      }
+
+      const data = await res.json();
+      return data.content ? data.content.sha : null;
     }
 
-    function advanceToNextDay() {
-      audio.init();
-      audio.playBlip(500);
-      document.getElementById('outcome-modal').classList.add('hidden');
-      currentDayIndex++;
-      if (currentDayIndex >= scenarios.length) {
-        triggerEndGame();
-      } else {
-        loadScenario(currentDayIndex);
+    async function fetchAllDataFromGithub() {
+      const { owner, repo } = getGhConfig();
+      if (!owner || !repo) {
+        showToast('請先至「GitHub 設定」填寫 Owner 與 Repository！', 'warning');
+        switchTab('settings');
+        return;
+      }
+
+      showToast('正在從 GitHub 拉取資料...', 'info');
+
+      try {
+        // 1. weather.csv
+        const wRes = await fetchGithubFile('data/weather.csv');
+        if (!wRes.notFound && wRes.content) {
+          weatherData = parseWeatherCSV(wRes.content);
+          fileShaMap.weather = wRes.sha;
+        }
+
+        // 2. Wrecord.csv
+        const wrRes = await fetchGithubFile('data/Wrecord.csv');
+        if (!wrRes.notFound && wrRes.content) {
+          warningData = parseRecordCSV(wrRes.content);
+          fileShaMap.wrecord = wrRes.sha;
+        }
+
+        // 3. Trecord.csv
+        const trRes = await fetchGithubFile('data/Trecord.csv');
+        if (!trRes.notFound && trRes.content) {
+          tipData = parseRecordCSV(trRes.content);
+          fileShaMap.trecord = trRes.sha;
+        }
+
+        sortWeatherData();
+        renderAllTables();
+        saveToLocalCache();
+        showToast('已成功從 GitHub 獲取最新資料並同步！', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast(`從 GitHub 拉取失敗: ${err.message}`, 'error');
       }
     }
 
-    function triggerEndGame() {
-      audio.init();
-      audio.playAlert(false);
-
-      const finalScore = Math.round((safety * 0.4) + (economy * 0.35) + (trust * 0.25));
-      let rankTitle = "";
-      let rankDesc = "";
-
-      if (finalScore >= 80) {
-        rankTitle = "CHIEF WEATHER OFFICER (GOLD MEDAL)";
-        rankDesc = "Exemplary meteorological leadership! You balanced life-saving early warnings with economic pragmatism. The World Meteorological Organization honors your service.";
-      } else if (finalScore >= 60) {
-        rankTitle = "SENIOR LEAD FORECASTER";
-        rankDesc = "Commendable forecasting shift. The metropolis suffered few severe structural issues, maintaining solid city trust despite testing conditions.";
-      } else {
-        rankTitle = "ASSOCIATE RADAR INTERN";
-        rankDesc = "The season experienced harsh storms, mixed public messaging, and substantial economic disruption. Back to atmospheric school for refresher simulation!";
-      }
-
-      document.getElementById('final-rank-title').innerText = rankTitle;
-      document.getElementById('final-rank-desc').innerText = rankDesc;
-      document.getElementById('final-safety').innerText = `${safety}%`;
-      document.getElementById('final-econ').innerText = `${economy}%`;
-      document.getElementById('final-trust').innerText = `${trust}%`;
-      document.getElementById('final-budget').innerText = `$${Math.round(budget/1000)}K`;
-
-      document.getElementById('gameover-modal').classList.remove('hidden');
+    function openCommitModal() {
+      document.getElementById('commitModal').classList.remove('hidden');
     }
 
-    function resetGame() {
-      audio.init();
-      audio.playBlip(600);
-      currentDayIndex = 0;
-      safety = 82;
-      economy = 88;
-      trust = 80;
-      budget = 120000;
-      document.getElementById('gameover-modal').classList.add('hidden');
-      loadScenario(0);
+    function closeCommitModal() {
+      document.getElementById('commitModal').classList.add('hidden');
     }
 
-    // Sound toggle
-    const soundBtn = document.getElementById('btn-sound');
-    soundBtn.addEventListener('click', () => {
-      audio.init();
-      audio.muted = !audio.muted;
-      const icon = document.getElementById('sound-icon');
-      if (audio.muted) {
-        icon.setAttribute('data-lucide', 'volume-x');
-        soundBtn.classList.add('text-red-400');
-      } else {
-        icon.setAttribute('data-lucide', 'volume-2');
-        soundBtn.classList.remove('text-red-400');
-        audio.playBlip(800);
-      }
-      lucide.createIcons();
-    });
+    async function commitAllDataToGithub() {
+      const commitMsg = document.getElementById('commitMessageInput').value.trim() || 'Update weather CSV data';
+      const submitBtn = document.getElementById('commitSubmitBtn');
+      const spinner = document.getElementById('commitSpinner');
 
-    // Start
-    window.onload = function() {
-      loadScenario(0);
-      lucide.createIcons();
-    };
+      submitBtn.disabled = true;
+      spinner.classList.remove('hidden');
+
+      try {
+        // Fetch freshest SHAs to prevent conflict if needed
+        try {
+          const checkW = await fetchGithubFile('data/weather.csv');
+          if (checkW.sha) fileShaMap.weather = checkW.sha;
+          const checkWr = await fetchGithubFile('data/Wrecord.csv');
+          if (checkWr.sha) fileShaMap.wrecord = checkWr.sha;
+          const checkTr = await fetchGithubFile('data/Trecord.csv');
+          if (checkTr.sha) fileShaMap.trecord = checkTr.sha;
+        } catch(e) {
+          // If repo not found or other issues, commit will throw anyway
+        }
+
+        // 1. Commit weather.csv
+        const weatherCsv = weatherToCSV(weatherData);
+        fileShaMap.weather = await commitGithubFile('data/weather.csv', weatherCsv, fileShaMap.weather, `${commitMsg} [weather.csv]`);
+
+        // 2. Commit Wrecord.csv
+        const warningCsv = recordToCSV(warningData);
+        fileShaMap.wrecord = await commitGithubFile('data/Wrecord.csv', warningCsv, fileShaMap.wrecord, `${commitMsg} [Wrecord.csv]`);
+
+        // 3. Commit Trecord.csv
+        const tipCsv = recordToCSV(tipData);
+        fileShaMap.trecord = await commitGithubFile('data/Trecord.csv', tipCsv, fileShaMap.trecord, `${commitMsg} [Trecord.csv]`);
+
+        closeCommitModal();
+        showToast('三份 CSV 數據已全數成功 Commit 並 Push 至 GitHub！', 'success');
+      } catch(err) {
+        console.error(err);
+        showToast(`GitHub 提交失敗: ${err.message}`, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        spinner.classList.add('hidden');
+      }
+    }
+
+    /* ========================================================
+       MOCK DEMO DATA (Seamless offline/initial experience)
+       Includes cross-month boundary events (Sep 30 to Oct 1)
+       ======================================================== */
+    function loadSampleMockData(notify = true) {
+      weatherData = [
+        { date: '2026-09-28', minTemp: 24.5, maxTemp: 31.8, minHum: 65, maxHum: 92 },
+        { date: '2026-09-29', minTemp: 23.8, maxTemp: 29.5, minHum: 70, maxHum: 96 },
+        { date: '2026-09-30', minTemp: 21.0, maxTemp: 26.2, minHum: 78, maxHum: 98 },
+        { date: '2026-10-01', minTemp: 18.5, maxTemp: 23.0, minHum: 60, maxHum: 85 },
+        { date: '2026-10-02', minTemp: 17.2, maxTemp: 22.4, minHum: 55, maxHum: 80 },
+        { date: '2026-10-03', minTemp: 19.0, maxTemp: 25.1, minHum: 58, maxHum: 82 }
+      ];
+
+      warningData = [
+        // Spanning Sep 30 20:00 to Oct 1 08:30 (4h in Sep, 8.5h in Oct; Issue count strictly in Sep)
+        {
+          type: '強風警報',
+          start: '2026-09-30 20:00',
+          end: '2026-10-01 08:30',
+          duration: '12:30'
+        },
+        // October single event
+        {
+          type: '寒冷警報',
+          start: '2026-10-01 18:00',
+          end: '2026-10-02 12:00',
+          duration: '18:00'
+        },
+        // September single event
+        {
+          type: '大雨警報',
+          start: '2026-09-29 14:00',
+          end: '2026-09-29 20:30',
+          duration: '06:30'
+        }
+      ];
+
+      tipData = [
+        // Spanning Sep 30 22:00 to Oct 1 06:00 (2h in Sep, 6h in Oct; Issue count strictly in Sep)
+        {
+          type: '黃色大風提示',
+          start: '2026-09-30 22:00',
+          end: '2026-10-01 06:00',
+          duration: '08:00'
+        },
+        // October event
+        {
+          type: '低温預警提示',
+          start: '2026-10-01 20:00',
+          end: '2026-10-02 08:00',
+          duration: '12:00'
+        }
+      ];
+
+      renderAllTables();
+      saveToLocalCache();
+
+      // Set query inputs to Sep/Oct 2026 for demonstration
+      document.getElementById('queryYear').value = 2026;
+      document.getElementById('queryMonth').value = 9;
+      runQueryAnalysis();
+
+      if (notify) {
+        showToast('已載入範例氣象數據（含 9/30~10/1 跨月警報驗證資料）！', 'info');
+      }
+    }
+
+    /* ========================================================
+       UI TOAST NOTIFICATIONS (No alert() used)
+       ======================================================== */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      let icon = 'fa-circle-info text-sky-500';
+      let border = 'border-slate-200';
+      if (type === 'success') {
+        icon = 'fa-circle-check text-emerald-500';
+        border = 'border-emerald-200';
+      } else if (type === 'warning') {
+        icon = 'fa-triangle-exclamation text-amber-500';
+        border = 'border-amber-200';
+      } else if (type === 'error') {
+        icon = 'fa-circle-xmark text-rose-500';
+        border = 'border-rose-200';
+      }
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 bg-white ${border} border rounded-xl shadow-lg text-slate-800 text-xs font-medium transform transition-all duration-300 translate-y-2 opacity-0`;
+      toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i><span>${message}</span>`;
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
   </script>
 </body>
 </html>
