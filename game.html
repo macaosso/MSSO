@@ -429,16 +429,16 @@
             </div>
           </div>
 
-          <!-- Year & Month & Date inputs -->
+          <!-- Year & Month & Date inputs with instant change triggers -->
           <div class="sm:col-span-2 grid grid-cols-1 xs:grid-cols-3 sm:flex flex-wrap items-end gap-2.5 sm:gap-3">
             <div class="flex-1 min-w-[80px]">
               <label class="block text-xs font-semibold text-slate-600 mb-1">年份 (YYYY)</label>
-              <input type="number" id="queryYear" min="1990" max="2099" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-mono">
+              <input type="number" id="queryYear" min="1990" max="2099" oninput="runQueryAnalysis()" onchange="runQueryAnalysis()" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-mono">
             </div>
 
             <div id="queryMonthWrapper" class="flex-1 min-w-[80px]">
               <label class="block text-xs font-semibold text-slate-600 mb-1">月份 (MM)</label>
-              <select id="queryMonth" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
+              <select id="queryMonth" onchange="runQueryAnalysis()" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 bg-white">
                 <option value="1">1月</option>
                 <option value="2">2月</option>
                 <option value="3">3月</option>
@@ -456,12 +456,12 @@
 
             <div id="queryDateWrapper" class="flex-1 min-w-[80px] hidden">
               <label class="block text-xs font-semibold text-slate-600 mb-1">日期 (DD)</label>
-              <input type="number" id="queryDate" min="1" max="31" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-mono">
+              <input type="number" id="queryDate" min="1" max="31" oninput="runQueryAnalysis()" onchange="runQueryAnalysis()" class="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 font-mono">
             </div>
 
             <div class="w-full xs:w-auto">
-              <button onclick="runQueryAnalysis()" class="w-full xs:w-auto px-4 py-2 text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-md shadow-sky-600/20 transition flex items-center justify-center gap-1.5">
-                <i class="fa-solid fa-filter"></i> 統計檢索
+              <button onclick="runQueryAnalysis()" class="w-full xs:w-auto px-4 py-2 text-xs sm:text-sm font-semibold bg-sky-600 hover:bg-sky-700 text-white rounded-xl shadow-md shadow-sky-600/20 transition flex items-center justify-center gap-1.5" title="立即重新統計">
+                <i class="fa-solid fa-arrows-rotate"></i> 重新統計
               </button>
             </div>
           </div>
@@ -606,6 +606,49 @@
       "黃色大風提示", "橙色大風提示", "紅色大風提示",
       "空氣質量提示", "豪雨特別報告", "大豪雨特別報告", "超大豪雨特別報告"
     ];
+
+    // Master list of all event types preserving strict classification sequence
+    const ALL_CLASSIFICATION_ORDER = [...WARNING_TYPES, ...TIP_TYPES];
+
+    // Exact color mapping requested
+    const EVENT_COLOR_MAP = {
+      // 警報
+      "寒冷警報": "#93c5fd",      // light blue
+      "非常寒冷警報": "#c084fc",  // light purple
+      "極為寒冷警報": "#9333ea",  // purple
+      "酷熱警報": "#f97316",      // orange
+      "非常酷熱警報": "#ef4444",  // red
+      "極為酷熱警報": "#991b1b",  // dark red
+      "大雨警報": "#2563eb",      // blue
+      "暴雨警報": "#dc2626",      // red
+      "大暴雨警報": "#7e22ce",    // purple
+      "風暴潮觀察警報": "#16a34a", // green
+      "風暴潮戒備警報": "#ea580c", // orange
+      "風暴潮危險警報": "#6b21a8", // purple
+      "注意警報": "#475569",      // dark gray
+      "戒備警報": "#14532d",      // dark green
+      "強風警報": "#1e3a8a",      // dark blue
+      "東北烈風警報": "#ca8a04",  // dark yellow
+      "東南烈風警報": "#ca8a04",  // dark yellow
+      "西北烈風警報": "#ca8a04",  // dark yellow
+      "西南烈風警報": "#ca8a04",  // dark yellow
+      "暴風警報": "#c2410c",      // dark orange
+      "颶風警報": "#7f1d1d",      // dark red
+      "海嘯警報": "#a855f7",      // purple
+      "嚴重海嘯警報": "#0f172a",  // black
+
+      // 提示/特別報告
+      "低温預警提示": "#bae6fd",  // light blue
+      "高温預警提示": "#fed7aa",  // light orange
+      "火災危險提示": "#fca5a5",  // light red
+      "黃色大風提示": "#fef08a",  // light yellow
+      "橙色大風提示": "#fdba74",  // light orange
+      "紅色大風提示": "#f87171",  // light red
+      "空氣質量提示": "#94a3b8",  // light gray
+      "豪雨特別報告": "#ea580c",  // orange
+      "大豪雨特別報告": "#dc2626", // red
+      "超大豪雨特別報告": "#111827" // black
+    };
 
     // In-memory data structures
     // committedWeatherData: Already uploaded historical weather records (hidden in entry table)
@@ -1315,7 +1358,7 @@
        - 熱夜: min temp >= 27.5
        - 非常潮濕: max hum >= 94.5
        - 非常乾燥: min hum < 30.5
-       - 極端最高溫 & 極端最低溫 (含日期)
+       - 極端最高溫、極端最低溫、極端最高相對濕度、極端最低相對濕度 (含日期)
        ======================================================== */
     function calculateClimateStats(weatherList) {
       let veryHotDays = 0;   // 最高氣溫 >= 32.5
@@ -1326,6 +1369,8 @@
 
       let maxTempRecord = { value: -Infinity, date: null };
       let minTempRecord = { value: Infinity, date: null };
+      let maxHumidRecord = { value: -Infinity, date: null };
+      let minHumidRecord = { value: Infinity, date: null };
       let maxDiurnalRange = { value: 0, date: null };
 
       weatherList.forEach(w => {
@@ -1356,8 +1401,19 @@
           }
         }
 
-        if (maxH !== null && !isNaN(maxH) && maxH >= 94.5) veryHumidDays++;
-        if (minH !== null && !isNaN(minH) && minH < 30.5) veryDryDays++;
+        if (maxH !== null && !isNaN(maxH)) {
+          if (maxH >= 94.5) veryHumidDays++;
+          if (maxH > maxHumidRecord.value) {
+            maxHumidRecord = { value: maxH, date: w.date };
+          }
+        }
+
+        if (minH !== null && !isNaN(minH)) {
+          if (minH < 30.5) veryDryDays++;
+          if (minH < minHumidRecord.value) {
+            minHumidRecord = { value: minH, date: w.date };
+          }
+        }
       });
 
       return {
@@ -1369,6 +1425,8 @@
         veryDryDays,
         maxTempRecord: maxTempRecord.date ? maxTempRecord : null,
         minTempRecord: minTempRecord.date ? minTempRecord : null,
+        maxHumidRecord: maxHumidRecord.date ? maxHumidRecord : null,
+        minHumidRecord: minHumidRecord.date ? minHumidRecord : null,
         maxDiurnalRange: maxDiurnalRange.date ? maxDiurnalRange : null
       };
     }
@@ -1377,8 +1435,8 @@
       return `
         <!-- Climate Indicators & Extremes -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <!-- Special Days Badges (7 cols) -->
-          <div class="lg:col-span-7 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+          <!-- Special Days Badges (6 cols) -->
+          <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
               <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
                 <i class="fa-solid fa-temperature-arrow-up text-rose-500"></i>
@@ -1427,43 +1485,65 @@
             </div>
           </div>
 
-          <!-- Extremes Records (5 cols) -->
-          <div class="lg:col-span-5 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
+          <!-- Extremes Records (6 cols: Max Temp, Min Temp, Max Humid, Min Humid) -->
+          <div class="lg:col-span-6 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col justify-between">
             <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
               <h3 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
                 <i class="fa-solid fa-award text-amber-500"></i>
-                <span>${titleLabel}極端氣溫紀錄</span>
+                <span>${titleLabel}極端氣象紀錄</span>
               </h3>
-              <span class="text-[11px] text-slate-400">觀測站最高 / 最低</span>
+              <span class="text-[11px] text-slate-400">最高/最低溫與濕度</span>
             </div>
-            <div class="grid grid-cols-2 gap-3 h-full">
-              <!-- Highest -->
-              <div class="p-3 bg-gradient-to-br from-rose-50 to-orange-50/50 rounded-xl border border-rose-100/80 flex flex-col justify-between">
-                <div>
-                  <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
-                    <i class="fa-solid fa-sun text-rose-500"></i> 極端最高氣溫
-                  </div>
-                  <div class="text-2xl font-black font-mono text-rose-600 mt-2">
-                    ${stats.maxTempRecord ? `${stats.maxTempRecord.value}°C` : '-'}
-                  </div>
+            <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+              <!-- Highest Temp -->
+              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-rose-50 to-orange-50/40 rounded-xl border border-rose-100">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
+                  <i class="fa-solid fa-sun text-rose-500"></i> 極端最高氣溫
                 </div>
-                <div class="text-[11px] font-mono text-slate-500 mt-2 bg-white/70 px-2 py-1 rounded border border-rose-100 inline-block">
+                <div class="text-xl font-black font-mono text-rose-600 mt-1">
+                  ${stats.maxTempRecord ? `${stats.maxTempRecord.value}°C` : '-'}
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
                   <i class="fa-regular fa-calendar mr-1 text-rose-400"></i>${stats.maxTempRecord ? stats.maxTempRecord.date : '無紀錄'}
                 </div>
               </div>
 
-              <!-- Lowest -->
-              <div class="p-3 bg-gradient-to-br from-sky-50 to-indigo-50/50 rounded-xl border border-sky-100/80 flex flex-col justify-between">
-                <div>
-                  <div class="flex items-center gap-1.5 text-xs font-semibold text-sky-700">
-                    <i class="fa-solid fa-snowflake text-sky-500"></i> 極端最低氣溫
-                  </div>
-                  <div class="text-2xl font-black font-mono text-sky-600 mt-2">
-                    ${stats.minTempRecord ? `${stats.minTempRecord.value}°C` : '-'}
-                  </div>
+              <!-- Lowest Temp -->
+              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-sky-50 to-indigo-50/40 rounded-xl border border-sky-100">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-sky-700">
+                  <i class="fa-solid fa-snowflake text-sky-500"></i> 極端最低氣溫
                 </div>
-                <div class="text-[11px] font-mono text-slate-500 mt-2 bg-white/70 px-2 py-1 rounded border border-sky-100 inline-block">
+                <div class="text-xl font-black font-mono text-sky-600 mt-1">
+                  ${stats.minTempRecord ? `${stats.minTempRecord.value}°C` : '-'}
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
                   <i class="fa-regular fa-calendar mr-1 text-sky-400"></i>${stats.minTempRecord ? stats.minTempRecord.date : '無紀錄'}
+                </div>
+              </div>
+
+              <!-- Highest Humidity (New) -->
+              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-cyan-50 to-blue-50/40 rounded-xl border border-cyan-100">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-cyan-800">
+                  <i class="fa-solid fa-droplet text-cyan-600"></i> 最高相對濕度
+                </div>
+                <div class="text-xl font-black font-mono text-cyan-700 mt-1">
+                  ${stats.maxHumidRecord ? `${stats.maxHumidRecord.value}%` : '-'}
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
+                  <i class="fa-regular fa-calendar mr-1 text-cyan-500"></i>${stats.maxHumidRecord ? stats.maxHumidRecord.date : '無紀錄'}
+                </div>
+              </div>
+
+              <!-- Lowest Humidity (New) -->
+              <div class="p-2.5 sm:p-3 bg-gradient-to-br from-amber-50 to-orange-50/40 rounded-xl border border-amber-100">
+                <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                  <i class="fa-solid fa-wind text-amber-600"></i> 最低相對濕度
+                </div>
+                <div class="text-xl font-black font-mono text-amber-700 mt-1">
+                  ${stats.minHumidRecord ? `${stats.minHumidRecord.value}%` : '-'}
+                </div>
+                <div class="text-[10px] font-mono text-slate-500 mt-1 truncate">
+                  <i class="fa-regular fa-calendar mr-1 text-amber-500"></i>${stats.minHumidRecord ? stats.minHumidRecord.date : '無紀錄'}
                 </div>
               </div>
             </div>
@@ -1474,18 +1554,12 @@
 
     /* ========================================================
        ECHARTS WARNING & TIP TIMELINE GENERATOR
-       Renders an interactive Gantt / horizontal range timeline
+       Follows strict classification order and specified colors
        ======================================================== */
     let warningChartInstance = null;
 
     function getWarningCategoryColor(type) {
-      if (type.includes('寒冷')) return '#0284c7';
-      if (type.includes('酷熱')) return '#ef4444';
-      if (type.includes('雨')) return '#06b6d4';
-      if (type.includes('風暴潮')) return '#8b5cf6';
-      if (type.includes('風') || type.includes('颶風')) return '#f59e0b';
-      if (type.includes('海嘯')) return '#10b981';
-      return '#64748b'; // default / tips
+      return EVENT_COLOR_MAP[type] || '#64748b';
     }
 
     function renderWarningTimelineChart(chartDomId, events, windowStart, windowEnd) {
@@ -1506,12 +1580,23 @@
         return;
       }
 
-      // Unique types present in these events
-      const uniqueTypes = Array.from(new Set(events.map(e => e.type)));
-      const typeIndexMap = new Map();
-      uniqueTypes.forEach((t, i) => typeIndexMap.set(t, i));
+      // Filter classification order to only include types active in the current period,
+      // strictly preserving the predefined hierarchy:
+      // 寒冷 -> 酷熱 -> 大雨 -> 風暴潮 -> 注意/戒備/強風 -> 烈風/暴風/颶風 -> 海嘯 -> 提示系列
+      const activeTypesSet = new Set(events.map(e => e.type));
+      const orderedTypes = ALL_CLASSIFICATION_ORDER.filter(t => activeTypesSet.has(t));
 
-      // Construct ECharts custom renderItem series data
+      // Append any unlisted type if applicable
+      events.forEach(e => {
+        if (!orderedTypes.includes(e.type)) {
+          orderedTypes.push(e.type);
+        }
+      });
+
+      const typeIndexMap = new Map();
+      orderedTypes.forEach((t, i) => typeIndexMap.set(t, i));
+
+      // Construct ECharts custom series data
       const data = events.map(e => {
         const s = Math.max(parseDateString(e.start).getTime(), windowStart.getTime());
         const eTime = Math.min(parseDateString(e.end).getTime(), windowEnd.getTime());
@@ -1529,7 +1614,7 @@
       const chart = echarts.init(chartDom);
       warningChartInstance = chart;
 
-      const dynamicHeight = Math.max(220, uniqueTypes.length * 34 + 80);
+      const dynamicHeight = Math.max(220, orderedTypes.length * 32 + 80);
       chartDom.style.height = `${dynamicHeight}px`;
       chart.resize();
 
@@ -1549,7 +1634,7 @@
         },
         grid: {
           top: 25,
-          left: 110,
+          left: 130,
           right: 30,
           bottom: 35
         },
@@ -1569,12 +1654,15 @@
         },
         yAxis: {
           type: 'category',
-          data: uniqueTypes,
+          data: orderedTypes,
           inverse: true,
           axisLabel: {
             fontSize: 11,
             color: '#334155',
-            fontWeight: 500
+            fontWeight: 500,
+            formatter: function (value) {
+              return value;
+            }
           },
           axisTick: { show: false },
           axisLine: { lineStyle: { color: '#e2e8f0' } }
@@ -1587,7 +1675,7 @@
             const timeEnd = api.coord([api.value(2), categoryIndex]);
             const barHeight = 16;
 
-            const width = Math.max(3, timeEnd[0] - timeStart[0]);
+            const width = Math.max(4, timeEnd[0] - timeStart[0]);
             const x = timeStart[0];
             const y = timeStart[1] - barHeight / 2;
 
