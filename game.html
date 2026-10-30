@@ -539,8 +539,8 @@
             <button onclick="saveSettings()" class="w-full sm:w-auto px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2">
               <i class="fa-solid fa-floppy-disk"></i> 保存設定
             </button>
-            <button onclick="loadSampleMockData()" class="w-full sm:w-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition flex items-center justify-center gap-2">
-              <i class="fa-solid fa-flask"></i> 載入演示範例資料
+            <button onclick="clearAllData()" class="w-full sm:w-auto px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-medium transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-trash-arrow-up"></i> 清空本地快取
             </button>
           </div>
         </div>
@@ -639,20 +639,19 @@
       const savedWarnings = localStorage.getItem('local_warning_cache');
       const savedTips = localStorage.getItem('local_tip_cache');
 
-      if (savedCommittedWeather || savedDraftWeather) {
-        try {
-          committedWeatherData = savedCommittedWeather ? JSON.parse(savedCommittedWeather) : [];
-          draftWeatherData = savedDraftWeather ? JSON.parse(savedDraftWeather) : [];
-          warningData = savedWarnings ? JSON.parse(savedWarnings) : [];
-          tipData = savedTips ? JSON.parse(savedTips) : [];
-        } catch(e) {
-          loadSampleMockData(false);
-        }
-      } else {
-        loadSampleMockData(false);
+      try {
+        committedWeatherData = savedCommittedWeather ? JSON.parse(savedCommittedWeather) : [];
+        draftWeatherData = savedDraftWeather ? JSON.parse(savedDraftWeather) : [];
+        warningData = savedWarnings ? JSON.parse(savedWarnings) : [];
+        tipData = savedTips ? JSON.parse(savedTips) : [];
+      } catch(e) {
+        committedWeatherData = [];
+        draftWeatherData = [];
+        warningData = [];
+        tipData = [];
       }
 
-      // Automatically detect latest date and pre-populate next 10 days if drafts are empty
+      // Automatically detect the latest date in weather.csv and directly generate 10 upcoming days
       if (draftWeatherData.length === 0) {
         autoPopulateNext10DaysWeather(false);
       }
@@ -990,6 +989,7 @@
           startDate = new Date();
         }
       } else {
+        // When completely empty, start from today
         startDate = new Date();
       }
 
@@ -1017,7 +1017,7 @@
       }
 
       if (generatedRows.length === 0) {
-        if (notify) showToast('接續 10 天日期已存在於草稿或歷史中。', 'info');
+        if (notify) showToast('接續 10 天日期已存在於待填草稿中。', 'info');
         return;
       }
 
@@ -2187,66 +2187,23 @@
     }
 
     /* ========================================================
-       MOCK DEMO DATA
+       DATA RESET & LOCAL CACHE CLEANUP
        ======================================================== */
-    function loadSampleMockData(notify = true) {
-      committedWeatherData = [
-        { date: '2026-09-28', minTemp: 24.5, maxTemp: 31.8, minHum: 65, maxHum: 92 },
-        { date: '2026-09-29', minTemp: 23.8, maxTemp: 29.5, minHum: 70, maxHum: 96 },
-        { date: '2026-09-30', minTemp: 21.0, maxTemp: 26.2, minHum: 78, maxHum: 98 },
-        { date: '2026-10-01', minTemp: 18.5, maxTemp: 23.0, minHum: 60, maxHum: 85 },
-        { date: '2026-10-02', minTemp: 17.2, maxTemp: 22.4, minHum: 55, maxHum: 80 },
-        { date: '2026-10-03', minTemp: 19.0, maxTemp: 25.1, minHum: 58, maxHum: 82 }
-      ];
+    function clearAllData() {
+      committedWeatherData = [];
+      draftWeatherData = [];
+      warningData = [];
+      tipData = [];
+      localStorage.removeItem('local_weather_committed');
+      localStorage.removeItem('local_weather_draft');
+      localStorage.removeItem('local_warning_cache');
+      localStorage.removeItem('local_tip_cache');
 
-      // Draft rows: prepared upcoming dates
-      draftWeatherData = [
-        { date: '2026-10-04', minTemp: '', maxTemp: '', minHum: '', maxHum: '' },
-        { date: '2026-10-05', minTemp: '', maxTemp: '', minHum: '', maxHum: '' }
-      ];
-
-      // Standard 3 columns: type, start, end (no duration in record)
-      warningData = [
-        {
-          type: '強風警報',
-          start: '2026-09-30 20:00',
-          end: '2026-10-01 08:30'
-        },
-        {
-          type: '寒冷警報',
-          start: '2026-10-01 18:00',
-          end: '2026-10-02 12:00'
-        },
-        {
-          type: '大雨警報',
-          start: '2026-09-29 14:00',
-          end: '2026-09-29 20:30'
-        }
-      ];
-
-      tipData = [
-        {
-          type: '黃色大風提示',
-          start: '2026-09-30 22:00',
-          end: '2026-10-01 06:00'
-        },
-        {
-          type: '低温預警提示',
-          start: '2026-10-01 20:00',
-          end: '2026-10-02 08:00'
-        }
-      ];
-
+      // Auto re-generate 10 clean days from today
+      autoPopulateNext10DaysWeather(false);
       renderAllTables();
-      saveToLocalCache();
-
-      document.getElementById('queryYear').value = 2026;
-      document.getElementById('queryMonth').value = 9;
       runQueryAnalysis();
-
-      if (notify) {
-        showToast('已載入範例數據！已上傳歷史自動歸檔，僅展示待填草稿。', 'info');
-      }
+      showToast('已清空本地快取數據，並重新生成接續 10 天待填表單。', 'info');
     }
 
     /* ========================================================
