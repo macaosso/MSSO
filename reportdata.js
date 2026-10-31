@@ -136,5 +136,11 @@ const reportsData = [
         categoryName: "氣象觀測月報",
         url: "Mreport/2026年09月氣象觀測月報.pdf",
         date: "2026-10-04"
+    },
+    {
+        title: "2026年10月",
+        categoryName: "氣象觀測月報",
+        url: "Mreport/2026年10月氣象觀測月報.pdf",
+        date: "2026-11-01"
     }
 ];
