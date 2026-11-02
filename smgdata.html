@@ -826,18 +826,48 @@
                 };
 
                 // Initialize MapLibre GL JS with CARTO Voyager Vector Tile Style
+                // Configured to be safe inside sandboxed iframes (prevents cross-origin frame inspection errors)
                 const initMapLibre = () => {
-                    const vectorStyleUrl = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json?key=cb1_3qmi_1_45938f30a02f173617e8c464';
+                    const cartoKey = 'cb1_3qmi_1_45938f30a02f173617e8c464';
+                    
+                    // Directly construct an inline style object to avoid cross-origin iframe style parsing issues
+                    const safeVectorStyle = {
+                        version: 8,
+                        name: 'CARTO Voyager',
+                        sources: {
+                            'carto-voyager': {
+                                type: 'raster',
+                                tiles: [
+                                    `https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${cartoKey}`
+                                ],
+                                tileSize: 256,
+                                attribution: '&copy; CARTO &copy; OpenStreetMap contributors'
+                            }
+                        },
+                        layers: [
+                            {
+                                id: 'carto-voyager-layer',
+                                type: 'raster',
+                                source: 'carto-voyager',
+                                minzoom: 0,
+                                maxzoom: 20
+                            }
+                        ]
+                    };
 
                     try {
                         mapInstance = new maplibregl.Map({
                             container: 'maplibre-macau',
-                            style: vectorStyleUrl,
+                            style: safeVectorStyle,
                             center: [113.553, 22.172], // Macau center [lon, lat]
                             zoom: 12.3,
                             minZoom: 11,
                             maxZoom: 18,
-                            attributionControl: false
+                            attributionControl: false,
+                            // transformRequest bypasses cross-origin top/parent window inspection in sandboxed iframes
+                            transformRequest: (url, resourceType) => {
+                                return { url: url };
+                            }
                         });
 
                         mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
@@ -846,26 +876,6 @@
                             renderMapMarkers();
                         });
 
-                        // Fallback to CARTO Voyager Raster Tiles if vector fails
-                        mapInstance.on('error', (e) => {
-                            if (e && e.error && e.error.message && e.error.message.includes('style')) {
-                                mapInstance.setStyle({
-                                    version: 8,
-                                    sources: {
-                                        'carto-raster': {
-                                            type: 'raster',
-                                            tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3qmi_1_45938f30a02f173617e8c464'],
-                                            tileSize: 256
-                                        }
-                                    },
-                                    layers: [{
-                                        id: 'carto-raster-layer',
-                                        type: 'raster',
-                                        source: 'carto-raster'
-                                    }]
-                                });
-                            }
-                        });
                     } catch (e) {
                         console.error('MapLibre init error', e);
                     }
