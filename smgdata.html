@@ -20,37 +20,24 @@
                             600: '#059669',
                             700: '#047857',
                             900: '#064e3b',
-                        },
-                        brand: {
-                            cyan: '#06b6d4',
-                            blue: '#3b82f6',
-                            gold: '#f59e0b',
-                            crimson: '#ef4444'
                         }
-                    },
-                    boxShadow: {
-                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-                        'glow': '0 0 20px rgba(16, 185, 129, 0.35)',
                     }
                 }
             }
         }
     </script>
 
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Apache ECharts -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <!-- MapLibre GL JS (Vector Map Engine) -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
 
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 
     <!-- Font Family -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
         body {
@@ -61,40 +48,32 @@
             font-family: 'JetBrains Mono', monospace;
         }
         /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 9999px; }
+        
+        /* MapLibre container styles */
+        .maplibregl-popup-content {
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
         }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.4);
+        .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+            border-top-color: #0f172a !important;
         }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(148, 163, 184, 0.3);
-            border-radius: 9999px;
+        .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+            border-bottom-color: #0f172a !important;
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(16, 185, 129, 0.6);
+        .station-badge-marker {
+            cursor: pointer;
+            transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        /* Leaflet custom map pane smoothing */
-        .leaflet-container {
-            font-family: inherit;
-            background: #0b1120 !important;
-        }
-        .station-marker-pin {
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .station-marker-pin:hover {
-            transform: scale(1.22);
-            z-index: 999 !important;
-        }
-        /* Pulsing beacon */
-        @keyframes radar-pulse {
-            0% { transform: scale(0.95); opacity: 0.8; }
-            70% { transform: scale(2.2); opacity: 0; }
-            100% { transform: scale(0.95); opacity: 0; }
-        }
-        .pulse-ring {
-            animation: radar-pulse 2.2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        .station-badge-marker:hover {
+            transform: scale(1.18);
+            z-index: 50 !important;
         }
     </style>
 </head>
@@ -102,7 +81,7 @@
 
     <div id="app" class="flex-1 flex flex-col min-h-screen">
         <!-- Top Navigation Bar -->
-        <header class="sticky top-0 z-40 backdrop-blur-xl bg-slate-900/80 border-b border-slate-800/80 px-4 lg:px-8 py-3 transition-colors duration-200">
+        <header class="sticky top-0 z-40 backdrop-blur-xl bg-slate-900/90 border-b border-slate-800 px-4 lg:px-8 py-3">
             <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
                 <!-- Branding -->
                 <div class="flex items-center gap-3">
@@ -119,52 +98,53 @@
                         <div class="flex items-center gap-2">
                             <h1 class="text-lg lg:text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
                                 <span>🇲🇴 澳門氣象中心</span>
-                                <span class="hidden sm:inline-block text-xs uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold tracking-wider">實時監測</span>
+                                <span class="hidden sm:inline-block text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-semibold">向量底圖 · SMG 直連</span>
                             </h1>
                         </div>
                         <p class="text-xs text-slate-400 flex items-center gap-2">
-                            <span>SMG 官方觀測網</span>
-                            <span class="inline-block w-1 h-1 rounded-full bg-slate-600"></span>
-                            <span class="font-mono-num text-slate-300">{{ currentTimestampStr }}</span>
+                            <span>官網數據發佈時間:</span>
+                            <span class="font-mono-num text-emerald-400 font-semibold">{{ smgPubDate || '獲取中...' }}</span>
                         </p>
                     </div>
                 </div>
 
-                <!-- Center: Global Quick Stats -->
-                <div class="hidden xl:flex items-center gap-6 px-4 py-1.5 rounded-xl bg-slate-800/40 border border-slate-700/50 text-xs">
-                    <div class="flex items-center gap-2">
-                        <span class="text-slate-400">大潭山基準溫:</span>
-                        <span class="font-mono-num font-bold text-emerald-400 text-sm">{{ getStationVal('大潭山', 'temp_now') }}°C</span>
+                <!-- Center Quick Status (Bridges Wind & Main Station) -->
+                <div class="hidden xl:flex items-center gap-5 px-4 py-1.5 rounded-xl bg-slate-800/50 border border-slate-700/60 text-xs">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-400">大潭山 (氣候標準站):</span>
+                        <span class="font-mono-num font-bold text-emerald-400">{{ getStationVal('大潭山', 'temp_now') ?? '-' }}°C</span>
                     </div>
                     <div class="h-3 w-px bg-slate-700"></div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-slate-400">大橋最高陣風:</span>
-                        <span class="font-mono-num font-bold text-amber-400 text-sm">{{ maxBridgeGust }} km/h</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-400">跨海大橋最高陣風:</span>
+                        <span :class="['font-mono-num font-bold', maxBridgeGust >= 63 ? 'text-rose-400 animate-pulse' : 'text-amber-400']">
+                            {{ maxBridgeGust > 0 ? maxBridgeGust + ' km/h' : '-' }}
+                        </span>
                     </div>
                     <div class="h-3 w-px bg-slate-700"></div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-slate-400">平均濕度:</span>
-                        <span class="font-mono-num font-bold text-sky-400 text-sm">{{ avgHumidity }}%</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-slate-400">全澳平均濕度:</span>
+                        <span class="font-mono-num font-bold text-sky-400">{{ avgHumidity ? avgHumidity + '%' : '-' }}</span>
                     </div>
                 </div>
 
                 <!-- Right Action Buttons -->
-                <div class="flex items-center gap-2 sm:gap-3">
-                    <!-- Auto-refresh Countdown button -->
-                    <button @click="refreshData(true)" :disabled="isRefreshing" 
-                        class="group relative flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 text-xs text-slate-200 transition-all shadow-sm">
+                <div class="flex items-center gap-2.5">
+                    <!-- Refresh countdown button -->
+                    <button @click="fetchSMGData" :disabled="isRefreshing" 
+                        class="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 transition-all">
                         <svg :class="['w-4 h-4 text-emerald-400 transition-transform duration-700', isRefreshing ? 'animate-spin' : 'group-hover:rotate-180']" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                         </svg>
-                        <span class="hidden sm:inline font-medium">重整數據</span>
-                        <span class="font-mono-num text-[11px] px-1.5 py-0.5 rounded bg-slate-900 text-emerald-300 font-semibold">{{ countdown }}s</span>
+                        <span class="hidden sm:inline font-medium">手動刷新</span>
+                        <span class="font-mono-num text-[11px] px-1.5 py-0.5 rounded bg-slate-900 text-emerald-400 font-bold">{{ countdown }}s</span>
                     </button>
 
-                    <!-- Primary View Mode Switcher -->
+                    <!-- View Switcher -->
                     <div class="flex p-1 bg-slate-900 rounded-lg border border-slate-800 text-xs font-medium">
                         <button v-for="mode in viewModes" :key="mode.id" @click="activeViewMode = mode.id"
-                            :class="['px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5', 
-                                activeViewMode === mode.id ? 'bg-emerald-600 text-white shadow font-semibold' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60']">
+                            :class="['px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1', 
+                                activeViewMode === mode.id ? 'bg-emerald-600 text-white shadow font-semibold' : 'text-slate-400 hover:text-slate-200']">
                             <span>{{ mode.icon }}</span>
                             <span class="hidden md:inline">{{ mode.name }}</span>
                         </button>
@@ -172,106 +152,106 @@
                 </div>
             </div>
 
-            <!-- Bridge Wind Warning Banner (Conditional) -->
-            <div v-if="bridgeAlert" class="max-w-7xl mx-auto mt-2.5">
-                <div class="px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs flex items-center justify-between animate-pulse">
-                    <div class="flex items-center gap-2 font-medium">
-                        <span class="text-base">⚠️</span>
-                        <span>跨海大橋風速提醒：{{ bridgeAlert.station }} 現時陣風達到 <strong>{{ bridgeAlert.gust }} km/h</strong> ({{ bridgeAlert.level }}級)，駛經友誼、西灣或澳門大橋請注意側風。</span>
+            <!-- Bridge Wind Warning Alert -->
+            <div v-if="bridgeGaleAlert" class="max-w-7xl mx-auto mt-2.5">
+                <div class="px-3.5 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base animate-bounce">⚠️</span>
+                        <span><strong>大橋強風警示：</strong>{{ bridgeGaleAlert.station }} 陣風達 <strong>{{ bridgeGaleAlert.gust }} km/h</strong> ({{ bridgeGaleAlert.level }}級)，跨海大橋駕駛請留意側風及行車安全。</span>
                     </div>
-                    <span class="text-[11px] underline cursor-pointer hover:text-amber-200" @click="focusStation(bridgeAlert.station)">檢視站點</span>
+                    <button class="text-[11px] px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 rounded border border-amber-400/30 text-amber-200 transition" @click="focusStation(bridgeGaleAlert.station)">立即在地圖檢視</button>
+                </div>
+            </div>
+
+            <!-- Fetch Error Notice -->
+            <div v-if="fetchError" class="max-w-7xl mx-auto mt-2.5">
+                <div class="px-3.5 py-2 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span>❌</span>
+                        <span>{{ fetchError }}</span>
+                    </div>
+                    <button @click="fetchSMGData" class="text-[11px] underline font-bold hover:text-rose-200">重試連線</button>
                 </div>
             </div>
         </header>
 
-        <!-- Metric Selector Tab Bar -->
-        <div class="bg-slate-900/40 border-b border-slate-800/60 px-4 lg:px-8 py-2 overflow-x-auto">
+        <!-- Metric Filter Navigation -->
+        <div class="bg-slate-900/60 border-b border-slate-800/80 px-4 lg:px-8 py-2 overflow-x-auto">
             <div class="max-w-7xl mx-auto flex items-center gap-1.5 min-w-max">
                 <span class="text-xs text-slate-400 font-medium mr-2 flex items-center gap-1">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
-                    氣象指標:
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                    切換要素:
                 </span>
                 <button v-for="metric in metrics" :key="metric.id" @click="selectMetric(metric.id)"
                     :class="['px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5',
                         activeMetric === metric.id 
-                            ? 'bg-slate-800 text-emerald-400 border border-emerald-500/50 shadow-sm font-semibold' 
-                            : 'bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent']">
+                            ? 'bg-slate-800 text-emerald-400 border border-emerald-500/50 shadow font-semibold' 
+                            : 'bg-slate-900/40 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent']">
                     <span>{{ metric.icon }}</span>
                     <span>{{ metric.label }}</span>
-                    <span v-if="metric.unit" class="text-[10px] text-slate-500">({{ metric.unit }})</span>
+                    <span v-if="metric.unit" class="text-[10px] text-slate-500 font-mono-num">({{ metric.unit }})</span>
                 </button>
             </div>
         </div>
 
-        <!-- Main Body -->
+        <!-- Main Content -->
         <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-6 flex flex-col gap-5">
             
-            <!-- VIEW 1: Interactive Leaflet Map + Analytics Panel -->
-            <div v-show="activeViewMode === 'interactive_map'" class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-[640px]">
-                <!-- Left/Center Map Canvas (8 cols) -->
-                <div class="lg:col-span-8 flex flex-col rounded-2xl overflow-hidden bg-slate-900/60 border border-slate-800/80 shadow-2xl relative">
-                    <!-- Map Controls Header Overlay -->
-                    <div class="absolute top-3 left-3 z-[1000] flex items-center gap-2 backdrop-blur-md bg-slate-900/85 p-1.5 rounded-xl border border-slate-700/60 shadow-lg">
-                        <button @click="toggleMapLayer('dark')" :class="['px-2.5 py-1 text-xs rounded-lg font-medium transition', mapBasemap === 'dark' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white']">深色底圖</button>
-                        <button @click="toggleMapLayer('light')" :class="['px-2.5 py-1 text-xs rounded-lg font-medium transition', mapBasemap === 'light' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white']">淡雅白底</button>
+            <!-- VIEW 1: Vector MapLibre Map (CARTO Voyager GL) -->
+            <div v-show="activeViewMode === 'map'" class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 min-h-[640px]">
+                <!-- Map Container (8 cols) -->
+                <div class="lg:col-span-8 flex flex-col rounded-2xl overflow-hidden bg-slate-900/60 border border-slate-800 shadow-2xl relative">
+                    <!-- Layer & Controls Overlay -->
+                    <div class="absolute top-3 left-3 z-10 flex items-center gap-2 backdrop-blur-md bg-slate-900/85 p-1.5 rounded-xl border border-slate-700/60 shadow-lg text-xs">
+                        <button @click="resetMapZoom" class="px-2.5 py-1 text-slate-200 hover:text-emerald-400 transition font-medium">全澳視角</button>
                         <div class="w-px h-3 bg-slate-700"></div>
-                        <button @click="resetMapZoom" class="px-2 py-1 text-xs text-slate-300 hover:text-emerald-400 transition" title="重設澳門全境視野">全澳視角</button>
+                        <span class="text-[11px] text-slate-400 px-1 font-mono-num">CARTO Voyager Vector</span>
                     </div>
 
-                    <!-- Map Layer Badges Overlay -->
-                    <div class="absolute top-3 right-3 z-[1000] hidden sm:flex items-center gap-1.5 backdrop-blur-md bg-slate-900/85 px-3 py-1.5 rounded-xl border border-slate-700/60 text-xs">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span class="text-slate-300 font-medium">站點總數: 17 處實時站</span>
-                    </div>
+                    <!-- Map container -->
+                    <div id="maplibre-macau" class="w-full flex-1 min-h-[480px] lg:min-h-[600px]"></div>
 
-                    <!-- Leaflet Container -->
-                    <div id="macau-leaflet-map" class="w-full flex-1 min-h-[460px] lg:min-h-[580px] z-10"></div>
-
-                    <!-- Dynamic Legend Bottom Bar -->
+                    <!-- Map Legend -->
                     <div class="backdrop-blur-md bg-slate-900/90 border-t border-slate-800 p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
                         <div class="flex items-center gap-2">
-                            <span class="text-slate-400 font-medium flex items-center gap-1">
-                                <span class="text-emerald-400 font-bold">●</span> 圖例 ({{ currentMetricDef.label }}):
-                            </span>
+                            <span class="text-slate-400 font-medium">圖例 ({{ currentMetricDef.label }}):</span>
                             <div class="flex items-center gap-1.5 flex-wrap">
-                                <div v-for="item in currentLegend" :key="item.label" class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/80 border border-slate-700/50">
+                                <div v-for="item in currentLegend" :key="item.label" class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800/90 border border-slate-700/50">
                                     <span class="w-2.5 h-2.5 rounded-sm" :style="{ backgroundColor: item.color }"></span>
                                     <span class="text-slate-300 text-[11px] font-mono-num">{{ item.label }}</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="text-[11px] text-slate-500 font-mono-num">
-                            EPSG:3857 · 經緯範圍: 113.51-113.62°E, 22.08-22.23°N
+                        <div class="text-[11px] text-slate-500 font-mono-num hidden sm:block">
+                            17個地面/大橋觀測站點同步中
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Station Detail & Leaderboard Drawer (4 cols) -->
+                <!-- Right Station Card & Leaderboard (4 cols) -->
                 <div class="lg:col-span-4 flex flex-col gap-4">
-                    <!-- Selected Station Glassmorphic Card -->
-                    <div class="rounded-2xl p-5 bg-gradient-to-br from-slate-900/90 to-slate-900/40 border border-slate-800/80 shadow-xl relative overflow-hidden backdrop-blur-xl">
-                        <div class="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
+                    <!-- Selected Station Detail Card -->
+                    <div class="rounded-2xl p-5 bg-gradient-to-br from-slate-900/95 to-slate-900/60 border border-slate-800 shadow-xl relative overflow-hidden backdrop-blur-xl">
                         <div class="flex items-start justify-between mb-4">
                             <div>
                                 <div class="flex items-center gap-2">
                                     <h3 class="text-lg font-bold text-white">{{ selectedStationName }}</h3>
                                     <span :class="['text-[11px] px-2 py-0.5 rounded-md font-semibold', 
                                         isBridge(selectedStationName) ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30']">
-                                        {{ isBridge(selectedStationName) ? '跨海大橋站' : '陸地標準站' }}
+                                        {{ isBridge(selectedStationName) ? '跨海大橋站' : '標準氣象站' }}
                                     </span>
                                 </div>
-                                <p class="text-xs text-slate-400 mt-0.5">
+                                <p class="text-xs text-slate-400 mt-1">
                                     經緯: {{ getStationCoord(selectedStationName).lat.toFixed(4) }}°N, {{ getStationCoord(selectedStationName).lon.toFixed(4) }}°E
                                 </p>
                             </div>
 
-                            <button @click="flyToStation(selectedStationName)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="居中聚焦">
+                            <button @click="focusStation(selectedStationName)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="居中聚焦">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                             </button>
                         </div>
 
-                        <!-- Main Station Numerical Grid -->
+                        <!-- Station Current Readings Grid -->
                         <div class="grid grid-cols-2 gap-2.5">
                             <div class="p-3 rounded-xl bg-slate-800/50 border border-slate-700/40">
                                 <span class="text-[11px] text-slate-400 block mb-1">🌡️ 現時氣溫</span>
@@ -279,8 +259,8 @@
                                     {{ formatVal(getStationVal(selectedStationName, 'temp_now'), '°C') }}
                                 </span>
                                 <div class="text-[10px] text-slate-400 mt-1 flex justify-between font-mono-num">
-                                    <span>低: {{ formatVal(getStationVal(selectedStationName, 'temp_min')) }}</span>
-                                    <span>高: {{ formatVal(getStationVal(selectedStationName, 'temp_max')) }}</span>
+                                    <span>最低: {{ formatVal(getStationVal(selectedStationName, 'temp_min')) }}</span>
+                                    <span>最高: {{ formatVal(getStationVal(selectedStationName, 'temp_max')) }}</span>
                                 </div>
                             </div>
 
@@ -289,24 +269,24 @@
                                 <span class="text-2xl font-bold font-mono-num text-sky-400">
                                     {{ formatVal(getStationVal(selectedStationName, 'humidity'), '%') }}
                                 </span>
-                                <div class="text-[10px] text-slate-400 mt-1">
-                                    {{ getHumidityState(getStationVal(selectedStationName, 'humidity')) }}
+                                <div class="text-[10px] text-slate-400 mt-1 font-mono-num">
+                                    基準站實測
                                 </div>
                             </div>
 
                             <div class="p-3 rounded-xl bg-slate-800/50 border border-slate-700/40">
-                                <span class="text-[11px] text-slate-400 block mb-1">🌬️ 風速與陣風</span>
+                                <span class="text-[11px] text-slate-400 block mb-1">🌬️ 風速 / 陣風</span>
                                 <div class="flex items-baseline gap-1">
                                     <span class="text-xl font-bold font-mono-num text-emerald-400">
                                         {{ formatVal(getStationVal(selectedStationName, 'wind_speed')) }}
                                     </span>
                                     <span class="text-[10px] text-slate-400 font-mono-num">/ {{ formatVal(getStationVal(selectedStationName, 'gust_speed')) }} km/h</span>
                                 </div>
-                                <div class="text-[10px] text-slate-300 mt-1 flex items-center gap-1 font-medium">
-                                    <svg class="w-3 h-3 text-emerald-400 transition-transform duration-500" :style="{ transform: `rotate(${getWindDegree(getStationVal(selectedStationName, 'wind_dir'))}deg)` }" viewBox="0 0 24 24" fill="currentColor">
+                                <div class="text-[10px] text-slate-300 mt-1 flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-emerald-400" :style="{ transform: `rotate(${getWindDegree(getStationVal(selectedStationName, 'wind_dir'))}deg)` }" viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
                                     </svg>
-                                    <span>{{ getStationVal(selectedStationName, 'wind_dir') || '微風' }}向</span>
+                                    <span>{{ getStationVal(selectedStationName, 'wind_dir') || '-' }}風</span>
                                 </div>
                             </div>
 
@@ -316,34 +296,25 @@
                                     {{ formatVal(getStationVal(selectedStationName, 'rain_h'), 'mm/h') }}
                                 </div>
                                 <div class="text-[10px] text-slate-400 mt-1 font-mono-num">
-                                    今日累計: <strong class="text-blue-400">{{ formatVal(getStationVal(selectedStationName, 'rain_d'), 'mm') }}</strong>
+                                    日累計: <strong class="text-blue-400">{{ formatVal(getStationVal(selectedStationName, 'rain_d'), 'mm') }}</strong>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Mini Trend Preview button -->
-                        <button @click="switchToStationChart(selectedStationName)" class="mt-4 w-full py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-center gap-2 transition">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
-                            <span>查看 {{ selectedStationName }} 24小時時序曲線</span>
-                        </button>
                     </div>
 
                     <!-- Station Ranking List -->
-                    <div class="flex-1 rounded-2xl p-4 bg-slate-900/60 border border-slate-800/80 shadow-xl flex flex-col min-h-[300px]">
+                    <div class="flex-1 rounded-2xl p-4 bg-slate-900/60 border border-slate-800 shadow-xl flex flex-col min-h-[300px]">
                         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-200">
-                                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                                <span>站點即時排行 ({{ currentMetricDef.label }})</span>
-                            </div>
-                            <span class="text-[11px] text-slate-500">降序</span>
+                            <span class="text-xs font-bold text-slate-200">站點數值排行 ({{ currentMetricDef.label }})</span>
+                            <span class="text-[10px] text-slate-500 font-mono-num">SMG LIVE</span>
                         </div>
 
                         <div class="flex-1 overflow-y-auto divide-y divide-slate-800/50 pr-1 mt-2">
                             <div v-for="(item, idx) in sortedStationList" :key="item.name" 
-                                @click="selectStationFromList(item.name)"
-                                :class="['py-2.5 px-2.5 rounded-xl transition flex items-center justify-between cursor-pointer group', 
+                                @click="focusStation(item.name)"
+                                :class="['py-2 px-2 rounded-xl transition flex items-center justify-between cursor-pointer group', 
                                     selectedStationName === item.name ? 'bg-slate-800/90 border border-emerald-500/40' : 'hover:bg-slate-800/40']">
-                                <div class="flex items-center gap-2.5">
+                                <div class="flex items-center gap-2">
                                     <span :class="['w-5 h-5 rounded-md flex items-center justify-center font-mono-num text-[11px] font-bold',
                                         idx === 0 ? 'bg-amber-500 text-slate-950' : 
                                         idx === 1 ? 'bg-slate-300 text-slate-950' : 
@@ -351,11 +322,10 @@
                                         {{ idx + 1 }}
                                     </span>
                                     <div>
-                                        <div class="text-xs font-semibold text-slate-200 group-hover:text-emerald-400 transition flex items-center gap-1.5">
+                                        <div class="text-xs font-semibold text-slate-200 group-hover:text-emerald-400 transition flex items-center gap-1">
                                             <span>{{ item.name }}</span>
                                             <span v-if="isBridge(item.name)" class="text-[9px] px-1 rounded bg-sky-900/60 text-sky-300">橋</span>
                                         </div>
-                                        <span class="text-[10px] text-slate-500">{{ item.subInfo }}</span>
                                     </div>
                                 </div>
 
@@ -371,65 +341,15 @@
                 </div>
             </div>
 
-            <!-- VIEW 2: Interactive ECharts Time Series -->
-            <div v-show="activeViewMode === 'chart_timeseries'" class="flex flex-col gap-4">
-                <!-- Chart Controls Panel -->
-                <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex flex-wrap items-center justify-between gap-4 backdrop-blur-md">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <div class="flex items-center gap-2">
-                            <label class="text-xs font-medium text-slate-400">選擇站點:</label>
-                            <select v-model="chartStation" @change="renderECharts" 
-                                class="bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2 border border-slate-700 focus:outline-none focus:border-emerald-500 font-medium">
-                                <optgroup label="全澳陸地標準氣象站">
-                                    <option v-for="st in landStations" :key="st" :value="st">{{ st }}</option>
-                                </optgroup>
-                                <optgroup label="跨海大橋風速氣象站">
-                                    <option v-for="st in bridgeStations" :key="st" :value="st">{{ st }} (僅風速)</option>
-                                </optgroup>
-                            </select>
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <label class="text-xs font-medium text-slate-400">分析要素:</label>
-                            <div class="flex p-0.5 bg-slate-800 rounded-xl border border-slate-700">
-                                <button v-for="m in chartMetrics" :key="m.id" 
-                                    :disabled="isBridge(chartStation) && m.id !== 'wind_speed'"
-                                    @click="chartMetric = m.id; renderECharts();"
-                                    :class="['px-2.5 py-1.5 rounded-lg text-xs font-medium transition',
-                                        chartMetric === m.id ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-400 hover:text-slate-200',
-                                        (isBridge(chartStation) && m.id !== 'wind_speed') ? 'opacity-30 cursor-not-allowed' : '']">
-                                    {{ m.label }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <button @click="toggleBridgeCompare" :class="['px-3 py-1.5 rounded-xl text-xs font-medium border transition flex items-center gap-1.5',
-                            isBridgeCompareActive ? 'bg-sky-600/20 border-sky-500 text-sky-300' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700']">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                            <span>{{ isBridgeCompareActive ? '關閉跨海大橋對比' : '跨海三大橋風速同屏比對' }}</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- ECharts Container -->
-                <div class="rounded-2xl p-5 bg-slate-900/60 border border-slate-800/80 shadow-2xl relative">
-                    <div id="echarts-timeseries" class="w-full h-[520px]"></div>
-                </div>
-            </div>
-
-            <!-- VIEW 3: Data Matrix Table (All Stations) -->
-            <div v-show="activeViewMode === 'table_matrix'" class="rounded-2xl overflow-hidden bg-slate-900/60 border border-slate-800/80 shadow-2xl">
+            <!-- VIEW 2: Data Matrix Table (All Stations) -->
+            <div v-show="activeViewMode === 'table'" class="rounded-2xl overflow-hidden bg-slate-900/60 border border-slate-800 shadow-2xl">
                 <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-900/90">
                     <div>
-                        <h3 class="text-base font-bold text-white flex items-center gap-2">
-                            <span>全澳 17 站點綜合氣象觀測要素矩陣</span>
-                        </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">點擊各列標題可進行升降序排列，支援大橋風力安全監測標註。</p>
+                        <h3 class="text-base font-bold text-white">澳門 17 處氣象站點全要素實況矩陣</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">數據源：澳門地球物理氣象局 (SMG) 實時觀測網</p>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <input type="text" v-model="tableSearchQuery" placeholder="搜尋站點名稱..." class="bg-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none focus:border-emerald-500 w-40 sm:w-52" />
+                    <div>
+                        <input type="text" v-model="tableSearchQuery" placeholder="搜尋站點..." class="bg-slate-800 text-xs text-slate-200 rounded-lg px-3 py-1.5 border border-slate-700 focus:outline-none focus:border-emerald-500 w-44" />
                     </div>
                 </div>
 
@@ -439,12 +359,12 @@
                             <tr>
                                 <th class="py-3 px-4">站點名稱</th>
                                 <th class="py-3 px-4 cursor-pointer hover:text-white" @click="sortTable('temp_now')">現時氣溫 ({{ tableSortKey === 'temp_now' ? (tableSortAsc ? '▲' : '▼') : '↕' }})</th>
-                                <th class="py-3 px-4">最高 / 最低溫</th>
+                                <th class="py-3 px-4">今日溫差 (最高/最低)</th>
                                 <th class="py-3 px-4 cursor-pointer hover:text-white" @click="sortTable('humidity')">相對濕度</th>
                                 <th class="py-3 px-4 cursor-pointer hover:text-white" @click="sortTable('wind_speed')">風速 / 陣風</th>
-                                <th class="py-3 px-4">盛行風向</th>
-                                <th class="py-3 px-4 cursor-pointer hover:text-white" @click="sortTable('rain_d')">今日降水 (1h / 累計)</th>
-                                <th class="py-3 px-4 text-right">操作</th>
+                                <th class="py-3 px-4">風向</th>
+                                <th class="py-3 px-4 cursor-pointer hover:text-white" @click="sortTable('rain_d')">降水 (1小時 / 累計)</th>
+                                <th class="py-3 px-4 text-right">定位</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/60">
@@ -456,29 +376,29 @@
                                     <span v-if="isBridge(st.name)" class="text-[10px] px-1.5 py-0.5 rounded bg-sky-900/60 text-sky-300 border border-sky-800">跨海橋</span>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono-num">
-                                    <span v-if="st.temp_now !== null" class="font-bold text-sm" :style="{ color: getTempColor(st.temp_now) }">
+                                    <span v-if="st.temp_now !== null && st.temp_now !== undefined" class="font-bold text-sm" :style="{ color: getTempColor(st.temp_now) }">
                                         {{ st.temp_now }}°C
                                     </span>
                                     <span v-else class="text-slate-600">-</span>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono-num text-slate-400">
-                                    <span v-if="st.temp_max !== null">高 {{ st.temp_max }}° / 低 {{ st.temp_min }}°</span>
+                                    <span v-if="st.temp_max !== null && st.temp_max !== undefined">高 {{ st.temp_max }}° / 低 {{ st.temp_min }}°</span>
                                     <span v-else class="text-slate-600">-</span>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono-num">
-                                    <span v-if="st.humidity !== null" class="text-sky-300 font-semibold">{{ st.humidity }}%</span>
+                                    <span v-if="st.humidity !== null && st.humidity !== undefined" class="text-sky-300 font-semibold">{{ st.humidity }}%</span>
                                     <span v-else class="text-slate-600">-</span>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono-num">
                                     <div class="flex items-center gap-1.5">
-                                        <span class="font-bold" :class="st.wind_speed >= 40 ? 'text-amber-400' : 'text-slate-200'">{{ st.wind_speed ?? '-' }}</span>
+                                        <span class="font-bold" :class="st.wind_speed >= 41 ? 'text-amber-400' : 'text-slate-200'">{{ st.wind_speed ?? '-' }}</span>
                                         <span class="text-slate-500">/</span>
-                                        <span class="font-bold" :class="st.gust_speed >= 60 ? 'text-rose-400' : 'text-slate-400'">{{ st.gust_speed ?? '-' }}</span>
+                                        <span class="font-bold" :class="st.gust_speed >= 63 ? 'text-rose-400' : 'text-slate-400'">{{ st.gust_speed ?? '-' }}</span>
                                         <span class="text-[10px] text-slate-500">km/h</span>
                                     </div>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono-num">
-                                    <div class="flex items-center gap-1.5 text-slate-300">
+                                    <div class="flex items-center gap-1 text-slate-300">
                                         <svg class="w-3.5 h-3.5 text-emerald-400" :style="{ transform: `rotate(${getWindDegree(st.wind_dir)}deg)` }" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
                                         </svg>
@@ -486,14 +406,12 @@
                                     </div>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono-num">
-                                    <div class="text-slate-300">
-                                        <span :class="st.rain_h > 0 ? 'text-blue-400 font-bold' : 'text-slate-400'">{{ st.rain_h ?? 0 }} mm</span>
-                                        <span class="text-slate-500 text-[10px]"> / 日累計: {{ st.rain_d ?? 0 }} mm</span>
-                                    </div>
+                                    <span :class="st.rain_h > 0 ? 'text-blue-400 font-bold' : 'text-slate-400'">{{ st.rain_h ?? 0 }} mm</span>
+                                    <span class="text-slate-500 text-[10px]"> / 累計 {{ st.rain_d ?? 0 }} mm</span>
                                 </td>
                                 <td class="py-3.5 px-4 text-right">
                                     <button @click="viewStationInMap(st.name)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-400 transition text-[11px] font-medium border border-slate-700">
-                                        在地圖定位
+                                        查看
                                     </button>
                                 </td>
                             </tr>
@@ -502,205 +420,123 @@
                 </div>
             </div>
 
-            <!-- VIEW 4: Static Renderings Inspector (Backward compatible with Matplotlib generation) -->
-            <div v-show="activeViewMode === 'static_renderings'" class="rounded-2xl p-6 bg-slate-900/60 border border-slate-800/80 shadow-2xl flex flex-col items-center">
-                <div class="w-full max-w-4xl flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
-                    <div>
-                        <h3 class="text-base font-bold text-white flex items-center gap-2">
-                            <span>🖼️ 官方後端熱力渲染圖 (Matplotlib Engine)</span>
-                        </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">向下相容原始 `./static/images/` 產出之 GIS 離線渲染底圖。</p>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <select v-model="staticImageKey" class="bg-slate-800 text-slate-100 text-xs rounded-xl px-3 py-2 border border-slate-700">
-                            <option value="temp_now">現時氣溫分佈圖 (temp_now.png)</option>
-                            <option value="temp_max">最高氣溫分佈圖 (temp_max.png)</option>
-                            <option value="temp_min">最低氣溫分佈圖 (temp_min.png)</option>
-                            <option value="humidity">相對濕度分佈圖 (humidity.png)</option>
-                            <option value="rain_h">一小時降水圖 (rain_h.png)</option>
-                            <option value="rain_d">今日累計降水圖 (rain_d.png)</option>
-                            <option value="wind_speed">實時風速分佈圖 (wind_speed.png)</option>
-                            <option value="gust_speed">陣風分佈圖 (gust_speed.png)</option>
-                            <option value="wind_dir">盛行風向分佈圖 (wind_dir.png)</option>
-                        </select>
-                        <a :href="getStaticImgUrl()" target="_blank" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
-                            另開原圖
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Image Frame -->
-                <div class="relative w-full max-w-3xl min-h-[500px] flex items-center justify-center rounded-xl bg-slate-950 p-4 border border-slate-800/80">
-                    <img :src="getStaticImgUrl()" 
-                         @error="onStaticImgError" 
-                         @load="isStaticImgLoading = false"
-                         class="max-w-full max-h-[700px] object-contain rounded-lg shadow-xl" 
-                         alt="澳門氣象圖" />
-                    
-                    <div v-if="isStaticImgLoading" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center text-xs text-emerald-400">
-                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
-                        正在檢索圖像...
-                    </div>
-                    
-                    <div v-if="staticImgError" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center">
-                        <div class="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3 text-xl">ℹ️</div>
-                        <h4 class="text-sm font-bold text-slate-200 mb-1">未檢測到本機 static/images 緩存</h4>
-                        <p class="text-xs text-slate-400 max-w-md mb-4">當前處於瀏覽器前端獨立運行模式。請使用「🗺️ 交互式即時地圖」或「📈 站點時序趨勢」即可獲得即時 SVG/Canvas 渲染。</p>
-                        <button @click="activeViewMode = 'interactive_map'" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold">切換至即時向量地圖</button>
-                    </div>
-                </div>
-            </div>
-
         </main>
 
         <!-- Footer -->
-        <footer class="border-t border-slate-900 bg-slate-950/80 px-4 lg:px-8 py-5 mt-auto text-xs text-slate-500">
+        <footer class="border-t border-slate-900 bg-slate-950/80 px-4 lg:px-8 py-4 mt-auto text-xs text-slate-500">
             <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>澳門氣象中心實時環境監測 (Macau SMG API Stream)</span>
+                    <span>澳門氣象中心實時平台 · 純前端無服務器依賴架構</span>
                 </div>
-                <div class="flex items-center gap-4 text-[11px]">
-                    <span>坐標系統: WGS84</span>
-                    <span>更新頻率: 每 5 分鐘</span>
-                    <span>支援響應式觸控</span>
+                <div class="flex items-center gap-3 text-[11px]">
+                    <span>底圖: CARTO Voyager GL</span>
+                    <span>更新源: SMG XML API</span>
                 </div>
             </div>
         </footer>
     </div>
 
-    <!-- Application Logic -->
+    <!-- Application Script -->
     <script>
-        const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+        const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
         createApp({
             setup() {
-                // View Mode
                 const viewModes = [
-                    { id: 'interactive_map', name: '交互即時地圖', icon: '🗺️' },
-                    { id: 'chart_timeseries', name: '站點時序趨勢', icon: '📈' },
-                    { id: 'table_matrix', name: '全站要素矩陣', icon: '📋' },
-                    { id: 'static_renderings', name: '原版靜態圖譜', icon: '🖼️' },
+                    { id: 'map', name: '向量地圖', icon: '🗺️' },
+                    { id: 'table', name: '全站矩陣', icon: '📋' }
                 ];
-                const activeViewMode = ref('interactive_map');
+                const activeViewMode = ref('map');
 
-                // Available Metrics
                 const metrics = [
                     { id: 'temp_now', label: '現時氣溫', icon: '🌡️', unit: '°C' },
                     { id: 'temp_max', label: '今日最高', icon: '🔥', unit: '°C' },
                     { id: 'temp_min', label: '今日最低', icon: '❄️', unit: '°C' },
                     { id: 'humidity', label: '相對濕度', icon: '💧', unit: '%' },
-                    { id: 'rain_h', label: '一小時降雨', icon: '🌧️', unit: 'mm' },
+                    { id: 'rain_h', label: '1小時降雨', icon: '🌧️', unit: 'mm' },
                     { id: 'rain_d', label: '今日累計雨量', icon: '☔', unit: 'mm' },
                     { id: 'wind_speed', label: '實時風速', icon: '🌬️', unit: 'km/h' },
                     { id: 'gust_speed', label: '陣風風速', icon: '💨', unit: 'km/h' },
-                    { id: 'wind_dir', label: '盛行風向', icon: '🧭', unit: '' },
+                    { id: 'wind_dir', label: '風向分佈', icon: '🧭', unit: '' }
                 ];
                 const activeMetric = ref('temp_now');
 
-                // Stations coordinates (Precise coordinates for Macau Peninsula, Islands, Bridges)
+                // Stations coordinates (EPSG:4326)
                 const STATION_COORDS = {
-                    "紀念孫中山公園": { lat: 22.216088, lon: 113.544967, region: "澳門半島" },
-                    "黑沙環": { lat: 22.207104, lon: 113.560261, region: "澳門半島" },
-                    "大炮臺": { lat: 22.196739, lon: 113.542226, region: "澳門半島" },
-                    "外港碼頭": { lat: 22.196783, lon: 113.558233, region: "澳門半島" },
-                    "媽閣": { lat: 22.185970, lon: 113.530564, region: "澳門半島" },
-                    "大潭山": { lat: 22.158936, lon: 113.568968, region: "氹仔" },
-                    "東亞運大馬路": { lat: 22.155145, lon: 113.542488, region: "氹仔" },
-                    "澳門大學": { lat: 22.131157, lon: 113.546909, region: "橫琴校區" },
-                    "九澳": { lat: 22.134651, lon: 113.580201, region: "路環" },
-                    "路環": { lat: 22.117241, lon: 113.551101, region: "路環" },
-                    "友誼大橋北": { lat: 22.190346, lon: 113.563335, region: "跨海大橋" },
-                    "友誼大橋南": { lat: 22.180513, lon: 113.563346, region: "跨海大橋" },
-                    "澳門大橋北": { lat: 22.188002, lon: 113.573184, region: "跨海大橋" },
-                    "澳門大橋南": { lat: 22.173380, lon: 113.573100, region: "跨海大橋" },
-                    "嘉樂庇總督大橋": { lat: 22.179965, lon: 113.545396, region: "跨海大橋" },
-                    "西灣大橋": { lat: 22.175653, lon: 113.534625, region: "跨海大橋" },
-                    "蓮花大橋": { lat: 22.139996, lon: 113.549312, region: "跨海大橋" }
+                    "紀念孫中山公園": { lat: 22.216088, lon: 113.544967 },
+                    "黑沙環": { lat: 22.207104, lon: 113.560261 },
+                    "大炮臺": { lat: 22.196739, lon: 113.542226 },
+                    "外港碼頭": { lat: 22.196783, lon: 113.558233 },
+                    "媽閣": { lat: 22.185970, lon: 113.530564 },
+                    "大潭山": { lat: 22.158936, lon: 113.568968 },
+                    "東亞運大馬路": { lat: 22.155145, lon: 113.542488 },
+                    "澳門大學": { lat: 22.131157, lon: 113.546909 },
+                    "九澳": { lat: 22.134651, lon: 113.580201 },
+                    "路環": { lat: 22.117241, lon: 113.551101 },
+                    "友誼大橋北": { lat: 22.190346, lon: 113.563335 },
+                    "友誼大橋南": { lat: 22.180513, lon: 113.563346 },
+                    "澳門大橋北": { lat: 22.188002, lon: 113.573184 },
+                    "澳門大橋南": { lat: 22.173380, lon: 113.573100 },
+                    "嘉樂庇總督大橋": { lat: 22.179965, lon: 113.545396 },
+                    "西灣大橋": { lat: 22.175653, lon: 113.534625 },
+                    "蓮花大橋": { lat: 22.139996, lon: 113.549312 }
                 };
 
                 const BRIDGE_STATIONS = ["友誼大橋北", "友誼大橋南", "澳門大橋北", "澳門大橋南", "嘉樂庇總督大橋", "西灣大橋", "蓮花大橋"];
-                const LAND_STATIONS = Object.keys(STATION_COORDS).filter(k => !BRIDGE_STATIONS.includes(k));
+                const isBridge = (name) => BRIDGE_STATIONS.includes(name);
+                const getStationCoord = (name) => STATION_COORDS[name] || { lat: 22.175, lon: 113.55 };
 
                 // State
                 const stationsData = ref({});
-                const currentTimestampStr = ref("正在同步數據...");
-                const countdown = ref(300);
+                const smgPubDate = ref('');
                 const isRefreshing = ref(false);
+                const fetchError = ref('');
+                const countdown = ref(300);
                 const selectedStationName = ref('大潭山');
-                const mapBasemap = ref('dark');
-
-                // Map & ECharts instances
-                let map = null;
-                let tileLayer = null;
-                let markersGroup = null;
-                let echartsInstance = null;
-
-                // ECharts options
-                const chartStation = ref('大潭山');
-                const chartMetric = ref('temp');
-                const isBridgeCompareActive = ref(false);
-                const chartMetrics = [
-                    { id: 'temp', label: '氣溫曲線' },
-                    { id: 'humidity', label: '濕度變化' },
-                    { id: 'wind_speed', label: '風速趨勢' },
-                    { id: 'rain', label: '降雨量' },
-                ];
 
                 // Table state
                 const tableSearchQuery = ref('');
                 const tableSortKey = ref('temp_now');
                 const tableSortAsc = ref(false);
 
-                // Static renderings
-                const staticImageKey = ref('temp_now');
-                const isStaticImgLoading = ref(false);
-                const staticImgError = ref(false);
+                // MapLibre instance & markers
+                let mapInstance = null;
+                let activeMarkers = [];
 
-                // Helper: Is Bridge Station
-                const isBridge = (name) => BRIDGE_STATIONS.includes(name);
-
-                // Coordinates lookup
-                const getStationCoord = (name) => STATION_COORDS[name] || { lat: 22.18, lon: 113.55 };
-
-                // Get single metric value
                 const getStationVal = (name, metricKey) => {
-                    if (!stationsData.value[name]) return null;
-                    return stationsData.value[name][metricKey] ?? null;
+                    return stationsData.value[name]?.[metricKey] ?? null;
                 };
 
-                // Format values with fallback
                 const formatVal = (val, unit = '') => {
                     if (val === null || val === undefined || isNaN(val)) return '-';
                     return `${val}${unit ? ' ' + unit : ''}`;
                 };
 
-                // Degrees for wind direction
                 const getWindDegree = (dirStr) => {
                     if (!dirStr) return 0;
-                    const dir = String(dirStr).toUpperCase().trim();
                     const map = {
                         'N': 0, 'NNE': 22.5, 'NE': 45, 'ENE': 67.5,
                         'E': 90, 'ESE': 112.5, 'SE': 135, 'SSE': 157.5,
                         'S': 180, 'SSW': 202.5, 'SW': 225, 'WSW': 247.5,
                         'W': 270, 'WNW': 292.5, 'NW': 315, 'NNW': 337.5
                     };
-                    return map[dir] !== undefined ? map[dir] : (parseFloat(dir) || 0);
+                    const d = String(dirStr).toUpperCase().trim();
+                    return map[d] !== undefined ? map[d] : (parseFloat(d) || 0);
                 };
 
-                // Color functions matching SMG standards
+                // SMG Official Thresholds
                 const getTempColor = (t) => {
                     if (t === null || t === undefined) return '#94a3b8';
-                    if (t >= 36) return '#ef4444'; // 極端酷熱
-                    if (t >= 32.5) return '#f97316'; // 酷熱
-                    if (t >= 28) return '#f59e0b'; // 炎熱
-                    if (t >= 23) return '#fbbf24'; // 溫暖
-                    if (t >= 18) return '#84cc16'; // 和暖
-                    if (t >= 12.5) return '#10b981'; // 清涼
-                    if (t >= 8) return '#06b6d4'; // 寒冷
-                    if (t >= 5) return '#3b82f6'; // 嚴寒
-                    return '#a855f7'; // 極端嚴寒
+                    if (t >= 36) return '#ef4444';
+                    if (t >= 32.5) return '#f97316';
+                    if (t >= 28) return '#f59e0b';
+                    if (t >= 23) return '#fbbf24';
+                    if (t >= 18) return '#84cc16';
+                    if (t >= 12.5) return '#10b981';
+                    if (t >= 8) return '#06b6d4';
+                    if (t >= 5) return '#3b82f6';
+                    return '#a855f7';
                 };
 
                 const getHumidityColor = (h) => {
@@ -712,17 +548,8 @@
                     return '#c084fc';
                 };
 
-                const getHumidityState = (h) => {
-                    if (h === null || h === undefined) return '-';
-                    if (h <= 30) return '極為乾燥';
-                    if (h <= 50) return '乾燥';
-                    if (h <= 85) return '舒適濕潤';
-                    if (h <= 95) return '潮濕';
-                    return '極為潮濕';
-                };
-
                 const getRainColor = (r) => {
-                    if (!r || r === 0) return '#64748b';
+                    if (r === null || r === undefined || r === 0) return '#64748b';
                     if (r < 20) return '#38bdf8';
                     if (r < 50) return '#facc15';
                     if (r < 70) return '#fb923c';
@@ -743,25 +570,23 @@
                     return metrics.find(m => m.id === activeMetric.value) || metrics[0];
                 });
 
-                // Compute Color and Text for any metric
                 const getMetricVisuals = (stName, metricKey) => {
                     const val = getStationVal(stName, metricKey);
                     if (metricKey.startsWith('temp')) {
                         return { color: getTempColor(val), text: val !== null ? `${val}°` : '-' };
                     } else if (metricKey === 'humidity') {
                         return { color: getHumidityColor(val), text: val !== null ? `${val}%` : '-' };
-                    } else if (metricKey === 'rain_h' || metricKey === 'rain_d') {
+                    } else if (metricKey.startsWith('rain')) {
                         return { color: getRainColor(val), text: val !== null ? `${val}` : '-' };
-                    } else if (metricKey === 'wind_speed' || metricKey === 'gust_speed') {
+                    } else if (metricKey.includes('wind') || metricKey.includes('gust')) {
+                        if (metricKey === 'wind_dir') {
+                            return { color: '#38bdf8', text: val || 'N' };
+                        }
                         return { color: getWindColor(val), text: val !== null ? `${val}` : '-' };
-                    } else if (metricKey === 'wind_dir') {
-                        const dir = getStationVal(stName, 'wind_dir') || 'N';
-                        return { color: '#38bdf8', text: dir };
                     }
                     return { color: '#10b981', text: String(val ?? '-') };
                 };
 
-                // Legends definition per metric
                 const currentLegend = computed(() => {
                     const m = activeMetric.value;
                     if (m.startsWith('temp')) {
@@ -775,10 +600,10 @@
                         ];
                     } else if (m === 'humidity') {
                         return [
-                            { label: '≤30% 乾', color: '#f59e0b' },
-                            { label: '30-50% 燥', color: '#fbbf24' },
-                            { label: '50-85% 宜', color: '#10b981' },
-                            { label: '85-95% 潮', color: '#38bdf8' },
+                            { label: '≤30% 極乾', color: '#f59e0b' },
+                            { label: '30-50% 乾燥', color: '#fbbf24' },
+                            { label: '50-85% 宜人', color: '#10b981' },
+                            { label: '85-95% 潮濕', color: '#38bdf8' },
                             { label: '>95% 極濕', color: '#c084fc' }
                         ];
                     } else if (m.startsWith('rain')) {
@@ -800,94 +625,67 @@
                     }
                 });
 
-                // Global Stats
                 const maxBridgeGust = computed(() => {
-                    let maxVal = 0;
-                    for (const st of BRIDGE_STATIONS) {
-                        const g = getStationVal(st, 'gust_speed') || getStationVal(st, 'wind_speed') || 0;
-                        if (g > maxVal) maxVal = g;
+                    let maxG = 0;
+                    for (const b of BRIDGE_STATIONS) {
+                        const g = getStationVal(b, 'gust_speed') || getStationVal(b, 'wind_speed') || 0;
+                        if (g > maxG) maxG = g;
                     }
-                    return maxVal;
+                    return maxG;
                 });
 
                 const avgHumidity = computed(() => {
-                    let sum = 0, count = 0;
-                    for (const st of LAND_STATIONS) {
-                        const h = getStationVal(st, 'humidity');
-                        if (h !== null) { sum += h; count++; }
+                    let total = 0, count = 0;
+                    for (const k of Object.keys(STATION_COORDS)) {
+                        if (!isBridge(k)) {
+                            const h = getStationVal(k, 'humidity');
+                            if (h !== null && !isNaN(h)) { total += h; count++; }
+                        }
                     }
-                    return count > 0 ? Math.round(sum / count) : 78;
+                    return count > 0 ? Math.round(total / count) : null;
                 });
 
-                // Bridge safety alert
-                const bridgeAlert = computed(() => {
+                const bridgeGaleAlert = computed(() => {
                     for (const b of BRIDGE_STATIONS) {
                         const gust = getStationVal(b, 'gust_speed');
                         if (gust && gust >= 55) {
-                            return {
-                                station: b,
-                                gust: gust,
-                                level: gust >= 63 ? '7' : '6'
-                            };
+                            return { station: b, gust: gust, level: gust >= 63 ? '7' : '6' };
                         }
                     }
                     return null;
                 });
 
-                // Station Sorting List for Leaderboard
                 const sortedStationList = computed(() => {
                     const list = Object.keys(STATION_COORDS).map(name => {
-                        const st = stationsData.value[name] || {};
-                        const val = st[activeMetric.value];
+                        const val = getStationVal(name, activeMetric.value);
                         const vis = getMetricVisuals(name, activeMetric.value);
-
-                        let sub = '';
-                        if (activeMetric.value.startsWith('temp')) {
-                            sub = `濕度: ${st.humidity ?? '-'}% · 風速: ${st.wind_speed ?? '-'}km/h`;
-                        } else if (activeMetric.value === 'humidity') {
-                            sub = `氣溫: ${st.temp_now ?? '-'}°C`;
-                        } else if (activeMetric.value.startsWith('wind') || activeMetric.value === 'gust_speed') {
-                            sub = `風向: ${st.wind_dir ?? '-'} · 氣溫: ${st.temp_now ?? '-'}°C`;
-                        } else {
-                            sub = `一小時雨量: ${st.rain_h ?? 0}mm`;
-                        }
-
                         return {
                             name,
                             rawVal: (val === null || val === undefined) ? -999 : val,
                             displayVal: vis.text,
-                            metricColor: vis.color,
-                            subInfo: sub
+                            metricColor: vis.color
                         };
                     });
-
                     return list.sort((a, b) => b.rawVal - a.rawVal);
                 });
 
-                // Table Filtering and Sorting
                 const filteredTableStations = computed(() => {
-                    let items = Object.keys(STATION_COORDS).map(name => {
-                        const st = stationsData.value[name] || {};
-                        return {
-                            name,
-                            ...st
-                        };
-                    });
-
+                    let list = Object.keys(STATION_COORDS).map(name => ({
+                        name,
+                        ...(stationsData.value[name] || {})
+                    }));
                     if (tableSearchQuery.value.trim()) {
                         const q = tableSearchQuery.value.toLowerCase().trim();
-                        items = items.filter(i => i.name.toLowerCase().includes(q));
+                        list = list.filter(i => i.name.toLowerCase().includes(q));
                     }
-
-                    items.sort((a, b) => {
+                    list.sort((a, b) => {
                         let va = a[tableSortKey.value];
                         let vb = b[tableSortKey.value];
                         if (va === null || va === undefined) va = -9999;
                         if (vb === null || vb === undefined) vb = -9999;
                         return tableSortAsc.value ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
                     });
-
-                    return items;
+                    return list;
                 });
 
                 const sortTable = (key) => {
@@ -899,112 +697,251 @@
                     }
                 };
 
-                // Initialize Leaflet Map
-                const initMap = () => {
-                    const container = document.getElementById('macau-leaflet-map');
-                    if (!container) return;
+                // Clean station name for robust XML matching
+                const cleanName = (n) => {
+                    return n.replace(/市政|氣象站|站/g, '')
+                            .replace(/纪/g, '紀').replace(/孙/g, '孫').replace(/园/g, '園')
+                            .replace(/台/g, '臺').replace(/妈/g, '媽').replace(/阁/g, '閣')
+                            .replace(/东/g, '東').replace(/运/g, '運').replace(/学/g, '學')
+                            .replace(/莲/g, '蓮').replace(/桥/g, '橋')
+                            .trim();
+                };
 
-                    // Macau center point
-                    map = L.map(container, {
-                        center: [22.175, 113.555],
-                        zoom: 12.8,
-                        minZoom: 11,
-                        maxZoom: 17,
-                        zoomControl: false,
-                        attributionControl: false
-                    });
+                // Live SMG Data Fetcher (NO Mocking)
+                const fetchSMGData = async () => {
+                    if (isRefreshing.value) return;
+                    isRefreshing.value = true;
+                    fetchError.value = '';
 
-                    // Zoom control on bottom right
-                    L.control.zoom({ position: 'bottomright' }).addTo(map);
+                    const smgUrl = 'https://xml.smg.gov.mo/c_actualweather.xml';
+                    const proxyEndpoints = [
+                        `https://api.allorigins.win/raw?url=${encodeURIComponent(smgUrl)}`,
+                        `https://corsproxy.io/?url=${encodeURIComponent(smgUrl)}`,
+                        smgUrl // direct try (if browser allows or same-origin)
+                    ];
 
-                    // Tile Layer (CartoDB Dark Matter / Positron)
-                    setMapBasemap('dark');
+                    let xmlText = null;
+                    for (const endpoint of proxyEndpoints) {
+                        try {
+                            const res = await fetch(endpoint, { cache: 'no-store' });
+                            if (res.ok) {
+                                const text = await res.text();
+                                if (text && text.includes('<WeatherReport>')) {
+                                    xmlText = text;
+                                    break;
+                                }
+                            }
+                        } catch (e) {
+                            // Try next endpoint
+                        }
+                    }
 
-                    // Station Markers layer group
-                    markersGroup = L.layerGroup().addTo(map);
+                    if (!xmlText) {
+                        fetchError.value = '無法直接連接澳門氣象局 XML 實時接口，請檢查網絡連線或代理狀態。';
+                        isRefreshing.value = false;
+                        return;
+                    }
+
+                    try {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+                        // Check publication date
+                        const pubNode = xmlDoc.querySelector('SysPubDate');
+                        if (pubNode && pubNode.textContent) {
+                            smgPubDate.value = pubNode.textContent.trim();
+                        } else {
+                            smgPubDate.value = new Date().toLocaleTimeString('zh-TW');
+                        }
+
+                        const parsedStations = {};
+                        const stationNodes = xmlDoc.querySelectorAll('WeatherReport station');
+
+                        const getVal = (el, tagName) => {
+                            const node = el.querySelector(tagName);
+                            if (!node) return null;
+                            const valNode = node.querySelector('dValue') || node.querySelector('Value') || node;
+                            const num = parseFloat(valNode.textContent);
+                            return isNaN(num) ? null : num;
+                        };
+
+                        stationNodes.forEach(st => {
+                            const nameEl = st.querySelector('stationname');
+                            if (!nameEl) return;
+                            const rawName = cleanName(nameEl.textContent);
+
+                            // Match key in STATION_COORDS
+                            const matchedKey = Object.keys(STATION_COORDS).find(k => {
+                                const cK = cleanName(k);
+                                return cK.includes(rawName) || rawName.includes(cK);
+                            });
+
+                            if (!matchedKey) return;
+
+                            // Parse rain
+                            let hRain = 0, dRain = 0;
+                            st.querySelectorAll('Rainfall').forEach(r => {
+                                const type = r.querySelector('Type')?.textContent?.trim();
+                                const valNode = r.querySelector('dValue') || r.querySelector('Value') || r;
+                                const val = parseFloat(valNode?.textContent);
+                                if (!isNaN(val)) {
+                                    if (type === '4') hRain = val;
+                                    if (type === '5') dRain = val;
+                                }
+                            });
+
+                            // Wind direction
+                            let windDir = '-';
+                            const dirNode = st.querySelector('direction') || st.querySelector('dir');
+                            if (dirNode && dirNode.textContent.trim()) {
+                                windDir = dirNode.textContent.trim().toUpperCase();
+                            } else {
+                                const dValNode = st.querySelector('direction Value, dir Value');
+                                if (dValNode && dValNode.textContent.trim()) {
+                                    windDir = dValNode.textContent.trim().toUpperCase();
+                                }
+                            }
+
+                            parsedStations[matchedKey] = {
+                                temp_now: getVal(st, 'Temperature'),
+                                temp_max: getVal(st, 'Temperature_daily_max'),
+                                temp_min: getVal(st, 'Temperature_daily_min'),
+                                humidity: getVal(st, 'Humidity'),
+                                wind_speed: getVal(st, 'windspeed') ?? getVal(st, 'wind'),
+                                gust_speed: getVal(st, 'windgust') ?? getVal(st, 'gust'),
+                                wind_dir: windDir,
+                                rain_h: hRain,
+                                rain_d: dRain
+                            };
+                        });
+
+                        stationsData.value = parsedStations;
+                        countdown.value = 300;
+                        renderMapMarkers();
+                    } catch (err) {
+                        fetchError.value = '解析 SMG 氣象 XML 數據格式時發生異常。';
+                    } finally {
+                        isRefreshing.value = false;
+                    }
+                };
+
+                // Initialize MapLibre GL JS with CARTO Voyager Vector Tile Style
+                const initMapLibre = () => {
+                    const vectorStyleUrl = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json?key=cb1_3qmi_1_45938f30a02f173617e8c464';
+
+                    try {
+                        mapInstance = new maplibregl.Map({
+                            container: 'maplibre-macau',
+                            style: vectorStyleUrl,
+                            center: [113.553, 22.172], // Macau center [lon, lat]
+                            zoom: 12.3,
+                            minZoom: 11,
+                            maxZoom: 18,
+                            attributionControl: false
+                        });
+
+                        mapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+
+                        mapInstance.on('load', () => {
+                            renderMapMarkers();
+                        });
+
+                        // Fallback to CARTO Voyager Raster Tiles if vector fails
+                        mapInstance.on('error', (e) => {
+                            if (e && e.error && e.error.message && e.error.message.includes('style')) {
+                                mapInstance.setStyle({
+                                    version: 8,
+                                    sources: {
+                                        'carto-raster': {
+                                            type: 'raster',
+                                            tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3qmi_1_45938f30a02f173617e8c464'],
+                                            tileSize: 256
+                                        }
+                                    },
+                                    layers: [{
+                                        id: 'carto-raster-layer',
+                                        type: 'raster',
+                                        source: 'carto-raster'
+                                    }]
+                                });
+                            }
+                        });
+                    } catch (e) {
+                        console.error('MapLibre init error', e);
+                    }
+                };
+
+                const resetMapZoom = () => {
+                    if (mapInstance) {
+                        mapInstance.flyTo({ center: [113.553, 22.172], zoom: 12.3, duration: 1000 });
+                    }
+                };
+
+                const focusStation = (name) => {
+                    selectedStationName.value = name;
+                    const coord = getStationCoord(name);
+                    if (mapInstance) {
+                        mapInstance.flyTo({ center: [coord.lon, coord.lat], zoom: 14.5, duration: 800 });
+                    }
                     renderMapMarkers();
                 };
 
-                const setMapBasemap = (mode) => {
-                    mapBasemap.value = mode;
-                    if (tileLayer) {
-                        map.removeLayer(tileLayer);
-                    }
-                    const url = mode === 'dark' 
-                        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
-                    tileLayer = L.tileLayer(url, {
-                        subdomains: 'abcd',
-                        maxZoom: 19
-                    }).addTo(map);
+                const viewStationInMap = (name) => {
+                    activeViewMode.value = 'map';
+                    nextTick(() => {
+                        focusStation(name);
+                    });
                 };
 
-                const toggleMapLayer = (mode) => setMapBasemap(mode);
-
-                const resetMapZoom = () => {
-                    if (map) map.flyTo([22.175, 113.555], 12.8, { duration: 1 });
+                const selectMetric = (mId) => {
+                    activeMetric.value = mId;
+                    renderMapMarkers();
                 };
 
-                // Render Map Markers dynamically
+                // Render HTML Badges as MapLibre Markers
                 const renderMapMarkers = () => {
-                    if (!markersGroup) return;
-                    markersGroup.clearLayers();
+                    if (!mapInstance) return;
+
+                    // Remove existing markers
+                    activeMarkers.forEach(m => m.remove());
+                    activeMarkers = [];
 
                     Object.keys(STATION_COORDS).forEach(name => {
                         const coord = STATION_COORDS[name];
                         const vis = getMetricVisuals(name, activeMetric.value);
-                        const isBridgeSt = isBridge(name);
-                        const isCurrentActive = selectedStationName.value === name;
-                        const windDir = getStationVal(name, 'wind_dir');
-                        const windAngle = getWindDegree(windDir);
+                        const isCurrent = selectedStationName.value === name;
+                        const stData = stationsData.value[name] || {};
+                        const windAngle = getWindDegree(stData.wind_dir);
 
-                        // Custom HTML DivIcon
-                        const htmlContent = `
-                            <div class="station-marker-pin relative flex flex-col items-center cursor-pointer group" style="transform-origin: center bottom;">
-                                <!-- Pulse ring if selected -->
-                                ${isCurrentActive ? `<span class="pulse-ring absolute -inset-2 rounded-full border-2 border-emerald-400"></span>` : ''}
-                                
-                                <!-- Station Badge -->
-                                <div class="px-2 py-1 rounded-lg shadow-xl flex items-center gap-1.5 backdrop-blur-md border transition-transform" 
-                                    style="background-color: ${vis.color}22; border-color: ${vis.color}; box-shadow: 0 4px 14px ${vis.color}44;">
-                                    ${activeMetric.value === 'wind_dir' ? `
-                                        <svg class="w-3.5 h-3.5 text-white" style="transform: rotate(${windAngle}deg)" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
-                                        </svg>
-                                    ` : ''}
-                                    <span class="font-mono-num font-bold text-xs" style="color: ${vis.color}; text-shadow: 0 0 4px rgba(0,0,0,0.8);">${vis.text}</span>
-                                </div>
-                                
-                                <!-- Station Name Tag -->
-                                <div class="mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-200 bg-slate-900/90 border border-slate-700/80 shadow whitespace-nowrap">
-                                    ${name}
-                                </div>
-
-                                <!-- Arrow anchor pointer -->
-                                <div class="w-1.5 h-1.5 rounded-full mt-0.5" style="background-color: ${vis.color};"></div>
+                        const el = document.createElement('div');
+                        el.className = 'station-badge-marker flex flex-col items-center';
+                        el.innerHTML = `
+                            <div class="px-2 py-0.5 rounded-lg shadow-lg flex items-center gap-1 backdrop-blur-md border ${isCurrent ? 'ring-2 ring-emerald-400' : ''}"
+                                style="background-color: rgba(15, 23, 42, 0.92); border-color: ${vis.color};">
+                                ${activeMetric.value === 'wind_dir' ? `
+                                    <svg class="w-3.5 h-3.5 text-white" style="transform: rotate(${windAngle}deg)" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                                    </svg>
+                                ` : ''}
+                                <span class="font-mono-num font-bold text-xs" style="color: ${vis.color};">${vis.text}</span>
+                            </div>
+                            <div class="mt-0.5 px-1 py-0.2 rounded text-[10px] font-semibold text-slate-200 bg-slate-900/95 border border-slate-700/80 shadow whitespace-nowrap">
+                                ${name}
                             </div>
                         `;
 
-                        const customIcon = L.divIcon({
-                            html: htmlContent,
-                            className: 'custom-station-icon',
-                            iconSize: [60, 48],
-                            iconAnchor: [30, 44]
+                        el.addEventListener('click', () => {
+                            focusStation(name);
                         });
 
-                        const marker = L.marker([coord.lat, coord.lon], { icon: customIcon });
-
-                        // Popup Card
-                        const stData = stationsData.value[name] || {};
                         const popupHtml = `
-                            <div style="font-family: inherit; color: #f1f5f9; padding: 4px; min-width: 170px;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid #334155; padding-bottom:4px;">
-                                    <strong style="font-size:14px; color:#fff;">${name}</strong>
-                                    <span style="font-size:10px; padding:1px 5px; border-radius:4px; background:#10b98122; color:#34d399; font-weight:600;">${coord.region}</span>
+                            <div style="font-family: inherit;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:4px; margin-bottom:6px;">
+                                    <strong style="font-size:13px; color:#fff;">${name}</strong>
+                                    <span style="font-size:10px; color:#34d399;">${isBridge(name) ? '跨海大橋' : '陸地站'}</span>
                                 </div>
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px;">
-                                    <div>溫度: <strong style="color:#fbbf24">${stData.temp_now !== null && stData.temp_now !== undefined ? stData.temp_now + '°C' : '-'}</strong></div>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; font-family:monospace;">
+                                    <div>氣溫: <strong style="color:#fbbf24">${stData.temp_now !== null && stData.temp_now !== undefined ? stData.temp_now + '°C' : '-'}</strong></div>
                                     <div>濕度: <strong style="color:#38bdf8">${stData.humidity !== null && stData.humidity !== undefined ? stData.humidity + '%' : '-'}</strong></div>
                                     <div>風速: <strong style="color:#4ade80">${stData.wind_speed ?? '-'} km/h</strong></div>
                                     <div>陣風: <strong style="color:#f87171">${stData.gust_speed ?? '-'} km/h</strong></div>
@@ -1012,412 +949,43 @@
                             </div>
                         `;
 
-                        marker.bindPopup(popupHtml, {
-                            className: 'custom-leaflet-popup',
-                            closeButton: false,
-                            offset: [0, -40]
-                        });
+                        const popup = new maplibregl.Popup({ offset: 15, closeButton: false })
+                            .setHTML(popupHtml);
 
-                        marker.on('click', () => {
-                            selectedStationName.value = name;
-                            renderMapMarkers();
-                        });
+                        const marker = new maplibregl.Marker({ element: el })
+                            .setLngLat([coord.lon, coord.lat])
+                            .setPopup(popup)
+                            .addTo(mapInstance);
 
-                        markersGroup.addLayer(marker);
+                        activeMarkers.push(marker);
                     });
                 };
 
-                const selectMetric = (metricId) => {
-                    activeMetric.value = metricId;
-                    renderMapMarkers();
-                };
-
-                const focusStation = (name) => {
-                    selectedStationName.value = name;
-                    const coord = getStationCoord(name);
-                    if (map) {
-                        map.flyTo([coord.lat, coord.lon], 14, { duration: 0.8 });
-                    }
-                    renderMapMarkers();
-                };
-
-                const flyToStation = (name) => focusStation(name);
-
-                const selectStationFromList = (name) => {
-                    focusStation(name);
-                };
-
-                const viewStationInMap = (name) => {
-                    activeViewMode.value = 'interactive_map';
-                    nextTick(() => {
-                        focusStation(name);
-                    });
-                };
-
-                const switchToStationChart = (name) => {
-                    chartStation.value = name;
-                    activeViewMode.value = 'chart_timeseries';
-                    nextTick(() => {
-                        renderECharts();
-                    });
-                };
-
-                // Time Series Charting via Apache ECharts
-                const initECharts = () => {
-                    const el = document.getElementById('echarts-timeseries');
-                    if (!el) return;
-                    echartsInstance = echarts.init(el, 'dark', { renderer: 'canvas' });
-                    renderECharts();
-                    window.addEventListener('resize', () => echartsInstance && echartsInstance.resize());
-                };
-
-                const generateMockHistory = (stName, metricKey) => {
-                    // Generates 24-hour diurnal meteorological series anchored to live station value
-                    const hours = [];
-                    const data = [];
-                    const now = new Date();
-                    const currentHour = now.getHours();
-
-                    const currentVal = getStationVal(stName, metricKey === 'temp' ? 'temp_now' : metricKey) || (metricKey === 'temp' ? 22 : metricKey === 'humidity' ? 75 : 18);
-
-                    for (let i = 23; i >= 0; i--) {
-                        const h = (currentHour - i + 24) % 24;
-                        hours.push(`${h < 10 ? '0' + h : h}:00`);
-
-                        // Diurnal variation model
-                        let factor = 0;
-                        if (metricKey === 'temp') {
-                            factor = Math.sin(((h - 8) / 24) * 2 * Math.PI) * 3.5;
-                        } else if (metricKey === 'humidity') {
-                            factor = -Math.sin(((h - 8) / 24) * 2 * Math.PI) * 12;
-                        } else if (metricKey === 'wind_speed') {
-                            factor = Math.cos(((h - 14) / 24) * 2 * Math.PI) * 6 + (Math.random() * 4 - 2);
-                        } else {
-                            // Rain
-                            factor = (h === 13 || h === 14) ? Math.random() * 5 : 0;
-                        }
-
-                        let val = +(currentVal + factor).toFixed(1);
-                        if (metricKey === 'humidity') val = Math.min(100, Math.max(30, val));
-                        if (metricKey === 'wind_speed') val = Math.max(0, val);
-                        if (metricKey === 'rain') val = Math.max(0, val);
-                        data.push(val);
-                    }
-                    return { hours, data };
-                };
-
-                const renderECharts = () => {
-                    if (!echartsInstance) return;
-
-                    const st = chartStation.value;
-                    const metric = chartMetric.value;
-
-                    // Multi-bridge comparison mode
-                    if (isBridgeCompareActive.value) {
-                        const bridges = ["友誼大橋北", "西灣大橋", "澳門大橋南"];
-                        const timeline = generateMockHistory('大潭山', 'wind_speed').hours;
-
-                        const series = bridges.map((bName, idx) => {
-                            const colors = ['#38bdf8', '#34d399', '#f59e0b'];
-                            const hist = generateMockHistory(bName, 'wind_speed');
-                            return {
-                                name: bName,
-                                type: 'line',
-                                smooth: true,
-                                data: hist.data,
-                                lineStyle: { width: 2.5, color: colors[idx] },
-                                itemStyle: { color: colors[idx] }
-                            };
-                        });
-
-                        const option = {
-                            backgroundColor: 'transparent',
-                            title: {
-                                text: '跨海三大橋今日風速實時對比曲線 (km/h)',
-                                subtext: '友誼大橋 vs 西灣大橋 vs 澳門大橋 · 實時防風監測',
-                                textStyle: { color: '#f1f5f9', fontSize: 16, fontWeight: 700 },
-                                subtextStyle: { color: '#94a3b8', fontSize: 11 }
-                            },
-                            tooltip: { trigger: 'axis' },
-                            legend: { data: bridges, textStyle: { color: '#cbd5e1' }, top: 30 },
-                            grid: { left: '3%', right: '4%', bottom: '5%', top: '22%', containLabel: true },
-                            xAxis: { type: 'category', boundaryGap: false, data: timeline, axisLine: { lineStyle: { color: '#475569' } } },
-                            yAxis: { type: 'value', name: 'km/h', axisLine: { lineStyle: { color: '#475569' } }, splitLine: { lineStyle: { color: '#334155' } } },
-                            series: series
-                        };
-
-                        echartsInstance.setOption(option, true);
-                        return;
-                    }
-
-                    // Single station regular mode
-                    const hist = generateMockHistory(st, metric);
-                    const metricTitles = {
-                        'temp': { name: '溫度變化', unit: '°C', color: '#f59e0b', gradient: ['rgba(245, 158, 11, 0.4)', 'rgba(245, 158, 11, 0.0)'] },
-                        'humidity': { name: '相對濕度', unit: '%', color: '#06b6d4', gradient: ['rgba(6, 182, 212, 0.4)', 'rgba(6, 182, 212, 0.0)'] },
-                        'wind_speed': { name: '風速走勢', unit: 'km/h', color: '#10b981', gradient: ['rgba(16, 185, 129, 0.4)', 'rgba(16, 185, 129, 0.0)'] },
-                        'rain': { name: '降雨量', unit: 'mm', color: '#3b82f6', isBar: true }
-                    };
-                    const mInfo = metricTitles[metric] || metricTitles['temp'];
-
-                    const option = {
-                        backgroundColor: 'transparent',
-                        title: {
-                            text: `${st} - 24小時實時${mInfo.name}`,
-                            subtext: `澳門氣象中心實時時序採樣 · 更新於 ${currentTimestampStr.value}`,
-                            textStyle: { color: '#f1f5f9', fontSize: 16, fontWeight: 700 },
-                            subtextStyle: { color: '#94a3b8', fontSize: 11 }
-                        },
-                        tooltip: {
-                            trigger: 'axis',
-                            formatter: (params) => {
-                                const p = params[0];
-                                return `<div style="font-size:12px;">時間: <strong>${p.name}</strong><br/>${mInfo.name}: <strong style="color:${mInfo.color}">${p.value} ${mInfo.unit}</strong></div>`;
-                            }
-                        },
-                        grid: { left: '3%', right: '4%', bottom: '5%', top: '18%', containLabel: true },
-                        xAxis: {
-                            type: 'category',
-                            boundaryGap: mInfo.isBar ? true : false,
-                            data: hist.hours,
-                            axisLine: { lineStyle: { color: '#475569' } },
-                            axisLabel: { color: '#94a3b8' }
-                        },
-                        yAxis: {
-                            type: 'value',
-                            name: mInfo.unit,
-                            axisLine: { lineStyle: { color: '#475569' } },
-                            axisLabel: { color: '#94a3b8' },
-                            splitLine: { lineStyle: { color: '#1e293b' } }
-                        },
-                        series: [
-                            mInfo.isBar ? {
-                                name: mInfo.name,
-                                type: 'bar',
-                                data: hist.data,
-                                itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] }
-                            } : {
-                                name: mInfo.name,
-                                type: 'line',
-                                smooth: true,
-                                data: hist.data,
-                                lineStyle: { width: 3, color: mInfo.color },
-                                areaStyle: {
-                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                        { offset: 0, color: mInfo.gradient[0] },
-                                        { offset: 1, color: mInfo.gradient[1] }
-                                    ])
-                                },
-                                itemStyle: { color: mInfo.color },
-                                markPoint: {
-                                    data: [
-                                        { type: 'max', name: '最高', itemStyle: { color: '#ef4444' } },
-                                        { type: 'min', name: '最低', itemStyle: { color: '#3b82f6' } }
-                                    ]
-                                },
-                                markLine: {
-                                    data: [{ type: 'average', name: '均值' }],
-                                    lineStyle: { type: 'dashed', color: '#64748b' }
-                                }
-                            }
-                        ]
-                    };
-
-                    echartsInstance.setOption(option, true);
-                };
-
-                const toggleBridgeCompare = () => {
-                    isBridgeCompareActive.value = !isBridgeCompareActive.value;
-                    renderECharts();
-                };
-
-                // Static backend image fallback viewer
-                const getStaticImgUrl = () => {
-                    return `./static/images/${staticImageKey.value}.png?t=${Date.now()}`;
-                };
-
-                const onStaticImgError = () => {
-                    isStaticImgLoading.value = false;
-                    staticImgError.value = true;
-                };
-
-                // Live Data Fetcher & SMG Parser
-                const refreshData = async (manual = false) => {
-                    if (isRefreshing.value) return;
-                    isRefreshing.value = true;
-
-                    try {
-                        // Attempt to load official XML or local/cors proxy
-                        const res = await fetch('https://xml.smg.gov.mo/c_actualweather.xml', { cache: 'no-cache' })
-                            .then(r => r.text())
-                            .catch(() => null);
-
-                        if (res && res.includes('<WeatherReport>')) {
-                            parseSMGXml(res);
-                        } else {
-                            // High-fidelity fallback simulated Macau live readings
-                            simulateRealisticData();
-                        }
-                    } catch (err) {
-                        simulateRealisticData();
-                    } finally {
-                        currentTimestampStr.value = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                        countdown.value = 300;
-                        isRefreshing.value = false;
-                        renderMapMarkers();
-                        if (activeViewMode.value === 'chart_timeseries') {
-                            renderECharts();
-                        }
-                    }
-                };
-
-                // Parser for SMG XML format
-                const parseSMGXml = (xmlStr) => {
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(xmlStr, 'text/xml');
-                    const stations = {};
-
-                    const stationNodes = xmlDoc.querySelectorAll('station');
-                    stationNodes.forEach(st => {
-                        const nameEl = st.querySelector('stationname');
-                        if (!nameEl) return;
-                        const rawName = nameEl.textContent.trim().replace(/市政|氣象站|站/g, '');
-                        
-                        // Match with our defined list
-                        const matchedKey = Object.keys(STATION_COORDS).find(k => k.includes(rawName) || rawName.includes(k));
-                        if (!matchedKey) return;
-
-                        const parseVal = (selector) => {
-                            const node = st.querySelector(selector);
-                            if (!node) return null;
-                            const dVal = node.querySelector('dValue') || node.querySelector('Value') || node;
-                            const num = parseFloat(dVal.textContent);
-                            return isNaN(num) ? null : num;
-                        };
-
-                        // Rain handling: Type 4 = 1h, Type 5 = daily cumulative
-                        let hRain = 0, dRain = 0;
-                        st.querySelectorAll('Rainfall').forEach(r => {
-                            const type = r.querySelector('Type')?.textContent?.trim();
-                            const val = parseVal(r);
-                            if (type === '4' && val !== null) hRain = val;
-                            if (type === '5' && val !== null) dRain = val;
-                        });
-
-                        const dirEl = st.querySelector('direction') || st.querySelector('dir');
-                        const dir = dirEl ? dirEl.textContent.trim() : 'E';
-
-                        stations[matchedKey] = {
-                            temp_now: parseVal('Temperature'),
-                            temp_max: parseVal('Temperature_daily_max'),
-                            temp_min: parseVal('Temperature_daily_min'),
-                            humidity: parseVal('Humidity'),
-                            wind_speed: parseVal('windspeed') ?? parseVal('wind'),
-                            gust_speed: parseVal('windgust') ?? parseVal('gust'),
-                            wind_dir: dir,
-                            rain_h: hRain,
-                            rain_d: dRain
-                        };
-                    });
-
-                    stationsData.value = stations;
-                };
-
-                // Realistic Simulated Macau Live Data Engine
-                const simulateRealisticData = () => {
-                    const mock = {};
-                    const baseTemp = 22.4;
-                    const baseHum = 76;
-
-                    Object.keys(STATION_COORDS).forEach((name, i) => {
-                        const isB = isBridge(name);
-                        const isColoane = name.includes('路環') || name.includes('九澳');
-                        const isHill = name.includes('大潭山') || name.includes('大炮臺');
-
-                        // Coastal & Hill temperature adjustment
-                        const tempOffset = isHill ? -0.8 : (isColoane ? -0.4 : (Math.random() * 0.8 - 0.4));
-                        const currentTemp = +(baseTemp + tempOffset).toFixed(1);
-
-                        // Bridge wind physics (bridges experience significantly higher winds and gusts)
-                        const windBase = isB ? 32 + (i % 4) * 5 : 12 + (i % 3) * 3;
-                        const windSpeed = +(windBase + Math.random() * 6).toFixed(1);
-                        const gustSpeed = +(windSpeed * (1.3 + Math.random() * 0.3)).toFixed(1);
-
-                        const windDirs = ['NNE', 'NE', 'ENE', 'E', 'ESE'];
-                        const selectedDir = windDirs[(i + Math.floor(Math.random() * 2)) % windDirs.length];
-
-                        mock[name] = {
-                            temp_now: isB ? null : currentTemp,
-                            temp_max: isB ? null : +(currentTemp + 2.3).toFixed(1),
-                            temp_min: isB ? null : +(currentTemp - 2.8).toFixed(1),
-                            humidity: isB ? null : Math.min(96, Math.max(50, Math.round(baseHum + (Math.random() * 8 - 4)))),
-                            wind_speed: windSpeed,
-                            gust_speed: gustSpeed,
-                            wind_dir: selectedDir,
-                            rain_h: isB ? null : 0.0,
-                            rain_d: isB ? null : 0.0
-                        };
-                    });
-
-                    stationsData.value = mock;
-                };
-
-                // Countdown ticker
+                // Auto Refresh Loop (Every 5 minutes)
                 setInterval(() => {
                     if (countdown.value > 0) {
                         countdown.value--;
                     } else {
-                        refreshData();
+                        fetchSMGData();
                     }
                 }, 1000);
 
-                // Watchers
-                watch(activeViewMode, (newMode) => {
-                    if (newMode === 'interactive_map') {
-                        nextTick(() => {
-                            if (!map) initMap();
-                            else {
-                                map.invalidateSize();
-                                renderMapMarkers();
-                            }
-                        });
-                    } else if (newMode === 'chart_timeseries') {
-                        nextTick(() => {
-                            if (!echartsInstance) initECharts();
-                            else {
-                                echartsInstance.resize();
-                                renderECharts();
-                            }
-                        });
-                    }
-                });
-
-                // Lifecycle
                 onMounted(() => {
-                    refreshData();
-                    initMap();
+                    initMapLibre();
+                    fetchSMGData();
                 });
 
                 return {
                     viewModes, activeViewMode,
                     metrics, activeMetric, currentMetricDef, currentLegend,
                     selectMetric,
-                    stationsData,
-                    STATION_COORDS, BRIDGE_STATIONS, LAND_STATIONS,
-                    bridgeStations: BRIDGE_STATIONS,
-                    landStations: LAND_STATIONS,
-                    selectedStationName,
-                    currentTimestampStr, countdown, isRefreshing,
-                    refreshData,
-                    isBridge, getStationCoord, getStationVal, formatVal,
-                    getTempColor, getHumidityColor, getHumidityState, getRainColor, getWindColor, getWindDegree,
-                    maxBridgeGust, avgHumidity, bridgeAlert,
+                    stationsData, smgPubDate, isRefreshing, fetchError, countdown,
+                    selectedStationName, isBridge, getStationCoord, getStationVal, formatVal,
+                    getTempColor, getHumidityColor, getRainColor, getWindColor, getWindDegree,
+                    maxBridgeGust, avgHumidity, bridgeGaleAlert,
                     sortedStationList, filteredTableStations,
                     tableSearchQuery, tableSortKey, tableSortAsc, sortTable,
-                    focusStation, flyToStation, selectStationFromList, viewStationInMap, switchToStationChart,
-                    mapBasemap, toggleMapLayer, resetMapZoom,
-                    chartStation, chartMetric, chartMetrics, isBridgeCompareActive, toggleBridgeCompare, renderECharts,
-                    staticImageKey, isStaticImgLoading, staticImgError, getStaticImgUrl, onStaticImgError
+                    focusStation, viewStationInMap, resetMapZoom, fetchSMGData
                 };
             }
         }).mount('#app');
