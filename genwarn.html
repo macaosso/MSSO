@@ -618,7 +618,9 @@
                         </button>
                     </div>
                     <textarea id="outputText" readonly class="w-full flex-1 min-h-[300px] lg:min-h-[460px] bg-dark-950 border border-dark-700 rounded-lg p-3 text-xs sm:text-sm font-mono text-slate-200 outline-none resize-none leading-relaxed select-all"></textarea>
-                    <div class="grid grid-cols-2 gap-2 pt-1">
+                    
+                    <!-- 按鈕群組：複製、下載 TXT、發送至 Telegram -->
+                    <div class="grid grid-cols-3 gap-2 pt-1">
                         <button type="button" onclick="copyWarningText()" class="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-bold py-2.5 px-3 rounded-lg text-xs sm:text-sm transition shadow-lg shadow-amber-500/10">
                             <i data-lucide="copy" class="w-4 h-4"></i>
                             <span>複製文字</span>
@@ -626,6 +628,10 @@
                         <button type="button" onclick="downloadWarningText()" class="flex items-center justify-center gap-1.5 bg-dark-800 hover:bg-dark-700 active:scale-95 text-slate-200 border border-dark-700 font-medium py-2.5 px-3 rounded-lg text-xs sm:text-sm transition">
                             <i data-lucide="download" class="w-4 h-4"></i>
                             <span>下載 .TXT</span>
+                        </button>
+                        <button type="button" onclick="sendToTelegram()" class="flex items-center justify-center gap-1.5 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white font-bold py-2.5 px-3 rounded-lg text-xs sm:text-sm transition shadow-lg shadow-sky-600/20">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            <span>傳至 TG 頻道</span>
                         </button>
                     </div>
                 </div>
@@ -879,6 +885,10 @@
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
 
+        // Telegram 配置資訊 (Bot Token 與 澳門民間氣象台 MSSO Channel ID)
+        const TG_BOT_TOKEN = "9248842903:AAHTA1mefhasQJqOQVM3V2XUilHqi2PY6_0";
+        const TG_CHAT_ID = "-1001680417293"; // 或使用 "@macaosso"
+
         window.curAppView = 'warn';
         let curCat = 'cyclone';
         let curMode = 'new';
@@ -944,6 +954,42 @@
                 console.warn('Lucide icon render warning:', err);
             }
         }
+
+        async function sendToTelegram() {
+            const message = document.getElementById('outputText')?.value;
+            if (!message || !message.trim()) {
+                showToast("錯誤：目前沒有可發布的警報文字！");
+                return;
+            }
+
+            showToast("正在傳送至「澳門民間氣象台 MSSO」...");
+
+            try {
+                const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chat_id: TG_CHAT_ID,
+                        text: message
+                    })
+                });
+
+                const data = await response.json();
+                if (data.ok) {
+                    showToast("✅ 已成功發布至 Telegram 頻道！");
+                } else {
+                    showToast(`發送失敗: ${data.description}`);
+                    console.error("Telegram API Error:", data);
+                }
+            } catch (err) {
+                showToast("連線異常：" + err.message);
+                console.error("Network Error:", err);
+            }
+        }
+        window.sendToTelegram = sendToTelegram;
 
         async function fetchSingleCsvText(filename) {
             const path = `TCdata/${filename}.csv`;
@@ -1100,7 +1146,6 @@
         }
         window.loadSelectedTcCsvData = loadSelectedTcCsvData;
 
-        // 分割渲染兩個表格
         function renderTcUnifiedTable() {
             const tbodyPast = document.getElementById('tcTableBodyPast');
             const tbodyForecast = document.getElementById('tcTableBodyForecast');
@@ -1326,7 +1371,6 @@
             
             const addBtn = document.getElementById('btnNowcastAdd');
             if(addBtn) {
-                // 如果是圖示類別，隱藏新增按鈕 (因為是固定從 CSV 抓取，無需自訂)
                 addBtn.style.display = cls === 'I' ? 'none' : 'flex';
             }
             
@@ -1364,7 +1408,6 @@
             
             const isIconCategory = (nowcastFilterClass === 'I');
             
-            // 如果是圖示類別，改用 Grid 多欄位展示；否則用原本的列表展示
             if (isIconCategory) {
                 container.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3';
             } else {
@@ -2134,7 +2177,7 @@
 
                 if (newSnapshot.mode === 'cancel') {
                     const targetKey = newSnapshot.signalKey;
-                    const removedCount = updatedList.filter(r => (r.signalKey || r.category) === targetKey).length;
+                    const removedCount = updatedList.filter(r => (r.signalKey || r.category) !== targetKey).length;
                     updatedList = updatedList.filter(r => (r.signalKey || r.category) !== targetKey);
                     showToast(`已取消並自動清理 ${removedCount} 筆舊警報紀錄！`);
                 } else {
