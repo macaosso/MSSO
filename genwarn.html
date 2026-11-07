@@ -645,14 +645,14 @@
                         </button>
                     </div>
 
-                    <!-- 警報圖示預覽區 (取消模式時自動隱藏，含隨訊息發送開關) -->
-                    <div id="warningIconBox" class="bg-dark-950 border border-dark-700 rounded-xl p-3 space-y-2 transition">
+                    <!-- 警報圖示預覽與選取區 -->
+                    <div id="warningIconBox" class="bg-dark-950 border border-dark-700 rounded-xl p-3 space-y-2.5 transition">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
-                                <img id="warningIconImg" src="" alt="警報圖示" class="w-12 h-12 object-contain hidden drop-shadow" onerror="this.style.display='none'">
+                                <img id="warningIconImg" src="" alt="警報圖示" class="w-12 h-12 object-contain hidden drop-shadow rounded bg-dark-900/40 p-1">
                                 <div class="flex flex-col justify-center">
                                     <span id="warningIconName" class="text-xs font-bold text-amber-500 dark:text-amber-400 font-mono">--</span>
-                                    <span class="text-[10px] text-slate-400 font-mono">icon/MSSOwarning_icon/</span>
+                                    <span class="text-[10px] text-slate-400 font-mono" id="warnIconSourceText">內建圖示路徑</span>
                                 </div>
                             </div>
                             <label class="flex items-center gap-2 cursor-pointer bg-dark-900 px-2.5 py-1.5 rounded-lg border border-dark-700" title="發送 TG 訊息時同時傳送警報圖示">
@@ -660,9 +660,14 @@
                                 <span class="text-[11px] font-medium text-slate-700 dark:text-slate-200">同附圖示發送</span>
                             </label>
                         </div>
-                        <div class="flex items-center gap-1.5 pt-1 border-t border-dark-700/60">
-                            <label class="text-[10px] text-slate-400 shrink-0">自訂圖示路徑/網址：</label>
-                            <input type="text" id="warningIconCustomUrl" placeholder="預設使用本機路徑或輸入 https://..." class="w-full bg-dark-900 border border-dark-700 rounded px-2 py-1 text-[11px] text-slate-900 dark:text-slate-100 outline-none font-mono">
+                    
+                        <!-- 支援點選檔案選取、拖曳或 Ctrl+V 貼上圖片 -->
+                        <div id="warnPasteDropZone" tabindex="0" onclick="document.getElementById('warnFileInput').click()" class="border border-dashed border-dark-600 hover:border-amber-500/60 bg-dark-900/60 rounded-lg p-2.5 text-center cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-amber-500/50">
+                            <input type="file" id="warnFileInput" accept="image/*" class="hidden" onchange="handleImageFileInput(event, 'warn')">
+                            <div class="flex items-center justify-center gap-2 text-slate-400 text-xs">
+                                <i data-lucide="image-plus" class="w-4 h-4 text-amber-500"></i>
+                                <span>點擊選擇圖片 / 拖曳圖片 / 直接在此貼上 (Ctrl+V)</span>
+                            </div>
                         </div>
                     </div>
 
@@ -764,6 +769,31 @@
                             <div>
                                 <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">發布時間 (HH:MM)</label>
                                 <input type="text" id="nowcastTime" oninput="renderNowcastPreview()" placeholder="HH:MM" class="w-full bg-dark-900 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 outline-none font-mono">
+                            </div>
+                        </div>
+                        <!-- NOWCAST 圖示附加區 -->
+                        <div id="nowcastIconBox" class="bg-dark-950 border border-dark-700 rounded-xl p-3 space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <img id="nowcastIconImg" src="" alt="提示圖示" class="w-10 h-10 object-contain hidden drop-shadow rounded bg-dark-900/40 p-1">
+                                    <div class="flex flex-col justify-center">
+                                        <span id="nowcastIconName" class="text-xs font-bold text-amber-500 font-mono">未選擇圖片</span>
+                                        <span class="text-[10px] text-slate-400 font-mono" id="nowcastIconStatus">可自由隨附圖檔</span>
+                                    </div>
+                                </div>
+                                <label class="flex items-center gap-2 cursor-pointer bg-dark-900 px-2.5 py-1.5 rounded-lg border border-dark-700" title="發送 TG 訊息時同時傳送圖示">
+                                    <input type="checkbox" id="sendNowcastTgWithPhoto" checked class="rounded border-dark-700 text-amber-500 focus:ring-0">
+                                    <span class="text-[11px] font-medium text-slate-700 dark:text-slate-200">同附圖示發送</span>
+                                </label>
+                            </div>
+                        
+                            <!-- 支援點選選取或貼上 -->
+                            <div id="nowcastPasteDropZone" tabindex="0" onclick="document.getElementById('nowcastFileInput').click()" class="border border-dashed border-dark-600 hover:border-amber-500/60 bg-dark-900/60 rounded-lg p-2.5 text-center cursor-pointer transition focus:outline-none focus:ring-1 focus:ring-amber-500/50">
+                                <input type="file" id="nowcastFileInput" accept="image/*" class="hidden" onchange="handleImageFileInput(event, 'nowcast')">
+                                <div class="flex items-center justify-center gap-2 text-slate-400 text-xs">
+                                    <i data-lucide="image-plus" class="w-4 h-4 text-cyan-400"></i>
+                                    <span>點擊選擇自訂圖示 / 相簿選取 / 剪貼簿貼上 (Ctrl+V)</span>
+                                </div>
                             </div>
                         </div>
 
@@ -1097,6 +1127,9 @@
         let scheduledMessages = [];
         let scheduledFileSha = null;
 
+        let currentWarnPhotoBlob = null;
+        let currentNowcastPhotoBlob = null;
+
         const TC_FILES = ['A', 'B', 'C', 'D', 'E', 'F'];
         let tcFilesMeta = {
             'A': { stormName: '', sha: null },
@@ -1151,43 +1184,62 @@
         }
 
         // ================= 1. Telegram 發送與圖示隨附核心 =================
-        async function sendTelegramRawText(textMsg, promptNotice = "正在傳送至 Telegram 頻道...", iconPhotoUrl = null) {
+        async function sendTelegramRawText(textMsg, promptNotice = "正在傳送至 Telegram 頻道...", photoBlobOrUrl = null, forcePhoto = false) {
             if (!textMsg || !textMsg.trim()) {
                 showToast("錯誤：沒有可發送的文字！");
                 return false;
             }
             showToast(promptNotice);
-
-            let tgMarkdown = textMsg;
-            tgMarkdown = tgMarkdown.replace(/(?<!\*)(【#[^】]+】)(?!\*)/g, '*$1*');
-
-            const sendWithPhoto = document.getElementById('sendTgWithPhoto')?.checked;
-            const customIconUrl = (document.getElementById('warningIconCustomUrl')?.value || '').trim();
-            const photoTarget = customIconUrl || iconPhotoUrl;
-
-            if (sendWithPhoto && photoTarget) {
+        
+            // 處理 Markdown 粗體格式
+            let tgMarkdown = textMsg.replace(/(?<!\*)(【#[^】]+】)(?!\*)/g, '*$1*');
+        
+            // 1. 如果有圖片檔案 (Blob / File / URL)，優先以 sendPhoto 發送
+            if (forcePhoto && photoBlobOrUrl) {
                 try {
                     const photoApiUrl = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`;
+                    const formData = new FormData();
+                    formData.append('chat_id', TG_CHAT_ID);
+                    formData.append('caption', tgMarkdown);
+                    formData.append('parse_mode', 'Markdown');
+        
+                    if (photoBlobOrUrl instanceof Blob) {
+                        formData.append('photo', photoBlobOrUrl, 'weather_icon.png');
+                    } else if (typeof photoBlobOrUrl === 'string' && photoBlobOrUrl.startsWith('data:image')) {
+                        // Base64 轉換為 Blob
+                        const res = await fetch(photoBlobOrUrl);
+                        const b = await res.blob();
+                        formData.append('photo', b, 'weather_icon.png');
+                    } else if (typeof photoBlobOrUrl === 'string' && photoBlobOrUrl.startsWith('http')) {
+                        formData.append('photo', photoBlobOrUrl);
+                    } else if (typeof photoBlobOrUrl === 'string') {
+                        // 本機相對路徑 (例如 icon/MSSOwarning_icon/xxx.png)，先 fetch 抓成 blob 再上傳
+                        const localRes = await fetch(photoBlobOrUrl);
+                        if (localRes.ok) {
+                            const localBlob = await localRes.blob();
+                            formData.append('photo', localBlob, 'icon.png');
+                        }
+                    }
+        
+                    // 發送請求
                     const resPhoto = await fetch(photoApiUrl, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: TG_CHAT_ID,
-                            photo: photoTarget,
-                            caption: tgMarkdown,
-                            parse_mode: 'Markdown'
-                        })
+                        body: formData
                     });
                     const photoData = await resPhoto.json();
                     if (photoData.ok) {
                         showToast("✅ 已成功隨附圖示發布至 Telegram 頻道！");
                         return true;
+                    } else {
+                        console.warn("sendPhoto 失敗，Telegram 返回：", photoData);
+                        showToast(`圖示發送失敗 (${photoData.description})，嘗試以純文字重發...`);
                     }
                 } catch (err) {
-                    console.warn("sendPhoto 失敗，改用文字發送：", err);
+                    console.warn("sendPhoto 連線錯誤，改為純文字發送：", err);
                 }
             }
-
+        
+            // 2. 無圖片或 sendPhoto 失敗時的純文字發送
             try {
                 const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`;
                 const response = await fetch(url, {
@@ -1204,6 +1256,7 @@
                     showToast("✅ 已成功發布至 Telegram 頻道！");
                     return true;
                 } else {
+                    // Markdown 解析出錯時降級為純文字
                     const retry = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1225,9 +1278,18 @@
 
         async function sendToTelegram() {
             const message = document.getElementById('outputText')?.value;
-            const imgEl = document.getElementById('warningIconImg');
-            const iconUrl = (imgEl && imgEl.style.display !== 'none' && imgEl.src) ? imgEl.src : null;
-            await sendTelegramRawText(message, "正在傳送警報至 Telegram 頻道...", iconUrl);
+            const sendWithPhoto = document.getElementById('sendTgWithPhoto')?.checked;
+            
+            // 如果有使用者手動貼上/選取的圖片，優先用 blob；否則使用預設圖示路徑
+            let targetPhoto = currentWarnPhotoBlob;
+            if (!targetPhoto) {
+                const imgEl = document.getElementById('warningIconImg');
+                if (imgEl && imgEl.style.display !== 'none' && imgEl.src) {
+                    targetPhoto = imgEl.src;
+                }
+            }
+        
+            await sendTelegramRawText(message, "正在傳送警報至 Telegram 頻道...", targetPhoto, sendWithPhoto);
         }
         window.sendToTelegram = sendToTelegram;
 
@@ -1903,6 +1965,83 @@
             }
         }
         window.saveTcCsvToGithub = saveTcCsvToGithub;
+       
+        let currentWarnPhotoBlob = null;
+        let currentNowcastPhotoBlob = null;
+        
+        // 1. 處理檔案選取 (Gallery / 檔案管理員)
+        function handleImageFileInput(event, targetType) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            applyImageToTarget(file, targetType, file.name);
+        }
+        window.handleImageFileInput = handleImageFileInput;
+        
+        // 2. 套用圖片到預覽與發送暫存
+        function applyImageToTarget(blobOrFile, targetType, displayName = '自訂圖片.png') {
+            const previewUrl = URL.createObjectURL(blobOrFile);
+        
+            if (targetType === 'warn') {
+                currentWarnPhotoBlob = blobOrFile;
+                const img = document.getElementById('warningIconImg');
+                const nameEl = document.getElementById('warningIconName');
+                const sourceText = document.getElementById('warnIconSourceText');
+                if (img) {
+                    img.src = previewUrl;
+                    img.classList.remove('hidden');
+                }
+                if (nameEl) nameEl.innerText = displayName;
+                if (sourceText) sourceText.innerText = "已載入自訂圖檔 (已就緒)";
+                showToast("已成功載入警報自訂圖示！");
+            } else if (targetType === 'nowcast') {
+                currentNowcastPhotoBlob = blobOrFile;
+                const img = document.getElementById('nowcastIconImg');
+                const nameEl = document.getElementById('nowcastIconName');
+                const statusText = document.getElementById('nowcastIconStatus');
+                if (img) {
+                    img.src = previewUrl;
+                    img.classList.remove('hidden');
+                }
+                if (nameEl) nameEl.innerText = displayName;
+                if (statusText) statusText.innerText = "已載入圖片 (點擊可更換)";
+                showToast("已成功載入即時天氣提示圖示！");
+            }
+        }
+        
+        // 3. 綁定剪貼簿 Paste 事件
+        function initPasteAndDropListeners() {
+            // 綁定警報區塊 Paste
+            const warnZone = document.getElementById('warnPasteDropZone');
+            if (warnZone) {
+                warnZone.addEventListener('paste', (e) => {
+                    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                    for (const item of items) {
+                        if (item.type.indexOf('image') !== -1) {
+                            const blob = item.getAsFile();
+                            applyImageToTarget(blob, 'warn', `剪貼簿圖片_${Date.now()}.png`);
+                            e.preventDefault();
+                            break;
+                        }
+                    }
+                });
+            }
+        
+            // 綁定 Nowcast 區塊 Paste
+            const nowcastZone = document.getElementById('nowcastPasteDropZone');
+            if (nowcastZone) {
+                nowcastZone.addEventListener('paste', (e) => {
+                    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+                    for (const item of items) {
+                        if (item.type.indexOf('image') !== -1) {
+                            const blob = item.getAsFile();
+                            applyImageToTarget(blob, 'nowcast', `剪貼簿圖片_${Date.now()}.png`);
+                            e.preventDefault();
+                            break;
+                        }
+                    }
+                });
+            }
+        }
 
         // ================= 4. NOWCAST 功能 (支援跳行換行) =================
         function parseNowcastCsv(text) {
@@ -2184,7 +2323,9 @@
 
         async function sendNowcastPreviewToTelegram() {
             const val = document.getElementById('nowcastOutputText')?.value;
-            await sendTelegramRawText(val, "正在傳送天氣提示至 Telegram 頻道...");
+            const sendWithPhoto = document.getElementById('sendNowcastTgWithPhoto')?.checked;
+        
+            await sendTelegramRawText(val, "正在傳送天氣提示至 Telegram 頻道...", currentNowcastPhotoBlob, sendWithPhoto);
         }
         window.sendNowcastPreviewToTelegram = sendNowcastPreviewToTelegram;
 
@@ -3385,7 +3526,7 @@
             if (savedTheme === 'light') document.documentElement.classList.remove('dark');
             else document.documentElement.classList.add('dark');
             updateThemeButton();
-
+            initPasteAndDropListeners();
             loadScheduledFromLocalStorage();
             syncCurrentTime();
             selectCategory('cyclone');
