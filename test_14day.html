@@ -156,13 +156,13 @@
         <!-- 載入狀態 -->
         <div id="loading" class="text-center py-20 mut">
             <div class="loader-ring mx-auto mb-4"></div>
-            <p>正在取得最新 14 天氣預報數據...</p>
+            <p>正在取得最新 72 小時及 14 天氣預報數據...</p>
         </div>
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
             
-            <!-- 14天天氣圖示預報 -->
+            <!-- 01: 14天天氣圖示預報 -->
             <section class="panel animate-view-fade">
                 <div class="panel-head">
                     <h2 class="panel-title"><span class="panel-num">01</span> / 14天天氣總覽與圖示</h2>
@@ -172,10 +172,26 @@
                 </div>
             </section>
 
-            <!-- 14天溫度趨勢圖 -->
+            <!-- 02: 72小時逐時溫度趨勢圖 (新增) -->
             <section class="panel animate-view-fade">
                 <div class="panel-head flex-wrap">
-                    <h2 class="panel-title"><span class="panel-num">02</span> / 14天溫度趨勢圖 (數值模式對比)</h2>
+                    <h2 class="panel-title"><span class="panel-num">02</span> / 72小時逐時氣溫趨勢 (72-Hour Hourly Temperature)</h2>
+                    <div class="micro flex items-center gap-2">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#3fd9a4]"></span>
+                        <span>ECMWF 逐小時模式預測</span>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="relative w-full h-[320px] md:h-[380px]">
+                        <canvas id="hourlyTempChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 03: 14天溫度趨勢圖 (數值模式對比) -->
+            <section class="panel animate-view-fade">
+                <div class="panel-head flex-wrap">
+                    <h2 class="panel-title"><span class="panel-num">03</span> / 14天溫度趨勢圖 (數值模式對比)</h2>
                     <div class="flex items-center gap-2 mt-2 sm:mt-0">
                         <button id="btn-mode-best" class="mode-btn active">綜合最佳 (Best Match)</button>
                         <button id="btn-mode-all" class="mode-btn">多模式對比 (All Models)</button>
@@ -199,10 +215,12 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
-        const API_URL = "https://api.open-meteo.com/v1/forecast?latitude=22.214016&longitude=113.546198&daily=temperature_2m_max,temperature_2m_min,weather_code&models=ecmwf_aifs025_single,ecmwf_ifs025,ecmwf_ifs,best_match&timezone=Asia%2FSingapore&forecast_days=14";
+        // Updated API URL: includes hourly=temperature_2m&forecast_hours=72 for hourly forecast
+        const API_URL = "https://api.open-meteo.com/v1/forecast?latitude=22.214016&longitude=113.546198&hourly=temperature_2m&forecast_hours=72&daily=temperature_2m_max,temperature_2m_min,weather_code&models=ecmwf_aifs025_single,ecmwf_ifs025,ecmwf_ifs,best_match&timezone=Asia%2FSingapore&forecast_days=14";
         
         let rawWeatherData = null;
         let tempChartInstance = null;
+        let hourlyChartInstance = null;
         let currentChartMode = 'best'; // 'best' or 'all'
 
         // Register Chart.js DataLabels plugin
@@ -215,7 +233,8 @@
         themeToggleBtn.addEventListener('click', () => {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            if (tempChartInstance) renderChart();
+            if (hourlyChartInstance) renderHourlyChart();
+            if (tempChartInstance) renderDailyChart();
         });
 
         // Weather Code to Icon and Description
@@ -298,7 +317,8 @@
                 document.getElementById('update-time').textContent = `更新時間：${year}-${month}-${day} ${hours}:${minutes}`;
 
                 renderDailyCards();
-                renderChart();
+                renderHourlyChart();
+                renderDailyChart();
 
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('dashboard-content').classList.remove('hidden');
@@ -336,7 +356,7 @@
                 card.innerHTML = `
                     <div class="accent num font-bold text-xs pb-1">${dateDisplay}</div>
                     <div class="py-2 flex justify-center items-center h-14">
-                        <img src="${weather.icon}" alt="${weather.text}" class="w-10 h-10 object-contain" title="${weather.text}">
+                        <img src="${weather.icon}" alt="${weather.text}" class="w-10 h-10 object-contain" title="${weather.text}" onerror="this.onerror=null;this.src='https://placehold.co/40x40/121a1f/3fd9a4?text=WX';">
                     </div>
                     <div class="text-[11px] mut font-medium truncate mb-1" title="${weather.text}">${weather.text}</div>
                     <hr class="card-hr">
@@ -350,7 +370,112 @@
             });
         }
 
-        function renderChart() {
+        // Render 72-Hour Hourly Temperature Chart
+        function renderHourlyChart() {
+            if (!rawWeatherData || !rawWeatherData.hourly) return;
+
+            const hourly = rawWeatherData.hourly;
+            const times = (hourly.time || []).slice(0, 72);
+            const temps = (hourly.temperature_2m || []).slice(0, 72);
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#e6e9e9' : '#1a1e20';
+            const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+            const accentColor = isDark ? '#3fd9a4' : '#0b9a6b';
+
+            // Format labels for X axis: "MM/DD HH:00"
+            const labels = times.map(tStr => {
+                const d = new Date(tStr);
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const h = String(d.getHours()).padStart(2, '0');
+                return `${m}/${day} ${h}:00`;
+            });
+
+            const ctx = document.getElementById('hourlyTempChart').getContext('2d');
+            if (hourlyChartInstance) hourlyChartInstance.destroy();
+
+            // Create gradient fill
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            if (isDark) {
+                gradient.addColorStop(0, 'rgba(63, 217, 164, 0.35)');
+                gradient.addColorStop(1, 'rgba(63, 217, 164, 0.0)');
+            } else {
+                gradient.addColorStop(0, 'rgba(11, 154, 107, 0.3)');
+                gradient.addColorStop(1, 'rgba(11, 154, 107, 0.0)');
+            }
+
+            hourlyChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '逐時氣溫 (°C)',
+                        data: temps.map(t => Math.round(t * 10) / 10),
+                        borderColor: accentColor,
+                        backgroundColor: gradient,
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: accentColor
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: isDark ? '#121a1f' : '#ffffff',
+                            titleColor: isDark ? '#e6e9e9' : '#1a1e20',
+                            bodyColor: isDark ? '#93a0a6' : '#5c6663',
+                            borderColor: isDark ? '#2b373e' : '#d6d3c4',
+                            borderWidth: 1,
+                            padding: 10,
+                            callbacks: {
+                                label: (context) => ` 溫度: ${context.raw}°C`
+                            }
+                        },
+                        datalabels: {
+                            // Show data label every 6 hours or peaks to avoid clutter
+                            display: (context) => context.dataIndex % 6 === 0,
+                            anchor: 'end',
+                            align: 'top',
+                            formatter: (val) => Math.round(val) + '°',
+                            color: textColor,
+                            font: { family: 'JetBrains Mono', weight: 'bold', size: 10 },
+                            offset: 3
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                font: { family: 'JetBrains Mono', size: 10 },
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 12
+                            }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                font: { family: 'JetBrains Mono', size: 11 },
+                                callback: (val) => val + '°C'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render 14-Day Multi-Model Comparison Chart
+        function renderDailyChart() {
             const daily = rawWeatherData.daily;
             const dates = daily.time || [];
 
@@ -507,14 +632,14 @@
             currentChartMode = 'best';
             this.classList.add('active');
             document.getElementById('btn-mode-all').classList.remove('active');
-            renderChart();
+            renderDailyChart();
         });
 
         document.getElementById('btn-mode-all').addEventListener('click', function() {
             currentChartMode = 'all';
             this.classList.add('active');
             document.getElementById('btn-mode-best').classList.remove('active');
-            renderChart();
+            renderDailyChart();
         });
 
         fetchWeatherData();
