@@ -174,11 +174,11 @@
             <div class="bg-amber-500/10 border border-amber-500/40 rounded-xl p-3 flex items-center justify-between text-xs">
                 <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
                     <i data-lucide="edit-3" class="w-4 h-4"></i>
-                    <span>編輯歷史紀錄：<strong id="editingRecordTitle" class="font-mono">#ID</strong></span>
+                    <span>正在編輯歷史紀錄：<strong id="editingRecordTitle" class="font-mono">#ID</strong> (類別已鎖定，可更改級別、時間與內文)</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="cancelEditingMode()" class="px-2.5 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300 border border-dark-700">取消</button>
-                    <button type="button" onclick="saveEditedRecordBackToGithub()" class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold shadow">更新</button>
+                    <button type="button" onclick="cancelEditingMode()" class="px-2.5 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300 border border-dark-700">取消載入</button>
+                    <button type="button" onclick="saveEditedRecordBackToGithub()" class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold shadow">更新至 GitHub</button>
                 </div>
             </div>
         </div>
@@ -188,11 +188,11 @@
             <div class="bg-sky-500/10 border border-sky-500/40 rounded-xl p-3 flex items-center justify-between text-xs">
                 <div class="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-medium">
                     <i data-lucide="calendar-clock" class="w-4 h-4"></i>
-                    <span>編輯定時排程：<strong id="editingSchedTimeLabel" class="font-mono">--</strong></span>
+                    <span>正在編輯 Telegram 定時排程：<strong id="editingSchedTimeLabel" class="font-mono">--</strong> (可直接於下方調整時間與輸出文字)</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <button type="button" onclick="cancelEditingScheduledItem()" class="px-2.5 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300 border border-dark-700">取消</button>
-                    <button type="button" onclick="saveEditedScheduleFromMain()" class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-bold shadow">更新</button>
+                    <button type="button" onclick="cancelEditingScheduledItem()" class="px-2.5 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300 border border-dark-700">取消排程編輯</button>
+                    <button type="button" onclick="saveEditedScheduleFromMain()" class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-bold shadow">更新並同步至雲端</button>
                 </div>
             </div>
         </div>
@@ -1766,13 +1766,41 @@
             const lbl = document.getElementById('editingSchedTimeLabel');
             if (lbl) lbl.innerText = item.targetTimeStr || '';
 
-            if (window.innerWidth < 1024) switchMobileWarnTab('edit');
-            showToast("已載入此預約排程至主編輯區！");
+            // 🔒 鎖定左側除日期與時間外的所有警報參數與類別選擇
+            const catContainer = document.getElementById('categoryContainer');
+            const modeBtns = document.getElementById('btnModeNew')?.parentElement;
+            const modules = ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'];
+            const btnSaveBottom = document.getElementById('btnSaveBottom');
+
+            if (catContainer) catContainer.classList.add('pointer-events-none', 'opacity-40');
+            if (modeBtns) modeBtns.classList.add('pointer-events-none', 'opacity-40');
+            if (btnSaveBottom) btnSaveBottom.classList.add('pointer-events-none', 'opacity-40');
+            modules.forEach(m => {
+                const el = document.getElementById('module-' + m);
+                if (el) el.classList.add('pointer-events-none', 'opacity-40');
+            });
+
+            if (window.innerWidth < 1024) switchMobileWarnTab('prev');
+            showToast("🔒 已鎖定警報類型，僅允許調整日期、時間與文字內容！");
         }
 
         function cancelEditingScheduledItem() {
             editingSchedId = null;
             document.getElementById('editingSchedBanner')?.classList.add('hidden');
+
+            // 🔓 解除左側所有參數與類別鎖定
+            const catContainer = document.getElementById('categoryContainer');
+            const modeBtns = document.getElementById('btnModeNew')?.parentElement;
+            const modules = ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'];
+            const btnSaveBottom = document.getElementById('btnSaveBottom');
+
+            if (catContainer) catContainer.classList.remove('pointer-events-none', 'opacity-40');
+            if (modeBtns) modeBtns.classList.remove('pointer-events-none', 'opacity-40');
+            if (btnSaveBottom) btnSaveBottom.classList.remove('pointer-events-none', 'opacity-40');
+            modules.forEach(m => {
+                const el = document.getElementById('module-' + m);
+                if (el) el.classList.remove('pointer-events-none', 'opacity-40');
+            });
         }
 
         async function saveEditedScheduleFromMain() {
