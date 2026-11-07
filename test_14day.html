@@ -374,39 +374,43 @@
             });
         }
 
-        // 渲染 72 小時逐時溫度趨勢圖
+// 渲染 72 小時逐時溫度趨勢圖
         function renderHourlyChart() {
             const hourly = rawWeatherData.hourly;
             if (!hourly || !hourly.time) return;
 
-            // 取得當前時間索引或從第一筆開始切出 72 筆
             const fullTimes = hourly.time;
             const fullTemps = getModelVar(hourly, 'temperature_2m', 'best_match');
 
-            const nowISO = new Date().toISOString().slice(0, 13);
-            let startIndex = fullTimes.findIndex(t => t.startsWith(nowISO));
+            // 自動對齊當前小時
+            const now = new Date();
+            const currentIsoHour = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T${String(now.getHours()).padStart(2, '0')}`;
+            let startIndex = fullTimes.findIndex(t => t.startsWith(currentIsoHour));
             if (startIndex === -1) startIndex = 0;
 
             const sliceTimes = fullTimes.slice(startIndex, startIndex + 72);
             const sliceTemps = fullTemps.slice(startIndex, startIndex + 72).map(v => Math.round(v * 10) / 10);
 
+            // 雙行標籤陣列：[時間, 日期 (週幾)]
             const labels = sliceTimes.map(tStr => {
                 const d = new Date(tStr);
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
                 const hh = String(d.getHours()).padStart(2, '0') + ':00';
-                if (d.getHours() === 0) {
-                    return `${d.getMonth() + 1}/${d.getDate()} 00:00`;
-                }
-                return hh;
+                const weekday = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+
+                // Chart.js 支援傳入字串陣列作為多行標籤
+                return [hh, `${month}/${day} (${weekday})`];
             });
 
             const isDark = document.documentElement.classList.contains('dark');
             const textColor = isDark ? '#e6e9e9' : '#1a1e20';
+            const faintColor = isDark ? '#93a0a6' : '#5c6663';
             const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
 
             const ctx = document.getElementById('hourlyChart').getContext('2d');
             if (hourlyChartInstance) hourlyChartInstance.destroy();
 
-            // 漸層背景
             const gradient = ctx.createLinearGradient(0, 0, 0, 300);
             gradient.addColorStop(0, isDark ? 'rgba(63, 217, 164, 0.35)' : 'rgba(11, 154, 107, 0.35)');
             gradient.addColorStop(1, isDark ? 'rgba(63, 217, 164, 0.0)' : 'rgba(11, 154, 107, 0.0)');
@@ -436,16 +440,19 @@
                         tooltip: {
                             backgroundColor: isDark ? '#121a1f' : '#ffffff',
                             titleColor: isDark ? '#e6e9e9' : '#1a1e20',
-                            bodyColor: isDark ? '#93a0a6' : '#5c6663',
+                            bodyColor: faintColor,
                             borderColor: isDark ? '#2b373e' : '#d6d3c4',
                             borderWidth: 1,
                             padding: 10,
                             callbacks: {
+                                title: (items) => {
+                                    const raw = labels[items[0].dataIndex];
+                                    return `${raw[1]} ${raw[0]}`; // 顯示完整 "MM/DD (週X) HH:00"
+                                },
                                 label: (c) => ` 氣溫: ${c.raw}°C`
                             }
                         },
                         datalabels: {
-                            // 每隔 6 小時顯示一次數值標籤以防重疊
                             display: (ctx) => (ctx.dataIndex % 6 === 0),
                             align: 'top',
                             color: textColor,
@@ -456,14 +463,31 @@
                     },
                     scales: {
                         x: {
-                            grid: { color: gridColor },
+                            grid: {
+                                color: (ctx) => {
+                                    // 每日午夜 00:00 加深網格線作為跨日分界
+                                    const lbl = labels[ctx.index];
+                                    if (lbl && lbl[0] === '00:00') {
+                                        return isDark ? 'rgba(63, 217, 164, 0.4)' : 'rgba(11, 154, 107, 0.4)';
+                                    }
+                                    return gridColor;
+                                },
+                                lineWidth: (ctx) => {
+                                    const lbl = labels[ctx.index];
+                                    return (lbl && lbl[0] === '00:00') ? 1.5 : 1;
+                                }
+                            },
                             ticks: {
                                 color: textColor,
                                 font: { family: 'JetBrains Mono', size: 10 },
                                 maxRotation: 0,
+                                autoSkip: false,
                                 callback: function(val, index) {
-                                    // X 軸標籤每 6 小時顯示一次
-                                    return (index % 6 === 0) ? this.getLabelForValue(val) : '';
+                                    // 每 6 小時顯示一次：包含上方時間 + 下方日期
+                                    if (index % 6 === 0) {
+                                        return labels[index]; 
+                                    }
+                                    return '';
                                 }
                             }
                         },
