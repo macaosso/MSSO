@@ -169,7 +169,7 @@
             <button type="button" id="btnMobileWarnPrev" onclick="switchMobileWarnTab('prev')" class="py-2 text-xs font-bold rounded-lg bg-dark-800 text-slate-600 dark:text-slate-400 transition">2. 內文預覽與發布</button>
         </div>
 
-        <!-- 編輯中提示列 -->
+        <!-- 編輯歷史紀錄中提示列 -->
         <div id="editingBanner" class="hidden max-w-7xl w-full mx-auto px-3 sm:px-4 mt-3">
             <div class="bg-amber-500/10 border border-amber-500/40 rounded-xl p-3 flex items-center justify-between text-xs">
                 <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
@@ -179,6 +179,20 @@
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="cancelEditingMode()" class="px-2.5 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300 border border-dark-700">取消載入</button>
                     <button type="button" onclick="saveEditedRecordBackToGithub()" class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold shadow">更新至 GitHub</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 編輯預約排程中提示列 -->
+        <div id="editingSchedBanner" class="hidden max-w-7xl w-full mx-auto px-3 sm:px-4 mt-3">
+            <div class="bg-sky-500/10 border border-sky-500/40 rounded-xl p-3 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-medium">
+                    <i data-lucide="calendar-clock" class="w-4 h-4"></i>
+                    <span>正在編輯 Telegram 定時排程：<strong id="editingSchedTimeLabel" class="font-mono">--</strong> (可直接於下方調整時間與輸出文字)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="cancelEditingScheduledItem()" class="px-2.5 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300 border border-dark-700">取消排程編輯</button>
+                    <button type="button" onclick="saveEditedScheduleFromMain()" class="px-2.5 py-1 rounded-lg bg-sky-600 text-white font-bold shadow">更新並同步至雲端</button>
                 </div>
             </div>
         </div>
@@ -386,15 +400,15 @@
                     <div class="grid grid-cols-3 gap-2">
                         <div>
                             <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">天文潮 (m)</label>
-                            <input type="number" step="0.01" id="surgeTideH" oninput="renderWarning()" placeholder="例如：2.30" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2 py-1.5 text-xs font-mono outline-none">
+                            <input type="number" step="0.01" id="surgeTideH" oninput="renderWarning()" placeholder="例如：2.30" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">增水下限 (m)</label>
-                            <input type="number" step="0.01" id="surgeRangeL" oninput="renderWarning()" placeholder="例如：1.10" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2 py-1.5 text-xs font-mono outline-none">
+                            <input type="number" step="0.01" id="surgeRangeL" oninput="renderWarning()" placeholder="例如：1.10" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">增水上限 (m)</label>
-                            <input type="number" step="0.01" id="surgeRangeH" oninput="renderWarning()" placeholder="例如：1.50" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2 py-1.5 text-xs font-mono outline-none">
+                            <input type="number" step="0.01" id="surgeRangeH" oninput="renderWarning()" placeholder="例如：1.50" class="w-full bg-dark-950 border border-dark-700 rounded-lg px-2.5 py-1.5 text-xs font-mono outline-none">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
@@ -648,7 +662,7 @@
                                 天氣提示輸出預覽
                             </span>
                             <button type="button" onclick="syncNowcastCurrentTime()" class="text-[11px] text-amber-600 dark:text-amber-500 hover:underline flex items-center gap-1">
-                                <i data-lucide="clock" class="w-3 h-3"></i>填入現時
+                                <i data-lucide="clock" class="w-3.5 h-3.5"></i>填入現時
                             </button>
                         </div>
 
@@ -682,37 +696,29 @@
             <div class="flex items-center justify-between border-b border-dark-700 pb-2.5">
                 <div class="flex items-center gap-2">
                     <i data-lucide="calendar-clock" class="w-4 h-4 text-sky-500"></i>
-                    <h3 class="font-bold text-sm text-slate-900 dark:text-white">Telegram 預約發布排程</h3>
+                    <div>
+                        <h3 class="font-bold text-sm text-slate-900 dark:text-white">Telegram 預約發布排程</h3>
+                        <p class="text-[10px] text-slate-500 font-mono">所有裝置共用同份 tg_scheduled.json</p>
+                    </div>
                 </div>
-                <button type="button" onclick="toggleModal('modalTgSchedule', false)" class="text-slate-400 hover:text-slate-200">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="fetchScheduledFromGithub(true)" class="text-xs bg-dark-800 hover:bg-dark-700 text-teal-600 dark:text-teal-400 border border-dark-700 px-2 py-1 rounded-lg flex items-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i><span>同步雲端</span>
+                    </button>
+                    <button type="button" onclick="toggleModal('modalTgSchedule', false)" class="text-slate-400 hover:text-slate-200 p-1">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </div>
             
-            <!-- 排程表單 (支援編輯特定排程之日期/時間與內容，且不影響原始警報類型) -->
-            <div class="bg-dark-950 border border-dark-700 rounded-xl p-3 space-y-2 text-xs">
-                <div class="flex items-center justify-between">
-                    <span id="schedFormLabel" class="font-bold text-slate-700 dark:text-slate-300">新增定時排程</span>
-                    <button type="button" id="btnCancelEditSched" onclick="cancelEditingScheduledItem()" class="text-amber-600 dark:text-amber-400 hover:underline hidden">取消編輯</button>
-                </div>
-                <input type="hidden" id="editingSchedId" value="">
-                <div>
-                    <label class="block text-slate-500 dark:text-slate-400 mb-1">預定發布時間 (YYYY-MM-DDTHH:MM)</label>
-                    <input type="datetime-local" id="schedTargetDateTime" class="w-full bg-dark-900 border border-dark-700 rounded px-2 py-1 text-xs font-mono outline-none">
-                </div>
-                <div>
-                    <label class="block text-slate-500 dark:text-slate-400 mb-1">訊息內容 (可直接調整內文與時間，不變更警報類型)</label>
-                    <textarea id="schedMessageBody" rows="3" placeholder="在此輸入排程發送內容..." class="w-full bg-dark-900 border border-dark-700 rounded p-2 text-xs font-mono outline-none resize-none"></textarea>
-                </div>
-                <button type="button" id="btnSaveSchedule" onclick="saveScheduledMessage()" class="w-full py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5">
-                    <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
-                    <span id="textSaveSchedule">排定此訊息並同步至雲端</span>
-                </button>
+            <!-- 排程清單 -->
+            <div class="flex-1 overflow-y-auto custom-scroll border border-dark-700 rounded-xl bg-dark-950/60 p-2 space-y-2 min-h-[160px]" id="scheduledItemsList">
+                <div class="py-8 text-center text-slate-500 text-xs">暫無排程任務</div>
             </div>
 
-            <!-- 排程列表 -->
-            <div class="flex-1 overflow-y-auto custom-scroll border border-dark-700 rounded-xl bg-dark-950/60 p-2 space-y-2 min-h-[120px]" id="scheduledItemsList">
-                <div class="py-6 text-center text-slate-500 text-xs">暫無排程任務</div>
+            <div class="pt-2 border-t border-dark-700 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>點選項目右側編輯即可將時間與內容帶至外部編輯</span>
+                <button type="button" onclick="toggleModal('modalTgSchedule', false)" class="px-3 py-1 rounded-lg bg-dark-800 text-slate-700 dark:text-slate-300">關閉</button>
             </div>
         </div>
     </div>
@@ -809,6 +815,13 @@
             '極為酷熱警報': "市民應在烈日當空之下避免進行戶外活動，避免長時間在陽光下曝曬，以免受太陽紫外線曬傷，且應盡量留在室內地方及多補充水份，慎防中暑及熱衰竭提防中暑。\n\n在戶外活動的人士，應留意身體健康狀況，帶備食水及防曬用品，並減少長時間在陽光下曝曬。市民亦應留意本台最新消息。\n\n長者、孕婦、嬰兒及小童、慢性病如心臟病或高血壓患者，以及過胖人士均較易中暑，應及時觀察是否出現中暑徵兆。在極為酷熱天氣下，更應時常留意身體健康狀況，確保有充分休息，保持體溫正常，避免身體過份受熱。"
         };
 
+        // 寒冷警報最新官方防範指引
+        const COLD_OFFICIAL_ADVICE = {
+            '寒冷警報': "長時間暴露在寒冷環境下可能導致體溫過低、感冒和心血管疾病發作。建議市民適時減少長時間在戶外逗留、穿著足夠的禦寒衣物、補充足夠的溫熱水分及熱量。",
+            '非常寒冷警報': "極可能發生低體溫症、呼吸道感染和嚴重心血管疾病。長時間暴露在寒冷環境下有可能發生嚴重低體溫症。建議市民避免戶外劇烈活動、加強穿著厚衣及防風防滑鞋襪、補充足夠熱量，特別關注易受影響的族群。",
+            '極為寒冷警報': "市民應在嚴寒天氣之下避免進行戶外活動，避免長時間在低溫下暴露，以免凍傷，且應盡量留在室內溫暖地方及多補充溫熱水份，慎防低體溫症及呼吸道疾病。\n\n在室內使用電暖器或燃氣熱水器時，應留意室內空氣流通狀況，防範一氧化碳中毒，並減少長時間在低溫下停留。市民亦應留意本台最新消息。\n長者、孕婦、嬰兒及小童、慢性病如心臟病或高血壓患者，以及獨居無依人士均較易受寒潮影響，應及時觀察是否出現低體溫徵兆。在極為寒冷天氣下，更應時常留意身體健康狀況，確保有充分休息，保持體溫正常，避免身體過份受涼。"
+        };
+
         // 全域狀態
         let curAppView = 'warn';
         let curCat = 'cyclone';
@@ -826,6 +839,8 @@
         let editingRecordId = null;
 
         let scheduledMessages = [];
+        let scheduledFileSha = null;
+        let editingSchedId = null;
         let currentWarnPhotoBlob = null;
 
         window.nowcastRows = [];
@@ -850,14 +865,16 @@
                 document.getElementById('ghPath').value = localStorage.getItem('gh_path') || 'meteo_warnings.json';
                 if (localStorage.getItem('gh_token') && localStorage.getItem('gh_repo')) fetchGithubRecords(false);
             }
-            if (show && id === 'modalTgSchedule') renderScheduledList();
+            if (show && id === 'modalTgSchedule') {
+                renderScheduledList();
+                fetchScheduledFromGithub(false);
+            }
         }
 
         function toggleTheme() {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme_mode', isDark ? 'dark' : 'light');
             updateThemeButton();
-            // 切換主題後重新整理警報顏色
             renderWarning();
             updateActiveWarningsBanner();
         }
@@ -886,7 +903,7 @@
             if (view === 'nowcast' && window.nowcastRows.length === 0) fetchNowcastCsv();
         }
 
-        // ================= 完整保留原始警報邏輯與計算 =================
+        // ================= 警報邏輯與計算 =================
         function getIntensityObj(windVal) {
             const wind = parseFloat(windVal);
             if (isNaN(wind) || wind < 0) return null;
@@ -964,7 +981,7 @@
             return str;
         }
 
-        // 完整無精簡的定義文本
+        // 完整定義文本
         function getCycloneDef(signal) {
             if (signal === '注意警報') {
                 if (curCautionRange === '1200') return '表示有一熱帶氣旋進入澳門1200公里範圍，未來24-72小時將進入澳門800公里範圍，並對澳門構成較大威脅。';
@@ -987,7 +1004,7 @@
             return '';
         }
 
-        // 樣式對照表：在淺色與深色模式下均具備高對比度
+        // 樣式對照表
         function getWarningColorStyle(sigTitle) {
             const t = (sigTitle || '').trim();
             if (t.includes('注意警報')) return { badge: 'active-badge-slate bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-500/40', dot: 'bg-slate-400', card: 'border-slate-500/30' };
@@ -1002,7 +1019,7 @@
             return { badge: 'active-badge-teal bg-teal-500/20 text-teal-700 dark:text-teal-400 border-teal-500/40', dot: 'bg-teal-400', card: 'border-teal-500/30' };
         }
 
-        // 核心警報生成函數 (完整結構，嚴格防止空白行混亂)
+        // 核心警報生成函數
         function renderWarning() {
             const dateStr = (document.getElementById('inputDate')?.value || '').trim();
             const timeStr = (document.getElementById('inputTime')?.value || '').trim();
@@ -1032,7 +1049,6 @@
                 const intensity = getIntensityObj(wind);
                 const intName = intensity ? intensity.name : '熱帶氣旋';
 
-                // 首行緊密連接，無異常前綴空格
                 headerTitle = `【#${curCyclone.trim()}】\n澳門民間氣象台發出之最新風暴報告\n第${repNo}報  ${intName} ${tcNameFormatted}\n${dateStr}  ${timeStr} MST`;
 
                 const nextBadge = document.getElementById('tcNextReportBadge');
@@ -1203,7 +1219,8 @@
                     if (pt) segs.push(`部分地區約${pt}度`);
                     const tDesc = segs.length > 0 ? `，${segs.join('，')}。` : '。';
                     const coldShort = curCold.replace('警報', '');
-                    defText = `受強烈冬季季候風影響，預料本澳天氣${coldShort}${tDesc}市民應注意保暖，慎防感冒。`;
+                    const officialAdvice = COLD_OFFICIAL_ADVICE[curCold] || '';
+                    defText = `受強烈冬季季候風影響，預料本澳天氣${coldShort}${tDesc}\n\n${officialAdvice}`;
                 }
             } else if (curCat === 'notice') {
                 if (curNotice === 'heat_alert') {
@@ -1355,7 +1372,6 @@
 
             if (container) {
                 container.innerHTML = finals.map(r => {
-                    // 清除多餘空格確保緊湊乾淨
                     const firstLine = (r.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '').trim();
                     const cleanTitle = firstLine.replace(/\s+/g, ' ');
                     const cStyle = getWarningColorStyle(cleanTitle);
@@ -1389,11 +1405,7 @@
                     });
                     const cleanFormattedText = cleanedLines.join('\n');
 
-                    return `
-                        <div class="p-3 rounded-xl bg-dark-950 border border-dark-700 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-mono leading-relaxed">
-                            ${cleanFormattedText}
-                        </div>
-                    `;
+                    return `<div class="p-3 rounded-xl bg-dark-950 border border-dark-700 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-mono leading-relaxed text-left">${cleanFormattedText}</div>`;
                 }).join('');
             }
             if (toggleBtn) toggleBtn.classList.remove('hidden');
@@ -1416,11 +1428,12 @@
             if (!rec) return;
 
             editingRecordId = rec.id;
+            cancelEditingScheduledItem(); // 若原本在編輯排程則退出
             const banner = document.getElementById('editingBanner');
             if (banner) banner.classList.remove('hidden');
             document.getElementById('editingRecordTitle').innerText = `${rec.category || '警報'} (${rec.date} ${rec.time})`;
 
-            // 鎖定大分類按鈕，不允許跨越至其他警報種類，但允許改信號級別與參數
+            // 鎖定大分類按鈕
             const catGrid = document.getElementById('categoryPillGrid');
             const catTip = document.getElementById('categoryLockedTip');
             if (catGrid) {
@@ -1549,20 +1562,29 @@
         function openScheduleForCurrentWarn() {
             cancelEditingScheduledItem();
             const text = document.getElementById('outputText')?.value || '';
-            const dtInput = document.getElementById('schedTargetDateTime');
-            const bodyInput = document.getElementById('schedMessageBody');
-            if (bodyInput) bodyInput.value = text;
-            if (dtInput) {
-                const warnDate = document.getElementById('inputDate')?.value || '';
-                const warnTime = document.getElementById('inputTime')?.value || '';
-                if (warnDate && warnTime) {
-                    dtInput.value = `${warnDate}T${warnTime}`;
-                } else {
-                    const now = new Date(Date.now() + 5 * 60000);
-                    dtInput.value = now.toISOString().slice(0, 16);
-                }
+            const warnDate = document.getElementById('inputDate')?.value || '';
+            const warnTime = document.getElementById('inputTime')?.value || '';
+            
+            let targetDt = '';
+            if (warnDate && warnTime) {
+                targetDt = `${warnDate}T${warnTime}`;
+            } else {
+                const now = new Date(Date.now() + 5 * 60000);
+                targetDt = now.toISOString().slice(0, 16);
             }
+
+            scheduledMessages.push({
+                id: 'sched_' + Date.now(),
+                targetTime: new Date(targetDt).getTime(),
+                targetTimeStr: targetDt.replace('T', ' '),
+                text: text,
+                status: 'pending'
+            });
+
+            saveScheduledToLocalStorage();
+            syncScheduledToGithub();
             toggleModal('modalTgSchedule', true);
+            showToast("已加入定時發布佇列！");
         }
 
         async function fetchNowcastCsv() {
@@ -1605,25 +1627,111 @@
             document.getElementById('nowcastOutputText').value = `【#${head}】\n${d}  ${t} MST\n\n${content}`;
         }
 
-        // ================= Telegram 排程功能 (支援編輯特定排程) =================
+        // ================= Telegram 排程功能 (跨裝置同步與主編輯區編輯) =================
+        function saveScheduledToLocalStorage() {
+            localStorage.setItem('tg_scheduled_msgs', JSON.stringify(scheduledMessages));
+            updateScheduledBadge();
+        }
+
+        function loadScheduledFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem('tg_scheduled_msgs');
+                if (raw) scheduledMessages = JSON.parse(raw);
+            } catch (e) {
+                scheduledMessages = [];
+            }
+            updateScheduledBadge();
+        }
+
+        function updateScheduledBadge() {
+            const b = document.getElementById('scheduledBadge');
+            const pendingCount = scheduledMessages.filter(m => m.status === 'pending').length;
+            if (b) {
+                if (pendingCount > 0) {
+                    b.innerText = pendingCount;
+                    b.classList.remove('hidden');
+                } else {
+                    b.classList.add('hidden');
+                }
+            }
+        }
+
+        async function fetchScheduledFromGithub(showNotice = false) {
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+            if (!token || !repo) return;
+
+            const url = `https://api.github.com/repos/${repo}/contents/${SCHED_FILE_PATH}?t=${Date.now()}`;
+            try {
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+                    cache: 'no-store'
+                });
+                if (res.status === 200) {
+                    const data = await res.json();
+                    scheduledFileSha = data.sha;
+                    const parsed = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+                    if (Array.isArray(parsed)) {
+                        scheduledMessages = parsed;
+                        saveScheduledToLocalStorage();
+                        renderScheduledList();
+                        if (showNotice) showToast("已從 GitHub 取得最新雲端排程！");
+                    }
+                }
+            } catch (e) {
+                console.warn("同步排程失敗：", e);
+            }
+        }
+
+        async function syncScheduledToGithub() {
+            const token = localStorage.getItem('gh_token');
+            const repo = localStorage.getItem('gh_repo');
+            if (!token || !repo) return;
+
+            const url = `https://api.github.com/repos/${repo}/contents/${SCHED_FILE_PATH}`;
+            try {
+                const latestSha = await fetchFreshSha(SCHED_FILE_PATH);
+                const jsonStr = JSON.stringify(scheduledMessages, null, 2);
+                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+
+                const putRes = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: `Sync scheduled messages [${new Date().toISOString()}]`,
+                        content: encoded,
+                        sha: latestSha || undefined
+                    })
+                });
+
+                if (putRes.ok) {
+                    const putData = await putRes.json();
+                    scheduledFileSha = putData.content?.sha || latestSha;
+                }
+            } catch (e) {
+                console.warn("排程推播至 GitHub 異常：", e);
+            }
+        }
+
         function renderScheduledList() {
             const list = document.getElementById('scheduledItemsList');
             if (!list) return;
-            if (scheduledMessages.length === 0) {
+            const pending = scheduledMessages.filter(m => m.status === 'pending');
+            if (pending.length === 0) {
                 list.innerHTML = `<div class="py-6 text-center text-slate-500 text-xs">暫無排程任務</div>`;
                 return;
             }
-            list.innerHTML = scheduledMessages.map((item, idx) => `
+            list.innerHTML = pending.map((item) => `
                 <div class="p-2.5 bg-dark-900 border border-dark-700 rounded-xl flex items-center justify-between text-xs">
                     <div class="truncate flex-1 pr-2">
                         <span class="font-bold text-sky-600 dark:text-sky-400 font-mono">${item.targetTimeStr || ''}</span>
                         <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-0.5">${(item.text || '').replace(/\n+/g, ' ')}</p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        <button type="button" onclick="editScheduledItem('${item.id}')" title="編輯排程時間與內容" class="p-1 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition">
+                        <button type="button" onclick="loadScheduledToMainEditor('${item.id}')" title="在氣象警報生成中編輯此排程" class="p-1 rounded text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition">
                             <i data-lucide="edit-3" class="w-4 h-4"></i>
                         </button>
-                        <button type="button" onclick="deleteScheduledItem(${idx})" title="刪除排程" class="p-1 rounded text-rose-500 hover:bg-rose-500/10 transition">
+                        <button type="button" onclick="deleteScheduledItem('${item.id}')" title="刪除排程" class="p-1 rounded text-rose-500 hover:bg-rose-500/10 transition">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -1632,64 +1740,80 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        function editScheduledItem(id) {
+        // 將排程項目移至外部「氣象警報生成」主區塊進行編輯
+        function loadScheduledToMainEditor(id) {
             const item = scheduledMessages.find(m => m.id === id);
             if (!item) return;
 
-            document.getElementById('editingSchedId').value = item.id;
-            document.getElementById('schedTargetDateTime').value = item.targetTimeStr ? item.targetTimeStr.replace(' ', 'T') : '';
-            document.getElementById('schedMessageBody').value = item.text || '';
+            editingSchedId = item.id;
+            cancelEditingMode(); // 關閉歷史警報編輯模式
 
-            document.getElementById('schedFormLabel').innerText = '編輯預約排程 (警報類別固定)';
-            document.getElementById('textSaveSchedule').innerText = '更新此排程並同步';
-            document.getElementById('btnCancelEditSched').classList.remove('hidden');
+            // 關閉排程彈窗並切換至警報生成頁
+            toggleModal('modalTgSchedule', false);
+            switchAppView('warn');
+
+            // 填入發布日期、時間與文字框
+            if (item.targetTimeStr && item.targetTimeStr.includes(' ')) {
+                const [dPart, tPart] = item.targetTimeStr.split(' ');
+                document.getElementById('inputDate').value = dPart || '';
+                document.getElementById('inputTime').value = tPart || '';
+            }
+            document.getElementById('outputText').value = item.text || '';
+
+            // 顯示排程編輯提示列
+            const banner = document.getElementById('editingSchedBanner');
+            if (banner) banner.classList.remove('hidden');
+            const lbl = document.getElementById('editingSchedTimeLabel');
+            if (lbl) lbl.innerText = item.targetTimeStr || '';
+
+            if (window.innerWidth < 1024) switchMobileWarnTab('edit');
+            showToast("已載入此預約排程至主編輯區！");
         }
 
         function cancelEditingScheduledItem() {
-            document.getElementById('editingSchedId').value = '';
-            document.getElementById('schedFormLabel').innerText = '新增定時排程';
-            document.getElementById('textSaveSchedule').innerText = '排定此訊息並同步至雲端';
-            document.getElementById('btnCancelEditSched').classList.add('hidden');
-            document.getElementById('schedMessageBody').value = '';
+            editingSchedId = null;
+            document.getElementById('editingSchedBanner')?.classList.add('hidden');
         }
 
-        function deleteScheduledItem(idx) {
-            scheduledMessages.splice(idx, 1);
-            localStorage.setItem('tg_scheduled_msgs', JSON.stringify(scheduledMessages));
-            renderScheduledList();
-            showToast("已移除排程項目。");
-        }
-
-        function saveScheduledMessage() {
-            const editId = document.getElementById('editingSchedId')?.value;
-            const dt = document.getElementById('schedTargetDateTime')?.value;
-            const text = document.getElementById('schedMessageBody')?.value;
-            if (!dt || !text) { showToast("請完整填寫發布時間與內容！"); return; }
-
-            const targetMs = new Date(dt).getTime();
-
-            if (editId) {
-                const idx = scheduledMessages.findIndex(m => m.id === editId);
-                if (idx !== -1) {
-                    scheduledMessages[idx].targetTime = targetMs;
-                    scheduledMessages[idx].targetTimeStr = dt.replace('T', ' ');
-                    scheduledMessages[idx].text = text;
-                    showToast("已成功更新排程！");
-                }
-            } else {
-                scheduledMessages.push({
-                    id: 'sched_' + Date.now(),
-                    targetTime: targetMs,
-                    targetTimeStr: dt.replace('T', ' '),
-                    text: text,
-                    status: 'pending'
-                });
-                showToast("已排定新訊息！");
+        async function saveEditedScheduleFromMain() {
+            if (!editingSchedId) return;
+            const idx = scheduledMessages.findIndex(m => m.id === editingSchedId);
+            if (idx === -1) {
+                showToast("找不到原始排程紀錄！");
+                cancelEditingScheduledItem();
+                return;
             }
 
-            localStorage.setItem('tg_scheduled_msgs', JSON.stringify(scheduledMessages));
+            const dateStr = document.getElementById('inputDate')?.value || '';
+            const timeStr = document.getElementById('inputTime')?.value || '';
+            const textStr = document.getElementById('outputText')?.value || '';
+
+            if (!dateStr || !timeStr) {
+                showToast("請輸入完整的發布日期與時間！");
+                return;
+            }
+
+            const targetTimeStr = `${dateStr} ${timeStr}`;
+            const targetMs = new Date(`${dateStr}T${timeStr}`).getTime();
+
+            scheduledMessages[idx].targetTime = targetMs;
+            scheduledMessages[idx].targetTimeStr = targetTimeStr;
+            scheduledMessages[idx].text = textStr;
+            scheduledMessages[idx].updatedAt = new Date().toISOString();
+
+            saveScheduledToLocalStorage();
             cancelEditingScheduledItem();
+            showToast("已更新預約排程，正在同步至 GitHub...");
+            await syncScheduledToGithub();
+            showToast("✅ 排程已成功更新並同步至所有裝置！");
+        }
+
+        async function deleteScheduledItem(id) {
+            scheduledMessages = scheduledMessages.filter(item => item.id !== id);
+            saveScheduledToLocalStorage();
             renderScheduledList();
+            showToast("已刪除該排程。");
+            await syncScheduledToGithub();
         }
 
         function getCurSignalKey() {
@@ -1764,10 +1888,8 @@
             let updatedList = [...githubRecordsCache];
 
             if (snap.mode === 'cancel') {
-                // 取消時直接將生效列表內的同類警報覆蓋並刪除，不繼續顯示於生效列
                 updatedList = updatedList.filter(item => item.signalKey !== snap.signalKey && item.category !== snap.category);
             } else {
-                // 發出或延續時，覆蓋掉同類別既有警報，避免重複堆疊
                 updatedList = updatedList.filter(item => item.signalKey !== snap.signalKey);
                 updatedList.unshift(snap);
             }
@@ -1896,7 +2018,7 @@
             if (test) fetchGithubRecords(true);
         }
 
-        // ================= Telegram 發送 & 排程 =================
+        // ================= Telegram 發送 =================
         async function sendTelegramRawText(msg, promptText = "傳送中...", photoBlobOrUrl = null, forcePhoto = false) {
             if (!msg || !msg.trim()) { showToast("錯誤：無文字內容！"); return false; }
             showToast(promptText);
@@ -1940,10 +2062,8 @@
             const imgEl = document.getElementById('warningIconImg');
             const photo = currentWarnPhotoBlob || (imgEl && !imgEl.classList.contains('hidden') ? imgEl.src : null);
             
-            // 發送至 TG
             const sent = await sendTelegramRawText(msg, "正在發送至 TG 並同步 GitHub...", photo, withPhoto);
             
-            // 傳至 TG 同步存入 GitHub
             if (sent || msg.trim()) {
                 await uploadCurrentToGithub({ silent: true });
                 showToast("✅ 已發布至 TG 並同步更新至 GitHub！");
@@ -1963,7 +2083,6 @@
             const act = document.getElementById(`flt-${cls}`);
             if (act) act.className = "nowcast-flt-btn shrink-0 px-3 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold";
 
-            // 當選 T 或 I 時，右側預覽隱藏，左側卡片全寬展示
             const previewCol = document.getElementById('nowcastPreviewCol');
             const cardsCol = document.getElementById('nowcastCardsCol');
             const addBtn = document.getElementById('btnNowcastAdd');
@@ -1987,6 +2106,7 @@
             renderNowcastCards();
         }
 
+        // 自動伸縮 textarea 高度函數
         function autoResizeNowcastTextarea(el) {
             if (!el) return;
             el.style.height = 'auto';
@@ -2013,7 +2133,6 @@
             }
 
             if (isIconView) {
-                // I 天氣圖示：展示日/夜圖標與啟用切換
                 container.innerHTML = items.map(r => {
                     const iconDef = CONDITION_ICON_MAP[r.content] || {};
                     const dayImg = typeof iconDef === 'object' ? iconDef.day : iconDef;
@@ -2034,7 +2153,6 @@
                     `;
                 }).join('');
             } else {
-                // E / S / W / R / T 列表 (支援直接刪除、新增與編輯內容)
                 container.innerHTML = items.map(r => `
                     <div class="p-3 bg-dark-900 border ${r.enabled ? 'border-dark-700' : 'border-dark-700/50 opacity-60'} rounded-xl flex items-center justify-between gap-3">
                         <label class="flex items-center gap-2 cursor-pointer shrink-0">
@@ -2051,7 +2169,6 @@
                     </div>
                 `).join('');
 
-                // 渲染後依內容高度自動調整每個 textarea
                 container.querySelectorAll('textarea').forEach(el => autoResizeNowcastTextarea(el));
             }
 
@@ -2097,11 +2214,8 @@
             if (!token || !repo) { toggleModal('modalGithub', true); return; }
             
             showToast("正在同步至 GitHub (即時獲取最新校驗)...");
-            
-            // 抓取最新檔案 SHA 避免 422 衝突
             const freshSha = await fetchFreshSha('nowcast.csv');
 
-            // 構建並正確編碼 UTF-8 CSV
             let out = "enabled,class,content\n";
             window.nowcastRows.forEach(r => { 
                 out += `${r.enabled ? 'true' : 'false'},${r.class},${(r.content || '').replace(/\r?\n/g, '\\n')}\n`; 
@@ -2246,7 +2360,6 @@
             document.getElementById('inputDate').value = todayStr;
             document.getElementById('inputTime').value = `${h}:${min}`;
             
-            // 潮汐日期預設為今日
             const tideDateInput = document.getElementById('surgeTideDate');
             if (tideDateInput) tideDateInput.value = todayStr;
             
@@ -2254,7 +2367,6 @@
             renderWarning();
         }
 
-        // 行動版切換參數設定與預覽分頁
         function switchMobileWarnTab(tab) {
             const colEdit = document.getElementById('colWarnEdit');
             const colPrev = document.getElementById('colWarnPrev');
@@ -2282,7 +2394,6 @@
             document.documentElement.classList.toggle('dark', theme === 'dark');
             updateThemeButton();
 
-            // 初始欄位保持乾淨空白 (無 default mock data)
             document.getElementById('outputText').value = "";
             document.getElementById('tcName').value = "";
             document.getElementById('tcWind').value = "";
@@ -2297,24 +2408,20 @@
             selectCategory('cyclone');
             selectIssueMode('new');
 
-            // 預設行動版顯示編輯面板
             if (window.innerWidth < 1024) {
                 switchMobileWarnTab('edit');
             }
 
-            // 檢查 GitHub 連線
             const token = localStorage.getItem('gh_token'), repo = localStorage.getItem('gh_repo');
             if (token && repo) {
                 document.getElementById('navGhIndicator').className = "w-2 h-2 rounded-full bg-emerald-500";
                 fetchGithubRecords(false);
+                fetchScheduledFromGithub(false);
             } else {
                 updateActiveWarningsBanner();
             }
 
-            try {
-                const schedRaw = localStorage.getItem('tg_scheduled_msgs');
-                if (schedRaw) scheduledMessages = JSON.parse(schedRaw);
-            } catch (e) {}
+            loadScheduledFromLocalStorage();
             renderScheduledList();
 
             if (window.lucide) lucide.createIcons();
