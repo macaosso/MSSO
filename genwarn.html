@@ -1194,7 +1194,7 @@
             // 處理 Markdown 粗體格式
             let tgMarkdown = textMsg.replace(/(?<!\*)(【#[^】]+】)(?!\*)/g, '*$1*');
         
-            // 1. 如果有圖片檔案 (Blob / File / URL)，優先以 sendPhoto 發送
+            // 1. 如果有圖片檔案 (Blob / File / URL / 相對路徑)，優先以 sendPhoto 發送
             if (forcePhoto && photoBlobOrUrl) {
                 try {
                     const photoApiUrl = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`;
@@ -1203,36 +1203,42 @@
                     formData.append('caption', tgMarkdown);
                     formData.append('parse_mode', 'Markdown');
         
+                    let finalBlob = null;
+        
                     if (photoBlobOrUrl instanceof Blob) {
-                        formData.append('photo', photoBlobOrUrl, 'weather_icon.png');
-                    } else if (typeof photoBlobOrUrl === 'string' && photoBlobOrUrl.startsWith('data:image')) {
-                        // Base64 轉換為 Blob
-                        const res = await fetch(photoBlobOrUrl);
-                        const b = await res.blob();
-                        formData.append('photo', b, 'weather_icon.png');
-                    } else if (typeof photoBlobOrUrl === 'string' && photoBlobOrUrl.startsWith('http')) {
-                        formData.append('photo', photoBlobOrUrl);
+                        finalBlob = photoBlobOrUrl;
                     } else if (typeof photoBlobOrUrl === 'string') {
-                        // 本機相對路徑 (例如 icon/MSSOwarning_icon/xxx.png)，先 fetch 抓成 blob 再上傳
-                        const localRes = await fetch(photoBlobOrUrl);
-                        if (localRes.ok) {
-                            const localBlob = await localRes.blob();
-                            formData.append('photo', localBlob, 'icon.png');
+                        const urlStr = photoBlobOrUrl.trim();
+                        // 如果是本機路徑、localhost、file: 或是相對路徑，由瀏覽器先 fetch 成 Blob
+                        // 即便是外部 http/https，先轉成 Blob 再直接上傳也是最穩定的，能避開 Telegram 下載超時或跨域問題
+                        try {
+                            const localRes = await fetch(urlStr);
+                            if (localRes.ok) {
+                                finalBlob = await localRes.blob();
+                            }
+                        } catch (fetchErr) {
+                            console.warn("本機圖片轉 Blob 失敗：", fetchErr);
                         }
                     }
         
-                    // 發送請求
-                    const resPhoto = await fetch(photoApiUrl, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const photoData = await resPhoto.json();
-                    if (photoData.ok) {
-                        showToast("✅ 已成功隨附圖示發布至 Telegram 頻道！");
-                        return true;
+                    if (finalBlob) {
+                        // 將圖片以實體檔案 (multipart/form-data) 上傳給 Telegram
+                        formData.append('photo', finalBlob, 'weather_icon.png');
+        
+                        const resPhoto = await fetch(photoApiUrl, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const photoData = await resPhoto.json();
+                        if (photoData.ok) {
+                            showToast("✅ 已成功隨附圖示發布至 Telegram 頻道！");
+                            return true;
+                        } else {
+                            console.warn("sendPhoto 失敗，Telegram 返回：", photoData);
+                            showToast(`圖示發送失敗 (${photoData.description})，嘗試以純文字重發...`);
+                        }
                     } else {
-                        console.warn("sendPhoto 失敗，Telegram 返回：", photoData);
-                        showToast(`圖示發送失敗 (${photoData.description})，嘗試以純文字重發...`);
+                        console.warn("無法取得圖片實體檔案，退回純文字發送");
                     }
                 } catch (err) {
                     console.warn("sendPhoto 連線錯誤，改為純文字發送：", err);
