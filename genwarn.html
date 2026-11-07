@@ -1191,80 +1191,61 @@
             }
             showToast(promptNotice);
         
-            // Markdown 格式處理
+            // 處理 Markdown 粗體格式
             let tgMarkdown = textMsg.replace(/(?<!\*)(【#[^】]+】)(?!\*)/g, '*$1*');
         
+            // 1. 如果有圖片檔案 (Blob / File / URL / 相對路徑)，優先以 sendPhoto 發送
             if (forcePhoto && photoBlobOrUrl) {
                 try {
+                    const photoApiUrl = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`;
+                    const formData = new FormData();
+                    formData.append('chat_id', TG_CHAT_ID);
+                    formData.append('caption', tgMarkdown);
+                    formData.append('parse_mode', 'Markdown');
+        
                     let finalBlob = null;
         
                     if (photoBlobOrUrl instanceof Blob) {
                         finalBlob = photoBlobOrUrl;
                     } else if (typeof photoBlobOrUrl === 'string') {
                         const urlStr = photoBlobOrUrl.trim();
+                        // 如果是本機路徑、localhost、file: 或是相對路徑，由瀏覽器先 fetch 成 Blob
+                        // 即便是外部 http/https，先轉成 Blob 再直接上傳也是最穩定的，能避開 Telegram 下載超時或跨域問題
                         try {
                             const localRes = await fetch(urlStr);
                             if (localRes.ok) {
                                 finalBlob = await localRes.blob();
-                            } else {
-                                console.warn(`無法讀取圖示 (HTTP ${localRes.status}):`, urlStr);
                             }
                         } catch (fetchErr) {
-                            console.warn("本機圖片 fetch 失敗（若使用 file:// 請以 HTTP 本機伺服器運行）：", fetchErr);
+                            console.warn("本機圖片轉 Blob 失敗：", fetchErr);
                         }
                     }
         
                     if (finalBlob) {
-                        // Telegram 限制 sendPhoto 的 caption 上限為 1024 字元
-                        const captionText = tgMarkdown.length <= 1024 ? tgMarkdown : tgMarkdown.substring(0, 1020) + "...";
+                        // 將圖片以實體檔案 (multipart/form-data) 上傳給 Telegram
+                        formData.append('photo', finalBlob, 'weather_icon.png');
         
-                        const photoApiUrl = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`;
-                        const formData = new FormData();
-                        formData.append('chat_id', TG_CHAT_ID);
-                        formData.append('photo', finalBlob, 'warning_icon.png');
-                        formData.append('caption', captionText);
-                        formData.append('parse_mode', 'Markdown');
-        
-                        let resPhoto = await fetch(photoApiUrl, {
+                        const resPhoto = await fetch(photoApiUrl, {
                             method: 'POST',
                             body: formData
                         });
-                        let photoData = await resPhoto.json();
-        
-                        // 若 Markdown 解析錯誤，退回純文字 caption 重試
-                        if (!photoData.ok && photoData.description && photoData.description.includes("can't parse entities")) {
-                            const retryForm = new FormData();
-                            retryForm.append('chat_id', TG_CHAT_ID);
-                            retryForm.append('photo', finalBlob, 'warning_icon.png');
-                            retryForm.append('caption', textMsg.length <= 1024 ? textMsg : textMsg.substring(0, 1020) + "...");
-                            resPhoto = await fetch(photoApiUrl, { method: 'POST', body: retryForm });
-                            photoData = await resPhoto.json();
-                        }
-        
+                        const photoData = await resPhoto.json();
                         if (photoData.ok) {
-                            // 若原文字超過 1024 字，補充發送完整剩餘全文
-                            if (textMsg.length > 1024) {
-                                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ chat_id: TG_CHAT_ID, text: textMsg })
-                                });
-                            }
                             showToast("✅ 已成功隨附圖示發布至 Telegram 頻道！");
                             return true;
                         } else {
-                            console.error("sendPhoto 失敗：", photoData);
-                            showToast(`圖示發送失敗: ${photoData.description}，退回純文字發送`);
+                            console.warn("sendPhoto 失敗，Telegram 返回：", photoData);
+                            showToast(`圖示發送失敗 (${photoData.description})，嘗試以純文字重發...`);
                         }
                     } else {
-                        showToast("⚠️ 找不到圖示檔案，請先確認圖示路徑或貼上圖片！");
+                        console.warn("無法取得圖片實體檔案，退回純文字發送");
                     }
                 } catch (err) {
-                    console.error("sendPhoto 發生異常：", err);
+                    console.warn("sendPhoto 連線錯誤，改為純文字發送：", err);
                 }
             }
         
-            // 純文字發送
+            // 2. 無圖片或 sendPhoto 失敗時的純文字發送
             try {
                 const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`;
                 const response = await fetch(url, {
@@ -1281,7 +1262,7 @@
                     showToast("✅ 已成功發布至 Telegram 頻道！");
                     return true;
                 } else {
-                    // 退回純文字重發
+                    // Markdown 解析出錯時降級為純文字
                     const retry = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1305,11 +1286,11 @@
             const message = document.getElementById('outputText')?.value;
             const sendWithPhoto = document.getElementById('sendTgWithPhoto')?.checked;
             
+            // 如果有使用者手動貼上/選取的圖片，優先用 blob；否則使用預設圖示路徑
             let targetPhoto = currentWarnPhotoBlob;
             if (!targetPhoto) {
                 const imgEl = document.getElementById('warningIconImg');
-                // 檢查元素是否存在、是否有 src，以及是否未被隱藏
-                if (imgEl && imgEl.src && !imgEl.classList.contains('hidden') && imgEl.style.display !== 'none') {
+                if (imgEl && imgEl.style.display !== 'none' && imgEl.src) {
                     targetPhoto = imgEl.src;
                 }
             }
