@@ -1913,27 +1913,35 @@
             const sendPhoto = document.getElementById('sendTgWithPhoto')?.checked;
             const iconUrl = (sendPhoto && imgEl && !imgEl.classList.contains('hidden')) ? imgEl.src : null;
 
+            const currentSigKey = getCurSignalKey();
+            const isCancelMode = (curMode === 'cancel');
+
             scheduledMessages.push({
                 id: 'sched_' + Date.now(),
                 targetTime: new Date(targetDt).getTime(),
                 targetTimeStr: targetDt.replace('T', ' '),
                 text: text,
-                withPhoto: sendPhoto,
-                iconUrl: iconUrl,
-                status: 'pending'
+                withPhoto: isCancelMode ? false : sendPhoto,
+                iconUrl: isCancelMode ? null : iconUrl,
+                status: 'pending',
+                action: isCancelMode ? 'cancel' : 'publish',
+                signalKey: currentSigKey,
+                category: curCat
             });
 
             saveScheduledToLocalStorage();
             syncScheduledToGithub();
             
-            // 自動存入警報
-            uploadCurrentToGithub({ silent: true });
+            // 若為「取消」排程，切勿即刻於雲端資料庫中註銷警告，應於排程觸發時才執行
+            if (!isCancelMode) {
+                uploadCurrentToGithub({ silent: true });
+            }
 
             // 重設回預設空白狀態並在手機版回到參數設定頁面
             resetFormToCleanDefaults();
             if (window.innerWidth < 1024) switchMobileWarnTab('edit');
 
-            showToast("已加入定時發布佇列並自動存入警報！");
+            showToast(isCancelMode ? "已加入取消警報定時排程（將於預約時間生效）！" : "已加入定時發布佇列並自動存入警報！");
         }
 
         function openScheduleForNowcast() {
@@ -2197,6 +2205,19 @@
                     const ok = await sendTelegramRawText(item.text, `定時發布中...`, item.iconUrl, item.withPhoto);
                     item.status = ok ? 'sent' : 'failed';
                     changed = true;
+
+                    // 若為預約取消警報任務，抵達時間發送 Telegram 後，方在 GitHub 資料庫中撤銷該警報
+                    if (ok && item.action === 'cancel' && item.signalKey) {
+                        try {
+                            let updatedList = githubRecordsCache.filter(r => {
+                                const rKey = r.signalKey || r.category;
+                                return rKey !== item.signalKey;
+                            });
+                            await commitListToGithub(updatedList, `定時排程自動取消警報 [${item.signalKey}]`, true);
+                        } catch (err) {
+                            console.warn("定時排程取消警報同步資料庫異常：", err);
+                        }
+                    }
                 }
             }
             if (changed) {
@@ -2287,9 +2308,16 @@
             let updatedList = [...githubRecordsCache];
 
             if (snap.mode === 'cancel') {
-                updatedList = updatedList.filter(item => item.signalKey !== snap.signalKey && item.category !== snap.category);
+                // 僅精確過濾與當前欲取消之信號相符的項目，避免殃及其他類別
+                updatedList = updatedList.filter(item => {
+                    const itemKey = item.signalKey || item.category;
+                    return itemKey !== snap.signalKey;
+                });
             } else {
-                updatedList = updatedList.filter(item => item.signalKey !== snap.signalKey);
+                updatedList = updatedList.filter(item => {
+                    const itemKey = item.signalKey || item.category;
+                    return itemKey !== snap.signalKey;
+                });
                 updatedList.unshift(snap);
             }
 
