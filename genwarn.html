@@ -4,6 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>澳門民間氣象台 - 氣象警報與提示管理中樞</title>
+    <!-- Theme check script in <head> to prevent FOUC -->
+    <script>
+        (function() {
+            try {
+                const theme = localStorage.getItem('theme_mode') || 'dark';
+                if (theme === 'dark' || (!localStorage.getItem('theme_mode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <!-- Flatpickr Date & Time Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" id="flatpickr-dark-theme">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -119,7 +137,60 @@
         button:active, .cat-pill:active, .tc-btn:active, .not-btn:active, .ws-pill:active {
             transform: scale(0.98);
         }
-    </style>
+    
+        /* 隱藏原生 Icon，防止擠壓版面 */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            display: none;
+            -webkit-appearance: none;
+        }
+
+        /* 錯誤狀態震動與紅色高亮動畫 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        .input-error {
+            border-color: #f43f5e !important;
+            box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.4) !important;
+        }
+
+        /* Flatpickr 主題整合 */
+        .flatpickr-calendar {
+            border-radius: 1rem !important;
+            border: 1px solid var(--border-color) !important;
+            box-shadow: var(--card-shadow), 0 10px 25px -5px rgba(0, 0, 0, 0.25) !important;
+            font-family: 'JetBrains Mono', 'Inter', sans-serif !important;
+        }
+        .dark .flatpickr-calendar {
+            background: var(--bg-surface) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+        .dark .flatpickr-day {
+            color: var(--text-primary) !important;
+        }
+        .dark .flatpickr-day.today {
+            border-color: #f59e0b !important;
+        }
+        .dark .flatpickr-day.selected {
+            background: #f59e0b !important;
+            border-color: #f59e0b !important;
+            color: #070a13 !important;
+            font-weight: bold !important;
+        }
+        .dark .flatpickr-time {
+            background: var(--bg-surface-soft) !important;
+            border-top: 1px solid var(--border-color) !important;
+        }
+        .dark .flatpickr-time input {
+            color: var(--text-primary) !important;
+        }
+</style>
 </head>
 <body class="min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-black">
 
@@ -137,7 +208,16 @@
         </div>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
+            <div id="autoSaveIndicator" class="hidden md:flex items-center gap-1 text-[11px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-xl opacity-0 transition-opacity duration-300 pointer-events-none">
+                <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                <span>草稿已暫存</span>
+            </div>
             <button type="button" id="themeToggleBtn" onclick="toggleTheme()" class="flex items-center justify-center text-xs theme-soft hover:bg-slate-200 dark:hover:bg-dark-800 border p-2 sm:px-3 sm:py-2 rounded-xl text-slate-700 dark:text-slate-300"></button>
+            <button type="button" onclick="toggleModal('modalTgConfig', true)" class="flex items-center gap-1.5 text-xs bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 p-2 sm:px-3 sm:py-2 rounded-xl text-sky-600 dark:text-sky-400" title="Telegram Bot 設定">
+                <i data-lucide="bot" class="w-4 h-4"></i>
+                <span class="hidden sm:inline font-medium">TG 設定</span>
+                <span id="navTgIndicator" class="w-2 h-2 rounded-full bg-slate-400 ml-0.5"></span>
+            </button>
             <button type="button" onclick="toggleModal('modalTgSchedule', true)" class="flex items-center gap-1.5 text-xs bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 p-2 sm:px-3 sm:py-2 rounded-xl text-sky-600 dark:text-sky-400 relative">
                 <i data-lucide="calendar-clock" class="w-4 h-4"></i>
                 <span class="hidden sm:inline font-medium">預約排程</span>
@@ -164,7 +244,7 @@
     </nav>
 
     <!-- VIEW 1: 氣象警報生成中樞 -->
-    <main id="view-warn" class="app-view flex-1 flex flex-col">
+    <main id="view-warn" class="app-view flex-1 flex flex-col pb-28 lg:pb-8">
         <!-- 警報生效狀態 Header -->
         <div id="activeWarningsHeader" class="border-b border-theme-border bg-theme-surface px-4 py-3">
             <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -231,23 +311,29 @@
                         </span>
                     </div>
                     <div id="categoryPillGrid" class="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                        <button type="button" onclick="selectCategory('cyclone')" id="cat-cyclone" class="cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-cyan-500 bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 text-xs font-bold flex flex-col items-center justify-center shadow-sm">
+                        <button type="button" onclick="selectCategory('cyclone')" id="cat-cyclone" class="cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-cyan-500 bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 text-xs font-bold flex flex-col items-center justify-center shadow-sm">
                             <i data-lucide="wind" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1.5"></i>熱帶氣旋
+                            <span id="draft-dot-cyclone" class="cat-draft-dot w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dark-900 absolute top-1.5 right-1.5 hidden shadow-sm" title="有暫存草稿"></span>
                         </button>
-                        <button type="button" onclick="selectCategory('surge')" id="cat-surge" class="cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
+                        <button type="button" onclick="selectCategory('surge')" id="cat-surge" class="cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
                             <i data-lucide="waves" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1.5"></i>風暴潮
+                            <span id="draft-dot-surge" class="cat-draft-dot w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dark-900 absolute top-1.5 right-1.5 hidden shadow-sm" title="有暫存草稿"></span>
                         </button>
-                        <button type="button" onclick="selectCategory('rain')" id="cat-rain" class="cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
+                        <button type="button" onclick="selectCategory('rain')" id="cat-rain" class="cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
                             <i data-lucide="cloud-rain" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1.5"></i>降雨
+                            <span id="draft-dot-rain" class="cat-draft-dot w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dark-900 absolute top-1.5 right-1.5 hidden shadow-sm" title="有暫存草稿"></span>
                         </button>
-                        <button type="button" onclick="selectCategory('heat')" id="cat-heat" class="cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
+                        <button type="button" onclick="selectCategory('heat')" id="cat-heat" class="cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
                             <i data-lucide="sun" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1.5"></i>酷熱
+                            <span id="draft-dot-heat" class="cat-draft-dot w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dark-900 absolute top-1.5 right-1.5 hidden shadow-sm" title="有暫存草稿"></span>
                         </button>
-                        <button type="button" onclick="selectCategory('cold')" id="cat-cold" class="cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
+                        <button type="button" onclick="selectCategory('cold')" id="cat-cold" class="cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
                             <i data-lucide="snowflake" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1.5"></i>寒冷
+                            <span id="draft-dot-cold" class="cat-draft-dot w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dark-900 absolute top-1.5 right-1.5 hidden shadow-sm" title="有暫存草稿"></span>
                         </button>
-                        <button type="button" onclick="selectCategory('notice')" id="cat-notice" class="cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
+                        <button type="button" onclick="selectCategory('notice')" id="cat-notice" class="cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold flex flex-col items-center justify-center hover:bg-slate-200 dark:hover:bg-dark-800">
                             <i data-lucide="bell" class="w-4 h-4 sm:w-5 sm:h-5 mb-0.5 sm:mb-1.5"></i>特別提示
+                            <span id="draft-dot-notice" class="cat-draft-dot w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dark-900 absolute top-1.5 right-1.5 hidden shadow-sm" title="有暫存草稿"></span>
                         </button>
                     </div>
                 </div>
@@ -271,11 +357,48 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">發布日期 (YYYY-MM-DD)</label>
-                            <input type="text" id="inputDate" oninput="renderWarning()" placeholder="YYYY-MM-DD" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="date" id="inputDate" onchange="handleDateChange(this.value)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">發布時間 (HH:MM)</label>
-                            <input type="text" id="inputTime" oninput="handleTimeInput(this.value)" placeholder="HH:MM" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="time" id="inputTime" onchange="handleTimeInput(this.value)" oninput="handleTimeInput(this.value)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                        </div>
+                    </div>
+
+                    <!-- 自動失效 / 生命週期 (TTL) 設定 -->
+                    <div id="ttlSection" class="mt-4 pt-3.5 border-t border-theme-border">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                                <input type="checkbox" id="enableAutoExpire" onchange="toggleAutoExpire(this.checked)" class="rounded border-theme-border text-amber-500 focus:ring-0 w-4 h-4">
+                                <span class="flex items-center gap-1.5">
+                                    <i data-lucide="timer" class="w-3.5 h-3.5 text-amber-500"></i>
+                                    <span>預設計畫自動解除時間 (TTL)</span>
+                                </span>
+                            </label>
+                            <span class="text-[10px] text-slate-400 font-mono">選填・逾時自動解除與推播</span>
+                        </div>
+                        <div id="ttlInputsContainer" class="hidden grid grid-cols-2 gap-3 mt-2.5">
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">預計解除日期</label>
+                                <input type="date" id="expireDate" onchange="handleExpireDateChange(this.value)" class="w-full theme-input border rounded-xl px-3 py-2 text-xs sm:text-sm font-mono outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">預計解除時間 (HH:MM)</label>
+                                <input type="time" id="expireTime" onchange="handleExpireTimeChange(this.value)" oninput="handleExpireTimeChange(this.value)" class="w-full theme-input border rounded-xl px-3 py-2 text-xs sm:text-sm font-mono outline-none">
+                            </div>
+                            <div class="col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[11px] text-slate-500 theme-soft p-2.5 rounded-xl border border-theme-border">
+                                <span class="flex items-center gap-1.5">
+                                    <i data-lucide="bell-off" class="w-3.5 h-3.5 text-sky-500 shrink-0"></i>
+                                    <span>屆時自動標記為 expired 並發出 TG 靜音推播</span>
+                                </span>
+                                <div class="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                                    <span class="text-[10px] text-slate-400 mr-1">快捷設為:</span>
+                                    <button type="button" onclick="setExpireQuickHours(1)" class="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold font-mono">+1H</button>
+                                    <button type="button" onclick="setExpireQuickHours(2)" class="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold font-mono">+2H</button>
+                                    <button type="button" onclick="setExpireQuickHours(3)" class="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold font-mono">+3H</button>
+                                    <button type="button" onclick="setExpireQuickHours(6)" class="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold font-mono">+6H</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -293,7 +416,7 @@
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">報告序號</label>
                             <div class="flex items-center gap-1.5">
                                 <span class="text-xs text-slate-500">第</span>
-                                <input type="number" id="tcReportNumber" min="1" oninput="renderWarning()" placeholder="1" class="w-full theme-input border rounded-lg px-2 py-1.5 text-sm font-bold text-center outline-none">
+                                <input type="number" id="tcReportNumber" min="1" max="99" oninput="renderWarning()" placeholder="" class="w-full theme-input border rounded-lg px-2 py-1.5 text-sm font-bold text-center outline-none">
                                 <span class="text-xs text-slate-500">報</span>
                             </div>
                         </div>
@@ -321,7 +444,7 @@
 
                     <div id="tcGalePreBox" class="hidden theme-soft border border-amber-500/40 rounded-xl p-3 flex flex-col gap-2 text-xs">
                         <label class="block text-[11px] font-bold text-amber-600 dark:text-amber-400">改發烈風警報預估時間 (HH:MM，預設發布時間+3小時)</label>
-                        <input type="text" id="tcGalePreTime" oninput="renderWarning()" placeholder="例：08:20 (留空則自動以發布時間+3小時計算)" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                        <input type="time" id="tcGalePreTime" onchange="renderWarning()" oninput="renderWarning()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                     </div>
 
                     <div id="cautionRangeBox" class="hidden theme-soft border border-amber-500/40 rounded-xl p-3 flex items-center justify-between text-xs">
@@ -335,7 +458,7 @@
                     <div class="grid grid-cols-2 gap-4 theme-soft p-3 rounded-xl border border-theme-border">
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">中心風速 (km/h)</label>
-                            <input type="number" id="tcWind" oninput="handleWindChange()" placeholder="最大持續風速" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" id="tcWind" min="0" max="350" oninput="handleWindChange()" placeholder="最大持續風速 (0-350 km/h)" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">強度等級判定</label>
@@ -348,11 +471,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">現時中心緯度 (°N)</label>
-                            <input type="number" step="0.1" id="tcCurLat" oninput="renderWarning()" placeholder="例：20.1" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" step="0.1" min="-90" max="90" id="tcCurLat" oninput="renderWarning()" placeholder="例：20.1 (-90~90)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">現時中心經度 (°E)</label>
-                            <input type="number" step="0.1" id="tcCurLon" oninput="renderWarning()" placeholder="例：114.2" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" step="0.1" min="-180" max="180" id="tcCurLon" oninput="renderWarning()" placeholder="例：114.2 (-180~180)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                     </div>
 
@@ -387,7 +510,7 @@
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">時速約 (km/h)</label>
-                                <input type="number" id="tcMoveSpeed" oninput="renderWarning()" placeholder="例：18" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                                <input type="number" id="tcMoveSpeed" min="0" max="250" oninput="renderWarning()" placeholder="例：18 (0-250 km/h)" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                             </div>
                         </div>
                     </div>
@@ -395,11 +518,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">24H預報緯度 (°N, 選填)</label>
-                            <input type="number" step="0.1" id="tcFcLat" oninput="renderWarning()" placeholder="例：21.8" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" step="0.1" min="-90" max="90" id="tcFcLat" oninput="renderWarning()" placeholder="例：21.8 (-90~90)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">24H預報經度 (°E, 選填)</label>
-                            <input type="number" step="0.1" id="tcFcLon" oninput="renderWarning()" placeholder="例：113.0" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" step="0.1" min="-180" max="180" id="tcFcLon" oninput="renderWarning()" placeholder="例：113.0 (-180~180)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                     </div>
 
@@ -431,11 +554,11 @@
                     <div class="grid grid-cols-2 gap-4 theme-soft p-3 rounded-xl border border-theme-border">
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">最高潮位日期</label>
-                            <input type="text" id="surgeTideDate" oninput="renderWarning()" placeholder="YYYY-MM-DD" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                            <input type="date" id="surgeTideDate" onchange="renderWarning()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">最高潮時間</label>
-                            <input type="text" id="surgeTideTime" oninput="renderWarning()" placeholder="例：08:30" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                            <input type="time" id="surgeTideTime" onchange="renderWarning()" oninput="renderWarning()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                         </div>
                     </div>
                     
@@ -456,11 +579,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">影響起始 (時)</label>
-                            <input type="number" id="surgeHourS" oninput="renderWarning()" placeholder="例：06" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" min="0" max="23" id="surgeHourS" oninput="renderWarning()" placeholder="例：06 (0-23)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                         <div>
                             <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">影響結束 (時)</label>
-                            <input type="number" id="surgeHourE" oninput="renderWarning()" placeholder="例：11" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
+                            <input type="number" min="0" max="23" id="surgeHourE" oninput="renderWarning()" placeholder="例：11 (0-23)" class="w-full theme-input border rounded-xl px-3 py-2 text-sm font-mono outline-none">
                         </div>
                     </div>
                 </div>
@@ -482,12 +605,12 @@
 
                     <div id="rainWarnLeadBox" class="hidden theme-soft border border-blue-500/30 rounded-xl p-3.5">
                         <label class="block text-[11px] font-bold text-blue-700 dark:text-blue-400 mb-1.5">降雨預警有效時間至 (HH:MM)</label>
-                        <input type="text" id="rainWarnValidUntil" oninput="renderWarning()" placeholder="例：15:00" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                        <input type="time" id="rainWarnValidUntil" onchange="renderWarning()" oninput="renderWarning()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                     </div>
 
                     <div id="rainPreTimeBox" class="hidden theme-soft border border-blue-500/30 rounded-xl p-3.5">
                         <label class="block text-[11px] font-bold text-blue-700 dark:text-blue-400 mb-1.5">預警發出預估時間 (HH:MM，留空示可能性存在)</label>
-                        <input type="text" id="rainPreExpectedTime" oninput="renderWarning()" placeholder="例：01:30 或留空" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                        <input type="time" id="rainPreExpectedTime" onchange="renderWarning()" oninput="renderWarning()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                     </div>
                 </div>
 
@@ -756,8 +879,31 @@
         </div>
     </main>
 
-    <!-- VIEW 2: 即時天氣提示 (NOWCAST) -->
-    <main id="view-nowcast" class="app-view flex-1 p-4 sm:p-6 hidden">
+        <!-- Mobile Floating Action Bar (Sticky at bottom on mobile) -->
+    <div id="mobileActionBar" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-theme-surface/95 backdrop-blur-md border-t border-theme-border px-3 py-2.5 flex items-center justify-between gap-1.5 shadow-2xl">
+        <button type="button" onclick="scrollToPreview()" class="flex-1 py-2 px-1.5 bg-slate-500/10 hover:bg-slate-500/20 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1 border border-theme-border transition active:scale-95" title="跳至預覽區">
+            <i data-lucide="eye" class="w-4 h-4 text-amber-500"></i>
+            <span>預覽</span>
+        </button>
+        <button type="button" onclick="copyWarningText()" class="flex-1 py-2 px-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm transition active:scale-95" title="複製警報純文字">
+            <i data-lucide="copy" class="w-4 h-4"></i>
+            <span>複製</span>
+        </button>
+        <button type="button" onclick="uploadCurrentToGithub()" class="flex-1 py-2 px-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm transition active:scale-95" title="存入 GitHub 警報庫">
+            <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+            <span>存庫</span>
+        </button>
+        <button type="button" onclick="triggerSendToTelegram()" class="flex-1 py-2 px-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-sm transition active:scale-95" title="發布至 Telegram">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>發布</span>
+        </button>
+        <button type="button" onclick="openScheduleForCurrentWarn()" class="py-2 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition active:scale-95" title="加入定時排程">
+            <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+        </button>
+    </div>
+
+<!-- VIEW 2: 即時天氣提示 (NOWCAST) -->
+    <main id="view-nowcast" class="app-view flex-1 p-4 sm:p-6 hidden pb-28 lg:pb-8">
         <div class="max-w-7xl mx-auto space-y-6">
             <div class="theme-surface border rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -815,11 +961,11 @@
                         <div class="grid grid-cols-2 gap-3 theme-soft p-3 rounded-xl border border-theme-border">
                             <div>
                                 <label class="block text-[11px] font-medium text-slate-500 mb-1.5">發布日期</label>
-                                <input type="text" id="nowcastDate" oninput="renderNowcastPreview()" placeholder="YYYY-MM-DD" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                                <input type="date" id="nowcastDate" onchange="renderNowcastPreview()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                             </div>
                             <div>
                                 <label class="block text-[11px] font-medium text-slate-500 mb-1.5">發布時間</label>
-                                <input type="text" id="nowcastTime" oninput="renderNowcastPreview()" placeholder="HH:MM" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                                <input type="time" id="nowcastTime" onchange="renderNowcastPreview()" oninput="renderNowcastPreview()" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
                             </div>
                         </div>
 
@@ -894,7 +1040,59 @@
         </div>
     </div>
 
-    <!-- Modal 3: GitHub 設定與資料庫 -->
+        <!-- Modal 4: Telegram 推播設定 -->
+    <div id="modalTgConfig" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[65] flex items-center justify-center p-4 hidden transition-opacity">
+        <div class="theme-surface border w-full max-w-lg rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-theme-border pb-3 mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500">
+                        <i data-lucide="bot" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base">Telegram 機器人設定</h3>
+                        <p class="text-[10px] text-slate-500 font-mono tracking-wide mt-0.5">安全輸入 Token，不儲存於純文字原始碼中</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleModal('modalTgConfig', false)" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 theme-soft p-1.5 rounded-lg border border-theme-border">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="theme-soft border border-theme-border rounded-xl p-4 space-y-3.5 mb-3">
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">Telegram Bot Token (TG_BOT_TOKEN)</label>
+                    <input type="password" id="tgBotTokenInput" placeholder="請輸入 Bot Token，例如 123456789:AAHTA1mef..." class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">頻道 / 群組 Chat ID (TG_CHAT_ID)</label>
+                    <input type="text" id="tgChatIdInput" placeholder="例如: -1001234567890" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1.5">自訂代理轉發網址 / Cloudflare Worker (選填)</label>
+                    <input type="text" id="tgProxyInput" placeholder="例如: https://my-worker.workers.dev (留空則直連 api.telegram.org)" class="w-full theme-input border rounded-lg px-3 py-2 text-sm font-mono outline-none">
+                </div>
+                <div class="flex items-center gap-2 pt-1">
+                    <input type="checkbox" id="tgRememberLocal" class="rounded border-theme-border text-sky-500 focus:ring-0 w-4 h-4">
+                    <label for="tgRememberLocal" class="text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                        記住在本機 localStorage（預設僅存於 sessionStorage，分頁關閉後自動清除）
+                    </label>
+                </div>
+                <div class="flex justify-between items-center pt-2 border-t border-theme-border">
+                    <span id="tgStatusBadge" class="text-xs text-slate-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border">未設定 Token</span>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="clearTgConfig()" class="text-xs text-rose-500 hover:text-rose-600 px-3 py-2 rounded-xl theme-surface border border-theme-border font-medium">清除</button>
+                        <button type="button" onclick="saveTgConfig(true)" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow">儲存並測試連線</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-3 theme-soft border border-theme-border rounded-xl text-xs text-slate-500 leading-relaxed">
+                <strong class="text-slate-700 dark:text-slate-300">安全說明：</strong>已移除原始碼中所有硬編碼 Token 與 Chat ID。資料將安全儲存於您的瀏覽器本地（sessionStorage 或 localStorage），絕不外洩。
+            </div>
+        </div>
+    </div>
+
+<!-- Modal 3: GitHub 設定與資料庫 -->
     <div id="modalGithub" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden transition-opacity">
         <div class="theme-surface border w-full max-w-xl rounded-2xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90vh]">
             <div class="flex items-center justify-between border-b border-theme-border pb-3 mb-3">
@@ -937,17 +1135,109 @@
         </div>
     </div>
 
-    <!-- 訊息提示 Toast -->
-    <div id="toast" class="fixed bottom-6 right-6 theme-surface border border-amber-500/60 px-5 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 transform translate-y-24 opacity-0 transition-all duration-300 z-[99]">
-        <i data-lucide="info" class="w-5 h-5 text-amber-500"></i>
-        <span id="toastMsg" class="text-sm font-bold tracking-wide">操作完成</span>
-    </div>
+    <!-- 堆疊訊息通知 Toast Container -->
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-[100] flex flex-col-reverse gap-2 pointer-events-none max-w-sm w-full px-4"></div>
 
-    <script>
+            <script>
+        // ==========================================
+        // 澳門民間氣象台 - 全域狀態中樞 (appState)
+        // ==========================================
+        const appState = {
+            view: 'warn',             // 'warn' | 'nowcast'
+            category: 'cyclone',      // 'cyclone' | 'surge' | 'rain' | 'heat' | 'cold' | 'notice'
+            mode: 'new',              // 'new' | 'current' | 'cancel'
+            date: '',
+            time: '',
+            enableAutoExpire: false,
+            expireDate: '',
+            expireTime: '',
+            expiresAt: null,
+            cyclone: {
+                signal: '戒備警報',
+                cautionRange: '1200',
+                reportNumber: '',
+                name: '',
+                wind: '',
+                curLat: '',
+                curLon: '',
+                moveDir: '西北偏西',
+                moveSpeed: '',
+                fcLat: '',
+                fcLon: '',
+                customNotes: '',
+                galePreTime: ''
+            },
+            surge: {
+                signal: 'watch',
+                tideDate: '',
+                tideTime: '',
+                tideH: '',
+                rangeL: '',
+                rangeH: '',
+                hourS: '',
+                hourE: ''
+            },
+            rain: {
+                signal: 'rain_heavy_warn',
+                validUntil: '',
+                expectedTime: ''
+            },
+            heat: {
+                level: '酷熱警報',
+                temp: '',
+                partTemp: ''
+            },
+            cold: {
+                level: '寒冷警報',
+                temp: '',
+                partTemp: ''
+            },
+            notice: {
+                group: 'temp',
+                type: 'heat_alert',
+                rainSpecialLevel: '豪雨特別報告',
+                heatPeriod: '未來一兩日',
+                cold_m1: '',
+                cold_l1: '',
+                cold_l2: '',
+                cold_l3: '',
+                fireTime: '今日',
+                fireLevel: '較高',
+                airPeriod: '今日',
+                rainStatTime: '',
+                rainValMacau: '',
+                rainValTaipa: '',
+                rainValColoane: '',
+                windIndex: '',
+                selectedWindStations: [],
+                stationWindValues: {}
+            },
+            editingRecordId: null,
+            editingSchedId: null,
+            scheduledPreservedIcon: null,
+            currentWarnPhotoBlob: null,
+            currentWarnCustomDataUrl: null,
+            github: {
+                records: [],
+                fileSha: null
+            },
+            scheduled: {
+                messages: [],
+                fileSha: null,
+                isProcessing: false
+            },
+            nowcast: {
+                rows: [],
+                filterClass: 'E',
+                fileSha: null,
+                date: '',
+                time: ''
+            }
+        };
+
+        // 常數設定
         const MACAU_LAT = 22.1595;
         const MACAU_LON = 113.5685;
-        const TG_BOT_TOKEN = "9248842903:AAHTA1mefhasQJqOQVM3V2XUilHqi2PY6_0";
-        const TG_CHAT_ID = "-1001680417293";
         const SCHED_FILE_PATH = "tg_scheduled.json";
 
         const CONDITION_ICON_MAP = {
@@ -1015,7 +1305,7 @@
             { code: 'DC', name: '路環市區' }
         ];
 
-        // 系統狀態
+        // 扁平化變數與 appState 雙向映射以保持現有函數透明兼容
         let curAppView = 'warn';
         let curCat = 'cyclone';
         let curMode = 'new';
@@ -1049,14 +1339,752 @@
         let nowcastFileSha = null;
         let nowcastFilterClass = 'E';
 
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            if (!toast) return;
-            document.getElementById('toastMsg').innerText = msg;
-            toast.classList.remove('translate-y-24', 'opacity-0');
-            setTimeout(() => toast.classList.add('translate-y-24', 'opacity-0'), 2600);
+        let flatpickrInstances = {};
+
+        // ==========================================
+        // 1. 安全 Telegram Token 存取 (無硬編碼)
+        // ==========================================
+        function getTgConfig() {
+            let token = sessionStorage.getItem('tg_bot_token') || localStorage.getItem('tg_bot_token') || '';
+            let chatId = sessionStorage.getItem('tg_chat_id') || localStorage.getItem('tg_chat_id') || '';
+            let proxy = sessionStorage.getItem('tg_proxy_url') || localStorage.getItem('tg_proxy_url') || '';
+            return { token: token.trim(), chatId: chatId.trim(), proxy: proxy.trim() };
         }
 
+        function saveTgConfig(test = false) {
+            const token = document.getElementById('tgBotTokenInput')?.value.trim() || '';
+            const chatId = document.getElementById('tgChatIdInput')?.value.trim() || '';
+            const proxy = document.getElementById('tgProxyInput')?.value.trim() || '';
+            const remember = document.getElementById('tgRememberLocal')?.checked;
+
+            if (remember) {
+                localStorage.setItem('tg_bot_token', token);
+                localStorage.setItem('tg_chat_id', chatId);
+                localStorage.setItem('tg_proxy_url', proxy);
+                sessionStorage.removeItem('tg_bot_token');
+                sessionStorage.removeItem('tg_chat_id');
+                sessionStorage.removeItem('tg_proxy_url');
+            } else {
+                sessionStorage.setItem('tg_bot_token', token);
+                sessionStorage.setItem('tg_chat_id', chatId);
+                sessionStorage.setItem('tg_proxy_url', proxy);
+                localStorage.removeItem('tg_bot_token');
+                localStorage.removeItem('tg_chat_id');
+                localStorage.removeItem('tg_proxy_url');
+            }
+
+            updateTgIndicator();
+            if (test) {
+                testTgConnection(token, chatId, proxy);
+            } else {
+                showToast("Telegram 設定已成功儲存！", "success");
+            }
+        }
+
+        function clearTgConfig() {
+            sessionStorage.removeItem('tg_bot_token');
+            sessionStorage.removeItem('tg_chat_id');
+            sessionStorage.removeItem('tg_proxy_url');
+            localStorage.removeItem('tg_bot_token');
+            localStorage.removeItem('tg_chat_id');
+            localStorage.removeItem('tg_proxy_url');
+
+            if (document.getElementById('tgBotTokenInput')) document.getElementById('tgBotTokenInput').value = '';
+            if (document.getElementById('tgChatIdInput')) document.getElementById('tgChatIdInput').value = '';
+            if (document.getElementById('tgProxyInput')) document.getElementById('tgProxyInput').value = '';
+            updateTgIndicator();
+            showToast("已清除本機儲存之 Telegram Token", "info");
+        }
+
+        function updateTgIndicator() {
+            const { token, chatId } = getTgConfig();
+            const ind = document.getElementById('navTgIndicator');
+            const badge = document.getElementById('tgStatusBadge');
+            const hasConfig = !!(token && chatId);
+            if (ind) {
+                ind.className = hasConfig ? "w-2 h-2 rounded-full bg-emerald-500 ml-0.5" : "w-2 h-2 rounded-full bg-slate-400 ml-0.5";
+            }
+            if (badge) {
+                badge.innerText = hasConfig ? "已設定 Token" : "未設定 Token";
+                badge.className = hasConfig 
+                    ? "text-xs text-emerald-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border"
+                    : "text-xs text-slate-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border";
+            }
+        }
+
+        async function testTgConnection(token, chatId, proxy) {
+            if (!token) {
+                showToast("請填寫 Telegram Bot Token 後再測試！", "error");
+                highlightInputError('tgBotTokenInput');
+                return;
+            }
+            const badge = document.getElementById('tgStatusBadge');
+            if (badge) badge.innerText = "測試連線中...";
+
+            const baseUrl = proxy ? proxy.replace(/\/$/, '') : `https://api.telegram.org/bot${token}`;
+            const testUrl = proxy ? `${baseUrl}/getMe` : `https://api.telegram.org/bot${token}/getMe`;
+
+            try {
+                const res = await fetch(testUrl);
+                const data = await res.json();
+                if (data.ok) {
+                    const botName = data.result.username ? `@${data.result.username}` : (data.result.first_name || 'Bot');
+                    showToast(`連線成功！機器人身分: ${botName}`, "success");
+                    if (badge) {
+                        badge.innerText = `連線正常 (${botName})`;
+                        badge.className = "text-xs text-emerald-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border";
+                    }
+                } else {
+                    showToast("Telegram 連線失敗：" + (data.description || "Token 無效"), "error");
+                    if (badge) {
+                        badge.innerText = "連線失敗";
+                        badge.className = "text-xs text-rose-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border";
+                    }
+                }
+            } catch (err) {
+                showToast("無法連接 Telegram API：" + err.message, "error");
+                if (badge) {
+                    badge.innerText = "連線異常";
+                    badge.className = "text-xs text-rose-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border";
+                }
+            }
+        }
+
+        // ==========================================
+        // 2. 堆疊式通知系統 (Toast Stacking)
+        // ==========================================
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function showToast(msg, type = 'info', duration = 3000) {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const typeConfig = {
+                info: { border: 'border-amber-500/70', text: 'text-amber-500', icon: 'info' },
+                success: { border: 'border-emerald-500/70', text: 'text-emerald-500', icon: 'check-circle-2' },
+                error: { border: 'border-rose-500/80', text: 'text-rose-500', icon: 'alert-circle' },
+                warning: { border: 'border-orange-500/80', text: 'text-orange-500', icon: 'alert-triangle' }
+            };
+            const cfg = typeConfig[type] || typeConfig.info;
+
+            toast.className = `pointer-events-auto theme-surface border ${cfg.border} px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 transform translate-y-6 opacity-0 transition-all duration-300 backdrop-blur-md text-xs sm:text-sm font-bold tracking-wide`;
+            toast.innerHTML = `
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <i data-lucide="${cfg.icon}" class="w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${cfg.text}"></i>
+                    <span class="break-words">${escapeHtml(msg)}</span>
+                </div>
+                <button type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg shrink-0">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
+
+            const closeBtn = toast.querySelector('button');
+            let timer = null;
+            const dismiss = () => {
+                if (timer) clearTimeout(timer);
+                toast.classList.add('translate-y-6', 'opacity-0');
+                setTimeout(() => toast.remove(), 280);
+            };
+            closeBtn.onclick = dismiss;
+
+            container.appendChild(toast);
+            if (window.lucide) lucide.createIcons({ root: toast });
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-6', 'opacity-0');
+            });
+
+            timer = setTimeout(dismiss, duration);
+        }
+
+        // ==========================================
+        // 3. 輸入框錯誤定位與震動動畫 (Input Validation)
+        // ==========================================
+        function highlightInputError(target, errorMsg) {
+            const el = typeof target === 'string' ? document.getElementById(target) : target;
+            if (el) {
+                el.classList.add('input-error', 'animate-shake');
+                setTimeout(() => el.classList.remove('animate-shake'), 450);
+
+                const clearHandler = () => {
+                    el.classList.remove('input-error');
+                    el.removeEventListener('input', clearHandler);
+                    el.removeEventListener('change', clearHandler);
+                };
+                el.addEventListener('input', clearHandler);
+                el.addEventListener('change', clearHandler);
+
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                try { el.focus(); } catch (e) {}
+            }
+            if (errorMsg) {
+                showToast(errorMsg, 'error');
+            }
+        }
+
+        function validateWarningForm() {
+            const dateVal = (document.getElementById('inputDate')?.value || '').trim();
+            const timeVal = (document.getElementById('inputTime')?.value || '').trim();
+
+            if (!dateVal) {
+                highlightInputError('inputDate', '請選擇或填寫發布日期 (YYYY-MM-DD)！');
+                return false;
+            }
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+                highlightInputError('inputDate', '發布日期格式錯誤，請使用 YYYY-MM-DD！');
+                return false;
+            }
+
+            if (!timeVal) {
+                highlightInputError('inputTime', '請選擇或填寫發布時間 (HH:MM)！');
+                return false;
+            }
+            if (!/^\d{1,2}:\d{2}$/.test(timeVal)) {
+                highlightInputError('inputTime', '發布時間格式錯誤，請使用 HH:MM！');
+                return false;
+            }
+            const [h, min] = timeVal.split(':').map(n => parseInt(n, 10));
+            if (h < 0 || h > 23 || min < 0 || min > 59) {
+                highlightInputError('inputTime', '時間數值超出合法範圍 (00:00 - 23:59)！');
+                return false;
+            }
+
+            // TTL 檢查 (若勾選啟用自動失效，必須填寫合法之失效時間)
+            const isTtl = document.getElementById('enableAutoExpire')?.checked;
+            if (isTtl) {
+                const expD = document.getElementById('expireDate')?.value || '';
+                const expT = document.getElementById('expireTime')?.value || '';
+                if (!expD || !expT) {
+                    highlightInputError(!expD ? 'expireDate' : 'expireTime', '已勾選預設計畫解除時間，請完整設定失效日期與時間！');
+                    return false;
+                }
+                const expTs = parseLocalDateTimeToTimestamp(expD, expT);
+                const issueTs = parseLocalDateTimeToTimestamp(dateVal, timeVal);
+                if (!expTs || (issueTs && expTs <= issueTs)) {
+                    highlightInputError('expireTime', '自動失效時間必須晚於發布時間！');
+                    return false;
+                }
+            }
+
+            // 類別專屬檢核
+            if (curCat === 'cyclone') {
+                const windEl = document.getElementById('tcWind');
+                if (windEl && windEl.value.trim() !== '') {
+                    const w = parseFloat(windEl.value);
+                    if (isNaN(w) || w < 0 || w > 350) {
+                        highlightInputError('tcWind', '中心風速不合理 (需介乎 0 至 350 km/h)！');
+                        return false;
+                    }
+                }
+                const latEl = document.getElementById('tcCurLat');
+                if (latEl && latEl.value.trim() !== '') {
+                    const lat = parseFloat(latEl.value);
+                    if (isNaN(lat) || lat < -90 || lat > 90) {
+                        highlightInputError('tcCurLat', '中心緯度超出合理範圍 (-90° 至 90°)！');
+                        return false;
+                    }
+                }
+                const lonEl = document.getElementById('tcCurLon');
+                if (lonEl && lonEl.value.trim() !== '') {
+                    const lon = parseFloat(lonEl.value);
+                    if (isNaN(lon) || lon < -180 || lon > 180) {
+                        highlightInputError('tcCurLon', '中心經度超出合理範圍 (-180° 至 180°)！');
+                        return false;
+                    }
+                }
+                const spdEl = document.getElementById('tcMoveSpeed');
+                if (spdEl && spdEl.value.trim() !== '') {
+                    const spd = parseFloat(spdEl.value);
+                    if (isNaN(spd) || spd < 0 || spd > 250) {
+                        highlightInputError('tcMoveSpeed', '移動時速不合理 (需介乎 0 至 250 km/h)！');
+                        return false;
+                    }
+                }
+            } else if (curCat === 'surge') {
+                const tideHEl = document.getElementById('surgeTideH');
+                if (tideHEl && tideHEl.value.trim() !== '') {
+                    const tv = parseFloat(tideHEl.value);
+                    if (isNaN(tv) || tv < -5 || tv > 15) {
+                        highlightInputError('surgeTideH', '天文潮高度不合理！');
+                        return false;
+                    }
+                }
+            }
+
+            const outVal = (document.getElementById('outputText')?.value || '').trim();
+            if (!outVal) {
+                highlightInputError('outputText', '警報預覽內文不能為空！');
+                return false;
+            }
+
+            return true;
+        }
+
+        // ==========================================
+        // 4. 背景分頁不受限排程 (Web Worker Timer) & TTL 自動降級生命週期
+        // ==========================================
+        let schedulerWorker = null;
+        function initSchedulerWorker() {
+            try {
+                const workerScript = `
+                    setInterval(function() {
+                        postMessage('tick');
+                    }, 1000);
+                `;
+                const blob = new Blob([workerScript], { type: 'application/javascript' });
+                const workerUrl = URL.createObjectURL(blob);
+                schedulerWorker = new Worker(workerUrl);
+                schedulerWorker.onmessage = function(e) {
+                    if (e.data === 'tick') {
+                        checkAndProcessScheduledQueue();
+                        checkAutoExpiration();
+                    }
+                };
+            } catch (err) {
+                console.warn("Web Worker 初始化異常，改用 window.setInterval:", err);
+                setInterval(() => {
+                    checkAndProcessScheduledQueue();
+                    checkAutoExpiration();
+                }, 1000);
+            }
+        }
+
+        async function checkAndProcessScheduledQueue() {
+            if (isProcessingQueue) return;
+            const now = Date.now();
+            const readyItems = scheduledMessages.filter(m => m.status === 'pending' && m.targetTime !== null && now >= m.targetTime);
+            if (readyItems.length === 0) return;
+
+            isProcessingQueue = true;
+            try {
+                for (let i = 0; i < scheduledMessages.length; i++) {
+                    const item = scheduledMessages[i];
+                    if (item.status === 'pending' && item.targetTime !== null && now >= item.targetTime) {
+                        scheduledMessages[i].status = 'sending';
+                        saveScheduledToLocalStorage();
+                        
+                        showToast(`正在發布定時排程 [${item.targetTimeStr}]...`, "info");
+                        
+                        const photoToSend = item.customPhotoDataUrl || item.iconUrl || null;
+                        const ok = await sendTelegramRawText(item.text, `定時發布中...`, photoToSend, item.withPhoto);
+                        
+                        scheduledMessages[i].status = ok ? 'sent' : 'failed';
+                        
+                        if (ok && item.action === 'cancel' && item.signalKey) {
+                            try {
+                                let updatedList = githubRecordsCache.filter(r => {
+                                    const rKey = r.signalKey || r.category;
+                                    return rKey !== item.signalKey;
+                                });
+                                await commitListToGithub(updatedList, `定時排程自動取消警報 [${item.signalKey}]`, true);
+                            } catch (err) {
+                                console.warn("排程取消警報異常：", err);
+                            }
+                        }
+                    }
+                }
+                
+                scheduledMessages = scheduledMessages.filter(m => m.status === 'pending');
+                saveScheduledToLocalStorage();
+                renderScheduledList();
+                await syncScheduledToGithub();
+            } finally {
+                isProcessingQueue = false;
+            }
+        }
+
+        let isCheckingExpiration = false;
+        async function checkAutoExpiration() {
+            if (isCheckingExpiration) return;
+            if (!githubRecordsCache || githubRecordsCache.length === 0) return;
+            const now = Date.now();
+            
+            const expiredList = [];
+            for (let i = 0; i < githubRecordsCache.length; i++) {
+                const rec = githubRecordsCache[i];
+                if (rec && rec.mode !== 'cancel' && !rec.isExpired && rec.expiresAt && now >= rec.expiresAt) {
+                    rec.isExpired = true;
+                    rec.mode = 'cancel';
+                    expiredList.push(rec);
+                }
+            }
+
+            if (expiredList.length === 0) return;
+
+            isCheckingExpiration = true;
+            try {
+                const updatedList = githubRecordsCache.filter(r => !r.isExpired && r.mode !== 'cancel');
+                await commitListToGithub(updatedList, `自動解除已過期警報 (Auto-Expiration TTL)`, true);
+                updateActiveWarningsBanner();
+
+                for (const rec of expiredList) {
+                    const expDate = new Date(rec.expiresAt || now);
+                    const y = expDate.getFullYear();
+                    const m = String(expDate.getMonth() + 1).padStart(2, '0');
+                    const d = String(expDate.getDate()).padStart(2, '0');
+                    const h = String(expDate.getHours()).padStart(2, '0');
+                    const min = String(expDate.getMinutes()).padStart(2, '0');
+
+                    const firstLine = (rec.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '').trim();
+                    const cancelMsg = `【#${firstLine}】\n${y}-${m}-${d}  ${h}:${min} MST\n\n${firstLine}於本地時間${m}月${d}日${h}時${min}分取消。`;
+
+                    await sendTelegramRawText(cancelMsg, `自動失效靜音推播 [${firstLine}]...`, null, false, true);
+                    showToast(`警報【${firstLine}】已逾預設計畫解除時間，系統已自動解除並發布靜音推播！`, "info", 6000);
+                }
+            } catch (err) {
+                console.warn("TTL 自動解除異常：", err);
+            } finally {
+                isCheckingExpiration = false;
+            }
+        }
+
+        function toggleAutoExpire(enabled) {
+            const container = document.getElementById('ttlInputsContainer');
+            if (container) container.classList.toggle('hidden', !enabled);
+            appState.enableAutoExpire = enabled;
+            if (enabled) {
+                if (!document.getElementById('expireDate')?.value || !document.getElementById('expireTime')?.value) {
+                    setExpireQuickHours(3);
+                }
+            } else {
+                appState.expiresAt = null;
+            }
+            scheduleAutoSave();
+        }
+
+        function setExpireQuickHours(hrs) {
+            const dVal = document.getElementById('inputDate')?.value || '';
+            const tVal = document.getElementById('inputTime')?.value || '';
+            let baseTs = Date.now();
+            if (dVal && tVal) {
+                const parsed = parseLocalDateTimeToTimestamp(dVal, tVal);
+                if (parsed) baseTs = parsed;
+            }
+            const targetDate = new Date(baseTs + hrs * 3600 * 1000);
+            const y = targetDate.getFullYear();
+            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const d = String(targetDate.getDate()).padStart(2, '0');
+            const h = String(targetDate.getHours()).padStart(2, '0');
+            const min = String(targetDate.getMinutes()).padStart(2, '0');
+            
+            const chk = document.getElementById('enableAutoExpire');
+            if (chk) {
+                chk.checked = true;
+                const container = document.getElementById('ttlInputsContainer');
+                if (container) container.classList.remove('hidden');
+                appState.enableAutoExpire = true;
+            }
+            setPickerValue('expireDate', `${y}-${m}-${d}`);
+            setPickerValue('expireTime', `${h}:${min}`);
+            appState.expireDate = `${y}-${m}-${d}`;
+            appState.expireTime = `${h}:${min}`;
+            appState.expiresAt = targetDate.getTime();
+            scheduleAutoSave();
+            showToast(`已設定有效時限為 +${hrs} 小時 (${y}-${m}-${d} ${h}:${min})`, 'info');
+        }
+
+        function handleExpireDateChange(val) {
+            appState.expireDate = val;
+            scheduleAutoSave();
+        }
+
+        function handleExpireTimeChange(val) {
+            appState.expireTime = val;
+            scheduleAutoSave();
+        }
+
+        // ==========================================
+        // 5. 獨立模組的多工草稿機制 (Multi-Drafting)
+        // ==========================================
+        let autoSaveTimer = null;
+        function scheduleAutoSave() {
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(triggerAutoSave, 1500);
+        }
+
+        function getModuleDrafts() {
+            try {
+                const raw = localStorage.getItem('genwarn_module_drafts');
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        // 判斷某模組是否有實質使用者輸入（排除僅有系統自動填入之時間與預設信號）
+        function hasSubstantiveDraftContent(snap, cat) {
+            if (!snap) return false;
+            const p = snap.params || {};
+            const c = cat || snap.category;
+
+            if (c === 'cyclone') {
+                return !!(
+                    p.tcName?.trim() ||
+                    p.tcWind?.trim() ||
+                    p.tcCurLat?.trim() ||
+                    p.tcCurLon?.trim() ||
+                    p.tcMoveSpeed?.trim() ||
+                    p.tcFcLat?.trim() ||
+                    p.tcFcLon?.trim() ||
+                    p.tcCustomNotes?.trim() ||
+                    p.tcReportNumber?.trim() ||
+                    p.tcGalePreTime?.trim() ||
+                    (p.curCyclone && p.curCyclone !== '戒備警報') ||
+                    (snap.enableAutoExpire && snap.expireTime)
+                );
+            } else if (c === 'surge') {
+                return !!(
+                    p.surgeTideH?.trim() ||
+                    p.surgeRangeL?.trim() ||
+                    p.surgeRangeH?.trim() ||
+                    p.surgeHourS?.trim() ||
+                    p.surgeHourE?.trim() ||
+                    p.surgeTideTime?.trim() ||
+                    (p.curSurge && p.curSurge !== 'watch') ||
+                    (snap.enableAutoExpire && snap.expireTime)
+                );
+            } else if (c === 'rain') {
+                return !!(
+                    p.rainWarnValidUntil?.trim() ||
+                    p.rainPreExpectedTime?.trim() ||
+                    (p.curRain && p.curRain !== 'rain_heavy_warn') ||
+                    (snap.enableAutoExpire && snap.expireTime)
+                );
+            } else if (c === 'heat') {
+                return !!(
+                    p.heatTemp?.trim() ||
+                    p.heatPartTemp?.trim() ||
+                    (p.curHeat && p.curHeat !== '酷熱警報') ||
+                    (snap.enableAutoExpire && snap.expireTime)
+                );
+            } else if (c === 'cold') {
+                return !!(
+                    p.coldTemp?.trim() ||
+                    p.coldPartTemp?.trim() ||
+                    (p.curCold && p.curCold !== '寒冷警報') ||
+                    (snap.enableAutoExpire && snap.expireTime)
+                );
+            } else if (c === 'notice') {
+                return !!(
+                    p.cold_m1?.trim() ||
+                    p.cold_l1?.trim() ||
+                    p.cold_l2?.trim() ||
+                    p.cold_l3?.trim() ||
+                    p.wind_index?.trim() ||
+                    p.rain_stat_time?.trim() ||
+                    p.rain_val_macau?.trim() ||
+                    p.rain_val_taipa?.trim() ||
+                    p.rain_val_coloane?.trim() ||
+                    (p.selectedWindStations && p.selectedWindStations.length > 0) ||
+                    (p.curNotice && p.curNotice !== 'heat_alert') ||
+                    (snap.enableAutoExpire && snap.expireTime)
+                );
+            }
+            return false;
+        }
+
+        function saveCategoryDraft(cat) {
+            if (!cat) cat = curCat;
+            if (editingRecordId || editingSchedId) return; // 歷史檢視模式下不覆蓋進行中草稿
+            const snap = captureCurrentSnapshot();
+            const hasSubstance = hasSubstantiveDraftContent(snap, cat);
+
+            const drafts = getModuleDrafts();
+            if (hasSubstance) {
+                drafts[cat] = {
+                    timestamp: Date.now(),
+                    snapshot: snap
+                };
+            } else {
+                // 若此模組並無實質使用者輸入（僅有系統預設發布時間），自動清除避免誤顯示小圓點
+                delete drafts[cat];
+            }
+
+            try {
+                localStorage.setItem('genwarn_module_drafts', JSON.stringify(drafts));
+                updateCategoryDraftBadges();
+                if (hasSubstance) {
+                    const ind = document.getElementById('autoSaveIndicator');
+                    if (ind) {
+                        ind.classList.remove('opacity-0');
+                        setTimeout(() => ind.classList.add('opacity-0'), 1500);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function loadCategoryDraft(cat) {
+            const drafts = getModuleDrafts();
+            const draft = drafts[cat];
+            if (draft && draft.snapshot && hasSubstantiveDraftContent(draft.snapshot, cat)) {
+                loadSnapshotToForm(draft.snapshot);
+                return true;
+            }
+            return false;
+        }
+
+        function clearCategoryDraft(cat) {
+            const drafts = getModuleDrafts();
+            delete drafts[cat];
+            try {
+                localStorage.setItem('genwarn_module_drafts', JSON.stringify(drafts));
+                updateCategoryDraftBadges();
+            } catch (e) {}
+        }
+
+        function updateCategoryDraftBadges() {
+            const drafts = getModuleDrafts();
+            ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'].forEach(c => {
+                const dot = document.getElementById(`draft-dot-${c}`);
+                if (dot) {
+                    const draft = drafts[c];
+                    const hasDraft = !!(draft && draft.snapshot && hasSubstantiveDraftContent(draft.snapshot, c));
+                    dot.classList.toggle('hidden', !hasDraft);
+                }
+            });
+        }
+
+        function triggerAutoSave() {
+            saveCategoryDraft(curCat);
+        }
+
+        function clearCategoryModuleInputs(cat) {
+            if (cat === 'cyclone') {
+                ['tcName', 'tcWind', 'tcCurLat', 'tcCurLon', 'tcMoveSpeed', 'tcFcLat', 'tcFcLon', 'tcCustomNotes', 'tcReportNumber'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                setPickerValue('tcGalePreTime', '');
+                selectCycloneSignal('戒備警報');
+                handleWindChange();
+                autoResizeTcNotes();
+            } else if (cat === 'surge') {
+                ['surgeTideH', 'surgeRangeL', 'surgeRangeH', 'surgeHourS', 'surgeHourE'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                setPickerValue('surgeTideTime', '');
+                selectSurgeSignal('watch');
+            } else if (cat === 'rain') {
+                setPickerValue('rainWarnValidUntil', '');
+                setPickerValue('rainPreExpectedTime', '');
+                selectRainSignal('rain_heavy_warn');
+            } else if (cat === 'heat') {
+                ['heatTemp', 'heatPartTemp'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                selectHeatLevel('酷熱警報');
+            } else if (cat === 'cold') {
+                ['coldTemp', 'coldPartTemp'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                selectColdLevel('寒冷警報');
+            } else if (cat === 'notice') {
+                ['cold_m1', 'cold_l1', 'cold_l2', 'cold_l3', 'wind_index', 'rain_stat_time', 'rain_val_macau', 'rain_val_taipa', 'rain_val_coloane'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+                selectedWindStations = [];
+                stationWindValues = {};
+                renderWindStationInputs();
+                switchNoticeGroup('temp');
+                selectNoticeType('heat_alert');
+            }
+
+            const chk = document.getElementById('enableAutoExpire');
+            if (chk) {
+                chk.checked = false;
+                toggleAutoExpire(false);
+            }
+            setPickerValue('expireDate', '');
+            setPickerValue('expireTime', '');
+        }
+
+        // 6. 日期/時間選擇器升級 (Flatpickr 整合)
+        // ==========================================
+        function initFlatpickrPickers() {
+            const dateIds = ['inputDate', 'surgeTideDate', 'nowcastDate', 'expireDate'];
+            const timeIds = ['inputTime', 'surgeTideTime', 'tcGalePreTime', 'rainWarnValidUntil', 'rainPreExpectedTime', 'nowcastTime', 'expireTime'];
+
+            dateIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    flatpickrInstances[id] = flatpickr(el, {
+                        dateFormat: "Y-m-d",
+                        allowInput: true,
+                        disableMobile: true,
+                        onChange: function(selectedDates, dateStr) {
+                            el.value = dateStr;
+                            if (id === 'inputDate') handleDateChange(dateStr);
+                            else if (id === 'surgeTideDate') renderWarning();
+                            else if (id === 'nowcastDate') renderNowcastPreview();
+                            else if (id === 'expireDate') handleExpireDateChange(dateStr);
+                            scheduleAutoSave();
+                        }
+                    });
+                }
+            });
+
+            timeIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    flatpickrInstances[id] = flatpickr(el, {
+                        enableTime: true,
+                        noCalendar: true,
+                        dateFormat: "H:i",
+                        time_24hr: true,
+                        allowInput: true,
+                        disableMobile: true,
+                        onChange: function(selectedDates, timeStr) {
+                            el.value = timeStr;
+                            if (id === 'inputTime') handleTimeInput(timeStr);
+                            else if (id === 'nowcastTime') renderNowcastPreview();
+                            else if (id === 'expireTime') handleExpireTimeChange(timeStr);
+                            else renderWarning();
+                            scheduleAutoSave();
+                        }
+                    });
+                }
+            });
+        }
+
+        function setPickerValue(id, val) {
+            const el = document.getElementById(id);
+            if (el) el.value = val || '';
+            if (flatpickrInstances[id]) {
+                try {
+                    flatpickrInstances[id].setDate(val || '', false);
+                } catch (e) {}
+            }
+        }
+
+        function handleDateChange(val) {
+            appState.date = val;
+            renderWarning();
+            scheduleAutoSave();
+        }
+
+        function scrollToPreview() {
+            const targetId = (curAppView === 'nowcast') ? 'nowcastPreviewCol' : 'colWarnPrev';
+            const el = document.getElementById(targetId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // ==========================================
+        // 核心業務函數（保留並升級原版完整功能）
+        // ==========================================
         function toggleModal(id, show) {
             const modal = document.getElementById(id);
             if (!modal) return;
@@ -1070,6 +2098,15 @@
             if (show && id === 'modalTgSchedule') {
                 renderScheduledList();
                 fetchScheduledFromGithub(false);
+            }
+            if (show && id === 'modalTgConfig') {
+                const { token, chatId, proxy } = getTgConfig();
+                if (document.getElementById('tgBotTokenInput')) document.getElementById('tgBotTokenInput').value = token;
+                if (document.getElementById('tgChatIdInput')) document.getElementById('tgChatIdInput').value = chatId;
+                if (document.getElementById('tgProxyInput')) document.getElementById('tgProxyInput').value = proxy;
+                const isLocal = !!localStorage.getItem('tg_bot_token');
+                if (document.getElementById('tgRememberLocal')) document.getElementById('tgRememberLocal').checked = isLocal;
+                updateTgIndicator();
             }
         }
 
@@ -1093,8 +2130,6 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        
-
         function updateCharCount() {
             const val = document.getElementById('outputText')?.value || '';
             const badge = document.getElementById('charCountBadge');
@@ -1103,6 +2138,7 @@
 
         function switchAppView(view) {
             curAppView = view;
+            appState.view = view;
             document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.app-tab-btn').forEach(btn => {
                 btn.className = "app-tab-btn py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-2 text-slate-600 dark:text-slate-400 theme-soft border border-theme-border whitespace-nowrap hover:bg-slate-200 dark:hover:bg-dark-800";
@@ -1112,7 +2148,10 @@
             if (activeBtn) activeBtn.className = "app-tab-btn py-2 px-4 rounded-xl text-xs font-bold flex items-center gap-2 bg-amber-500 text-slate-950 shadow-sm whitespace-nowrap";
             if (targetView) targetView.classList.remove('hidden');
 
-            if (view === 'nowcast' && window.nowcastRows.length === 0) fetchNowcastCsv();
+            if (view === 'nowcast') {
+                if (window.nowcastRows.length === 0) fetchNowcastCsv();
+                syncNowcastCurrentTime();
+            }
         }
 
         function parseLocalDateTimeToTimestamp(dateStr, timeStr) {
@@ -1158,10 +2197,11 @@
             const h = String(targetDate.getHours()).padStart(2, '0');
             const min = String(targetDate.getMinutes()).padStart(2, '0');
             
-            document.getElementById('inputDate').value = `${y}-${m}-${d}`;
-            document.getElementById('inputTime').value = `${h}:${min}`;
+            setPickerValue('inputDate', `${y}-${m}-${d}`);
+            setPickerValue('inputTime', `${h}:${min}`);
             handleTimeInput(`${h}:${min}`);
             renderWarning();
+            scheduleAutoSave();
         }
 
         function getIntensityObj(windVal) {
@@ -1183,6 +2223,7 @@
                 tag.style.color = found.color;
             }
             renderWarning();
+            scheduleAutoSave();
         }
 
         function calcDistance(lat1, lon1, lat2, lon2) {
@@ -1248,7 +2289,7 @@
                 delete stationWindValues[code];
             } else {
                 if (selectedWindStations.length >= 4) {
-                    showToast("最多只能選擇 4 個測站！");
+                    showToast("最多只能選擇 4 個測站！", "warning");
                     return;
                 }
                 selectedWindStations.push(code);
@@ -1256,6 +2297,7 @@
             }
             renderWindStationInputs();
             renderWarning();
+            scheduleAutoSave();
         }
 
         function renderWindStationInputs() {
@@ -1289,10 +2331,10 @@
                     <div class="p-3 theme-surface border border-theme-border rounded-xl grid grid-cols-1 sm:grid-cols-5 gap-3 items-center text-sm shadow-sm">
                         <span class="font-bold text-slate-700 dark:text-slate-300 col-span-1 truncate text-xs sm:text-sm" title="${st ? st.name : code}">${st ? st.name : code}</span>
                         <div class="col-span-2">
-                            <input type="number" value="${val.wind || ''}" oninput="updateStationWind('${code}', 'wind', this.value)" placeholder="持續風速 (選填)" class="w-full theme-input border rounded-lg px-3 py-1.5 text-xs font-mono outline-none">
+                            <input type="number" min="0" max="300" value="${val.wind || ''}" oninput="updateStationWind('${code}', 'wind', this.value)" placeholder="持續風速 (選填)" class="w-full theme-input border rounded-lg px-3 py-1.5 text-xs font-mono outline-none">
                         </div>
                         <div class="col-span-2">
-                            <input type="number" value="${val.gust || ''}" oninput="updateStationWind('${code}', 'gust', this.value)" placeholder="最高陣風 (選填)" class="w-full theme-input border rounded-lg px-3 py-1.5 text-xs font-mono outline-none">
+                            <input type="number" min="0" max="350" value="${val.gust || ''}" oninput="updateStationWind('${code}', 'gust', this.value)" placeholder="最高陣風 (選填)" class="w-full theme-input border rounded-lg px-3 py-1.5 text-xs font-mono outline-none">
                         </div>
                     </div>
                 `;
@@ -1303,6 +2345,7 @@
             if (!stationWindValues[code]) stationWindValues[code] = { wind: '', gust: '' };
             stationWindValues[code][type] = val;
             renderWarning();
+            scheduleAutoSave();
         }
 
         function buildWindReportSentence() {
@@ -1393,6 +2436,7 @@
                 act.className = "rlevel-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-xs font-bold shadow-sm";
             }
             renderWarning();
+            scheduleAutoSave();
         }
 
         function getCycloneDef(signal) {
@@ -1417,7 +2461,6 @@
             return '';
         }
 
-        
         function autoResizeOutputText() {
             const el = document.getElementById('outputText');
             if (!el) return;
@@ -1443,7 +2486,6 @@
         function getWarningColorStyle(sigTitle) {
             const t = (sigTitle || '').trim();
 
-            // 7. 目前生效警報顏色規範
             if (t.includes('高溫預警提示')) {
                 return { badge: 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30', dot: 'bg-orange-500' };
             }
@@ -1478,7 +2520,6 @@
                 return { badge: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30', dot: 'bg-amber-400' };
             }
 
-            // 其他類別預設樣式
             if (t.includes('注意警報')) return { badge: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30', dot: 'bg-slate-400' };
             if (t.includes('風暴潮戒備')) return { badge: 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/30', dot: 'bg-orange-500' };
             if (t.includes('戒備警報') || t.includes('風暴潮觀察')) return { badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30', dot: 'bg-emerald-400' };
@@ -1495,13 +2536,11 @@
             const dateStr = (document.getElementById('inputDate')?.value || '').trim();
             const timeStr = (document.getElementById('inputTime')?.value || '').trim();
 
-            // 4. if cancel warning, no need option of 附帶警報圖示
             const photoOptContainer = document.getElementById('sendTgWithPhotoContainer');
             if (photoOptContainer) {
                 photoOptContainer.classList.toggle('hidden', curMode === 'cancel');
             }
 
-            // If date or time is missing, clear output and hide icon
             if (!dateStr || !timeStr) {
                 const outEl = document.getElementById('outputText');
                 if (outEl && !editingRecordId && !editingSchedId) {
@@ -1553,7 +2592,7 @@
                         detailText = notes;
                     }
                 } else {
-                    const repNo = document.getElementById('tcReportNumber')?.value || '1';
+                    const repNo = document.getElementById('tcReportNumber')?.value || '';
                     let rawName = (document.getElementById('tcName')?.value || '').trim();
                     let tcNameFormatted = rawName || '??';
 
@@ -1561,7 +2600,8 @@
                     const intensity = getIntensityObj(wind);
                     const intName = intensity ? intensity.name : '熱帶氣旋';
 
-                    headerTitle = `【#${curCyclone.trim()}】\n澳門民間氣象台發出之最新風暴報告\n第${repNo}報  ${intName} ${tcNameFormatted}\n${dateStr}  ${timeStr} MST`;
+                    const repPrefix = repNo ? `第${repNo}報  ` : '';
+                    headerTitle = `【#${curCyclone.trim()}】\n澳門民間氣象台發出之最新風暴報告\n${repPrefix}${intName} ${tcNameFormatted}\n${dateStr}  ${timeStr} MST`;
 
                     const nextBadge = document.getElementById('tcNextReportBadge');
                     if (nextBadge) nextBadge.innerText = String((parseInt(repNo, 10) || 1) + 1);
@@ -1574,54 +2614,54 @@
                         currentIconName = curCyclone;
                     }
 
-                bodyLead = getLeadText(curCyclone);
-                if (curMode !== 'cancel') {
-                    defText = getCycloneDef(curCyclone);
+                    bodyLead = getLeadText(curCyclone);
+                    if (curMode !== 'cancel') {
+                        defText = getCycloneDef(curCyclone);
 
-                    const lat1 = parseFloat(document.getElementById('tcCurLat')?.value);
-                    const lon1 = parseFloat(document.getElementById('tcCurLon')?.value);
-                    const lat2 = parseFloat(document.getElementById('tcFcLat')?.value);
-                    const lon2 = parseFloat(document.getElementById('tcFcLon')?.value);
+                        const lat1 = parseFloat(document.getElementById('tcCurLat')?.value);
+                        const lon1 = parseFloat(document.getElementById('tcCurLon')?.value);
+                        const lat2 = parseFloat(document.getElementById('tcFcLat')?.value);
+                        const lon2 = parseFloat(document.getElementById('tcFcLon')?.value);
 
-                    const hasCur = !isNaN(lat1) && !isNaN(lon1);
-                    const hasFc = hasCur && !isNaN(lat2) && !isNaN(lon2);
-                    const tcFullName = `${intName}${rawName ? ' ' + rawName : ''}`;
+                        const hasCur = !isNaN(lat1) && !isNaN(lon1);
+                        const hasFc = hasCur && !isNaN(lat2) && !isNaN(lon2);
+                        const tcFullName = `${intName}${rawName ? ' ' + rawName : ''}`;
 
-                    if (hasCur) {
-                        const dist = calcDistance(MACAU_LAT, MACAU_LON, lat1, lon1);
-                        const dir = calcBearing16(MACAU_LAT, MACAU_LON, lat1, lon1);
-                        const period = getTimePeriodWord(h);
+                        if (hasCur) {
+                            const dist = calcDistance(MACAU_LAT, MACAU_LON, lat1, lon1);
+                            const dir = calcBearing16(MACAU_LAT, MACAU_LON, lat1, lon1);
+                            const period = getTimePeriodWord(h);
 
-                        detailText = `${period}，${tcFullName}集結在本澳${dir}約${dist}公里，即在北緯${lat1.toFixed(1)}度，東經${lon1.toFixed(1)}度附近`;
-                        if (wind) detailText += `，其中心附近最高持續風速約為每小時${wind}公里`;
+                            detailText = `${period}，${tcFullName}集結在本澳${dir}約${dist}公里，即在北緯${lat1.toFixed(1)}度，東經${lon1.toFixed(1)}度附近`;
+                            if (wind) detailText += `，其中心附近最高持續風速約為每小時${wind}公里`;
 
-                        if (hasFc) {
-                            const mDist = calcDistance(lat1, lon1, lat2, lon2);
-                            const mSpeed = Math.round(mDist / 24);
-                            const mDir = calcBearing16(lat1, lon1, lat2, lon2);
-                            detailText += `，預料向${mDir}移動，時速約${mSpeed}公里。`;
-                        } else {
-                            const selDir = document.getElementById('tcMoveDir')?.value;
-                            const manSpeed = document.getElementById('tcMoveSpeed')?.value.trim();
-                            if (selDir === '停留不動') {
-                                detailText += `，預料停留不動。`;
-                            } else if (selDir === '移動緩慢') {
-                                detailText += `，預料移動緩慢。`;
-                            } else if (selDir && manSpeed) {
-                                detailText += `，預料向${selDir}移動，時速約${manSpeed}公里。`;
-                            } else if (selDir) {
-                                detailText += `，預料向${selDir}移動。`;
+                            if (hasFc) {
+                                const mDist = calcDistance(lat1, lon1, lat2, lon2);
+                                const mSpeed = Math.round(mDist / 24);
+                                const mDir = calcBearing16(lat1, lon1, lat2, lon2);
+                                detailText += `，預料向${mDir}移動，時速約${mSpeed}公里。`;
                             } else {
-                                detailText += `。`;
+                                const selDir = document.getElementById('tcMoveDir')?.value;
+                                const manSpeed = document.getElementById('tcMoveSpeed')?.value.trim();
+                                if (selDir === '停留不動') {
+                                    detailText += `，預料停留不動。`;
+                                } else if (selDir === '移動緩慢') {
+                                    detailText += `，預料移動緩慢。`;
+                                } else if (selDir && manSpeed) {
+                                    detailText += `，預料向${selDir}移動，時速約${manSpeed}公里。`;
+                                } else if (selDir) {
+                                    detailText += `，預料向${selDir}移動。`;
+                                } else {
+                                    detailText += `。`;
+                                }
                             }
                         }
-                    }
 
-                    const notes = (document.getElementById('tcCustomNotes')?.value || '').trim();
-                    if (notes) {
-                        detailText += `\n\n${notes}`;
+                        const notes = (document.getElementById('tcCustomNotes')?.value || '').trim();
+                        if (notes) {
+                            detailText += `\n\n${notes}`;
+                        }
                     }
-                }
                 }
             } else if (curCat === 'surge') {
                 let sName = '風暴潮觀察警報';
@@ -1910,11 +2950,12 @@
                     const nextH = String((h + 1) % 24).padStart(2, '0');
                     const validEl = document.getElementById('rainWarnValidUntil');
                     if (validEl && !validEl.value) {
-                        validEl.value = `${nextH}:${mStr || '00'}`;
+                        setPickerValue('rainWarnValidUntil', `${nextH}:${mStr || '00'}`);
                     }
                 }
             }
             renderWarning();
+            scheduleAutoSave();
         }
 
         function updateActiveWarningsBanner() {
@@ -1924,7 +2965,7 @@
             const pingDot = document.getElementById('activePingDot');
             const mainDot = document.getElementById('activeMainDot');
 
-            const activeList = githubRecordsCache.filter(r => r.mode !== 'cancel' && r.formattedText);
+            const activeList = githubRecordsCache.filter(r => r.mode !== 'cancel' && !r.isExpired && r.formattedText);
             if (activeList.length === 0) {
                 if (container) container.innerHTML = `<span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">目前沒有生效中的警報信號</span>`;
                 if (pingDot) pingDot.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75";
@@ -1947,11 +2988,13 @@
                     const cleanTitle = firstLine.replace(/\s+/g, ' ');
                     const cStyle = getWarningColorStyle(cleanTitle);
                     const originalIdx = githubRecordsCache.findIndex(item => item.id === r.id);
+                    const ttlBadge = r.expiresAt ? `<span class="text-[10px] opacity-80 font-mono ml-1 px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10" title="預計失效時間">⏱️至 ${formatLocalTimestampToString(r.expiresAt).split(' ')[1] || ''}</span>` : '';
                     return `
                         <button type="button" onclick="loadRecordToEditor(${originalIdx})" 
                             title="點擊載入此警報進行編輯或取消"
-                            class="group text-xs font-bold font-mono px-3 py-1.5 rounded-xl border ${cStyle.badge} flex items-center gap-2 transition active:scale-95 shadow-sm cursor-pointer hover:opacity-90">
+                            class="group text-xs font-bold font-mono px-3 py-1.5 rounded-xl border ${cStyle.badge} flex items-center gap-1.5 transition active:scale-95 shadow-sm cursor-pointer hover:opacity-90">
                             <span>${cleanTitle} (${r.date} ${r.time})</span>
+                            ${ttlBadge}
                             <i data-lucide="edit-3" class="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition"></i>
                         </button>
                     `;
@@ -1974,7 +3017,8 @@
                         return trimmed;
                     });
                     const cleanFormattedText = cleanedLines.join('\n');
-                    return `<div class="p-4 rounded-xl theme-soft border border-theme-border text-xs whitespace-pre-wrap font-mono leading-relaxed text-left shadow-inner">${cleanFormattedText}</div>`;
+                    const ttlInfo = r.expiresAt ? `\n\n[預計自動失效時間: ${formatLocalTimestampToString(r.expiresAt)} MST]` : '';
+                    return `<div class="p-4 rounded-xl theme-soft border border-theme-border text-xs whitespace-pre-wrap font-mono leading-relaxed text-left shadow-inner">${cleanFormattedText}${ttlInfo}</div>`;
                 }).join('');
             }
             if (toggleBtn) toggleBtn.classList.remove('hidden');
@@ -2006,10 +3050,27 @@
             if (catGrid) catGrid.classList.add('pointer-events-none', 'opacity-60');
             if (catTip) catTip.classList.remove('hidden');
 
-            if (rec.date) document.getElementById('inputDate').value = rec.date;
-            if (rec.time) document.getElementById('inputTime').value = rec.time;
+            if (rec.date) setPickerValue('inputDate', rec.date);
+            if (rec.time) setPickerValue('inputTime', rec.time);
             if (rec.mode) selectIssueMode(rec.mode);
-            if (rec.category) selectCategory(rec.category);
+            if (rec.category) selectCategory(rec.category, true);
+
+            // TTL 恢復
+            const isTtl = !!(rec.enableAutoExpire || rec.expiresAt);
+            const ttlChk = document.getElementById('enableAutoExpire');
+            if (ttlChk) {
+                ttlChk.checked = isTtl;
+                toggleAutoExpire(isTtl);
+            }
+            if (isTtl && rec.expiresAt) {
+                const expStr = formatLocalTimestampToString(rec.expiresAt);
+                const [ed, et] = expStr.split(' ');
+                setPickerValue('expireDate', rec.expireDate || ed || '');
+                setPickerValue('expireTime', rec.expireTime || et || '');
+            } else {
+                setPickerValue('expireDate', rec.expireDate || '');
+                setPickerValue('expireTime', rec.expireTime || '');
+            }
 
             const p = rec.params || {};
             if (rec.category === 'cyclone') {
@@ -2026,17 +3087,15 @@
                     document.getElementById('tcCustomNotes').value = p.tcCustomNotes;
                     autoResizeTcNotes();
                 }
-                if (p.tcGalePreTime && document.getElementById('tcGalePreTime')) {
-                    document.getElementById('tcGalePreTime').value = p.tcGalePreTime;
-                }
+                if (p.tcGalePreTime) setPickerValue('tcGalePreTime', p.tcGalePreTime);
                 if (p.curCyclone) {
                     const normSig = p.curCyclone.replace('𩗗', '颶');
                     selectCycloneSignal(normSig);
                 }
             } else if (rec.category === 'surge') {
                 if (p.curSurge) selectSurgeSignal(p.curSurge);
-                if (p.surgeTideDate) document.getElementById('surgeTideDate').value = p.surgeTideDate;
-                if (p.surgeTideTime) document.getElementById('surgeTideTime').value = p.surgeTideTime;
+                if (p.surgeTideDate) setPickerValue('surgeTideDate', p.surgeTideDate);
+                if (p.surgeTideTime) setPickerValue('surgeTideTime', p.surgeTideTime);
                 if (p.surgeTideH) document.getElementById('surgeTideH').value = p.surgeTideH;
                 if (p.surgeRangeL) document.getElementById('surgeRangeL').value = p.surgeRangeL;
                 if (p.surgeRangeH) document.getElementById('surgeRangeH').value = p.surgeRangeH;
@@ -2044,16 +3103,16 @@
                 if (p.surgeHourE) document.getElementById('surgeHourE').value = p.surgeHourE;
             } else if (rec.category === 'rain') {
                 if (p.curRain) selectRainSignal(p.curRain);
-                if (p.rainWarnValidUntil && document.getElementById('rainWarnValidUntil')) document.getElementById('rainWarnValidUntil').value = p.rainWarnValidUntil;
-                if (p.rainPreExpectedTime && document.getElementById('rainPreExpectedTime')) document.getElementById('rainPreExpectedTime').value = p.rainPreExpectedTime;
+                if (p.rainWarnValidUntil) setPickerValue('rainWarnValidUntil', p.rainWarnValidUntil);
+                if (p.rainPreExpectedTime) setPickerValue('rainPreExpectedTime', p.rainPreExpectedTime);
             } else if (rec.category === 'heat') {
                 if (p.curHeat) selectHeatLevel(p.curHeat);
-                if (p.heatTemp && document.getElementById('heatTemp')) document.getElementById('heatTemp').value = p.heatTemp;
-                if (p.heatPartTemp && document.getElementById('heatPartTemp')) document.getElementById('heatPartTemp').value = p.heatPartTemp;
+                if (p.heatTemp) document.getElementById('heatTemp').value = p.heatTemp;
+                if (p.heatPartTemp) document.getElementById('heatPartTemp').value = p.heatPartTemp;
             } else if (rec.category === 'cold') {
                 if (p.curCold) selectColdLevel(p.curCold);
-                if (p.coldTemp && document.getElementById('coldTemp')) document.getElementById('coldTemp').value = p.coldTemp;
-                if (p.coldPartTemp && document.getElementById('coldPartTemp')) document.getElementById('coldPartTemp').value = p.coldPartTemp;
+                if (p.coldTemp) document.getElementById('coldTemp').value = p.coldTemp;
+                if (p.coldPartTemp) document.getElementById('coldPartTemp').value = p.coldPartTemp;
             } else if (rec.category === 'notice') {
                 const noticeType = p.curNotice || 'heat_alert';
                 let targetGroup = 'temp';
@@ -2086,7 +3145,7 @@
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            showToast("已載入警報紀錄！");
+            showToast("已載入警報歷史紀錄！", "info");
         }
 
         function cancelEditingMode() {
@@ -2096,6 +3155,7 @@
             const catTip = document.getElementById('categoryLockedTip');
             if (catGrid) catGrid.classList.remove('pointer-events-none', 'opacity-60');
             if (catTip) catTip.classList.add('hidden');
+            syncCurrentTime();
         }
 
         function saveNewTcReportIssue() {
@@ -2107,14 +3167,18 @@
             syncCurrentTime();
             renderWarning();
             uploadCurrentToGithub();
-            showToast("已產生新一報並同步至 GitHub！");
+            showToast("已產生新一報並同步至 GitHub！", "success");
         }
 
         function copyWarningText() {
             const text = document.getElementById('outputText')?.value || '';
-            if (!text.trim()) { showToast("錯誤：並無任何文字可以複製！"); return; }
+            if (!text.trim()) { 
+                showToast("錯誤：並無任何文字可以複製！", "error"); 
+                highlightInputError('outputText');
+                return; 
+            }
             navigator.clipboard.writeText(text).then(() => {
-                showToast("已複製警報文字！");
+                showToast("已複製警報文字至剪貼簿！", "success");
             }).catch(() => {
                 const temp = document.createElement("textarea");
                 temp.value = text;
@@ -2122,7 +3186,7 @@
                 temp.select();
                 document.execCommand("copy");
                 document.body.removeChild(temp);
-                showToast("已複製警報文字！");
+                showToast("已複製警報文字！", "success");
             });
         }
 
@@ -2142,34 +3206,28 @@
                 }
                 if (nameEl) nameEl.innerText = file.name;
                 if (sourceEl) sourceEl.innerText = "自訂上傳圖檔";
-                showToast("自訂圖示載入成功！");
+                showToast("自訂圖示載入成功！", "success");
             };
             reader.readAsDataURL(file);
         }
 
         async function openScheduleForCurrentWarn() {
-            const text = document.getElementById('outputText')?.value || '';
-            if (!text.trim()) {
-                showToast("錯誤：警報內文空白！");
-                return;
-            }
+            if (!validateWarningForm()) return;
 
+            const text = document.getElementById('outputText')?.value || '';
             const warnDate = document.getElementById('inputDate')?.value || '';
             const warnTime = document.getElementById('inputTime')?.value || '';
-            
-            if (!warnDate || !warnTime) {
-                showToast("錯誤：請填寫完整的發布日期與時間以進行排程！");
-                return;
-            }
 
             const targetTs = parseLocalDateTimeToTimestamp(warnDate, warnTime);
             if (!targetTs || isNaN(targetTs)) {
-                showToast("錯誤：日期或時間格式無效！");
+                showToast("錯誤：日期或時間格式無效！", "error");
+                highlightInputError('inputDate');
                 return;
             }
 
             if (targetTs <= Date.now()) {
-                showToast("錯誤：排程時間必須在當前時間之後！");
+                showToast("錯誤：排程時間必須在當前時間之後！", "error");
+                highlightInputError('inputTime');
                 return;
             }
 
@@ -2241,7 +3299,7 @@
             await syncScheduledToGithub();
             await uploadCurrentToGithub({ silent: true });
 
-            showToast("已加入定時排程佇列並自動存入警報！");
+            showToast("已加入定時排程佇列並自動存入警報！", "success");
             resetAllToOriginalDefaults();
         }
 
@@ -2251,21 +3309,25 @@
             const nTime = document.getElementById('nowcastTime')?.value || '';
             
             if (!nDate || !nTime) {
-                showToast("錯誤：請填寫完整的發布日期與時間以進行排程！");
+                showToast("錯誤：請填寫完整的發布日期與時間以進行排程！", "error");
+                if (!nDate) highlightInputError('nowcastDate');
+                else highlightInputError('nowcastTime');
                 return;
             }
             if (!text.trim()) {
-                showToast("錯誤：預覽內文不能為空！");
+                showToast("錯誤：預覽內文不能為空！", "error");
+                highlightInputError('nowcastOutputText');
                 return;
             }
 
             const targetTs = parseLocalDateTimeToTimestamp(nDate, nTime);
             if (!targetTs || isNaN(targetTs)) {
-                showToast("錯誤：日期或時間格式無效！");
+                showToast("錯誤：日期或時間格式無效！", "error");
                 return;
             }
             if (targetTs <= Date.now()) {
-                showToast("錯誤：排程時間必須在當前時間之後！");
+                showToast("錯誤：排程時間必須在當前時間之後！", "error");
+                highlightInputError('nowcastTime');
                 return;
             }
 
@@ -2286,7 +3348,7 @@
 
             saveScheduledToLocalStorage();
             await syncScheduledToGithub();
-            showToast("已排定此天氣提示發送！");
+            showToast("已排定此天氣提示發送！", "success");
         }
 
         function saveScheduledToLocalStorage() {
@@ -2336,7 +3398,7 @@
                         scheduledMessages = parsed;
                         saveScheduledToLocalStorage();
                         renderScheduledList();
-                        if (showNotice) showToast("已從 GitHub 取得最新雲端排程！");
+                        if (showNotice) showToast("已從 GitHub 取得最新雲端排程！", "success");
                     }
                 }
             } catch (e) {
@@ -2387,7 +3449,7 @@
                     <div class="truncate flex-1 pr-3">
                         <span class="font-bold text-sky-600 dark:text-sky-400 font-mono text-sm">${item.targetTimeStr || ''}</span>
                         ${item.withPhoto ? `<span class="text-[10px] text-amber-500 font-bold ml-2 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">[附圖${item.iconName ? ': ' + item.iconName : ''}]</span>` : ''}
-                        <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-1.5">${(item.text || '').replace(/\n+/g, ' ')}</p>
+                        <p class="text-[11px] text-slate-600 dark:text-slate-400 truncate mt-1.5">${(item.text || '').replace(/\\n+/g, ' ')}</p>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
                         <button type="button" onclick="loadScheduledToMainEditor('${item.id}')" title="在主畫面編輯此排程" class="p-2 rounded-lg text-amber-600 dark:text-amber-500 theme-soft hover:bg-amber-500/20 transition">
@@ -2402,6 +3464,86 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        function loadSnapshotToForm(snap) {
+            if (!snap) return;
+            if (snap.category && snap.category !== curCat) {
+                selectCategory(snap.category, true);
+            }
+            if (snap.mode) selectIssueMode(snap.mode);
+            if (snap.date) setPickerValue('inputDate', snap.date);
+            if (snap.time) setPickerValue('inputTime', snap.time);
+
+            // 恢復 TTL
+            const isTtl = !!(snap.enableAutoExpire || snap.expiresAt);
+            const ttlChk = document.getElementById('enableAutoExpire');
+            if (ttlChk) {
+                ttlChk.checked = isTtl;
+                toggleAutoExpire(isTtl);
+            }
+            if (snap.expireDate) setPickerValue('expireDate', snap.expireDate);
+            if (snap.expireTime) setPickerValue('expireTime', snap.expireTime);
+
+            const p = snap.params || {};
+            if (snap.category === 'cyclone') {
+                if (p.tcReportNumber) document.getElementById('tcReportNumber').value = p.tcReportNumber;
+                if (p.tcName) document.getElementById('tcName').value = p.tcName;
+                if (p.tcWind) { document.getElementById('tcWind').value = p.tcWind; handleWindChange(); }
+                if (p.tcCurLat) document.getElementById('tcCurLat').value = p.tcCurLat;
+                if (p.tcCurLon) document.getElementById('tcCurLon').value = p.tcCurLon;
+                if (p.tcMoveDir) document.getElementById('tcMoveDir').value = p.tcMoveDir;
+                if (p.tcMoveSpeed) document.getElementById('tcMoveSpeed').value = p.tcMoveSpeed;
+                if (p.tcFcLat) document.getElementById('tcFcLat').value = p.tcFcLat;
+                if (p.tcFcLon) document.getElementById('tcFcLon').value = p.tcFcLon;
+                if (p.tcCustomNotes) {
+                    document.getElementById('tcCustomNotes').value = p.tcCustomNotes;
+                    autoResizeTcNotes();
+                }
+                if (p.tcGalePreTime) setPickerValue('tcGalePreTime', p.tcGalePreTime);
+                if (p.curCyclone) selectCycloneSignal(p.curCyclone);
+            } else if (snap.category === 'surge') {
+                if (p.curSurge) selectSurgeSignal(p.curSurge);
+                if (p.surgeTideDate) setPickerValue('surgeTideDate', p.surgeTideDate);
+                if (p.surgeTideTime) setPickerValue('surgeTideTime', p.surgeTideTime);
+                if (p.surgeTideH) document.getElementById('surgeTideH').value = p.surgeTideH;
+                if (p.surgeRangeL) document.getElementById('surgeRangeL').value = p.surgeRangeL;
+                if (p.surgeRangeH) document.getElementById('surgeRangeH').value = p.surgeRangeH;
+                if (p.surgeHourS) document.getElementById('surgeHourS').value = p.surgeHourS;
+                if (p.surgeHourE) document.getElementById('surgeHourE').value = p.surgeHourE;
+            } else if (snap.category === 'rain') {
+                if (p.curRain) selectRainSignal(p.curRain);
+                if (p.rainWarnValidUntil) setPickerValue('rainWarnValidUntil', p.rainWarnValidUntil);
+                if (p.rainPreExpectedTime) setPickerValue('rainPreExpectedTime', p.rainPreExpectedTime);
+            } else if (snap.category === 'heat') {
+                if (p.curHeat) selectHeatLevel(p.curHeat);
+                if (p.heatTemp) document.getElementById('heatTemp').value = p.heatTemp;
+                if (p.heatPartTemp) document.getElementById('heatPartTemp').value = p.heatPartTemp;
+            } else if (snap.category === 'cold') {
+                if (p.curCold) selectColdLevel(p.curCold);
+                if (p.coldTemp) document.getElementById('coldTemp').value = p.coldTemp;
+                if (p.coldPartTemp) document.getElementById('coldPartTemp').value = p.coldPartTemp;
+            } else if (snap.category === 'notice') {
+                const nType = p.curNotice || 'heat_alert';
+                let targetGroup = 'temp';
+                if (['heat_alert', 'cold_alert'].includes(nType)) targetGroup = 'temp';
+                else if (['wind_yellow', 'wind_orange', 'wind_red'].includes(nType)) targetGroup = 'wind';
+                else if (nType === 'fire') targetGroup = 'fire';
+                else if (nType === 'air') targetGroup = 'air';
+                else if (nType === 'rain_special') targetGroup = 'rain_sp';
+
+                switchNoticeGroup(targetGroup);
+                selectNoticeType(nType);
+                if (p.curRainSpecialLevel) selectRainSpecialLevel(p.curRainSpecialLevel);
+            }
+
+            if (snap.formattedText) {
+                document.getElementById('outputText').value = snap.formattedText;
+                updateCharCount();
+                autoResizeOutputText();
+            } else {
+                renderWarning();
+            }
+        }
+
         function loadScheduledToMainEditor(id) {
             const item = scheduledMessages.find(m => m.id === id);
             if (!item) return;
@@ -2413,157 +3555,16 @@
             switchAppView('warn');
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            // 1. Restore scheduling time
             if (item.targetTimeStr && item.targetTimeStr.includes(' ')) {
                 const [dPart, tPart] = item.targetTimeStr.split(' ');
-                document.getElementById('inputDate').value = dPart || '';
-                document.getElementById('inputTime').value = tPart || '';
+                setPickerValue('inputDate', dPart || '');
+                setPickerValue('inputTime', tPart || '');
             }
 
-            // 2. Restore exact warning category and parameters into the UI
             if (item.snapshot) {
-                const snap = item.snapshot;
-                if (snap.category) selectCategory(snap.category);
-                if (snap.mode) selectIssueMode(snap.mode);
-                const p = snap.params || {};
-
-                if (snap.category === 'cyclone') {
-                    if (p.tcReportNumber) document.getElementById('tcReportNumber').value = p.tcReportNumber;
-                    if (p.tcName) document.getElementById('tcName').value = p.tcName;
-                    if (p.tcWind) { document.getElementById('tcWind').value = p.tcWind; handleWindChange(); }
-                    if (p.tcCurLat) document.getElementById('tcCurLat').value = p.tcCurLat;
-                    if (p.tcCurLon) document.getElementById('tcCurLon').value = p.tcCurLon;
-                    if (p.tcMoveDir) document.getElementById('tcMoveDir').value = p.tcMoveDir;
-                    if (p.tcMoveSpeed) document.getElementById('tcMoveSpeed').value = p.tcMoveSpeed;
-                    if (p.tcFcLat) document.getElementById('tcFcLat').value = p.tcFcLat;
-                    if (p.tcFcLon) document.getElementById('tcFcLon').value = p.tcFcLon;
-                    if (p.tcCustomNotes) {
-                        document.getElementById('tcCustomNotes').value = p.tcCustomNotes;
-                        autoResizeTcNotes();
-                    }
-                    if (p.tcGalePreTime && document.getElementById('tcGalePreTime')) document.getElementById('tcGalePreTime').value = p.tcGalePreTime;
-                    if (p.curCyclone) selectCycloneSignal(p.curCyclone);
-                } else if (snap.category === 'surge') {
-                    if (p.curSurge) selectSurgeSignal(p.curSurge);
-                    if (p.surgeTideDate) document.getElementById('surgeTideDate').value = p.surgeTideDate;
-                    if (p.surgeTideTime) document.getElementById('surgeTideTime').value = p.surgeTideTime;
-                    if (p.surgeTideH) document.getElementById('surgeTideH').value = p.surgeTideH;
-                    if (p.surgeRangeL) document.getElementById('surgeRangeL').value = p.surgeRangeL;
-                    if (p.surgeRangeH) document.getElementById('surgeRangeH').value = p.surgeRangeH;
-                    if (p.surgeHourS) document.getElementById('surgeHourS').value = p.surgeHourS;
-                    if (p.surgeHourE) document.getElementById('surgeHourE').value = p.surgeHourE;
-                } else if (snap.category === 'rain') {
-                    if (p.curRain) selectRainSignal(p.curRain);
-                    if (p.rainWarnValidUntil && document.getElementById('rainWarnValidUntil')) document.getElementById('rainWarnValidUntil').value = p.rainWarnValidUntil;
-                    if (p.rainPreExpectedTime && document.getElementById('rainPreExpectedTime')) document.getElementById('rainPreExpectedTime').value = p.rainPreExpectedTime;
-                } else if (snap.category === 'heat') {
-                    if (p.curHeat) selectHeatLevel(p.curHeat);
-                    if (p.heatTemp && document.getElementById('heatTemp')) document.getElementById('heatTemp').value = p.heatTemp;
-                    if (p.heatPartTemp && document.getElementById('heatPartTemp')) document.getElementById('heatPartTemp').value = p.heatPartTemp;
-                } else if (snap.category === 'cold') {
-                    if (p.curCold) selectColdLevel(p.curCold);
-                    if (p.coldTemp && document.getElementById('coldTemp')) document.getElementById('coldTemp').value = p.coldTemp;
-                    if (p.coldPartTemp && document.getElementById('coldPartTemp')) document.getElementById('coldPartTemp').value = p.coldPartTemp;
-                } else if (snap.category === 'notice') {
-                    const nType = p.curNotice || 'heat_alert';
-                    let targetGroup = 'temp';
-                    if (['heat_alert', 'cold_alert'].includes(nType)) targetGroup = 'temp';
-                    else if (['wind_yellow', 'wind_orange', 'wind_red'].includes(nType)) targetGroup = 'wind';
-                    else if (nType === 'fire') targetGroup = 'fire';
-                    else if (nType === 'air') targetGroup = 'air';
-                    else if (nType === 'rain_special') targetGroup = 'rain_sp';
-
-                    switchNoticeGroup(targetGroup);
-                    selectNoticeType(nType);
-                    if (p.curRainSpecialLevel) selectRainSpecialLevel(p.curRainSpecialLevel);
-                }
-            } else {
-                // Fallback: parse from item.text or item.category
-                const txt = item.text || '';
-                if (txt.includes('【#風暴潮')) {
-                    selectCategory('surge');
-                    if (txt.includes('危險')) selectSurgeSignal('warning');
-                    else if (txt.includes('戒備')) selectSurgeSignal('advisory');
-                    else selectSurgeSignal('watch');
-                } else if (txt.includes('【#大雨警報】')) {
-                    selectCategory('rain'); selectRainSignal('rain_heavy_warn');
-                } else if (txt.includes('【#暴雨警報】')) {
-                    selectCategory('rain'); selectRainSignal('rain_storm_warn');
-                } else if (txt.includes('【#大暴雨警報】')) {
-                    selectCategory('rain'); selectRainSignal('rain_super_warn');
-                } else if (txt.includes('【#降雨預警】')) {
-                    selectCategory('rain'); selectRainSignal('rain_warn_lead');
-                } else if (txt.includes('【#大雨預警】')) {
-                    selectCategory('rain'); selectRainSignal('rain_heavy_pre');
-                } else if (txt.includes('【#暴雨預警】')) {
-                    selectCategory('rain'); selectRainSignal('rain_storm_pre');
-                } else if (txt.includes('【#大暴雨預警】')) {
-                    selectCategory('rain'); selectRainSignal('rain_super_pre');
-                } else if (txt.includes('【#酷熱警報】')) {
-                    selectCategory('heat'); selectHeatLevel('酷熱警報');
-                } else if (txt.includes('【#非常酷熱警報】')) {
-                    selectCategory('heat'); selectHeatLevel('非常酷熱警報');
-                } else if (txt.includes('【#極為酷熱警報】')) {
-                    selectCategory('heat'); selectHeatLevel('極為酷熱警報');
-                } else if (txt.includes('【#寒冷警報】')) {
-                    selectCategory('cold'); selectColdLevel('寒冷警報');
-                } else if (txt.includes('【#非常寒冷警報】')) {
-                    selectCategory('cold'); selectColdLevel('非常寒冷警報');
-                } else if (txt.includes('【#極為寒冷警報】')) {
-                    selectCategory('cold'); selectColdLevel('極為寒冷警報');
-                } else if (txt.includes('【#高溫預警提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('temp'); selectNoticeType('heat_alert');
-                } else if (txt.includes('【#低溫預警提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('temp'); selectNoticeType('cold_alert');
-                } else if (txt.includes('【#黃色大風提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('wind'); selectNoticeType('wind_yellow');
-                } else if (txt.includes('【#橙色大風提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('wind'); selectNoticeType('wind_orange');
-                } else if (txt.includes('【#紅色大風提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('wind'); selectNoticeType('wind_red');
-                } else if (txt.includes('【#火災危險提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('fire'); selectNoticeType('fire');
-                } else if (txt.includes('【#空氣質量提示】')) {
-                    selectCategory('notice'); switchNoticeGroup('air'); selectNoticeType('air');
-                } else if (txt.includes('【#豪雨特別報告】')) {
-                    selectCategory('notice'); switchNoticeGroup('rain_sp'); selectNoticeType('rain_special'); selectRainSpecialLevel('豪雨特別報告');
-                } else if (txt.includes('【#大豪雨特別報告】')) {
-                    selectCategory('notice'); switchNoticeGroup('rain_sp'); selectNoticeType('rain_special'); selectRainSpecialLevel('大豪雨特別報告');
-                } else if (txt.includes('【#超大豪雨特別報告】')) {
-                    selectCategory('notice'); switchNoticeGroup('rain_sp'); selectNoticeType('rain_special'); selectRainSpecialLevel('超大豪雨特別報告');
-                } else if (txt.includes('【#烈風預警提示】')) {
-                    selectCategory('cyclone'); selectCycloneSignal('烈風預警提示');
-                } else if (txt.includes('烈風')) {
-                    selectCategory('cyclone');
-                    if (txt.includes('東北')) selectCycloneSignal('東北烈風警報');
-                    else if (txt.includes('東南')) selectCycloneSignal('東南烈風警報');
-                    else if (txt.includes('西北')) selectCycloneSignal('西北烈風警報');
-                    else if (txt.includes('西南')) selectCycloneSignal('西南烈風警報');
-                    else selectCycloneSignal('東北烈風警報');
-                } else if (txt.includes('強風警報')) {
-                    selectCategory('cyclone'); selectCycloneSignal('強風警報');
-                } else if (txt.includes('暴風警報')) {
-                    selectCategory('cyclone'); selectCycloneSignal('暴風警報');
-                } else if (txt.includes('颶風警報')) {
-                    selectCategory('cyclone'); selectCycloneSignal('颶風警報');
-                } else if (txt.includes('注意警報')) {
-                    selectCategory('cyclone'); selectCycloneSignal('注意警報');
-                } else if (txt.includes('戒備警報')) {
-                    selectCategory('cyclone'); selectCycloneSignal('戒備警報');
-                } else if (item.category) {
-                    selectCategory(item.category);
-                }
-
-                if (item.action === 'cancel' || txt.includes('取消。')) {
-                    selectIssueMode('cancel');
-                } else if (txt.includes('現正生效。')) {
-                    selectIssueMode('current');
-                } else {
-                    selectIssueMode('new');
-                }
+                loadSnapshotToForm(item.snapshot);
             }
 
-            // Restore text and update auto-height
             document.getElementById('outputText').value = item.text || '';
             updateCharCount();
             autoResizeOutputText();
@@ -2600,7 +3601,6 @@
             const lbl = document.getElementById('editingSchedTimeLabel');
             if (lbl) lbl.innerText = item.targetTimeStr || '';
 
-            // Lock left panel with the correct warning showing
             const catContainer = document.getElementById('categoryContainer');
             const modeBtns = document.getElementById('btnModeNew')?.parentElement;
             const modules = ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'];
@@ -2612,7 +3612,7 @@
                 if (el) el.classList.add('pointer-events-none', 'opacity-40');
             });
 
-            showToast("已載入此預約排程！");
+            showToast("已載入此預約排程！", "info");
         }
 
         function cancelEditingScheduledItem() {
@@ -2630,59 +3630,16 @@
                 const el = document.getElementById('module-' + m);
                 if (el) el.classList.remove('pointer-events-none', 'opacity-40');
             });
+            syncCurrentTime();
         }
 
         async function deleteScheduledItem(id) {
             scheduledMessages = scheduledMessages.filter(item => item.id !== id);
             saveScheduledToLocalStorage();
             renderScheduledList();
-            showToast("已刪除該排程。");
+            showToast("已刪除該排程。", "info");
             await syncScheduledToGithub();
         }
-
-        setInterval(async () => {
-            if (isProcessingQueue) return;
-            const now = Date.now();
-            const readyItems = scheduledMessages.filter(m => m.status === 'pending' && m.targetTime !== null && now >= m.targetTime);
-            if (readyItems.length === 0) return;
-
-            isProcessingQueue = true;
-            try {
-                for (let i = 0; i < scheduledMessages.length; i++) {
-                    const item = scheduledMessages[i];
-                    if (item.status === 'pending' && item.targetTime !== null && now >= item.targetTime) {
-                        scheduledMessages[i].status = 'sending';
-                        saveScheduledToLocalStorage();
-                        
-                        showToast(`正在發布定時訊息 [${item.targetTimeStr}]...`);
-                        
-                        const photoToSend = item.customPhotoDataUrl || item.iconUrl || null;
-                        const ok = await sendTelegramRawText(item.text, `定時發布中...`, photoToSend, item.withPhoto);
-                        
-                        scheduledMessages[i].status = ok ? 'sent' : 'failed';
-                        
-                        if (ok && item.action === 'cancel' && item.signalKey) {
-                            try {
-                                let updatedList = githubRecordsCache.filter(r => {
-                                    const rKey = r.signalKey || r.category;
-                                    return rKey !== item.signalKey;
-                                });
-                                await commitListToGithub(updatedList, `定時排程自動取消警報 [${item.signalKey}]`, true);
-                            } catch (err) {
-                                console.warn("排程取消警報異常：", err);
-                            }
-                        }
-                    }
-                }
-                
-                scheduledMessages = scheduledMessages.filter(m => m.status === 'pending');
-                saveScheduledToLocalStorage();
-                renderScheduledList();
-                await syncScheduledToGithub();
-            } finally {
-                isProcessingQueue = false;
-            }
-        }, 1000);
 
         function getCurSignalKey() {
             if (curCat === 'cyclone') return 'cyclone';
@@ -2699,6 +3656,11 @@
 
         function captureCurrentSnapshot() {
             const sigKey = getCurSignalKey();
+            const isTtl = document.getElementById('enableAutoExpire')?.checked || false;
+            const expD = document.getElementById('expireDate')?.value || '';
+            const expT = document.getElementById('expireTime')?.value || '';
+            const expTs = (isTtl && expD && expT) ? parseLocalDateTimeToTimestamp(expD, expT) : null;
+
             return {
                 id: editingRecordId || ('warn_' + Date.now()),
                 createdAt: new Date().toISOString(),
@@ -2707,9 +3669,14 @@
                 signalKey: sigKey,
                 date: document.getElementById('inputDate')?.value || '',
                 time: document.getElementById('inputTime')?.value || '',
+                enableAutoExpire: isTtl,
+                expireDate: expD,
+                expireTime: expT,
+                expiresAt: expTs,
+                isExpired: false,
                 formattedText: document.getElementById('outputText')?.value || '',
                 params: {
-                    tcReportNumber: document.getElementById('tcReportNumber')?.value || '1',
+                    tcReportNumber: document.getElementById('tcReportNumber')?.value || '',
                     curCyclone,
                     curCautionRange,
                     tcName: document.getElementById('tcName')?.value || '',
@@ -2751,12 +3718,14 @@
         }
 
         async function uploadCurrentToGithub(options = { silent: false }) {
+            if (!validateWarningForm()) return;
+
             const token = localStorage.getItem('gh_token');
             const repo = localStorage.getItem('gh_repo');
             if (!token || !repo) {
                 if (!options.silent) {
                     toggleModal('modalGithub', true);
-                    showToast("請先完成 GitHub Token 與 Repo 配置！");
+                    showToast("請先完成 GitHub Token 與 Repo 配置！", "warning");
                 }
                 return;
             }
@@ -2780,6 +3749,7 @@
             const ok = await commitListToGithub(updatedList, `${snap.mode === 'cancel' ? '取消' : '更新'}警報紀錄 [${snap.category} - ${snap.date} ${snap.time}]`, options.silent);
 
             if (ok && !options.silent) {
+                clearCategoryDraft(curCat);
                 resetAllToOriginalDefaults();
             }
         }
@@ -2827,15 +3797,15 @@
                     githubRecordsCache = newList;
                     renderGithubRecordsList();
                     updateActiveWarningsBanner();
-                    if (!silent) showToast("GitHub 資料庫同步成功！");
+                    if (!silent) showToast("GitHub 資料庫同步成功！", "success");
                     return true;
                 } else {
                     const errJson = await putRes.json().catch(() => ({}));
-                    if (!silent) showToast(`同步失敗 (${putRes.status})：${errJson.message || '請檢查權限'}`);
+                    if (!silent) showToast(`同步失敗 (${putRes.status})：${errJson.message || '請檢查權限'}`, "error");
                     return false;
                 }
             } catch (err) {
-                if (!silent) showToast("連線異常：" + err.message);
+                if (!silent) showToast("連線異常：" + err.message, "error");
                 return false;
             }
         }
@@ -2860,7 +3830,7 @@
                     document.getElementById('ghStatus').className = "text-xs text-emerald-500 font-mono theme-surface px-2.5 py-1 rounded border border-theme-border";
                     renderGithubRecordsList();
                     updateActiveWarningsBanner();
-                    if (notify) showToast("已成功載入 GitHub 紀錄！");
+                    if (notify) showToast("已成功載入 GitHub 紀錄！", "success");
                 }
             } catch (err) {
                 document.getElementById('ghStatus').innerText = '連線出錯';
@@ -2879,7 +3849,7 @@
                 <div class="p-3 theme-surface border border-theme-border rounded-xl flex items-center justify-between text-xs shadow-sm">
                     <div class="truncate flex-1 pr-3">
                         <span class="font-bold text-slate-700 dark:text-slate-200 text-sm">${(r.formattedText || '').split('\n')[0]}</span>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-1">${r.date} ${r.time} MST</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-1">${r.date} ${r.time} MST ${r.expiresAt ? `(TTL: ${formatLocalTimestampToString(r.expiresAt).split(' ')[1]})` : ''}</p>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
                         <button type="button" onclick="loadRecordToEditor(${idx})" class="p-2 rounded-lg text-amber-600 dark:text-amber-500 theme-soft hover:bg-amber-500/20 transition"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
@@ -2902,14 +3872,16 @@
             localStorage.setItem('gh_token', token);
             localStorage.setItem('gh_repo', repo);
             localStorage.setItem('gh_path', path);
-            document.getElementById('navGhIndicator').className = token && repo ? "w-2 h-2 rounded-full bg-emerald-500" : "w-2 h-2 rounded-full bg-slate-400";
+            document.getElementById('navGhIndicator').className = token && repo ? "w-2 h-2 rounded-full bg-emerald-500 ml-0.5" : "w-2 h-2 rounded-full bg-slate-400 ml-0.5";
             if (test) fetchGithubRecords(true);
         }
 
         function triggerSendToTelegram() {
-            const msg = document.getElementById('outputText')?.value;
-            if (!msg || !msg.trim()) {
-                showToast("錯誤：無文字內容可發送！");
+            if (!validateWarningForm()) return;
+            const { token, chatId } = getTgConfig();
+            if (!token || !chatId) {
+                toggleModal('modalTgConfig', true);
+                showToast("請先完成 Telegram Bot Token 與 Chat ID 設定！", "warning");
                 return;
             }
             toggleModal('modalTgConfirm', true);
@@ -2920,10 +3892,22 @@
             await sendToTelegram();
         }
 
-        async function sendTelegramRawText(msg, promptText = "傳送中...", photoBlobOrUrl = null, forcePhoto = false) {
-            if (!msg || !msg.trim()) { showToast("錯誤：無文字內容！"); return false; }
-            showToast(promptText);
+        async function sendTelegramRawText(msg, promptText = "傳送中...", photoBlobOrUrl = null, forcePhoto = false, silent = false) {
+            if (!msg || !msg.trim()) { 
+                showToast("錯誤：無文字內容！", "error"); 
+                return false; 
+            }
+
+            const { token, chatId, proxy } = getTgConfig();
+            if (!token || !chatId) {
+                toggleModal('modalTgConfig', true);
+                showToast("未設定 Telegram Token 或 Chat ID！", "error");
+                return false;
+            }
+
+            showToast(promptText, "info");
             const tgMarkdown = msg.replace(/(?<!\*)(【#[^】]+】)(?!\*)/g, '*$1*');
+            const baseUrl = proxy ? proxy.replace(/\/$/, '') : `https://api.telegram.org/bot${token}`;
 
             if (forcePhoto && photoBlobOrUrl) {
                 try {
@@ -2945,19 +3929,21 @@
 
                     if (blob) {
                         const fd = new FormData();
-                        fd.append('chat_id', TG_CHAT_ID);
+                        fd.append('chat_id', chatId);
                         fd.append('photo', blob, 'weather.png');
+                        if (silent) fd.append('disable_notification', 'true');
                         
                         if (tgMarkdown.length <= 1024) {
                             fd.append('caption', tgMarkdown);
                             fd.append('parse_mode', 'Markdown');
-                            const r = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
-                            if ((await r.json()).ok) {
-                                showToast("✅ 已成功附圖發送至 TG！");
+                            const r = await fetch(`${baseUrl}/sendPhoto`, { method: 'POST', body: fd });
+                            const rJson = await r.json();
+                            if (rJson.ok) {
+                                showToast(silent ? "已靜音推播至 Telegram！" : "已成功附圖發送至 TG！", "success");
                                 return true;
                             }
                         } else {
-                            await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`, { method: 'POST', body: fd });
+                            await fetch(`${baseUrl}/sendPhoto`, { method: 'POST', body: fd });
                         }
                     }
                 } catch (e) {
@@ -2966,17 +3952,25 @@
             }
 
             try {
-                const res = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                const res = await fetch(`${baseUrl}/sendMessage`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: TG_CHAT_ID, text: tgMarkdown, parse_mode: 'Markdown' })
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: tgMarkdown,
+                        parse_mode: 'Markdown',
+                        disable_notification: silent
+                    })
                 });
-                if ((await res.json()).ok) {
-                    showToast("✅ 已成功推播至 Telegram！");
+                const resJson = await res.json();
+                if (resJson.ok) {
+                    showToast(silent ? "已靜音推播至 Telegram！" : "已成功推播至 Telegram！", "success");
                     return true;
+                } else {
+                    showToast("TG 發送失敗：" + (resJson.description || "未知錯誤"), "error");
                 }
             } catch (e) {
-                showToast("TG 連線異常：" + e.message);
+                showToast("TG 連線異常：" + e.message, "error");
             }
             return false;
         }
@@ -2990,9 +3984,9 @@
             
             await uploadCurrentToGithub({ silent: true });
 
-            const sent = await sendTelegramRawText(msg, "正在發送至 TG 並存入警報...", photo, withPhoto);
+            const sent = await sendTelegramRawText(msg, "正在發送至 TG 並存入警報庫...", photo, withPhoto);
             if (sent || msg.trim()) {
-                showToast("✅ 已發布至 TG 並自動存入警報！");
+                clearCategoryDraft(curCat);
                 resetAllToOriginalDefaults();
             }
         }
@@ -3005,18 +3999,7 @@
             currentWarnCustomDataUrl = null;
             scheduledPreservedIcon = null;
 
-            ['tcName', 'tcWind', 'tcCurLat', 'tcCurLon', 'tcMoveSpeed', 'tcFcLat', 'tcFcLon', 'tcCustomNotes', 
-             'surgeTideH', 'surgeRangeL', 'surgeRangeH', 'surgeHourS', 'surgeHourE', 'surgeTideTime',
-             'rainWarnValidUntil', 'rainPreExpectedTime', 'heatTemp', 'heatPartTemp', 'coldTemp', 'coldPartTemp',
-             'cold_m1', 'cold_l1', 'cold_l2', 'cold_l3', 'wind_index', 'rain_stat_time', 'rain_val_macau', 'rain_val_taipa', 'rain_val_coloane',
-             'tcGalePreTime', 'inputDate', 'inputTime', 'surgeTideDate'
-            ].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.value = "";
-            });
-            
-            const numEl = document.getElementById('tcReportNumber');
-            if(numEl) numEl.value = "";
+            clearCategoryModuleInputs(curCat);
 
             selectedWindStations = [];
             stationWindValues = {};
@@ -3024,10 +4007,15 @@
             renderWindStationInputs();
 
             selectIssueMode('new');
+
+            // 自動填入實時時間
             syncCurrentTime();
             handleWindChange();
             autoResizeTcNotes();
             autoResizeOutputText();
+
+            clearCategoryDraft(curCat);
+            showToast("已重置目前模組並填入現時時間", "info");
         }
 
         function syncCurrentTime() {
@@ -3038,14 +4026,14 @@
             const h = String(now.getHours()).padStart(2, '0');
             const min = String(now.getMinutes()).padStart(2, '0');
             const todayStr = `${y}-${m}-${d}`;
+            const timeStr = `${h}:${min}`;
             
-            document.getElementById('inputDate').value = todayStr;
-            document.getElementById('inputTime').value = `${h}:${min}`;
+            setPickerValue('inputDate', todayStr);
+            setPickerValue('inputTime', timeStr);
             
-            const tideDateInput = document.getElementById('surgeTideDate');
-            if (tideDateInput) tideDateInput.value = todayStr;
+            setPickerValue('surgeTideDate', todayStr);
             
-            handleTimeInput(`${h}:${min}`);
+            handleTimeInput(timeStr);
             renderWarning();
         }
 
@@ -3161,13 +4149,13 @@
         function addNewNowcastRow() {
             window.nowcastRows.unshift({ enabled: true, class: nowcastFilterClass, content: '' });
             renderNowcastCards();
-            showToast("已新增提示項目！");
+            showToast("已新增提示項目！", "info");
         }
 
         function deleteNowcastRow(idx) {
             window.nowcastRows.splice(idx, 1);
             renderNowcastCards();
-            showToast("已刪除該提示項目。");
+            showToast("已刪除該提示項目。", "info");
         }
 
         function loadNowcastToPreview(idx) {
@@ -3178,13 +4166,18 @@
             const titleMap = { 'E': '極端天氣提示', 'S': '特別天氣提示', 'W': '天氣提示', 'R': '降雨提示', 'T': '氣溫提示' };
             const head = titleMap[r.class] || '即時天氣提示';
             document.getElementById('nowcastOutputText').value = `【#${head}】\n${d}  ${t} MST\n\n${r.content}`;
-            showToast("已帶入預覽區！");
+            showToast("已帶入預覽區！", "info");
         }
 
         function syncNowcastCurrentTime() {
             const now = new Date();
-            document.getElementById('nowcastDate').value = now.toISOString().split('T')[0];
-            document.getElementById('nowcastTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const h = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            setPickerValue('nowcastDate', `${y}-${m}-${d}`);
+            setPickerValue('nowcastTime', `${h}:${min}`);
         }
 
         async function fetchNowcastCsv() {
@@ -3229,9 +4222,13 @@
 
         async function saveNowcastCsvToGithub() {
             const token = localStorage.getItem('gh_token'), repo = localStorage.getItem('gh_repo');
-            if (!token || !repo) { toggleModal('modalGithub', true); return; }
+            if (!token || !repo) { 
+                toggleModal('modalGithub', true); 
+                showToast("請先設定 GitHub Token 與 Repo！", "warning");
+                return; 
+            }
             
-            showToast("正在同步至 GitHub...");
+            showToast("正在同步 nowcast.csv 至 GitHub...", "info");
             const freshSha = await fetchFreshSha('nowcast.csv');
 
             let out = "enabled,class,content\n";
@@ -3253,18 +4250,22 @@
             if (res.ok) {
                 const resData = await res.json();
                 nowcastFileSha = resData.content?.sha;
-                showToast("✅ nowcast.csv 已成功同步至 GitHub！");
+                showToast("nowcast.csv 已成功同步至 GitHub！", "success");
             } else {
                 const errData = await res.json().catch(() => ({}));
-                showToast(`同步失敗 (${res.status}): ${errData.message || '請確認權限'}`);
+                showToast(`同步失敗 (${res.status}): ${errData.message || '請確認權限'}`, "error");
             }
         }
 
         function copyNowcastText() {
             const txt = document.getElementById('nowcastOutputText')?.value || '';
-            if (!txt.trim()) { showToast("錯誤：並無任何文字可以複製！"); return; }
+            if (!txt.trim()) { 
+                showToast("錯誤：並無任何文字可以複製！", "error"); 
+                highlightInputError('nowcastOutputText');
+                return; 
+            }
             navigator.clipboard.writeText(txt).then(() => {
-                showToast("已複製提示文字！");
+                showToast("已複製提示文字至剪貼簿！", "success");
             }).catch(() => {
                 const temp = document.createElement("textarea");
                 temp.value = txt;
@@ -3272,23 +4273,34 @@
                 temp.select();
                 document.execCommand("copy");
                 document.body.removeChild(temp);
-                showToast("已複製提示文字！");
+                showToast("已複製提示文字！", "success");
             });
         }
 
         async function sendNowcastPreviewToTelegram() {
             const msg = document.getElementById('nowcastOutputText')?.value;
-            if (!msg || !msg.trim()) { showToast("錯誤：提示內容為空！"); return; }
+            if (!msg || !msg.trim()) { 
+                showToast("錯誤：提示內容為空！", "error"); 
+                highlightInputError('nowcastOutputText');
+                return; 
+            }
             const sent = await sendTelegramRawText(msg, "正在發送提示至 Telegram...", null, false);
-            if (sent) showToast("✅ 天氣提示已發送至 Telegram！");
+            if (sent) showToast("天氣提示已推播至 Telegram！", "success");
         }
 
-        function selectCategory(cat) {
+        function selectCategory(cat, skipSaveCurrent = false) {
+            if (curCat && curCat !== cat && !skipSaveCurrent && !editingRecordId && !editingSchedId) {
+                // 若當前模組有實質輸入則留存草稿，純空表單則自動清理避免誤亮小圓點
+                saveCategoryDraft(curCat);
+            }
+
             curCat = cat;
+            appState.category = cat;
+
             ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'].forEach(c => {
                 document.getElementById('module-' + c)?.classList.add('hidden');
                 const b = document.getElementById('cat-' + c);
-                if (b) b.className = "cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center transition hover:bg-slate-200 dark:hover:bg-dark-800";
+                if (b) b.className = "cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center transition hover:bg-slate-200 dark:hover:bg-dark-800";
             });
             document.getElementById('module-' + cat)?.classList.remove('hidden');
             const activeBtn = document.getElementById('cat-' + cat);
@@ -3300,12 +4312,23 @@
                 'cold': 'border-indigo-500 bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 shadow-sm',
                 'notice': 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 shadow-sm'
             };
-            if (activeBtn) activeBtn.className = `cat-pill py-1.5 sm:py-2.5 px-1 rounded-xl border ${colorMap[cat]} text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center transition shadow-sm`;
+            if (activeBtn) activeBtn.className = `cat-pill relative py-1.5 sm:py-2.5 px-1 rounded-xl border ${colorMap[cat]} text-[11px] sm:text-xs font-bold flex flex-col items-center justify-center transition shadow-sm`;
+
+            if (!editingRecordId && !editingSchedId && !skipSaveCurrent) {
+                const restored = loadCategoryDraft(cat);
+                if (!restored) {
+                    clearCategoryModuleInputs(cat);
+                    syncCurrentTime();
+                }
+            }
+
+            updateCategoryDraftBadges();
             renderWarning();
         }
 
         function selectIssueMode(m) {
             curMode = m;
+            appState.mode = m;
             ['New', 'Cur', 'Cancel'].forEach(id => {
                 const b = document.getElementById('btnMode' + id);
                 if (b) b.className = "py-1.5 sm:py-2 px-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition border border-theme-border theme-soft text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-dark-800";
@@ -3315,67 +4338,80 @@
                 ? "py-1.5 sm:py-2 px-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition border border-rose-500 bg-rose-500 text-white shadow-sm"
                 : "py-1.5 sm:py-2 px-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition border border-amber-500 bg-amber-500 text-slate-950 shadow-sm";
 
-            // 4. if cancel warning, no need option of 附帶警報圖示
             const photoOptContainer = document.getElementById('sendTgWithPhotoContainer');
             if (photoOptContainer) {
                 photoOptContainer.classList.toggle('hidden', m === 'cancel');
             }
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectCycloneSignal(sig) {
             curCyclone = sig;
+            appState.cyclone.signal = sig;
             document.querySelectorAll('.tc-btn').forEach(b => b.className = "tc-btn py-1.5 px-2 sm:py-2 rounded-lg sm:rounded-xl border border-theme-border theme-soft text-xs font-bold transition hover:bg-slate-200 dark:hover:bg-dark-800");
             const act = document.getElementById('btn-tc-' + sig);
             if (act) act.className = "tc-btn py-1.5 px-2 sm:py-2 rounded-lg sm:rounded-xl border border-cyan-500 bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 text-xs font-bold transition shadow-sm";
             document.getElementById('cautionRangeBox')?.classList.toggle('hidden', sig !== '注意警報');
             document.getElementById('tcGalePreBox')?.classList.toggle('hidden', sig !== '烈風預警提示');
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectCautionRange(r) {
             curCautionRange = r;
+            appState.cyclone.cautionRange = r;
             document.getElementById('btn-c1200').className = r === '1200' ? "px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-amber-700 dark:text-amber-400 font-bold transition" : "px-3 py-1.5 rounded-lg theme-soft border border-theme-border text-slate-500 font-bold hover:bg-slate-200 dark:hover:bg-dark-800 transition";
             document.getElementById('btn-c800').className = r === '800' ? "px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500 text-amber-700 dark:text-amber-400 font-bold transition" : "px-3 py-1.5 rounded-lg theme-soft border border-theme-border text-slate-500 font-bold hover:bg-slate-200 dark:hover:bg-dark-800 transition";
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectSurgeSignal(s) {
             curSurge = s;
+            appState.surge.signal = s;
             document.querySelectorAll('.surge-btn').forEach(b => b.className = "surge-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold hover:bg-slate-200 dark:hover:bg-dark-800 transition");
             const act = document.getElementById('btn-surge-' + s);
             if (act) act.className = "surge-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-teal-500 bg-teal-500/15 text-teal-700 dark:text-teal-400 text-xs font-bold shadow-sm transition";
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectRainSignal(r) {
             curRain = r;
+            appState.rain.signal = r;
             document.querySelectorAll('.rain-btn').forEach(b => b.className = "rain-btn py-1.5 px-2 sm:py-2 rounded-lg sm:rounded-xl border border-theme-border theme-soft text-xs font-bold transition hover:bg-slate-200 dark:hover:bg-dark-800");
             const act = document.getElementById('btn-rain-' + r);
             if (act) act.className = "rain-btn py-1.5 px-2 sm:py-2 rounded-lg sm:rounded-xl border border-blue-500 bg-blue-500/15 text-blue-700 dark:text-blue-400 text-xs font-bold transition shadow-sm";
             document.getElementById('rainWarnLeadBox')?.classList.toggle('hidden', r !== 'rain_warn_lead');
             document.getElementById('rainPreTimeBox')?.classList.toggle('hidden', !r.includes('_pre'));
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectHeatLevel(h) {
             curHeat = h;
+            appState.heat.level = h;
             document.querySelectorAll('.heat-btn').forEach(b => b.className = "heat-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold transition hover:bg-slate-200 dark:hover:bg-dark-800");
             const act = document.getElementById('btn-heat-' + h);
             if (act) act.className = "heat-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-400 text-xs font-bold transition shadow-sm";
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectColdLevel(c) {
             curCold = c;
+            appState.cold.level = c;
             document.querySelectorAll('.cold-btn').forEach(b => b.className = "cold-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold transition hover:bg-slate-200 dark:hover:bg-dark-800");
             const act = document.getElementById('btn-cold-' + c);
             if (act) act.className = "cold-btn py-2 px-2.5 sm:py-2.5 sm:px-3 rounded-lg sm:rounded-xl border border-indigo-500 bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 text-xs font-bold transition shadow-sm";
             renderWarning();
+            scheduleAutoSave();
         }
 
         function selectNoticeType(n) {
             curNotice = n;
+            appState.notice.type = n;
             document.querySelectorAll('.not-btn').forEach(b => b.className = "not-btn p-2.5 rounded-xl border border-theme-border theme-soft text-slate-600 dark:text-slate-400 text-xs font-bold transition text-center hover:bg-slate-200 dark:hover:bg-dark-800");
             const act = document.getElementById('btn-not-' + n);
             if (act) act.className = "not-btn py-1.5 px-2 sm:py-2 rounded-lg sm:rounded-xl border border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-xs font-bold transition text-center shadow-sm";
@@ -3389,33 +4425,60 @@
             }
 
             renderWarning();
+            scheduleAutoSave();
         }
 
+        // ==========================================
+        // 頁面初始化
+        // ==========================================
         window.addEventListener('DOMContentLoaded', () => {
-            const theme = localStorage.getItem('theme_mode') || 'dark';
-            document.documentElement.classList.toggle('dark', theme === 'dark');
+            // 1. 初始化 Flatpickr 日期時間選擇器
+            initFlatpickrPickers();
+
+            // 2. 初始化主題與按鈕
             updateThemeButton();
 
-            resetAllToOriginalDefaults();
+            // 3. 初始表單並自動填入實時時間 (Requirement 6)
+            selectCategory('cyclone', true);
+            syncCurrentTime();
 
-            selectCategory('cyclone');
-            selectCycloneSignal('戒備警報');
-            selectIssueMode('new');
+            // 4. 初始化 Telegram 設定狀態
+            updateTgIndicator();
+
+            // 5. 啟動背景 Web Worker 計時器 (包含定時排程與 TTL 自動失效)
+            initSchedulerWorker();
+
+            // 6. 監聽全域輸入以排程獨立模組自動儲存 (Requirement 5)
+            document.addEventListener('input', (e) => {
+                if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+                    scheduleAutoSave();
+                }
+            });
+
+            // 7. 載入排程與 GitHub 資料庫
+            loadScheduledFromLocalStorage();
+            renderScheduledList();
 
             const token = localStorage.getItem('gh_token'), repo = localStorage.getItem('gh_repo');
             if (token && repo) {
-                document.getElementById('navGhIndicator').className = "w-2 h-2 rounded-full bg-emerald-500";
+                document.getElementById('navGhIndicator').className = "w-2 h-2 rounded-full bg-emerald-500 ml-0.5";
                 fetchGithubRecords(false);
                 fetchScheduledFromGithub(false);
             } else {
                 updateActiveWarningsBanner();
             }
 
-            loadScheduledFromLocalStorage();
-            renderScheduledList();
+            // 8. 嘗試還原目前模組的多工草稿 (若有實質內容)
+            const draftRestored = loadCategoryDraft('cyclone');
+            if (!draftRestored) {
+                clearCategoryModuleInputs('cyclone');
+                syncCurrentTime();
+            }
+            updateCategoryDraftBadges();
 
             if (window.lucide) lucide.createIcons();
         });
+
     </script>
 </body>
 </html>
