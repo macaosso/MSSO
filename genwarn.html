@@ -3341,7 +3341,13 @@
             }
 
             const currentSigKey = getCurSignalKey();
+            const schedAction = isCancelMode ? 'cancel' : 'publish';
             const snap = captureCurrentSnapshot();
+
+            // Remove older pending schedule for the same warning signalKey & action
+            scheduledMessages = scheduledMessages.filter(m =>
+                !(m.status === 'pending' && m.id !== editingSchedId && m.signalKey === currentSigKey && m.action === schedAction)
+            );
 
             if (editingSchedId) {
                 const idx = scheduledMessages.findIndex(m => m.id === editingSchedId);
@@ -3688,15 +3694,7 @@
             if (lbl) lbl.innerText = item.targetTimeStr || '';
 
             const catContainer = document.getElementById('categoryContainer');
-            const modeBtns = document.getElementById('btnModeNew')?.parentElement;
-            const modules = ['cyclone', 'surge', 'rain', 'heat', 'cold', 'notice'];
-
             if (catContainer) catContainer.classList.add('pointer-events-none', 'opacity-40');
-            if (modeBtns) modeBtns.classList.add('pointer-events-none', 'opacity-40');
-            modules.forEach(m => {
-                const el = document.getElementById('module-' + m);
-                if (el) el.classList.add('pointer-events-none', 'opacity-40');
-            });
 
             showToast("已載入此預約排程！", "info");
         }
