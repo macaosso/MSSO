@@ -1339,6 +1339,7 @@
         let scheduledFileSha = null;
         let editingSchedId = null;
         let isProcessingQueue = false;
+        let isUploading = false;
 
         let currentWarnPhotoBlob = null;
         let currentWarnCustomDataUrl = null;
@@ -1763,12 +1764,7 @@
                 updateActiveWarningsBanner();
 
                 for (const rec of expiredList) {
-                    const expDate = new Date(rec.expiresAt || now);
-                    const y = expDate.getFullYear();
-                    const m = String(expDate.getMonth() + 1).padStart(2, '0');
-                    const d = String(expDate.getDate()).padStart(2, '0');
-                    const h = String(expDate.getHours()).padStart(2, '0');
-                    const min = String(expDate.getMinutes()).padStart(2, '0');
+                    const { y, m, d, h, min } = getMacauDateParts(rec.expiresAt || now);
 
                     const firstLine = (rec.formattedText.split('\n')[0] || '').replace(/[【】#]/g, '').trim();
                     const cancelMsg = `【#${firstLine}】\n${y}-${m}-${d}  ${h}:${min} MST\n\n${firstLine}於本地時間${m}月${d}日${h}時${min}分取消。`;
@@ -1805,12 +1801,8 @@
                 const parsed = parseLocalDateTimeToTimestamp(dVal, tVal);
                 if (parsed) baseTs = parsed;
             }
-            const targetDate = new Date(baseTs + hrs * 3600 * 1000);
-            const y = targetDate.getFullYear();
-            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
-            const d = String(targetDate.getDate()).padStart(2, '0');
-            const h = String(targetDate.getHours()).padStart(2, '0');
-            const min = String(targetDate.getMinutes()).padStart(2, '0');
+            const targetTs = baseTs + hrs * 3600 * 1000;
+            const { y, m, d, h, min } = getMacauDateParts(targetTs);
             
             const chk = document.getElementById('enableAutoExpire');
             if (chk) {
@@ -1823,7 +1815,7 @@
             setPickerValue('expireTime', `${h}:${min}`);
             appState.expireDate = `${y}-${m}-${d}`;
             appState.expireTime = `${h}:${min}`;
-            appState.expiresAt = targetDate.getTime();
+            appState.expiresAt = targetTs;
             scheduleAutoSave();
             showToast(`已設定有效時限為 +${hrs} 小時 (${y}-${m}-${d} ${h}:${min})`, 'info');
         }
@@ -2192,6 +2184,19 @@
             }
         }
 
+        const MACAU_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+        function getMacauDateParts(ts = Date.now()) {
+            const dt = new Date(ts + MACAU_UTC_OFFSET_MS);
+            return {
+                y: dt.getUTCFullYear(),
+                m: String(dt.getUTCMonth() + 1).padStart(2, '0'),
+                d: String(dt.getUTCDate()).padStart(2, '0'),
+                h: String(dt.getUTCHours()).padStart(2, '0'),
+                min: String(dt.getUTCMinutes()).padStart(2, '0')
+            };
+        }
+
         function parseLocalDateTimeToTimestamp(dateStr, timeStr) {
             if (!dateStr || !timeStr) return null;
             const dParts = dateStr.trim().split('-');
@@ -2207,33 +2212,24 @@
             }
 
             if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-            return new Date(year, month - 1, day, hour, minute, 0, 0).getTime();
+            return Date.UTC(year, month - 1, day, hour, minute, 0, 0) - MACAU_UTC_OFFSET_MS;
         }
 
         function formatLocalTimestampToString(ts) {
             if (!ts) return '';
-            const dt = new Date(ts);
-            const y = dt.getFullYear();
-            const m = String(dt.getMonth() + 1).padStart(2, '0');
-            const d = String(dt.getDate()).padStart(2, '0');
-            const h = String(dt.getHours()).padStart(2, '0');
-            const min = String(dt.getMinutes()).padStart(2, '0');
+            const { y, m, d, h, min } = getMacauDateParts(ts);
             return `${y}-${m}-${d} ${h}:${min}`;
         }
 
         function adjustTimeMinutes(addMinutes) {
             const dateStr = document.getElementById('inputDate')?.value;
             const timeStr = document.getElementById('inputTime')?.value;
-            let targetDate = new Date();
+            let targetTs = Date.now();
             if (addMinutes !== 0 && dateStr && timeStr) {
                 const curTs = parseLocalDateTimeToTimestamp(dateStr, timeStr);
-                if (curTs) targetDate = new Date(curTs + addMinutes * 60 * 1000);
+                if (curTs) targetTs = curTs + addMinutes * 60 * 1000;
             }
-            const y = targetDate.getFullYear();
-            const m = String(targetDate.getMonth() + 1).padStart(2, '0');
-            const d = String(targetDate.getDate()).padStart(2, '0');
-            const h = String(targetDate.getHours()).padStart(2, '0');
-            const min = String(targetDate.getMinutes()).padStart(2, '0');
+            const { y, m, d, h, min } = getMacauDateParts(targetTs);
             
             setPickerValue('inputDate', `${y}-${m}-${d}`);
             setPickerValue('inputTime', `${h}:${min}`);
@@ -3809,6 +3805,7 @@
         }
 
         async function uploadCurrentToGithub(options = { silent: false }) {
+            if (isUploading) return;
             if (!validateWarningForm()) return;
 
             const token = localStorage.getItem('gh_token');
@@ -3821,27 +3818,51 @@
                 return;
             }
 
-            const snap = captureCurrentSnapshot();
-            let updatedList = [...githubRecordsCache];
+            isUploading = true;
+            const btns = Array.from(document.querySelectorAll('button[onclick*="uploadCurrentToGithub"]'));
+            const prevStates = btns.map(btn => ({
+                btn,
+                html: btn.innerHTML,
+                pointerEvents: btn.style.pointerEvents
+            }));
+            btns.forEach(btn => {
+                btn.style.pointerEvents = 'none';
+                btn.classList.add('opacity-60');
+                const span = btn.querySelector('span');
+                if (span) span.innerText = '上傳中...';
+                else btn.innerText = '上傳中...';
+            });
 
-            if (snap.mode === 'cancel') {
-                updatedList = updatedList.filter(item => {
-                    const itemKey = item.signalKey || item.category;
-                    return itemKey !== snap.signalKey;
+            try {
+                const snap = captureCurrentSnapshot();
+                let updatedList = [...githubRecordsCache];
+
+                if (snap.mode === 'cancel') {
+                    updatedList = updatedList.filter(item => {
+                        const itemKey = item.signalKey || item.category;
+                        return itemKey !== snap.signalKey;
+                    });
+                } else {
+                    updatedList = updatedList.filter(item => {
+                        const itemKey = item.signalKey || item.category;
+                        return itemKey !== snap.signalKey;
+                    });
+                    updatedList.unshift(snap);
+                }
+
+                const ok = await commitListToGithub(updatedList, `${snap.mode === 'cancel' ? '取消' : '更新'}警報紀錄 [${snap.category} - ${snap.date} ${snap.time}]`, options.silent);
+
+                if (ok && !options.silent) {
+                    clearCategoryDraft(curCat);
+                    resetAllToOriginalDefaults();
+                }
+            } finally {
+                prevStates.forEach(({ btn, html, pointerEvents }) => {
+                    btn.innerHTML = html;
+                    btn.style.pointerEvents = pointerEvents;
+                    btn.classList.remove('opacity-60');
                 });
-            } else {
-                updatedList = updatedList.filter(item => {
-                    const itemKey = item.signalKey || item.category;
-                    return itemKey !== snap.signalKey;
-                });
-                updatedList.unshift(snap);
-            }
-
-            const ok = await commitListToGithub(updatedList, `${snap.mode === 'cancel' ? '取消' : '更新'}警報紀錄 [${snap.category} - ${snap.date} ${snap.time}]`, options.silent);
-
-            if (ok && !options.silent) {
-                clearCategoryDraft(curCat);
-                resetAllToOriginalDefaults();
+                isUploading = false;
             }
         }
 
@@ -4089,6 +4110,8 @@
             currentWarnPhotoBlob = null;
             currentWarnCustomDataUrl = null;
             scheduledPreservedIcon = null;
+            const warnFileInput = document.getElementById('warnFileInput');
+            if (warnFileInput) warnFileInput.value = '';
 
             clearCategoryModuleInputs(curCat);
 
@@ -4110,12 +4133,7 @@
         }
 
         function syncCurrentTime() {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const h = String(now.getHours()).padStart(2, '0');
-            const min = String(now.getMinutes()).padStart(2, '0');
+            const { y, m, d, h, min } = getMacauDateParts();
             const todayStr = `${y}-${m}-${d}`;
             const timeStr = `${h}:${min}`;
             
@@ -4261,12 +4279,7 @@
         }
 
         function syncNowcastCurrentTime() {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            const h = String(now.getHours()).padStart(2, '0');
-            const min = String(now.getMinutes()).padStart(2, '0');
+            const { y, m, d, h, min } = getMacauDateParts();
             setPickerValue('nowcastDate', `${y}-${m}-${d}`);
             setPickerValue('nowcastTime', `${h}:${min}`);
         }
@@ -4312,39 +4325,65 @@
         }
 
         async function saveNowcastCsvToGithub() {
+            if (isUploading) return;
             const token = localStorage.getItem('gh_token'), repo = localStorage.getItem('gh_repo');
             if (!token || !repo) { 
                 toggleModal('modalGithub', true); 
                 showToast("請先設定 GitHub Token 與 Repo！", "warning");
                 return; 
             }
-            
-            showToast("正在同步 nowcast.csv 至 GitHub...", "info");
-            const freshSha = await fetchFreshSha('nowcast.csv');
 
-            let out = "enabled,class,content\n";
-            window.nowcastRows.forEach(r => { 
-                out += `${r.enabled ? 'true' : 'false'},${r.class},${(r.content || '').replace(/\r?\n/g, '\\n')}\n`; 
-            });
-            const encoded = btoa(unescape(encodeURIComponent(out)));
-
-            const res = await fetch(`https://api.github.com/repos/${repo}/contents/nowcast.csv`, {
-                method: 'PUT',
-                headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    message: `Update nowcast.csv [${new Date().toISOString()}]`, 
-                    content: encoded, 
-                    sha: freshSha || undefined 
-                })
+            isUploading = true;
+            const btns = Array.from(document.querySelectorAll('button[onclick*="saveNowcastCsvToGithub"]'));
+            const prevStates = btns.map(btn => ({
+                btn,
+                html: btn.innerHTML,
+                pointerEvents: btn.style.pointerEvents
+            }));
+            btns.forEach(btn => {
+                btn.style.pointerEvents = 'none';
+                btn.classList.add('opacity-60');
+                const icon = btn.querySelector('i, svg');
+                btn.innerHTML = icon ? icon.outerHTML + '上傳中...' : '上傳中...';
             });
 
-            if (res.ok) {
-                const resData = await res.json();
-                nowcastFileSha = resData.content?.sha;
-                showToast("nowcast.csv 已成功同步至 GitHub！", "success");
-            } else {
-                const errData = await res.json().catch(() => ({}));
-                showToast(`同步失敗 (${res.status}): ${errData.message || '請確認權限'}`, "error");
+            try {
+                showToast("正在同步 nowcast.csv 至 GitHub...", "info");
+                const freshSha = await fetchFreshSha('nowcast.csv');
+
+                let out = "enabled,class,content\n";
+                window.nowcastRows.forEach(r => { 
+                    out += `${r.enabled ? 'true' : 'false'},${r.class},${(r.content || '').replace(/\r?\n/g, '\\n')}\n`; 
+                });
+                const encoded = btoa(unescape(encodeURIComponent(out)));
+
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/nowcast.csv`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: `Update nowcast.csv [${new Date().toISOString()}]`, 
+                        content: encoded, 
+                        sha: freshSha || undefined 
+                    })
+                });
+
+                if (res.ok) {
+                    const resData = await res.json();
+                    nowcastFileSha = resData.content?.sha;
+                    showToast("nowcast.csv 已成功同步至 GitHub！", "success");
+                } else {
+                    const errData = await res.json().catch(() => ({}));
+                    showToast(`同步失敗 (${res.status}): ${errData.message || '請確認權限'}`, "error");
+                }
+            } catch (err) {
+                showToast("連線異常：" + err.message, "error");
+            } finally {
+                prevStates.forEach(({ btn, html, pointerEvents }) => {
+                    btn.innerHTML = html;
+                    btn.style.pointerEvents = pointerEvents;
+                    btn.classList.remove('opacity-60');
+                });
+                isUploading = false;
             }
         }
 
