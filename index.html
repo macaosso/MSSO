@@ -402,35 +402,32 @@
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-3 md:space-y-5 hidden">
-            <!-- AI 天氣分析 -->
+            <!-- 建議帶遮指數 -->
             <section class="reveal panel mt-4">
                 <div class="panel-head flex-wrap">
                     <div class="flex items-center gap-2.5">
                         <span class="dot"></span>
-                        <h2 class="panel-title"><span class="panel-num">AI</span> / 智能天氣綜合分析</h2>
+                        <h2 class="panel-title"><i class="fa-solid fa-umbrella t-sky mr-1"></i> 建議帶遮指數</h2>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span id="ai-analysis-updated" class="micro dim num hidden sm:inline-block">--:--</span>
-                        <span class="badge b-cyan"><i class="fa-solid fa-microchip"></i> AI ANALYSIS</span>
-                        <button onclick="renderAIAnalysis(true)" class="btn btn-ghost btn-xs" title="重新生成 AI 分析">
-                            <i class="fa-solid fa-rotate-right"></i> 重新分析
-                        </button>
+                        <span id="umbrella-6h-meta" class="micro dim num">未來 6 小時降雨預測</span>
+                        <span id="umbrella-badge" class="badge b-green num">1 / 不需要</span>
                     </div>
                 </div>
-                <div class="panel-body space-y-4">
-                    <div class="tile p-4 flex items-start gap-3.5">
-                        <div class="w-9 h-9 border border-[var(--line-strong)] bg-[var(--bg)] flex items-center justify-center shrink-0 t-accent">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2 flex-wrap mb-1">
-                                <span class="micro accent">綜合研判摘要</span>
-                                <span id="ai-risk-badge" class="badge b-green">天氣穩定</span>
-                            </div>
-                            <p id="ai-summary-text" class="text-xs leading-relaxed">正在分析最新氣象數據...</p>
-                        </div>
+                <div class="panel-body space-y-3">
+                    <div class="flex items-center justify-between gap-2 micro">
+                        <span class="t-accent font-bold">不需要</span>
+                        <span id="umbrella-summary" class="dim text-center">未來 6 小時降雨機率低，外出無需攜帶雨具</span>
+                        <span style="color:rgb(var(--c-red-rgb));" class="font-bold">必需</span>
                     </div>
-                    <div id="ai-insights-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+                    <div id="umbrella-bar" class="grid grid-cols-5 gap-1.5" role="img" aria-label="建議帶遮指數 1 至 5"></div>
+                    <div class="grid grid-cols-5 gap-1.5 text-center num micro dim">
+                        <span>1</span>
+                        <span>2</span>
+                        <span>3</span>
+                        <span>4</span>
+                        <span>5</span>
+                    </div>
                 </div>
             </section>
             <div id="alerts-container" class="space-y-2"></div>
@@ -870,6 +867,7 @@
                 const tips = [];
                 let customIcon = null;
                 let customTemp = null;
+                let customUmbrellaIndex = null;
 
                 for (let i = startIndex; i < lines.length; i++) {
                     const line = lines[i].trim();
@@ -887,11 +885,8 @@
                     if (!hasHeaders) {
                         if (values.length >= 3) {
                             const tag = values[1].toUpperCase();
-                            if (tag === 'T') {
-                                cls = 'T';
-                                content = values[2];
-                            } else if (tag === 'I') {
-                                cls = 'I';
+                            if (tag === 'T' || tag === 'I' || tag === 'RR') {
+                                cls = tag;
                                 content = values[2];
                             } else {
                                 cls = 'I';
@@ -908,7 +903,12 @@
                         if (!isNaN(parsedTemp)) {
                             customTemp = parsedTemp;
                         }
-                    } else if (cls === 'I' || (!['E', 'S', 'W', 'R', 'T'].includes(cls) && content)) {
+                    } else if (cls === 'RR') {
+                        const parsedRR = parseInt(content, 10);
+                        if (!isNaN(parsedRR) && parsedRR >= 1 && parsedRR <= 5) {
+                            customUmbrellaIndex = parsedRR;
+                        }
+                    } else if (cls === 'I' || (!['E', 'S', 'W', 'R', 'T', 'RR'].includes(cls) && content)) {
                         if (!customIcon) {
                             customIcon = content || values[1];
                         }
@@ -924,6 +924,7 @@
                     enabled: true,
                     customIcon: customIcon,
                     customTemp: customTemp,
+                    customUmbrellaIndex: customUmbrellaIndex,
                     tips: tips
                 };
             } catch (error) {
@@ -1918,7 +1919,7 @@
                     </div>`;
             }
 
-            renderAIAnalysis();
+            renderUmbrellaIndex();
             renderDistricts();
             renderHourlySection();
             renderDailySection();
@@ -1929,127 +1930,78 @@
         }
 
 
-        /* ===== AI 智能天氣綜合分析引擎 ===== */
-        function renderAIAnalysis(forceAnimate = false) {
-            const summaryEl = document.getElementById('ai-summary-text');
-            const badgeEl = document.getElementById('ai-risk-badge');
-            const gridEl = document.getElementById('ai-insights-grid');
-            const updatedEl = document.getElementById('ai-analysis-updated');
-            if (!summaryEl || !gridEl || !isValidWeatherPayload(globalWeatherData)) return;
+        /* ===== 建議帶遮指數 (1~5) 計算與渲染 ===== */
+        function renderUmbrellaIndex() {
+            const barEl = document.getElementById('umbrella-bar');
+            const badgeEl = document.getElementById('umbrella-badge');
+            const metaEl = document.getElementById('umbrella-6h-meta');
+            const summaryEl = document.getElementById('umbrella-summary');
+            if (!barEl || !badgeEl || !isValidWeatherPayload(globalWeatherData)) return;
 
             const data = globalWeatherData;
-            const curr = data.current;
             const now = new Date();
-            const macauDateStr = getMacauDateStr(now);
-            const foundTodayIdx = data.daily.time.findIndex(d => d === macauDateStr);
-            const todayIdx = foundTodayIdx !== -1 ? foundTodayIdx : Math.min(1, data.daily.time.length - 1);
-
-            let currentTemp = curr.temperature_2m;
-            if (globalNowcastData && globalNowcastData.enabled && globalNowcastData.customTemp !== null && !isNaN(globalNowcastData.customTemp)) {
-                currentTemp = globalNowcastData.customTemp;
-            }
-            const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : currentTemp;
-            const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
-            const windSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
-
             const foundHourIdx = data.hourly.time.findIndex(timeStr => parseMacauDate(timeStr) >= now);
             const currentHourIndex = foundHourIdx !== -1 ? foundHourIdx : Math.max(0, data.hourly.time.length - 1);
 
-            const next6Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 6);
-            const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
             const next6Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 6);
             const next6Precip = data.hourly.precipitation ? data.hourly.precipitation.slice(currentHourIndex, currentHourIndex + 6) : [];
-            const next24Precip = data.hourly.precipitation ? data.hourly.precipitation.slice(currentHourIndex, currentHourIndex + 24) : [];
-
-            const temp6hTarget = next6Temps.length > 0 ? next6Temps[next6Temps.length - 1] : currentTemp;
-            const tempDelta6h = temp6hTarget - currentTemp;
-            const tempTrendText = tempDelta6h >= 2 ? `未來6小時氣溫將明顯回升（約 +${tempDelta6h.toFixed(1)}°C）`
-                : tempDelta6h <= -2 ? `未來6小時氣溫將逐步下降（約 ${tempDelta6h.toFixed(1)}°C）`
-                : '未來6小時氣溫變化平穩';
 
             const maxPop6h = next6Pops.length > 0 ? Math.max(...next6Pops) : 0;
-            const sumPrecip6h = next6Precip.reduce((s, v) => s + (v || 0), 0);
-            const sumPrecip24h = next24Precip.reduce((s, v) => s + (v || 0), 0);
-            const rainImpact6h = getRainfallImpactLevel(maxPop6h, sumPrecip6h);
+            const sumPrecip6h = next6Precip.reduce((sum, val) => sum + (val || 0), 0);
 
-            // 分區溫差分析
-            let districtSpreadText = '各區氣溫分佈均勻。';
-            const validDistricts = (globalDistrictData || []).map((d, idx) => ({
-                name: ['澳門', '氹仔', '路環'][idx],
-                temp: d && d.current ? d.current.temperature_2m : null
-            })).filter(d => d.temp !== null);
-
-            if (validDistricts.length >= 2) {
-                const sorted = [...validDistricts].sort((a, b) => b.temp - a.temp);
-                const diff = sorted[0].temp - sorted[sorted.length - 1].temp;
-                if (diff >= 1.5) {
-                    districtSpreadText = `${sorted[0].name}（${Math.round(sorted[0].temp)}°C）與${sorted[sorted.length - 1].name}（${Math.round(sorted[sorted.length - 1].temp)}°C）溫差達 ${diff.toFixed(1)}°C。`;
-                } else {
-                    districtSpreadText = `澳門、氹仔及路環氣溫相近（${Math.round(sorted[sorted.length - 1].temp)}–${Math.round(sorted[0].temp)}°C）。`;
-                }
+            let level = 1;
+            if (sumPrecip6h >= 10 || (sumPrecip6h >= 5 && maxPop6h >= 70)) {
+                level = 5;
+            } else if (sumPrecip6h >= 3 || (sumPrecip6h >= 1.5 && maxPop6h >= 60)) {
+                level = 4;
+            } else if (sumPrecip6h >= 0.8 || (sumPrecip6h >= 0.2 && maxPop6h >= 50)) {
+                level = 3;
+            } else if (sumPrecip6h > 0 || maxPop6h >= 30) {
+                level = 2;
             }
 
-            // 未來 7 日趨勢
-            const weekMaxList = data.daily.temperature_2m_max.slice(todayIdx, todayIdx + 7);
-            const weekMinList = data.daily.temperature_2m_min.slice(todayIdx, todayIdx + 7);
-            const weekRainList = data.daily.precipitation_sum ? data.daily.precipitation_sum.slice(todayIdx, todayIdx + 7) : [];
-            const weekHigh = weekMaxList.length ? Math.round(Math.max(...weekMaxList)) : Math.round(currentTemp);
-            const weekLow = weekMinList.length ? Math.round(Math.min(...weekMinList)) : Math.round(currentTemp);
-            const rainyDays = weekRainList.filter(r => (r || 0) >= 1.0).length;
-
-            // 綜合風險評級
-            let riskLabel = '天氣平穩';
-            let riskClass = 'b-green';
-            if (currentTemp >= 35 || currentTemp <= 10 || rainImpact6h.label === '極高' || rainImpact6h.label === '高' || windSpeed >= 35) {
-                riskLabel = '需要留意';
-                riskClass = 'b-red';
-            } else if (currentTemp >= 32 || currentTemp <= 14 || rainImpact6h.label === '中' || humidityVal <= 40 || windSpeed >= 25) {
-                riskLabel = '輕微提醒';
-                riskClass = 'b-amber';
+            // 支援 nowcast.csv 的 RR 類別覆蓋 (1~5)
+            const isManualOverride = Boolean(
+                globalNowcastData &&
+                globalNowcastData.enabled &&
+                globalNowcastData.customUmbrellaIndex >= 1 &&
+                globalNowcastData.customUmbrellaIndex <= 5
+            );
+            if (isManualOverride) {
+                level = globalNowcastData.customUmbrellaIndex;
             }
 
-            if (badgeEl) {
-                badgeEl.textContent = riskLabel;
-                badgeEl.className = `badge ${riskClass}`;
+            const levelMeta = {
+                1: { label: '不需要', badge: 'b-green', colorVar: '--c-green-rgb', desc: '未來 6 小時降雨機率低，外出無需攜帶雨具' },
+                2: { label: '可考慮', badge: 'b-sky', colorVar: '--c-sky-rgb', desc: '可能有零星微雨，建議視行程考慮攜帶摺傘' },
+                3: { label: '建議攜帶', badge: 'b-amber', colorVar: '--c-amber-rgb', desc: '未來 6 小時有機會出現驟雨，建議隨身帶傘' },
+                4: { label: '極建議', badge: 'b-orange', colorVar: '--c-orange-rgb', desc: '未來 6 小時降雨機率及雨量較高，請務必帶傘' },
+                5: { label: '必需', badge: 'b-red', colorVar: '--c-red-rgb', desc: '未來 6 小時預計有明顯降雨，外出必需攜帶雨具' }
+            };
+
+            const info = levelMeta[level];
+            const segColors = ['--c-green-rgb', '--c-sky-rgb', '--c-amber-rgb', '--c-orange-rgb', '--c-red-rgb'];
+
+            badgeEl.textContent = `${level} / ${info.label}`;
+            badgeEl.className = `badge ${info.badge} num`;
+
+            if (metaEl) {
+                metaEl.textContent = `6小時最高機率 ${maxPop6h}% · 預估 ${sumPrecip6h.toFixed(1)}mm`;
+            }
+            if (summaryEl) {
+                summaryEl.textContent = info.desc;
             }
 
-            // 出行建議
-            const adviceParts = [];
-            if (rainImpact6h.label !== '低' || sumPrecip24h >= 5) {
-                adviceParts.push('建議隨身攜帶雨具');
-            } else {
-                adviceParts.push('降雨機率偏低，適合戶外活動');
-            }
-            if (apparentTemp >= 31) {
-                adviceParts.push('體感偏熱注意防曬與補水');
-            } else if (apparentTemp <= 15) {
-                adviceParts.push('早晚偏涼建議加穿外套');
-            }
-            if (humidityVal <= 45) {
-                adviceParts.push('空氣較乾燥請留意保濕及防火');
-            }
-
-            summaryEl.textContent = `現時澳門氣溫 ${Math.round(currentTemp)}°C（體感 ${Math.round(apparentTemp)}°C），相對濕度 ${humidityVal}%。${tempTrendText}；未來6小時降雨影響等級為「${rainImpact6h.label}」（預估雨量 ${sumPrecip6h.toFixed(1)}mm）。${adviceParts.join('，')}。`;
-
-            const animClass = (forceAnimate || !isInitialRenderDone) ? 'animate-fade-in' : '';
-            gridEl.innerHTML = `
-                <div class="tile tile-hover p-3.5 space-y-1.5 ${animClass}">
-                    <div class="micro flex items-center gap-1.5"><i class="fa-solid fa-temperature-three-quarters t-orange"></i> 溫度與體感</div>
-                    <div class="text-xs leading-relaxed mut">${tempTrendText}。${districtSpreadText}</div>
-                </div>
-                <div class="tile tile-hover p-3.5 space-y-1.5 ${animClass}">
-                    <div class="micro flex items-center gap-1.5"><i class="fa-solid fa-cloud-showers-heavy t-blue"></i> 降雨與風力</div>
-                    <div class="text-xs leading-relaxed mut">未來24小時累積預估雨量 ${sumPrecip24h.toFixed(1)}mm（6小時最高機率 ${maxPop6h}%）；現時風速約 ${Math.round(windSpeed)} km/h。</div>
-                </div>
-                <div class="tile tile-hover p-3.5 space-y-1.5 ${animClass}">
-                    <div class="micro flex items-center gap-1.5"><i class="fa-solid fa-calendar-week t-accent"></i> 一週展望</div>
-                    <div class="text-xs leading-relaxed mut">未來7日氣溫介乎 ${weekLow}°C 至 ${weekHigh}°C，其中約 ${rainyDays} 日有明顯降雨機會。</div>
-                </div>
-            `;
-
-            if (updatedEl) {
-                updatedEl.textContent = `已分析 ${now.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false })}`;
-            }
+            barEl.innerHTML = [1, 2, 3, 4, 5].map((step, idx) => {
+                const isActive = step <= level;
+                const isCurrent = step === level;
+                const rgbVar = segColors[idx];
+                const bgStyle = isActive
+                    ? `background: rgb(var(${rgbVar})); opacity: ${isCurrent ? '1' : '0.45'};`
+                    : `background: var(--bg-2); border: 1px solid var(--line);`;
+                const ringStyle = isCurrent ? `box-shadow: 0 0 0 1px rgb(var(${rgbVar}));` : '';
+                return `<div class="h-3 transition-all duration-300" style="${bgStyle} ${ringStyle}" title="等級 ${step}: ${levelMeta[step].label}"></div>`;
+            }).join('');
         }
 
         function renderDistricts() {
