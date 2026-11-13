@@ -402,44 +402,37 @@
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-3 md:space-y-5 hidden">
-            <div class="panel tile-hover relative overflow-hidden mt-6 transition-all duration-300">
-                <div class="panel-head flex items-center justify-between">
+            <!-- AI 天氣分析 -->
+            <section class="reveal panel mt-4">
+                <div class="panel-head flex-wrap">
                     <div class="flex items-center gap-2.5">
                         <span class="dot"></span>
-                        <span class="panel-title tracking-wider">CLIMATE ARCHIVE &amp; STATISTICS</span>
+                        <h2 class="panel-title"><span class="panel-num">AI</span> / 智能天氣綜合分析</h2>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="micro dim hidden sm:inline-block">DATA SPAN</span>
-                        <span class="badge b-cyan num font-bold">1952 — 2026</span>
+                        <span id="ai-analysis-updated" class="micro dim num hidden sm:inline-block">--:--</span>
+                        <span class="badge b-cyan"><i class="fa-solid fa-microchip"></i> AI ANALYSIS</span>
+                        <button onclick="renderAIAnalysis(true)" class="btn btn-ghost btn-xs" title="重新生成 AI 分析">
+                            <i class="fa-solid fa-rotate-right"></i> 重新分析
+                        </button>
                     </div>
                 </div>
-                
-                <div class="panel-body flex flex-col md:flex-row items-start md:items-center justify-between gap-5 p-5">
-                    <div class="flex items-start gap-4 max-w-2xl">
-                        <div class="w-10 h-10 rounded border border-[var(--line-strong)] bg-[var(--bg-2)] flex items-center justify-center shrink-0 text-base t-cyan">
-                            <i class="fa-solid fa-chart-column"></i>
+                <div class="panel-body space-y-4">
+                    <div class="tile p-4 flex items-start gap-3.5">
+                        <div class="w-9 h-9 border border-[var(--line-strong)] bg-[var(--bg)] flex items-center justify-center shrink-0 t-accent">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
                         </div>
-                        <div>
-                            <div class="flex items-center gap-2 mb-1.5">
-                                <span class="text-sm font-bold tracking-wide">1952~2026 氣候歷史數據統計系統</span>
-                                <span class="badge b-slate micro">MSSO ARCHIVE</span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="micro accent">綜合研判摘要</span>
+                                <span id="ai-risk-badge" class="badge b-green">天氣穩定</span>
                             </div>
-                            <p class="text-xs mut leading-relaxed">
-                                跨越 70 餘載的澳門官方氣候觀測與民間統計資料庫，收錄極端氣溫、降雨日數、熱帶氣旋記錄及多維度歷史趨勢分析儀表板。
-                            </p>
+                            <p id="ai-summary-text" class="text-xs leading-relaxed">正在分析最新氣象數據...</p>
                         </div>
                     </div>
-            
-                    <a href="https://macaosso.github.io/MSSO/test_1952weather.html" 
-                       target="_blank" 
-                       rel="noopener noreferrer" 
-                       class="btn btn-primary group w-full md:w-auto shrink-0 flex items-center justify-center gap-2.5 py-2.5 px-5"
-                       style="text-decoration: none;">
-                        <span>進入歷史數據系統</span>
-                        <i class="fa-solid fa-arrow-right text-xs transition-transform duration-200 group-hover:translate-x-1"></i>
-                    </a>
+                    <div id="ai-insights-grid" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
                 </div>
-            </div>
+            </section>
             <div id="alerts-container" class="space-y-2"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1925,12 +1918,137 @@
                     </div>`;
             }
 
+            renderAIAnalysis();
             renderDistricts();
             renderHourlySection();
             renderDailySection();
 
             if (!isInitialRenderDone) {
                 isInitialRenderDone = true;
+            }
+        }
+
+
+        /* ===== AI 智能天氣綜合分析引擎 ===== */
+        function renderAIAnalysis(forceAnimate = false) {
+            const summaryEl = document.getElementById('ai-summary-text');
+            const badgeEl = document.getElementById('ai-risk-badge');
+            const gridEl = document.getElementById('ai-insights-grid');
+            const updatedEl = document.getElementById('ai-analysis-updated');
+            if (!summaryEl || !gridEl || !isValidWeatherPayload(globalWeatherData)) return;
+
+            const data = globalWeatherData;
+            const curr = data.current;
+            const now = new Date();
+            const macauDateStr = getMacauDateStr(now);
+            const foundTodayIdx = data.daily.time.findIndex(d => d === macauDateStr);
+            const todayIdx = foundTodayIdx !== -1 ? foundTodayIdx : Math.min(1, data.daily.time.length - 1);
+
+            let currentTemp = curr.temperature_2m;
+            if (globalNowcastData && globalNowcastData.enabled && globalNowcastData.customTemp !== null && !isNaN(globalNowcastData.customTemp)) {
+                currentTemp = globalNowcastData.customTemp;
+            }
+            const apparentTemp = curr.apparent_temperature !== undefined ? curr.apparent_temperature : currentTemp;
+            const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
+            const windSpeed = curr.wind_speed_10m !== undefined ? curr.wind_speed_10m : 0;
+
+            const foundHourIdx = data.hourly.time.findIndex(timeStr => parseMacauDate(timeStr) >= now);
+            const currentHourIndex = foundHourIdx !== -1 ? foundHourIdx : Math.max(0, data.hourly.time.length - 1);
+
+            const next6Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 6);
+            const next24Temps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 24);
+            const next6Pops = data.hourly.precipitation_probability.slice(currentHourIndex, currentHourIndex + 6);
+            const next6Precip = data.hourly.precipitation ? data.hourly.precipitation.slice(currentHourIndex, currentHourIndex + 6) : [];
+            const next24Precip = data.hourly.precipitation ? data.hourly.precipitation.slice(currentHourIndex, currentHourIndex + 24) : [];
+
+            const temp6hTarget = next6Temps.length > 0 ? next6Temps[next6Temps.length - 1] : currentTemp;
+            const tempDelta6h = temp6hTarget - currentTemp;
+            const tempTrendText = tempDelta6h >= 2 ? `未來6小時氣溫將明顯回升（約 +${tempDelta6h.toFixed(1)}°C）`
+                : tempDelta6h <= -2 ? `未來6小時氣溫將逐步下降（約 ${tempDelta6h.toFixed(1)}°C）`
+                : '未來6小時氣溫變化平穩';
+
+            const maxPop6h = next6Pops.length > 0 ? Math.max(...next6Pops) : 0;
+            const sumPrecip6h = next6Precip.reduce((s, v) => s + (v || 0), 0);
+            const sumPrecip24h = next24Precip.reduce((s, v) => s + (v || 0), 0);
+            const rainImpact6h = getRainfallImpactLevel(maxPop6h, sumPrecip6h);
+
+            // 分區溫差分析
+            let districtSpreadText = '各區氣溫分佈均勻。';
+            const validDistricts = (globalDistrictData || []).map((d, idx) => ({
+                name: ['澳門', '氹仔', '路環'][idx],
+                temp: d && d.current ? d.current.temperature_2m : null
+            })).filter(d => d.temp !== null);
+
+            if (validDistricts.length >= 2) {
+                const sorted = [...validDistricts].sort((a, b) => b.temp - a.temp);
+                const diff = sorted[0].temp - sorted[sorted.length - 1].temp;
+                if (diff >= 1.5) {
+                    districtSpreadText = `${sorted[0].name}（${Math.round(sorted[0].temp)}°C）與${sorted[sorted.length - 1].name}（${Math.round(sorted[sorted.length - 1].temp)}°C）溫差達 ${diff.toFixed(1)}°C。`;
+                } else {
+                    districtSpreadText = `澳門、氹仔及路環氣溫相近（${Math.round(sorted[sorted.length - 1].temp)}–${Math.round(sorted[0].temp)}°C）。`;
+                }
+            }
+
+            // 未來 7 日趨勢
+            const weekMaxList = data.daily.temperature_2m_max.slice(todayIdx, todayIdx + 7);
+            const weekMinList = data.daily.temperature_2m_min.slice(todayIdx, todayIdx + 7);
+            const weekRainList = data.daily.precipitation_sum ? data.daily.precipitation_sum.slice(todayIdx, todayIdx + 7) : [];
+            const weekHigh = weekMaxList.length ? Math.round(Math.max(...weekMaxList)) : Math.round(currentTemp);
+            const weekLow = weekMinList.length ? Math.round(Math.min(...weekMinList)) : Math.round(currentTemp);
+            const rainyDays = weekRainList.filter(r => (r || 0) >= 1.0).length;
+
+            // 綜合風險評級
+            let riskLabel = '天氣平穩';
+            let riskClass = 'b-green';
+            if (currentTemp >= 35 || currentTemp <= 10 || rainImpact6h.label === '極高' || rainImpact6h.label === '高' || windSpeed >= 35) {
+                riskLabel = '需要留意';
+                riskClass = 'b-red';
+            } else if (currentTemp >= 32 || currentTemp <= 14 || rainImpact6h.label === '中' || humidityVal <= 40 || windSpeed >= 25) {
+                riskLabel = '輕微提醒';
+                riskClass = 'b-amber';
+            }
+
+            if (badgeEl) {
+                badgeEl.textContent = riskLabel;
+                badgeEl.className = `badge ${riskClass}`;
+            }
+
+            // 出行建議
+            const adviceParts = [];
+            if (rainImpact6h.label !== '低' || sumPrecip24h >= 5) {
+                adviceParts.push('建議隨身攜帶雨具');
+            } else {
+                adviceParts.push('降雨機率偏低，適合戶外活動');
+            }
+            if (apparentTemp >= 31) {
+                adviceParts.push('體感偏熱注意防曬與補水');
+            } else if (apparentTemp <= 15) {
+                adviceParts.push('早晚偏涼建議加穿外套');
+            }
+            if (humidityVal <= 45) {
+                adviceParts.push('空氣較乾燥請留意保濕及防火');
+            }
+
+            summaryEl.textContent = `現時澳門氣溫 ${Math.round(currentTemp)}°C（體感 ${Math.round(apparentTemp)}°C），相對濕度 ${humidityVal}%。${tempTrendText}；未來6小時降雨影響等級為「${rainImpact6h.label}」（預估雨量 ${sumPrecip6h.toFixed(1)}mm）。${adviceParts.join('，')}。`;
+
+            const animClass = (forceAnimate || !isInitialRenderDone) ? 'animate-fade-in' : '';
+            gridEl.innerHTML = `
+                <div class="tile tile-hover p-3.5 space-y-1.5 ${animClass}">
+                    <div class="micro flex items-center gap-1.5"><i class="fa-solid fa-temperature-three-quarters t-orange"></i> 溫度與體感</div>
+                    <div class="text-xs leading-relaxed mut">${tempTrendText}。${districtSpreadText}</div>
+                </div>
+                <div class="tile tile-hover p-3.5 space-y-1.5 ${animClass}">
+                    <div class="micro flex items-center gap-1.5"><i class="fa-solid fa-cloud-showers-heavy t-blue"></i> 降雨與風力</div>
+                    <div class="text-xs leading-relaxed mut">未來24小時累積預估雨量 ${sumPrecip24h.toFixed(1)}mm（6小時最高機率 ${maxPop6h}%）；現時風速約 ${Math.round(windSpeed)} km/h。</div>
+                </div>
+                <div class="tile tile-hover p-3.5 space-y-1.5 ${animClass}">
+                    <div class="micro flex items-center gap-1.5"><i class="fa-solid fa-calendar-week t-accent"></i> 一週展望</div>
+                    <div class="text-xs leading-relaxed mut">未來7日氣溫介乎 ${weekLow}°C 至 ${weekHigh}°C，其中約 ${rainyDays} 日有明顯降雨機會。</div>
+                </div>
+            `;
+
+            if (updatedEl) {
+                updatedEl.textContent = `已分析 ${now.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: '2-digit', minute: '2-digit', hour12: false })}`;
             }
         }
 
