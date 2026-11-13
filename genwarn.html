@@ -3983,7 +3983,7 @@
             localStorage.setItem('gh_repo', repo);
             localStorage.setItem('gh_path', path);
             document.getElementById('navGhIndicator').className = token && repo ? "w-2 h-2 rounded-full bg-emerald-500 ml-0.5" : "w-2 h-2 rounded-full bg-slate-400 ml-0.5";
-            if (test) fetchGithubRecords(true);
+            if (test) { fetchGithubRecords(true); fetchNowcastCsv(); }
         }
 
         function triggerSendToTelegram() {
@@ -4285,20 +4285,34 @@
         async function fetchNowcastCsv() {
             const token = localStorage.getItem('gh_token'), repo = localStorage.getItem('gh_repo');
             let csvText = null;
-            try {
-                const res = await fetch('nowcast.csv');
-                if (res.ok) csvText = await res.text();
-            } catch (e) {}
 
-            if (!csvText && token && repo) {
+            if (token && repo) {
                 try {
-                    const ghRes = await fetch(`https://api.github.com/repos/${repo}/contents/nowcast.csv`, {
-                        headers: { 'Authorization': `token ${token}` }
+                    const ghRes = await fetch(`https://api.github.com/repos/${repo}/contents/nowcast.csv?t=${Date.now()}`, {
+                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+                        cache: 'no-store'
                     });
                     if (ghRes.ok) {
                         const json = await ghRes.json();
                         nowcastFileSha = json.sha;
                         csvText = decodeURIComponent(escape(atob(json.content)));
+                    } else {
+                        const errJson = await ghRes.json().catch(() => ({}));
+                        showToast(`無法從 GitHub 讀取 nowcast.csv (${ghRes.status}): ${errJson.message || '請檢查路徑或權限'}`, "warning");
+                    }
+                } catch (e) {
+                    showToast("讀取 GitHub nowcast.csv 失敗：" + e.message, "error");
+                }
+            }
+
+            if (!csvText) {
+                try {
+                    const res = await fetch(`nowcast.csv?t=${Date.now()}`, { cache: 'no-store' });
+                    if (res.ok) {
+                        const txt = await res.text();
+                        if (txt.trim().toLowerCase().startsWith('enabled,class,content')) {
+                            csvText = txt;
+                        }
                     }
                 } catch (e) {}
             }
@@ -4306,7 +4320,7 @@
             if (!csvText) {
                 csvText = "enabled,class,content\n";
             }
-            window.nowcastRows = parseNowcastCsv(csvText);
+            window.nowcastRows = parseNowcastCsv(csvText.replace(/^\uFEFF/, ''));
             renderNowcastCards();
             syncNowcastCurrentTime();
         }
