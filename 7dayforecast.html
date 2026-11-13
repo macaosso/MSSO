@@ -68,7 +68,7 @@
             border-radius: 0;
         }
         .panel-head {
-            display:flex; align-items:center; justify-content:space-between;
+            display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;
             gap:12px; padding:16px 18px; border-bottom:1px solid var(--line);
         }
         .panel-title { font-size:14px; font-weight:700; color:var(--text); letter-spacing:.02em; display:flex; align-items:center; gap:8px; }
@@ -91,7 +91,7 @@
         .icon-btn {
             width:38px; height:38px; display:flex; align-items:center; justify-content:center;
             border:1px solid var(--line-strong); background:var(--bg-2); color:var(--muted);
-            border-radius:0; transition:.15s;
+            border-radius:0; transition:.15s; cursor:pointer;
         }
         .icon-btn:hover { color:var(--accent); border-color:var(--accent); }
         .icon-btn .ic-sun { display:none; }
@@ -146,6 +146,25 @@
         .pill-hour.on { color:rgb(var(--c-green-rgb)); background:rgba(var(--c-green-rgb),.13); border:1px solid rgba(var(--c-green-rgb),.3); font-weight:700; }
         .pill-hour.off { color:var(--faint); border:1px solid transparent; }
 
+        /* ===== Modal & Toast ===== */
+        .modal-backdrop {
+            position:fixed; inset:0; background:rgba(0,0,0,.68); z-index:50;
+            display:flex; align-items:center; justify-content:center; padding:16px;
+        }
+        .modal-backdrop.hidden { display:none; }
+        .modal-box {
+            background:var(--bg); border:1px solid var(--line-strong);
+            width:100%; max-width:860px; max-height:85vh; display:flex; flex-direction:column;
+        }
+        .toast {
+            position:fixed; bottom:24px; right:24px; z-index:60;
+            background:var(--bg-2); border:1px solid var(--accent); color:var(--text);
+            padding:10px 16px; font-size:12px; font-weight:600;
+            box-shadow:0 8px 24px rgba(0,0,0,.35); transition:opacity .2s ease;
+        }
+        .toast.hidden { display:none; }
+        .toast.error { border-color:rgb(var(--c-red-rgb)); color:rgb(var(--c-red-rgb)); }
+
         /* ===== Loader ===== */
         .loader-ring { width:38px; height:38px; border:2px solid var(--line-strong); border-top-color:var(--accent); border-radius:50%; animation:loaderSpin .8s linear infinite; }
         @keyframes loaderSpin { to { transform:rotate(360deg); } }
@@ -159,22 +178,25 @@
     </style>
     <!-- 頁面載入前先執行主題判斷，避免畫面閃爍 -->
     <script>
-        const currentHour = new Date().getHours();
-        const savedTheme = localStorage.getItem('theme');
+        (function() {
+            const currentHour = new Date().getHours();
+            let savedTheme = null;
+            try { savedTheme = localStorage.getItem('theme'); } catch (e) {}
 
-        if (savedTheme) {
-            if (savedTheme === 'dark') {
-                document.documentElement.classList.add('dark');
+            if (savedTheme) {
+                if (savedTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             } else {
-                document.documentElement.classList.remove('dark');
+                if (currentHour >= 8 && currentHour < 20) {
+                    document.documentElement.classList.remove('dark');
+                } else {
+                    document.documentElement.classList.add('dark');
+                }
             }
-        } else {
-            if (currentHour >= 8 && currentHour < 20) {
-                document.documentElement.classList.remove('dark');
-            } else {
-                document.documentElement.classList.add('dark');
-            }
-        }
+        })();
     </script>
 </head>
 <body class="min-h-screen antialiased flex flex-col items-center p-4 md:p-8 pb-12 transition-colors duration-200">
@@ -195,10 +217,9 @@
                         <div class="micro mt-1" id="update-time">載入中...</div>
                     </div>
                 </div>
-                <div class="flex items-center gap-4">
-                    <!-- 主題切換按鈕 -->
-                    <a href="https://macaosso.github.io/MSSO/index.html" class="icon-btn" title="返回首頁"><i class="fa-solid fa-house"></i></a>
-                    <button id="theme-toggle" class="icon-btn" title="切換主題">
+                <div class="flex items-center gap-3">
+                    <a href="https://macaosso.github.io/MSSO/index.html" target="_blank" rel="noopener noreferrer" class="icon-btn" title="返回首頁"><i class="fa-solid fa-house"></i></a>
+                    <button id="theme-toggle" class="icon-btn" title="切換主題" type="button">
                         <i class="fa-solid fa-moon ic-moon"></i>
                         <i class="fa-solid fa-sun ic-sun"></i>
                     </button>
@@ -218,12 +239,14 @@
             <section id="forecast-section" class="panel animate-view-fade">
                 <div class="panel-head">
                     <h2 class="panel-title"><span class="panel-num">01</span> / 7天天氣預報與詳細狀況</h2>
-                    <div class="flex items-center gap-2">
-                        <!-- 儲存 PNG 按鈕 -->
-                        <button id="btn-save-png" onclick="downloadForecastPNG()" class="btn btn-ghost btn-xs">
+                    <div class="flex items-center flex-wrap gap-2">
+                        <button id="btn-copy-bulletin" type="button" class="btn btn-ghost btn-xs">
+                            <i class="fa-regular fa-copy"></i> 複製7天報文
+                        </button>
+                        <button id="btn-save-png" type="button" class="btn btn-ghost btn-xs">
                             <i class="fa-solid fa-image"></i> 儲存圖片
                         </button>
-                        <a href="https://macaosso.github.io/MSSO/symbol.html" target="_blank" class="btn btn-ghost btn-xs">
+                        <a href="https://macaosso.github.io/MSSO/symbol.html" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-xs">
                             天氣符號說明 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                         </a>
                     </div>
@@ -348,7 +371,7 @@
                         </div>
                     </div>
 
-                    <!-- 2. 氣象參數描述與定義對照表 (拆分為 5 個獨立表格) -->
+                    <!-- 2. 氣象參數描述與定義對照表 -->
                     <div class="space-y-6 pt-4">
                         <h3 class="sub-title"><i class="fa-solid fa-table-list accent"></i> 氣象參數描述與定義對照表</h3>
                         
@@ -493,7 +516,7 @@
                                         </tr>
                                         <tr>
                                             <td class="py-2.5 px-3 font-semibold text-[var(--text)]">極高</td>
-                                            <td class="py-2.5 px-3"> 11 或以上</td>
+                                            <td class="py-2.5 px-3">11 或以上</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -538,6 +561,28 @@
         </div>
     </div>
 
+    <!-- 逐小時明細 Modal -->
+    <div id="hourly-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="hourly-modal-title">
+        <div class="modal-box">
+            <div class="panel-head">
+                <h3 id="hourly-modal-title" class="panel-title"><i class="fa-regular fa-clock accent"></i> 逐小時天氣明細</h3>
+                <div class="flex items-center gap-2">
+                    <button id="btn-copy-day-report" type="button" class="btn btn-ghost btn-xs">
+                        <i class="fa-regular fa-copy"></i> 複製當日預報
+                    </button>
+                    <button id="btn-close-modal" type="button" class="icon-btn" style="width:30px;height:30px;" title="關閉">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="hourly-modal-summary" class="px-4 py-3 text-xs mut border-b" style="border-color: var(--line); background: var(--bg-2);"></div>
+            <div id="hourly-modal-body" class="p-4 overflow-y-auto flex-grow"></div>
+        </div>
+    </div>
+
+    <!-- 提示 Toast -->
+    <div id="toast-box" class="toast hidden"></div>
+
     <!-- 頁尾免責聲明與版權 -->
     <footer class="w-full max-w-6xl mt-10 pt-6 foot-rule text-center text-xs space-y-1.5">
         <p><strong class="font-semibold">免責聲明：</strong>本數據由 AI 分析並直接發佈，使用前請自行核實。(Data analysed by AI and directly published, please check before using.)</p>
@@ -549,23 +594,61 @@
         const LAT = 22.214016;
         const LON = 113.546198;
         let globalWeatherData = null;
+        let dailyReportsCache = [];
+        let activeModalDayIndex = null;
+        let toastTimer = null;
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast-box');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.toggle('error', isError);
+            toast.classList.remove('hidden');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2600);
+        }
+
+        function copyTextToClipboard(text, successMsg) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(successMsg);
+                }).catch(() => {
+                    fallbackCopy(text, successMsg);
+                });
+            } else {
+                fallbackCopy(text, successMsg);
+            }
+        }
+
+        function fallbackCopy(text, successMsg) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg);
+            } catch (e) {
+                showToast('複製失敗，請手動選取複製', true);
+            } finally {
+                document.body.removeChild(ta);
+            }
+        }
 
         const themeToggleBtn = document.getElementById('theme-toggle');
         themeToggleBtn.addEventListener('click', () => {
             if (document.documentElement.classList.contains('dark')) {
                 document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
+                try { localStorage.setItem('theme', 'light'); } catch (e) {}
             } else {
                 document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
+                try { localStorage.setItem('theme', 'dark'); } catch (e) {}
             }
         });
-
-        if (localStorage.getItem('theme') === 'light') {
-            document.documentElement.classList.remove('dark');
-        } else {
-            document.documentElement.classList.add('dark');
-        }
 
         /* 標準氣象名詞與圖示對應 (符合澳門氣象標準) */
         function getWeatherDetails(code, isNight = false, humidity = null) {
@@ -575,19 +658,35 @@
                 2: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
                 3: { text: '多雲', icon: 'icon/weather_icon/cloud.png' },
                 45: (() => {
-                    if (humidity >= 98) return { text: '霧', icon: 'icon/weather_icon/fog.png' };
-                    if (humidity >= 90) return { text: '薄霧', icon: 'icon/weather_icon/mist.png' };
+                    if (humidity !== null && humidity >= 98) return { text: '霧', icon: 'icon/weather_icon/fog.png' };
+                    if (humidity !== null && humidity >= 90) return { text: '薄霧', icon: 'icon/weather_icon/mist.png' };
+                    return { text: '煙霞', icon: 'icon/weather_icon/haze.png' };
+                })(),
+                48: (() => {
+                    if (humidity !== null && humidity >= 98) return { text: '霧', icon: 'icon/weather_icon/fog.png' };
+                    if (humidity !== null && humidity >= 90) return { text: '薄霧', icon: 'icon/weather_icon/mist.png' };
                     return { text: '煙霞', icon: 'icon/weather_icon/haze.png' };
                 })(),
                 51: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
                 53: isNight ? { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-night.png' } : { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-day.png' },
+                55: { text: '微雨/毛毛雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                56: { text: '凍微雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                57: { text: '凍雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
                 61: { text: '微雨/毛毛雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                63: { text: '雨', icon: 'icon/weather_icon/cloud-rain.png' },
+                65: { text: '大雨', icon: 'icon/weather_icon/rainstorm.png' },
+                66: { text: '凍雨', icon: 'icon/weather_icon/cloud-rain.png' },
+                67: { text: '凍雨', icon: 'icon/weather_icon/cloud-rain.png' },
                 80: { text: '驟雨', icon: 'icon/weather_icon/cloud-rain.png' },
-                95: { text: '雷雨', icon: 'icon/weather_icon/thunder-rain.png' }
+                81: { text: '驟雨', icon: 'icon/weather_icon/cloud-rain.png' },
+                82: { text: '強驟雨', icon: 'icon/weather_icon/rainstorm.png' },
+                95: { text: '雷雨', icon: 'icon/weather_icon/thunder-rain.png' },
+                96: { text: '雷雨伴冰雹', icon: 'icon/weather_icon/thunder-rain.png' },
+                99: { text: '強雷雨伴冰雹', icon: 'icon/weather_icon/thunder-rain.png' }
             };
             return symbols[code] || { text: '多雲', icon: 'icon/weather_icon/cloud.png' };
         }
-        
+
         function getAdvancedDailyWeatherIcon(dayIndex, data) {
             const dailyCode = data.daily.weather_code[dayIndex];
             const maxTemp = data.daily.temperature_2m_max[dayIndex];
@@ -599,7 +698,7 @@
                     hourlyIndices.push(idx);
                 }
             });
-        
+
             let sunHours = 0;
             let cloudHours = 0;
             let rainHours = 0;
@@ -610,17 +709,18 @@
             let hasHeavyRain = false;
             let thunderstormHours = 0;
             let maxHourlyRainfall = 0;
-        
-            // 新增旗標
+            let sumHourlyRainfall = 0;
+
             let code45Hours = 0;
             let anyCode45HumidityOver98 = false;
             let anyCode45HumidityOver90 = false;
-        
+
             hourlyIndices.forEach(idx => {
                 const hCode = data.hourly.weather_code[idx];
                 const hRain = data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0;
                 const hHumidity = data.hourly.relative_humidity_2m ? (data.hourly.relative_humidity_2m[idx] ?? 0) : 0;
-        
+
+                sumHourlyRainfall += hRain;
                 if (hRain > maxHourlyRainfall) {
                     maxHourlyRainfall = hRain;
                 }
@@ -633,54 +733,60 @@
                 if ((hCode >= 66 && hCode <= 69) || (hCode >= 70 && hCode <= 79) || (hCode >= 83 && hCode <= 88)) hasSnowOrFreezingRain = true;
                 if (hCode === 45 || hCode === 48) hasFog = true;
                 if (hCode === 63 || hCode === 65 || hCode === 82) hasHeavyRain = true;
-        
-                // code45 逐小時檢查當下濕度
-                if (hCode === 45) {
+
+                if (hCode === 45 || hCode === 48) {
                     code45Hours++;
                     if (hHumidity >= 98) anyCode45HumidityOver98 = true;
                     if (hHumidity >= 90) anyCode45HumidityOver90 = true;
                 }
             });
-        
-            const accumulatedRainfall = data.daily.precipitation_sum ? (data.daily.precipitation_sum[dayIndex] || 0) : 0;
+
+            const accumulatedRainfall = (data.daily.precipitation_sum && data.daily.precipitation_sum[dayIndex] !== undefined)
+                ? (data.daily.precipitation_sum[dayIndex] || 0)
+                : sumHourlyRainfall;
+
             if (maxHourlyRainfall >= 10 || accumulatedRainfall >= 30) {
                 return { icon: 'icon/weather_icon/rainstorm.png', text: '雨勢有時頗大' };
             }
             if (thunderstormHours >= 2) {
                 return { icon: 'icon/weather_icon/thunder-rain.png', text: '雷雨' };
-            } 
-        
+            }
+
             let icon = 'icon/weather_icon/cloud.png';
             let text = '多雲';
-        
-            // 優先：當日有 >=1hr code45，以 code45 發生當下該小時濕度旗標判斷
-            if(code45Hours >= 1){
-                if(anyCode45HumidityOver98){
+
+            if (code45Hours >= 1) {
+                if (anyCode45HumidityOver98) {
                     icon = 'icon/weather_icon/fog.png';
                     text = '霧';
-                }else if(anyCode45HumidityOver90){
+                } else if (anyCode45HumidityOver90) {
                     icon = 'icon/weather_icon/mist.png';
                     text = '薄霧';
-                }else{
+                } else {
                     icon = 'icon/weather_icon/haze.png';
                     text = '煙霞';
                 }
-            }else{
+            } else {
                 switch (dailyCode) {
                     case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
                     case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
                     case 2: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
                     case 3: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
                     case 5: icon = 'icon/weather_icon/haze.png'; text = '煙霞'; break;
-                    case 45: icon = 'icon/weather_icon/fog.png'; text = '霧'; break;
+                    case 45:
+                    case 48: icon = 'icon/weather_icon/fog.png'; text = '霧'; break;
                     case 51: icon = 'icon/weather_icon/partly-sun-day.png'; text = '部份時間有陽光'; break;
                     case 53: icon = 'icon/weather_icon/partly-cloud-day.png'; text = '短暫時間有陽光'; break;
                     case 61: icon = 'icon/weather_icon/cloud-drizzle.png'; text = '微雨/毛毛雨'; break;
-                    case 80: icon = 'icon/weather_icon/cloud-rain.png'; text = '驟雨'; break;
-                    case 95: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
+                    case 80:
+                    case 81:
+                    case 82: icon = 'icon/weather_icon/cloud-rain.png'; text = '驟雨'; break;
+                    case 95:
+                    case 96:
+                    case 99: icon = 'icon/weather_icon/thunder-rain.png'; text = '雷雨'; break;
                     default: icon = 'icon/weather_icon/cloud.png'; text = '多雲'; break;
                 }
-        
+
                 if (thunderstormHours === 0 && rainHours === 0) {
                     if (sunHours >= 22) {
                         icon = 'icon/weather_icon/sun.png';
@@ -744,17 +850,21 @@
             }
             return { icon, text };
         }
-        
-        function getWeatherGroup(code, humidity) {
+
+        function getWeatherGroup(code, humidity = null) {
             if ([0, 1].includes(code)) return { group: 'A', name: '天晴' };
             if ([2, 3, 51].includes(code)) return { group: 'B', name: '多雲' };
-            
-            // 根據相對濕度將原本的 C 組細分為 C1 (霧), C2 (薄霧), C3 (煙霞)
-            if (humidity !== undefined && humidity !== null) {
-                if (humidity >= 98) return { group: 'C1', name: '霧' };
-                if (humidity >= 90) return { group: 'C2', name: '薄霧' };
-                if (humidity < 90) return { group: 'C3', name: '煙霞' };
+
+            // 僅對霧/能見度代碼 (45, 48) 依相對濕度細分 C1 (霧), C2 (薄霧), C3 (煙霞)
+            if ([45, 48].includes(code)) {
+                if (humidity !== undefined && humidity !== null) {
+                    if (humidity >= 98) return { group: 'C1', name: '霧' };
+                    if (humidity >= 90) return { group: 'C2', name: '薄霧' };
+                    return { group: 'C3', name: '煙霞' };
+                }
+                return { group: 'C1', name: '霧' };
             }
+
             if ([53, 55].includes(code)) return { group: 'D', name: '微雨/毛毛雨' };
             if ([61, 63, 65].includes(code)) return { group: 'E', name: '雨' };
             if ([56, 57, 66, 67].includes(code)) return { group: 'F', name: '凍雨' };
@@ -763,7 +873,7 @@
             if ([95, 96, 99].includes(code)) return { group: 'I', name: '雷雨' };
             return { group: 'B', name: '多雲' };
         }
-        
+
         function getWindDirection(deg) {
             if (deg === null || deg === undefined) return 'N';
             const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -771,7 +881,7 @@
             const index = Math.floor(adjustedDeg / 45);
             return directions[index];
         }
-        
+
         function getWindDirectionText(hourlyDirs) {
             const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
             const dirMapFull = { 'N': '北', 'NE': '東北', 'E': '東', 'SE': '東南', 'S': '南', 'SW': '西南', 'W': '西', 'NW': '西北' };
@@ -809,7 +919,7 @@
                 }
             }
         }
-        
+
         function getWindSpeedLevel(speedKmh) {
             if (speedKmh <= 1.5) return 0;
             if (speedKmh <= 6.4) return 1;
@@ -825,20 +935,21 @@
             if (speedKmh <= 117.4) return 11;
             return 12;
         }
-        
+
         const windSpeedNames = { 0: '靜止', 1: '微風', 2: '輕微', 3: '溫和', 4: '和緩', 5: '清新', 6: '清勁', 7: '強勁', 8: '疾勁', 9: '烈風', 10: '狂風', 11: '暴風', 12: '颶風' };
-        
+
         function getRiskLevel(score) {
             if (score <= 15) return { text: '低風險', color: 'badge b-sky' };
             if (score <= 40) return { text: '中度風險', color: 'badge b-green' };
             if (score <= 75) return { text: '高風險', color: 'badge b-orange' };
             return { text: '極高風險', color: 'badge b-red' };
         }
-        
+
         async function fetchWeatherData() {
             try {
-                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
+                const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,precipitation,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,precipitation_probability_max,uv_index_max&timezone=Asia/Macau&past_days=1`;
                 const res = await fetch(weatherUrl);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 globalWeatherData = await res.json();
                 const now = new Date();
                 const year = now.getFullYear();
@@ -858,14 +969,14 @@
                 document.getElementById('loading').innerHTML = `<p style="color:rgb(var(--c-red-rgb))">無法載入天氣數據，請檢查網絡連線。</p>`;
             }
         }
-        
+
         function calculateDayRainMetrics(dateStr, data) {
             let hourlyPrecip = [];
             let groupCounts = { A:0, B:0, C1:0, C2:0, C3:0, D:0, E:0, F:0, G:0, H:0, I:0 };
             data.hourly.time.forEach((tStr, idx) => {
                 if (tStr.startsWith(dateStr)) {
                     const hum = data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : 70;
-                    hourlyPrecip.push(data.hourly.precipitation ? data.hourly.precipitation[idx] : 0);
+                    hourlyPrecip.push(data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0);
                     const c = data.hourly.weather_code[idx];
                     const gObj = getWeatherGroup(c, hum);
                     groupCounts[gObj.group]++;
@@ -895,11 +1006,12 @@
                 risk
             };
         }
-        
+
         function renderDailySection() {
             const data = globalWeatherData;
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
+            dailyReportsCache = [];
             const startIndex = 1;
             for (let i = 0; i < 7; i++) {
                 const dayIndex = startIndex + i;
@@ -909,7 +1021,7 @@
                 const maxUv = data.daily.uv_index_max ? data.daily.uv_index_max[dayIndex] : 5;
                 const prevMinTemp = dayIndex > 0 ? Math.round(data.daily.temperature_2m_min[dayIndex - 1]) : minTemp;
                 const prev2MinTemp = dayIndex > 1 ? Math.round(data.daily.temperature_2m_min[dayIndex - 2]) : prevMinTemp;
-                
+
                 let tempDropStr = '';
                 if (minTemp < 22) {
                     const drop1 = prevMinTemp - minTemp;
@@ -924,30 +1036,29 @@
                         tempDropStr = '氣溫略降';
                     }
                 }
-                
+
                 let hourlyHumids = [];
                 let hourlyWindSpeeds = [];
                 let hourlyWindDirs = [];
                 let hourlyPrecip = [];
                 let groupCounts = { A:0, B:0, C1:0, C2:0, C3:0, D:0, E:0, F:0, G:0, H:0, I:0 };
-                
+
                 data.hourly.time.forEach((tStr, idx) => {
                     if (tStr.startsWith(dateStr)) {
                         const hum = data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : 70;
                         hourlyHumids.push(hum);
                         hourlyWindSpeeds.push(data.hourly.wind_speed_10m[idx]);
                         hourlyWindDirs.push(getWindDirection(data.hourly.wind_direction_10m[idx]));
-                        hourlyPrecip.push(data.hourly.precipitation ? data.hourly.precipitation[idx] : 0);
+                        hourlyPrecip.push(data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0);
                         const c = data.hourly.weather_code[idx];
                         const gObj = getWeatherGroup(c, hum);
                         groupCounts[gObj.group]++;
                     }
                 });
-                
+
                 const minH = hourlyHumids.length > 0 ? Math.min(...hourlyHumids) : 60;
-                const maxH = hourlyHumids.length > 0 ? Math.max(...hourlyHumids) : 90;
                 const meanH = hourlyHumids.length > 0 ? hourlyHumids.reduce((a,b)=>a+b,0)/hourlyHumids.length : 70;
-                
+
                 let tempHumidConditions = [];
                 if (maxTemp >= 37.5) tempHumidConditions.push('極為酷熱');
                 else if (maxTemp >= 35.5) tempHumidConditions.push('非常酷熱');
@@ -961,9 +1072,9 @@
                 else if (minH <= 50) tempHumidConditions.push('乾燥');
                 if (meanH >= 95) tempHumidConditions.push('非常潮濕');
                 else if (meanH >= 80) tempHumidConditions.push('潮濕');
-                
+
                 let part1 = tempHumidConditions.length >= 2 ? `天氣${tempHumidConditions[0]}及${tempHumidConditions[1]}` : (tempHumidConditions.length === 1 ? `天氣${tempHumidConditions[0]}` : '');
-                
+
                 let skyDescs = [];
                 let sunH = groupCounts['A'];
                 let cloudH = groupCounts['B'];
@@ -992,18 +1103,17 @@
                         skyDescs.push('多雲');
                     }
                 }
-                
+
                 let weatherDescs = [];
                 if (skyDescs.length > 0) {
                     weatherDescs.push(skyDescs.join('，'));
                 }
-                
-                // 根據 C1 (霧), C2 (薄霧), C3 (煙霞) 的計數（門檻 >= 1）組合描述
+
                 const c1 = groupCounts['C1'] || 0;
                 const c2 = groupCounts['C2'] || 0;
                 const c3 = groupCounts['C3'] || 0;
                 let visibilityDescs = [];
-        
+
                 if (c1 >= 1 && c2 >= 1 && c3 >= 1) {
                     visibilityDescs.push('有煙霞、薄霧或霧');
                 } else if (c2 >= 1 && c1 >= 1) {
@@ -1017,19 +1127,26 @@
                     if (c2 >= 1) visibilityDescs.push('有薄霧');
                     if (c3 >= 1) visibilityDescs.push('有煙霞');
                 }
-        
+
                 if (visibilityDescs.length > 0) {
                     weatherDescs.push(visibilityDescs.join('，'));
                 }
-                
+
+                const metrics = calculateDayRainMetrics(dateStr, data);
+                const dailyRainSum = (data.daily.precipitation_sum && data.daily.precipitation_sum[dayIndex] !== undefined)
+                    ? (data.daily.precipitation_sum[dayIndex] || 0)
+                    : metrics.dayPrecipSum;
+                const isHeavyRain = metrics.maxHourlyPrecip >= 10 || dailyRainSum >= 30;
+
                 let precipDesc = null;
-                for (let g of ['I', 'H', 'E', 'D', 'G']) {
+                for (let g of ['I', 'H', 'E', 'F', 'D', 'G']) {
                     let hours = groupCounts[g];
                     if (hours > 0) {
                         if (hours >= 12) {
                             if (g === 'I') precipDesc = '有驟雨及雷暴';
                             else if (g === 'H') precipDesc = '有驟雨';
                             else if (g === 'E') precipDesc = '有雨';
+                            else if (g === 'F') precipDesc = '有凍雨';
                             else if (g === 'D') precipDesc = '有微雨';
                             else if (g === 'G') precipDesc = '有雪';
                             break;
@@ -1037,6 +1154,7 @@
                             if (g === 'I') precipDesc = '間中有驟雨，有幾陣雷暴';
                             else if (g === 'H') precipDesc = '間中有驟雨';
                             else if (g === 'E') precipDesc = '間中有雨';
+                            else if (g === 'F') precipDesc = '間中有凍雨';
                             else if (g === 'D') precipDesc = '間中有微雨';
                             else if (g === 'G') precipDesc = '間中有雪';
                             break;
@@ -1044,15 +1162,21 @@
                             if (g === 'I') precipDesc = '有幾陣驟雨及雷暴';
                             else if (g === 'H') precipDesc = '有幾陣驟雨';
                             else if (g === 'E') precipDesc = '有幾陣雨';
+                            else if (g === 'F') precipDesc = '有幾陣凍雨';
                             else if (g === 'D') precipDesc = '有一兩陣微雨';
                             else if (g === 'G') precipDesc = '有幾陣雪';
                             break;
                         }
                     }
                 }
-                
+
                 if (precipDesc) {
+                    if (isHeavyRain) {
+                        precipDesc += '，雨勢有時頗大';
+                    }
                     weatherDescs.push(precipDesc);
+                } else if (isHeavyRain) {
+                    weatherDescs.push('有雨，雨勢有時頗大');
                 }
 
                 if (weatherDescs.length === 0) weatherDescs.push('多雲');
@@ -1072,41 +1196,137 @@
                 const advancedWeather = getAdvancedDailyWeatherIcon(dayIndex, data);
                 const iconPath = advancedWeather.icon;
                 const weatherText = advancedWeather.text;
-                const metrics = calculateDayRainMetrics(dateStr, data);
                 const totalScoreRounded = Math.round(metrics.totalRainRatioScore);
-                const dateObj = new Date(dateStr);
+                const dateObj = new Date(dateStr + 'T00:00:00');
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const dayStr = String(dateObj.getDate()).padStart(2, '0');
                 const weekday = ['日', '一', '二', '三', '四', '五', '六'][dateObj.getDay()];
                 const dateDisplay = `${month}/${dayStr} (${weekday})`;
+
+                dailyReportsCache.push({
+                    dayIndex,
+                    dateStr,
+                    dateDisplay,
+                    minTemp,
+                    maxTemp,
+                    totalScoreRounded,
+                    riskText: metrics.risk.text,
+                    fullReport
+                });
+
                 const card = document.createElement('div');
-                card.className = "day-card flex flex-col w-[170px] sm:w-[190px] flex-shrink-0 snap-start";
+                card.className = "day-card flex flex-col w-[175px] sm:w-[195px] flex-shrink-0 snap-start";
                 card.innerHTML = `
-                            <div class="accent num font-bold text-sm text-center pb-1" style="letter-spacing:.04em;">${dateDisplay}</div>
-                            <div class="flex flex-col items-center justify-center py-3">
-                                <img src="${iconPath}" alt="${weatherText}" class="w-12 h-12 object-contain" title="${weatherText}">
-                            </div>
-                            <hr class="card-hr">
-                            <div class="py-1 text-center text-lg num">
-                                <span class="t-min">${minTemp}°C</span>
-                                <span class="t-sep font-normal">/</span>
-                                <span class="t-max">${maxTemp}°C</span>
-                            </div>
-                            <hr class="card-hr">
-                            <div class="py-1 text-center space-y-1.5">
-                                <div class="micro">降雨比率</div>
-                                <div class="num text-sm font-bold" style="color:var(--text)">${totalScoreRounded}分</div>
-                                <span class="${metrics.risk.color}">${metrics.risk.text}</span>
-                            </div>
-                            <hr class="card-hr">
-                            <div class="flex-grow flex flex-col justify-start text-xs mut text-left leading-relaxed pt-1">
-                                ${fullReport}
-                            </div>
-                        `;
+                    <div class="accent num font-bold text-sm text-center pb-1" style="letter-spacing:.04em;">${dateDisplay}</div>
+                    <div class="flex flex-col items-center justify-center py-3">
+                        <img src="${iconPath}" alt="${weatherText}" class="w-12 h-12 object-contain" title="${weatherText}">
+                    </div>
+                    <hr class="card-hr">
+                    <div class="py-1 text-center text-lg num">
+                        <span class="t-min">${minTemp}°C</span>
+                        <span class="t-sep font-normal">/</span>
+                        <span class="t-max">${maxTemp}°C</span>
+                    </div>
+                    <hr class="card-hr">
+                    <div class="py-1 text-center space-y-1.5">
+                        <div class="micro">降雨比率</div>
+                        <div class="num text-sm font-bold" style="color:var(--text)">${totalScoreRounded}分</div>
+                        <span class="${metrics.risk.color}">${metrics.risk.text}</span>
+                    </div>
+                    <hr class="card-hr">
+                    <div class="flex-grow flex flex-col justify-start text-xs mut text-left leading-relaxed pt-1">
+                        ${fullReport}
+                    </div>
+                    <div class="pt-3 mt-2 border-t" style="border-color: var(--line);">
+                        <button type="button" data-day-index="${dayIndex}" class="btn-hourly-detail btn btn-ghost btn-xs w-full justify-center">
+                            <i class="fa-regular fa-clock"></i> 逐小時明細
+                        </button>
+                    </div>
+                `;
                 dailyContainer.appendChild(card);
             }
+
+            dailyContainer.querySelectorAll('.btn-hourly-detail').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const dIdx = parseInt(btn.getAttribute('data-day-index'), 10);
+                    openHourlyModal(dIdx);
+                });
+            });
         }
 
+        function openHourlyModal(dayIndex) {
+            const data = globalWeatherData;
+            if (!data) return;
+            const dateStr = data.daily.time[dayIndex];
+            const cached = dailyReportsCache.find(d => d.dayIndex === dayIndex);
+            activeModalDayIndex = dayIndex;
+
+            const titleEl = document.getElementById('hourly-modal-title');
+            const summaryEl = document.getElementById('hourly-modal-summary');
+            const bodyEl = document.getElementById('hourly-modal-body');
+
+            titleEl.innerHTML = `<i class="fa-regular fa-clock accent"></i> ${cached ? cached.dateDisplay : dateStr} 逐小時天氣明細`;
+            summaryEl.innerHTML = cached
+                ? `<strong style="color:var(--text)">自動報文：</strong>${cached.fullReport}`
+                : '';
+
+            let rowsHtml = `
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse text-left text-xs">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--line-strong); color: var(--muted);">
+                                <th class="py-2 px-2 font-bold">時間</th>
+                                <th class="py-2 px-2 font-bold">天氣狀況</th>
+                                <th class="py-2 px-2 font-bold">分組</th>
+                                <th class="py-2 px-2 font-bold text-right">雨量</th>
+                                <th class="py-2 px-2 font-bold text-right">機率</th>
+                                <th class="py-2 px-2 font-bold text-right">濕度</th>
+                                <th class="py-2 px-2 font-bold text-right">風向 / 風級</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y" style="border-color: var(--line);">
+            `;
+
+            data.hourly.time.forEach((tStr, idx) => {
+                if (!tStr.startsWith(dateStr)) return;
+                const hourStr = tStr.slice(11, 16);
+                const hourNum = parseInt(tStr.slice(11, 13), 10);
+                const isNight = hourNum < 6 || hourNum >= 18;
+                const code = data.hourly.weather_code[idx];
+                const hum = data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : null;
+                const precip = data.hourly.precipitation ? (data.hourly.precipitation[idx] || 0) : 0;
+                const prob = data.hourly.precipitation_probability ? (data.hourly.precipitation_probability[idx] ?? 0) : 0;
+                const wSpeed = data.hourly.wind_speed_10m[idx] || 0;
+                const wDir = getWindDirection(data.hourly.wind_direction_10m[idx]);
+                const wLevel = getWindSpeedLevel(wSpeed);
+                const detail = getWeatherDetails(code, isNight, hum);
+                const gObj = getWeatherGroup(code, hum);
+
+                rowsHtml += `
+                    <tr>
+                        <td class="py-2 px-2 num font-semibold" style="color:var(--text)">${hourStr}</td>
+                        <td class="py-2 px-2 flex items-center gap-2">
+                            <img src="${detail.icon}" alt="${detail.text}" class="w-5 h-5 object-contain">
+                            <span>${detail.text}</span>
+                        </td>
+                        <td class="py-2 px-2"><span class="badge ${['H','I'].includes(gObj.group) ? 'b-amber' : (['D','E','F'].includes(gObj.group) ? 'b-sky' : 'b-slate')}">${gObj.group} · ${gObj.name}</span></td>
+                        <td class="py-2 px-2 text-right num ${precip >= 10 ? 'font-bold' : ''}" style="${precip >= 10 ? 'color:rgb(var(--c-red-rgb))' : ''}">${precip.toFixed(1)} mm</td>
+                        <td class="py-2 px-2 text-right num">${prob}%</td>
+                        <td class="py-2 px-2 text-right num">${hum !== null ? hum + '%' : '-'}</td>
+                        <td class="py-2 px-2 text-right num">${wDir} ${wLevel}級</td>
+                    </tr>
+                `;
+            });
+
+            rowsHtml += `</tbody></table></div>`;
+            bodyEl.innerHTML = rowsHtml;
+            document.getElementById('hourly-modal').classList.remove('hidden');
+        }
+
+        function closeHourlyModal() {
+            document.getElementById('hourly-modal').classList.add('hidden');
+            activeModalDayIndex = null;
+        }
 
         function renderRainRatioDetailsSection() {
             const data = globalWeatherData;
@@ -1125,7 +1345,7 @@
 
             let headerHtml = `<div class="gthead grid-cols-8"><div class="glab">拆解項目</div>`;
             for (let i = 0; i < 7; i++) {
-                const dateObj = new Date(data.daily.time[startIndex + i]);
+                const dateObj = new Date(data.daily.time[startIndex + i] + 'T00:00:00');
                 headerHtml += `<div>${i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' })}<br><span class="sub">${dateObj.getMonth() + 1}/${dateObj.getDate()}</span></div>`;
             }
             headerHtml += `</div>`;
@@ -1160,7 +1380,19 @@
 
             const startIndex = 1;
             const groupKeys = ['A', 'B', 'C1', 'C2', 'C3', 'D', 'E', 'F', 'G', 'H', 'I'];
-            const groupNames = { 'A': '天晴', 'B': '多雲', 'C1': '霧', 'C2': '薄霧', 'C3': '煙霞', 'D': '微雨/毛毛雨', 'E': '雨', 'F': '凍雨', 'G': '雪', 'H': '驟雨', 'I': '雷雨' };
+            const groupNames = {
+                'A': '天晴',
+                'B': '多雲',
+                'C1': '霧',
+                'C2': '薄霧',
+                'C3': '煙霞',
+                'D': '微雨/毛毛雨',
+                'E': '雨',
+                'F': '凍雨',
+                'G': '雪',
+                'H': '驟雨',
+                'I': '雷雨'
+            };
 
             const dailyStats = [];
             for (let i = 0; i < 7; i++) {
@@ -1169,28 +1401,32 @@
                 data.hourly.time.forEach((tStr, idx) => {
                     if (tStr.startsWith(dateStr)) {
                         const code = data.hourly.weather_code[idx];
-                        counts[getWeatherGroup(code).group]++;
+                        const hum = data.hourly.relative_humidity_2m ? data.hourly.relative_humidity_2m[idx] : null;
+                        counts[getWeatherGroup(code, hum).group]++;
                     }
                 });
                 dailyStats.push({ dateStr, counts });
             }
 
             const table = document.createElement('div');
-            table.className = "min-w-[700px] overflow-x-auto";
-            let headerHtml = `<div class="gthead grid-cols-8"><div class="glab">天氣分組</div>`;
+            table.className = "min-w-[760px] overflow-x-auto";
+            let headerHtml = `<div class="gthead grid-cols-9"><div class="glab">天氣分組</div>`;
             for (let i = 0; i < 7; i++) {
-                const dateObj = new Date(data.daily.time[startIndex + i]);
+                const dateObj = new Date(data.daily.time[startIndex + i] + 'T00:00:00');
                 headerHtml += `<div>${i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' })}<br><span class="sub">${dateObj.getMonth() + 1}/${dateObj.getDate()}</span></div>`;
             }
-            headerHtml += `</div>`;
+            headerHtml += `<div>7天合計<br><span class="sub">總時數</span></div></div>`;
 
             let bodyHtml = `<div>`;
             groupKeys.forEach(gKey => {
-                bodyHtml += `<div class="grow grid-cols-8"><div class="glab truncate">${groupNames[gKey]}</div>`;
+                let rowTotal = 0;
+                bodyHtml += `<div class="grow grid-cols-9"><div class="glab truncate">${groupNames[gKey]}</div>`;
                 dailyStats.forEach(day => {
                     const val = day.counts[gKey];
+                    rowTotal += val;
                     bodyHtml += `<div><span class="pill-hour num ${val > 0 ? 'on' : 'off'}">${val} 小時</span></div>`;
                 });
+                bodyHtml += `<div><span class="pill-hour num ${rowTotal > 0 ? 'on' : 'off'}">${rowTotal} 小時</span></div>`;
                 bodyHtml += `</div>`;
             });
             bodyHtml += `</div>`;
@@ -1228,7 +1464,7 @@
             dirTable.className = "min-w-[700px] overflow-x-auto";
             let dirHeaderHtml = `<div class="gthead grid-cols-9"><div class="glab col-span-2">風向</div>`;
             for (let i = 0; i < 7; i++) {
-                const dateObj = new Date(data.daily.time[startIndex + i]);
+                const dateObj = new Date(data.daily.time[startIndex + i] + 'T00:00:00');
                 dirHeaderHtml += `<div>${i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' })}</div>`;
             }
             dirHeaderHtml += `</div>`;
@@ -1254,7 +1490,7 @@
             speedTable.className = "min-w-[700px] overflow-x-auto";
             let speedHeaderHtml = `<div class="gthead grid-cols-9"><div class="glab col-span-2">風速級別</div>`;
             for (let i = 0; i < 7; i++) {
-                const dateObj = new Date(data.daily.time[startIndex + i]);
+                const dateObj = new Date(data.daily.time[startIndex + i] + 'T00:00:00');
                 speedHeaderHtml += `<div>${i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' })}</div>`;
             }
             speedHeaderHtml += `</div>`;
@@ -1276,60 +1512,82 @@
         async function downloadForecastPNG() {
             const targetSection = document.getElementById('forecast-section');
             const saveBtn = document.getElementById('btn-save-png');
-        
+
             if (!targetSection) return;
-        
-            // 1. Update button state
+
             const originalBtnHtml = saveBtn.innerHTML;
             saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 處理中...`;
             saveBtn.disabled = true;
-        
-            // 2. Clone section and place off-screen
+
             const clone = targetSection.cloneNode(true);
             clone.style.position = 'absolute';
             clone.style.left = '-9999px';
             clone.style.top = '0px';
-            clone.style.width = '1500px'; // Ensure wide canvas to fit all 7 cards
-            
-            // Remove scrollbars & action buttons in clone
+            clone.style.width = '1500px';
+
             const clonedContainer = clone.querySelector('#daily-container');
             if (clonedContainer) {
                 clonedContainer.style.overflow = 'visible';
                 clonedContainer.style.flexWrap = 'nowrap';
             }
-            const clonedBtn = clone.querySelector('#btn-save-png');
-            if (clonedBtn) clonedBtn.remove();
-        
+            clone.querySelectorAll('#btn-save-png, #btn-copy-bulletin, .btn-hourly-detail').forEach(el => el.remove());
+
             document.body.appendChild(clone);
-        
+
             try {
                 const bgColor = getComputedStyle(document.body).backgroundColor;
-        
-                // 3. Render off-screen clone
                 const canvas = await html2canvas(clone, {
                     scale: 2,
                     useCORS: true,
                     backgroundColor: bgColor,
                     windowWidth: 1400
                 });
-        
-                // 4. Download file
+
                 const link = document.createElement('a');
                 const now = new Date();
                 const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
                 link.download = `MSSO_7Day_Forecast_${dateStr}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
+                showToast('已匯出 7 天預報圖片');
             } catch (err) {
                 console.error("生成圖片失敗:", err);
-                alert("圖片匯出失敗，請重試。");
+                showToast("圖片匯出失敗，請重試。", true);
             } finally {
-                // 5. Clean up clone & restore button
                 document.body.removeChild(clone);
                 saveBtn.innerHTML = originalBtnHtml;
                 saveBtn.disabled = false;
             }
         }
+
+        document.getElementById('btn-save-png').addEventListener('click', downloadForecastPNG);
+
+        document.getElementById('btn-copy-bulletin').addEventListener('click', () => {
+            if (!dailyReportsCache.length) {
+                showToast('尚無可複製的預報資料', true);
+                return;
+            }
+            const lines = ['【澳門民間氣象台 MSSO 7天天氣預報】', document.getElementById('update-time').textContent, ''];
+            dailyReportsCache.forEach(item => {
+                lines.push(`${item.dateDisplay}｜${item.minTemp}~${item.maxTemp}°C｜降雨風險：${item.riskText} (${item.totalScoreRounded}分)`);
+                lines.push(item.fullReport);
+                lines.push('');
+            });
+            copyTextToClipboard(lines.join('\n'), '已複製 7 天天氣報文');
+        });
+
+        document.getElementById('btn-copy-day-report').addEventListener('click', () => {
+            if (activeModalDayIndex === null) return;
+            const item = dailyReportsCache.find(d => d.dayIndex === activeModalDayIndex);
+            if (!item) return;
+            const text = `${item.dateDisplay}｜${item.minTemp}~${item.maxTemp}°C｜降雨風險：${item.riskText} (${item.totalScoreRounded}分)\n${item.fullReport}`;
+            copyTextToClipboard(text, `已複製 ${item.dateDisplay} 天氣報文`);
+        });
+
+        document.getElementById('btn-close-modal').addEventListener('click', closeHourlyModal);
+        document.getElementById('hourly-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'hourly-modal') closeHourlyModal();
+        });
 
         fetchWeatherData();
     </script>
