@@ -15,6 +15,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- html2canvas for PNG Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -218,6 +220,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
+                    <button id="btn-refresh-data" class="icon-btn" title="重新整理數據" type="button">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
                     <a href="https://macaosso.github.io/MSSO/index.html" target="_blank" rel="noopener noreferrer" class="icon-btn" title="返回首頁"><i class="fa-solid fa-house"></i></a>
                     <button id="theme-toggle" class="icon-btn" title="切換主題" type="button">
                         <i class="fa-solid fa-moon ic-moon"></i>
@@ -235,6 +240,9 @@
 
         <!-- 主要內容 -->
         <div id="dashboard-content" class="space-y-6 hidden">
+            <!-- 7天預報重點摘要 -->
+            <div id="summary-strip" class="grid grid-cols-2 md:grid-cols-4 gap-3 animate-view-fade"></div>
+
             <!-- 7天天氣預報 (橫向滾動) -->
             <section id="forecast-section" class="panel animate-view-fade">
                 <div class="panel-head">
@@ -254,6 +262,19 @@
                 <div class="panel-body">
                     <!-- 橫向滾動容器 -->
                     <div id="daily-container" class="flex overflow-x-auto gap-4 pb-3 pt-1 items-stretch snap-x scrollbar-none"></div>
+                </div>
+            </section>
+
+            <!-- 7天溫度與降雨趨勢圖 -->
+            <section class="panel animate-view-fade">
+                <div class="panel-head">
+                    <h2 class="panel-title"><span class="panel-num">01B</span> / 7天溫度與降雨量趨勢圖</h2>
+                    <div class="micro">最高/最低氣溫 (°C) · 每日累積雨量 (mm)</div>
+                </div>
+                <div class="panel-body">
+                    <div class="relative h-72 w-full">
+                        <canvas id="forecast-trend-chart"></canvas>
+                    </div>
                 </div>
             </section>
 
@@ -595,6 +616,7 @@
         const LON = 113.546198;
         let globalWeatherData = null;
         let dailyReportsCache = [];
+        let forecastTrendChart = null;
         let activeModalDayIndex = null;
         let toastTimer = null;
 
@@ -647,6 +669,9 @@
             } else {
                 document.documentElement.classList.add('dark');
                 try { localStorage.setItem('theme', 'dark'); } catch (e) {}
+            }
+            if (globalWeatherData) {
+                renderForecastTrendChart();
             }
         });
 
@@ -898,9 +923,19 @@
                         return dirMapFull[d] + '風';
                     }
                 } else {
-                    let indices = qualifiedDirs.map(d => directions.indexOf(d)).sort((a,b) => a - b);
-                    let firstDir = directions[indices[0]];
-                    let lastDir = directions[indices[indices.length - 1]];
+                    let indices = qualifiedDirs.map(d => directions.indexOf(d)).sort((a, b) => a - b);
+                    let maxGap = -1;
+                    let startAfterIdx = 0;
+                    for (let k = 0; k < indices.length; k++) {
+                        let nextIdx = (k + 1) % indices.length;
+                        let gap = nextIdx === 0 ? (8 - indices[k] + indices[0]) : (indices[nextIdx] - indices[k]);
+                        if (gap > maxGap) {
+                            maxGap = gap;
+                            startAfterIdx = nextIdx;
+                        }
+                    }
+                    let firstDir = directions[indices[startAfterIdx]];
+                    let lastDir = directions[indices[(startAfterIdx - 1 + indices.length) % indices.length]];
                     return `${dirMapFull[firstDir]}至${dirMapFull[lastDir]}風`;
                 }
             } else {
@@ -959,6 +994,8 @@
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 document.getElementById('update-time').textContent = `更新時間：${year}-${month}-${day} ${hours}:${minutes}`;
                 renderDailySection();
+                renderSummaryStrip();
+                renderForecastTrendChart();
                 renderRainRatioDetailsSection();
                 renderWeatherGroupsSection();
                 renderWindStatsSection();
@@ -1057,7 +1094,11 @@
                 });
 
                 const minH = hourlyHumids.length > 0 ? Math.min(...hourlyHumids) : 60;
+                const maxH = hourlyHumids.length > 0 ? Math.max(...hourlyHumids) : 90;
                 const meanH = hourlyHumids.length > 0 ? hourlyHumids.reduce((a,b)=>a+b,0)/hourlyHumids.length : 70;
+                const minHRound5 = Math.round(minH / 5) * 5;
+                const maxHRound5 = Math.round(maxH / 5) * 5;
+                const humidityRangeStr = minHRound5 === maxHRound5 ? `${minHRound5}%` : `${minHRound5}% - ${maxHRound5}%`;
 
                 let tempHumidConditions = [];
                 if (maxTemp >= 37.5) tempHumidConditions.push('極為酷熱');
@@ -1181,7 +1222,7 @@
 
                 if (weatherDescs.length === 0) weatherDescs.push('多雲');
                 let weatherDescStr = weatherDescs.join('。');
-                let windLevels = hourlyWindSpeeds.map(s => getWindSpeedLevel(s));
+                let windLevels = hourlyWindSpeeds.length > 0 ? hourlyWindSpeeds.map(s => getWindSpeedLevel(s)) : [0];
                 let minWindL = Math.min(...windLevels);
                 let maxWindL = Math.max(...windLevels);
                 let windDirText = getWindDirectionText(hourlyWindDirs);
@@ -1209,6 +1250,9 @@
                     dateDisplay,
                     minTemp,
                     maxTemp,
+                    humidityRangeStr,
+                    dayPrecipSum: dailyRainSum,
+                    maxUv: Math.round(maxUv),
                     totalScoreRounded,
                     riskText: metrics.risk.text,
                     fullReport
@@ -1226,6 +1270,9 @@
                         <span class="t-min">${minTemp}°C</span>
                         <span class="t-sep font-normal">/</span>
                         <span class="t-max">${maxTemp}°C</span>
+                    </div>
+                    <div class="pb-1 text-center text-[11px] num mut">
+                        <i class="fa-solid fa-droplet accent mr-1"></i>濕度 ${humidityRangeStr}
                     </div>
                     <hr class="card-hr">
                     <div class="py-1 text-center space-y-1.5">
@@ -1267,7 +1314,7 @@
 
             titleEl.innerHTML = `<i class="fa-regular fa-clock accent"></i> ${cached ? cached.dateDisplay : dateStr} 逐小時天氣明細`;
             summaryEl.innerHTML = cached
-                ? `<strong style="color:var(--text)">自動報文：</strong>${cached.fullReport}`
+                ? `<div class="flex flex-wrap gap-3 mb-1.5"><span class="num"><strong style="color:var(--text)">氣溫：</strong>${cached.minTemp}°C – ${cached.maxTemp}°C</span><span class="num"><strong style="color:var(--text)">相對濕度：</strong>${cached.humidityRangeStr}</span><span class="num"><strong style="color:var(--text)">累積雨量：</strong>${cached.dayPrecipSum.toFixed(1)} mm</span><span class="num"><strong style="color:var(--text)">最高 UV：</strong>${cached.maxUv}</span></div><div><strong style="color:var(--text)">自動報文：</strong>${cached.fullReport}</div>`
                 : '';
 
             let rowsHtml = `
@@ -1326,6 +1373,120 @@
         function closeHourlyModal() {
             document.getElementById('hourly-modal').classList.add('hidden');
             activeModalDayIndex = null;
+        }
+
+        function renderSummaryStrip() {
+            const strip = document.getElementById('summary-strip');
+            if (!strip || !dailyReportsCache.length) return;
+            const overallMin = Math.min(...dailyReportsCache.map(d => d.minTemp));
+            const overallMax = Math.max(...dailyReportsCache.map(d => d.maxTemp));
+            const total7dRain = dailyReportsCache.reduce((acc, d) => acc + d.dayPrecipSum, 0);
+            const peakRiskDay = dailyReportsCache.reduce((best, cur) => cur.totalScoreRounded > best.totalScoreRounded ? cur : best, dailyReportsCache[0]);
+            const maxUv7d = Math.max(...dailyReportsCache.map(d => d.maxUv));
+
+            strip.innerHTML = `
+                <div class="panel p-3.5">
+                    <div class="micro">7天溫度區間</div>
+                    <div class="text-lg font-bold num mt-1"><span class="t-min">${overallMin}°C</span> <span class="t-sep">/</span> <span class="t-max">${overallMax}°C</span></div>
+                </div>
+                <div class="panel p-3.5">
+                    <div class="micro">7天總預測雨量</div>
+                    <div class="text-lg font-bold num mt-1" style="color:rgb(var(--c-sky-rgb))">${total7dRain.toFixed(1)} <span class="text-xs font-normal mut">mm</span></div>
+                </div>
+                <div class="panel p-3.5">
+                    <div class="micro">最高降雨風險日</div>
+                    <div class="text-sm font-bold num mt-1.5" style="color:var(--text)">${peakRiskDay.dateDisplay} <span class="accent">(${peakRiskDay.totalScoreRounded}分)</span></div>
+                </div>
+                <div class="panel p-3.5">
+                    <div class="micro">7天最高紫外線</div>
+                    <div class="text-lg font-bold num mt-1" style="color:rgb(var(--c-amber-rgb))">UV ${maxUv7d}</div>
+                </div>
+            `;
+        }
+
+        function renderForecastTrendChart() {
+            const canvas = document.getElementById('forecast-trend-chart');
+            if (!canvas || typeof Chart === 'undefined' || !dailyReportsCache.length) return;
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#93a0a6' : '#5c6663';
+            const gridColor = isDark ? 'rgba(43,55,62,0.55)' : 'rgba(191,188,171,0.55)';
+            const maxColor = isDark ? 'rgb(255,150,90)' : 'rgb(196,90,20)';
+            const minColor = isDark ? 'rgb(96,185,235)' : 'rgb(20,120,190)';
+            const rainBg = isDark ? 'rgba(63,217,164,0.28)' : 'rgba(11,154,107,0.24)';
+            const rainBorder = isDark ? 'rgb(63,217,164)' : 'rgb(11,154,107)';
+
+            if (forecastTrendChart) {
+                forecastTrendChart.destroy();
+            }
+
+            forecastTrendChart = new Chart(canvas.getContext('2d'), {
+                data: {
+                    labels: dailyReportsCache.map(d => d.dateDisplay),
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: '最高氣溫 (°C)',
+                            data: dailyReportsCache.map(d => d.maxTemp),
+                            borderColor: maxColor,
+                            backgroundColor: maxColor,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            yAxisID: 'yTemp'
+                        },
+                        {
+                            type: 'line',
+                            label: '最低氣溫 (°C)',
+                            data: dailyReportsCache.map(d => d.minTemp),
+                            borderColor: minColor,
+                            backgroundColor: minColor,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 4,
+                            yAxisID: 'yTemp'
+                        },
+                        {
+                            type: 'bar',
+                            label: '累積雨量 (mm)',
+                            data: dailyReportsCache.map(d => Number(d.dayPrecipSum.toFixed(1))),
+                            backgroundColor: rainBg,
+                            borderColor: rainBorder,
+                            borderWidth: 1,
+                            yAxisID: 'yRain'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { size: 11 } } }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: textColor, font: { size: 11 } },
+                            grid: { color: gridColor }
+                        },
+                        yTemp: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: '氣溫 (°C)', color: textColor, font: { size: 11 } },
+                            ticks: { color: textColor, font: { size: 11 } },
+                            grid: { color: gridColor }
+                        },
+                        yRain: {
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            suggestedMax: 10,
+                            title: { display: true, text: '雨量 (mm)', color: textColor, font: { size: 11 } },
+                            ticks: { color: textColor, font: { size: 11 } },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
         }
 
         function renderRainRatioDetailsSection() {
@@ -1569,7 +1730,7 @@
             }
             const lines = ['【澳門民間氣象台 MSSO 7天天氣預報】', document.getElementById('update-time').textContent, ''];
             dailyReportsCache.forEach(item => {
-                lines.push(`${item.dateDisplay}｜${item.minTemp}~${item.maxTemp}°C｜降雨風險：${item.riskText} (${item.totalScoreRounded}分)`);
+                lines.push(`${item.dateDisplay}｜${item.minTemp}~${item.maxTemp}°C｜濕度：${item.humidityRangeStr}｜降雨風險：${item.riskText} (${item.totalScoreRounded}分)`);
                 lines.push(item.fullReport);
                 lines.push('');
             });
@@ -1580,10 +1741,21 @@
             if (activeModalDayIndex === null) return;
             const item = dailyReportsCache.find(d => d.dayIndex === activeModalDayIndex);
             if (!item) return;
-            const text = `${item.dateDisplay}｜${item.minTemp}~${item.maxTemp}°C｜降雨風險：${item.riskText} (${item.totalScoreRounded}分)\n${item.fullReport}`;
+            const text = `${item.dateDisplay}｜${item.minTemp}~${item.maxTemp}°C｜濕度：${item.humidityRangeStr}｜降雨風險：${item.riskText} (${item.totalScoreRounded}分)\n${item.fullReport}`;
             copyTextToClipboard(text, `已複製 ${item.dateDisplay} 天氣報文`);
         });
 
+        document.getElementById('btn-refresh-data').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-refresh-data');
+            const icon = btn.querySelector('i');
+            icon.classList.add('fa-spin');
+            await fetchWeatherData();
+            icon.classList.remove('fa-spin');
+            showToast('已更新最新 7 天天氣預報');
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeHourlyModal();
+        });
         document.getElementById('btn-close-modal').addEventListener('click', closeHourlyModal);
         document.getElementById('hourly-modal').addEventListener('click', (e) => {
             if (e.target.id === 'hourly-modal') closeHourlyModal();
