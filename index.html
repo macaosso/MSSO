@@ -7,8 +7,10 @@
     <!-- Tailwind CSS (layout utilities only) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
+        if (typeof tailwind !== 'undefined') {
+            tailwind.config = {
+                darkMode: 'class',
+            };
         }
     </script>
     <!-- FontAwesome -->
@@ -17,8 +19,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <!-- 引入自動農曆計算套件 -->
-    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
+    <!-- 引入自動農曆計算套件（使用 defer 避免阻塞頁面渲染） -->
+    <script defer src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.js"></script>
     <style>
         /* ===== 字體縮放階梯 ===== */
         html.font-md { font-size: 112.5%; }
@@ -98,6 +100,7 @@
         .t-indigo { color: rgb(var(--c-indigo-rgb)); }
         .t-slate { color: rgb(var(--c-slate-rgb)); }
         .t-sky { color: rgb(var(--c-sky-rgb)); }
+        .t-cyan { color: rgb(var(--c-cyan-rgb)); }
 
         /* ===== 滾動條 ===== */
         ::-webkit-scrollbar { height: 8px; width: 8px; }
@@ -276,7 +279,7 @@
         .report-card:hover { border-color: var(--line-strong); }
         .year-section + .year-section { margin-top: 10px; }
         .year-head {
-            width: 100%; display: flex; justify-between; align-items: center;
+            width: 100%; display: flex; justify-content: space-between; align-items: center;
             padding: 0.625rem 0.875rem; background: var(--bg-2); border: none; cursor: pointer;
             font-family: inherit; font-size: 0.75rem; font-weight: 700; color: var(--text);
             transition: background .15s ease, color .15s ease;
@@ -315,27 +318,33 @@
     </style>
     <!-- 頁面載入前先執行主題與字體大小判斷，避免畫面閃爍 -->
     <script>
-        const currentHour = new Date().getHours();
-        const savedTheme = localStorage.getItem('theme');
+        (function () {
+            let savedTheme = null;
+            let savedFontSize = null;
+            try {
+                savedTheme = localStorage.getItem('theme');
+                savedFontSize = localStorage.getItem('fontSize');
+            } catch (e) {}
 
-        if (savedTheme) {
-            if (savedTheme === 'dark') {
-                document.documentElement.classList.add('dark');
+            const currentHour = new Date().getHours();
+            if (savedTheme) {
+                if (savedTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             } else {
-                document.documentElement.classList.remove('dark');
+                if (currentHour >= 8 && currentHour < 20) {
+                    document.documentElement.classList.remove('dark');
+                } else {
+                    document.documentElement.classList.add('dark');
+                }
             }
-        } else {
-            if (currentHour >= 8 && currentHour < 20) {
-                document.documentElement.classList.remove('dark');
-            } else {
-                document.documentElement.classList.add('dark');
-            }
-        }
 
-        const savedFontSize = localStorage.getItem('fontSize');
-        if (savedFontSize && savedFontSize !== 'normal') {
-            document.documentElement.classList.add('font-' + savedFontSize);
-        }
+            if (savedFontSize && savedFontSize !== 'normal') {
+                document.documentElement.classList.add('font-' + savedFontSize);
+            }
+        })();
     </script>
 </head>
 <body id="page-body" class="min-h-screen antialiased flex flex-col relative">
@@ -415,7 +424,7 @@
                                 <span class="text-sm font-bold tracking-wide">1952~2026 氣候歷史數據統計系統</span>
                                 <span class="badge b-slate micro">MSSO ARCHIVE</span>
                             </div>
-                            <p class="text-xs text-muted leading-relaxed">
+                            <p class="text-xs mut leading-relaxed">
                                 跨越 70 餘載的澳門官方氣候觀測與民間統計資料庫，收錄極端氣溫、降雨日數、熱帶氣旋記錄及多維度歷史趨勢分析儀表板。
                             </p>
                         </div>
@@ -512,7 +521,7 @@
                     <section class="reveal panel">
                         <div class="panel-head flex-wrap">
                             <h2 class="panel-title"><span class="panel-num">03</span> / 7天天氣預報</h2>
-                            <a href="https://macaosso.github.io/MSSO/7dayforecast.html" target="_blank" class="btn btn-ghost btn-xs" style="text-decoration: none;">
+                            <a href="https://macaosso.github.io/MSSO/7dayforecast.html" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-xs" style="text-decoration: none;">
                                 七日詳細天氣 <i class="fa-solid fa-arrow-up-right-from-square text-[0.625rem]"></i>
                             </a>
                         </div>
@@ -561,7 +570,7 @@
                                 <div class="tile tile-hover p-4 flex items-center gap-3">
                                     <div class="text-xl t-orange flex items-center gap-0.5">
                                         <i class="fa-solid fa-sun"></i>
-                                        <i class="fa-solid fa-arrow-down text-xs b-rose" style="color:rgb(var(--c-rose-rgb));"></i>
+                                        <i class="fa-solid fa-arrow-down text-xs" style="color:rgb(var(--c-rose-rgb));"></i>
                                     </div>
                                     <div>
                                         <div class="micro">日落</div>
@@ -642,7 +651,7 @@
     </nav>
 
     <!-- JavaScript 邏輯 -->
-    <script src="reportdata.js"></script>
+    <script defer src="reportdata.js"></script>
     <script>
         const LAT = 22.214016;
         const LON = 113.546198;
@@ -654,14 +663,15 @@
         let activeDistrictIndex = null;
         let currentReportFilter = 'all';
         let isInitialRenderDone = false; // 標記首次渲染是否完成，用於防止重新整理與輪詢時的動畫重複觸發
+        let isFetchingWeather = false;
         const expandedYears = new Set();
-        const districtHourlyCache = {}; // 快取各分區歷史溫度數據
+        let districtHourlyCache = {}; // 快取各分區歷史溫度數據
 
         const CACHE_KEY_WEATHER = 'msso_weather_data_v1';
         const CACHE_KEY_DISTRICTS = 'msso_district_data_v1';
         const CACHE_KEY_NOWCAST = 'msso_nowcast_data_v1';
         const CACHE_TIME_KEY = 'msso_cache_time_v1';
-        const CACHE_TTL = 3 * 60 * 1000; // 3分鐘快取有效期
+        const CACHE_TTL = 5 * 60 * 1000; // 5分鐘快取有效期，避免過度請求 Open-Meteo 觸發限流 (429)
 
         const districtUrls = [
             { name: '澳門', lat: 22.1957537, lon: 113.5443291 },
@@ -671,6 +681,62 @@
 
         const SEG_ACTIVE = "seg-btn seg-active";
         const SEG_IDLE = "seg-btn";
+
+        /* ===== 安全 Storage 讀寫（防止無痕模式或損壞 JSON 導致頁面崩潰） ===== */
+        function safeGetStorage(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function safeSetStorage(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (e) {}
+        }
+
+        function safeParseJSON(raw) {
+            if (!raw) return null;
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        /* ===== 帶超時的 Fetch（防止外部 API 掛起導致無限載入） ===== */
+        async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                return await fetch(url, { ...options, signal: controller.signal });
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        /* ===== 澳門時區 (UTC+8) 日期解析 ===== */
+        function parseMacauDate(str) {
+            if (!str) return new Date(NaN);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                return new Date(`${str}T00:00:00+08:00`);
+            }
+            if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+                return new Date(`${str}+08:00`);
+            }
+            return new Date(str);
+        }
+
+        function getMacauDateStr(date = new Date()) {
+            return new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Macau',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(date);
+        }
 
         /* ===== 圖示與天氣文字雙向自動對應表（包含5組晝夜雙版本對應） ===== */
         const ICON_CONDITION_MAP = {
@@ -786,19 +852,6 @@
         }
         observeRevealElements();
 
-        /* 內容加載後重新觀察新的 reveal 元素 */
-        const contentObserver = new MutationObserver(() => observeRevealElements());
-        contentObserver.observe(document.body, { childList: true, subtree: true });
-
-        function formatMSTTime(date = new Date()) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${year}-${month}-${day} ${hours}:${minutes}`;
-        }
-
         /* 解析 nowcast.csv (支援 T 類別、enabled,class,content 與無表頭短格式) */
         function parseNowcastText(text) {
             try {
@@ -887,21 +940,24 @@
         }
 
         function initReportsData() {
-            if (typeof reportsData === 'undefined') return;
+            if (typeof reportsData === 'undefined' || !Array.isArray(reportsData)) return;
             reportsData.forEach(report => {
-                if (report.categoryName.includes("月報")) {
+                const catName = report.categoryName || '';
+                if (catName.includes("月報")) {
                     report.category = "monthly";
-                } else if (report.categoryName.includes("特別報告")) {
+                } else if (catName.includes("特別報告")) {
                     report.category = "special";
+                } else {
+                    report.category = "other";
                 }
 
-                if (report.categoryName.includes("超大豪雨")) {
+                if (catName.includes("超大豪雨")) {
                     report.badgeClass = "b-purple";
-                } else if (report.categoryName.includes("大豪雨")) {
+                } else if (catName.includes("大豪雨")) {
                     report.badgeClass = "b-red";
-                } else if (report.categoryName.includes("豪雨")) {
+                } else if (catName.includes("豪雨")) {
                     report.badgeClass = "b-amber";
-                } else if (report.categoryName.includes("月報")) {
+                } else if (catName.includes("月報")) {
                     report.badgeClass = "b-green";
                 } else {
                     report.badgeClass = "b-slate";
@@ -934,6 +990,11 @@
             if (!container) return;
             container.innerHTML = '';
 
+            if (typeof reportsData === 'undefined' || !Array.isArray(reportsData)) {
+                container.innerHTML = `<p class="micro dim text-center py-4">暫無法載入報告列表。</p>`;
+                return;
+            }
+
             const filtered = currentReportFilter === 'all'
                 ? reportsData
                 : reportsData.filter(r => r.category === currentReportFilter);
@@ -965,14 +1026,14 @@
                         card.className = "tile tile-hover report-card p-4 flex flex-col gap-2.5";
                         card.innerHTML = `
                             <div class="flex justify-between items-center">
-                                <span class="badge ${report.badgeClass}">
-                                    ${report.categoryName}
+                                <span class="badge ${report.badgeClass || 'b-slate'}">
+                                    ${report.categoryName || ''}
                                 </span>
-                                <span class="num micro accent">${report.date}</span>
+                                <span class="num micro accent">${report.date || ''}</span>
                             </div>
                             <div class="flex items-center justify-between gap-3">
-                                <div class="text-sm font-bold truncate flex-1">${report.title}</div>
-                                <a href="${report.url}" download class="btn btn-primary btn-xs shrink-0" style="text-decoration: none;">
+                                <div class="text-sm font-bold truncate flex-1">${report.title || ''}</div>
+                                <a href="${report.url || '#'}" download class="btn btn-primary btn-xs shrink-0" style="text-decoration: none;">
                                     <i class="fa-solid fa-download"></i> 下載
                                 </a>
                             </div>
@@ -1017,12 +1078,12 @@
                         reportsHtml += `
                             <div class="report-row flex flex-col gap-2.5">
                                 <div class="flex justify-between items-center">
-                                    <span class="badge ${report.badgeClass}">${report.categoryName}</span>
-                                    <span class="num micro dim">${report.date}</span>
+                                    <span class="badge ${report.badgeClass || 'b-slate'}">${report.categoryName || ''}</span>
+                                    <span class="num micro dim">${report.date || ''}</span>
                                 </div>
                                 <div class="flex items-center justify-between gap-3">
-                                    <div class="text-sm font-bold truncate flex-1">${report.title}</div>
-                                    <a href="${report.url}" download class="btn btn-ghost btn-xs shrink-0" style="text-decoration: none;">
+                                    <div class="text-sm font-bold truncate flex-1">${report.title || ''}</div>
+                                    <a href="${report.url || '#'}" download class="btn btn-ghost btn-xs shrink-0" style="text-decoration: none;">
                                         <i class="fa-solid fa-download"></i> 下載
                                     </a>
                                 </div>
@@ -1036,11 +1097,6 @@
                 container.appendChild(yearSection);
             });
         }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            initReportsData();
-            renderReports();
-        });
 
         function getTempCategory(temp) {
             if (temp >= 37.5) {
@@ -1121,10 +1177,10 @@
             btn.addEventListener('click', () => {
                 if (document.documentElement.classList.contains('dark')) {
                     document.documentElement.classList.remove('dark');
-                    localStorage.setItem('theme', 'light');
+                    safeSetStorage('theme', 'light');
                 } else {
                     document.documentElement.classList.add('dark');
-                    localStorage.setItem('theme', 'dark');
+                    safeSetStorage('theme', 'dark');
                 }
             });
         });
@@ -1133,7 +1189,7 @@
         const fontSizes = ['normal', 'md', 'lg', 'xl'];
         document.querySelectorAll('.font-size-toggle').forEach(btn => {
             btn.addEventListener('click', () => {
-                let currentSize = localStorage.getItem('fontSize') || 'normal';
+                let currentSize = safeGetStorage('fontSize') || 'normal';
                 let currentIndex = fontSizes.indexOf(currentSize);
                 if (currentIndex === -1) currentIndex = 0;
 
@@ -1150,7 +1206,7 @@
                     document.documentElement.classList.add('font-' + nextSize);
                 }
 
-                localStorage.setItem('fontSize', nextSize);
+                safeSetStorage('fontSize', nextSize);
 
                 // 重新渲染天氣圖表，確保視覺尺寸相應縮放
                 if (globalWeatherData) {
@@ -1178,8 +1234,8 @@
                 2: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
                 3: { text: '多雲', icon: 'icon/weather_icon/cloud.png' },
                 45: (() => {
-                    if (humidity >= 98) return { text: '霧', icon: 'icon/weather_icon/fog.png' };
-                    if (humidity >= 90) return { text: '薄霧', icon: 'icon/weather_icon/mist.png' };
+                    if (humidity !== null && humidity >= 98) return { text: '霧', icon: 'icon/weather_icon/fog.png' };
+                    if (humidity !== null && humidity >= 90) return { text: '薄霧', icon: 'icon/weather_icon/mist.png' };
                     return { text: '煙霞', icon: 'icon/weather_icon/haze.png' };
                 })(),
                 51: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
@@ -1257,18 +1313,18 @@
             let text = '多雲';
         
             // 優先：當日有 >=1hr code45，以 code45 發生當下該小時濕度旗標判斷
-            if(code45Hours >= 1){
-                if(anyCode45HumidityOver98){
+            if (code45Hours >= 1) {
+                if (anyCode45HumidityOver98) {
                     icon = 'icon/weather_icon/fog.png';
                     text = '霧';
-                }else if(anyCode45HumidityOver90){
+                } else if (anyCode45HumidityOver90) {
                     icon = 'icon/weather_icon/mist.png';
                     text = '薄霧';
-                }else{
+                } else {
                     icon = 'icon/weather_icon/haze.png';
                     text = '煙霞';
                 }
-            }else{
+            } else {
                 switch (dailyCode) {
                     case 0: icon = 'icon/weather_icon/sun.png'; text = '天晴'; break;
                     case 1: icon = 'icon/weather_icon/sun.png'; text = '大致天晴'; break;
@@ -1348,13 +1404,13 @@
             return { icon, text };
         }
 
-
-
         function checkIfNight(dateObj, dailyData, dayIndex = 0) {
             if (dailyData && dailyData.sunrise && dailyData.sunset && dailyData.sunrise[dayIndex] && dailyData.sunset[dayIndex]) {
-                const sunrise = new Date(dailyData.sunrise[dayIndex]);
-                const sunset = new Date(dailyData.sunset[dayIndex]);
-                return dateObj < sunrise || dateObj > sunset;
+                const sunrise = parseMacauDate(dailyData.sunrise[dayIndex]);
+                const sunset = parseMacauDate(dailyData.sunset[dayIndex]);
+                if (!isNaN(sunrise.getTime()) && !isNaN(sunset.getTime())) {
+                    return dateObj < sunrise || dateObj > sunset;
+                }
             }
             const hour = dateObj.getHours();
             return hour < 6 || hour >= 18;
@@ -1374,128 +1430,161 @@
             const dtEl = document.getElementById('current-datetime');
             if (dtEl) dtEl.textContent = dateStr;
 
-            let lunarObj = null;
             const lunarEl = document.getElementById('lunar-date');
-            if (lunarEl && typeof Solar !== 'undefined') {
-                try {
-                    const solar = Solar.fromDate(now);
-                    const lunar = solar.getLunar();
-                    lunarObj = lunar;
-                    const ganZhiYear = lunar.getYearInGanZhi();
-                    const shengXiao = toTraditionalLunar(lunar.getYearShengXiao());
-                    const monthStr = toTraditionalLunar(lunar.getMonthInChinese());
-                    const dayStr = toTraditionalLunar(lunar.getDayInChinese());
-                    lunarEl.textContent = `${ganZhiYear}${shengXiao}年${monthStr}月${dayStr}日`;
-                } catch (e) {
-                    lunarEl.textContent = '農曆計算中...';
+            if (lunarEl) {
+                if (typeof Solar !== 'undefined') {
+                    try {
+                        const solar = Solar.fromDate(now);
+                        const lunar = solar.getLunar();
+                        const ganZhiYear = lunar.getYearInGanZhi();
+                        const shengXiao = toTraditionalLunar(lunar.getYearShengXiao());
+                        const monthStr = toTraditionalLunar(lunar.getMonthInChinese());
+                        const dayStr = toTraditionalLunar(lunar.getDayInChinese());
+                        lunarEl.textContent = `${ganZhiYear}${shengXiao}年${monthStr}月${dayStr}日`;
+                    } catch (e) {
+                        lunarEl.textContent = '';
+                    }
+                } else {
+                    lunarEl.textContent = '';
                 }
             }
-
-            updateTideSimulation(now, lunarObj);
         }
 
-        function updateTideSimulation(now, lunar) {
-            const highTidesEl = document.getElementById('high-tides');
-            const lowTidesEl = document.getElementById('low-tides');
-            const lunarDay = lunar ? lunar.getDay() : 15;
-            const shiftHours = (lunarDay - 1) * 0.833;
-            let ht1 = (1.0 + shiftHours) % 24;
-            let lt1 = (7.21 + shiftHours) % 24;
-            let ht2 = (13.42 + shiftHours) % 24;
-            let lt2 = (19.63 + shiftHours) % 24;
+        function isValidWeatherPayload(data) {
+            return Boolean(data && data.current && data.hourly && Array.isArray(data.hourly.time) && data.daily && Array.isArray(data.daily.time));
+        }
 
-            const phaseAngle = ((lunarDay - 1) / 29.53) * 2 * Math.PI;
-            const springNeapFactor = 0.8 + 0.4 * Math.abs(Math.cos(phaseAngle));
-            const highHeight = (2.2 * springNeapFactor).toFixed(1);
-            const lowHeight = (0.5 / springNeapFactor).toFixed(1);
+        function showDashboard() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
+            observeRevealElements();
+        }
 
-            function hoursToTimeStr(h) {
-                let hr = Math.floor(h) % 24;
-                if (hr < 0) hr += 24;
-                let min = Math.floor((h - Math.floor(h)) * 60);
-                return `${String(hr).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+        /* 單獨更新 nowcast.csv（輕量靜態檔案，可較頻繁輪詢而不觸發 Open-Meteo 限流） */
+        async function fetchNowcastOnly() {
+            try {
+                const nowcastRes = await fetchWithTimeout(`nowcast.csv?t=${Date.now()}`, { cache: 'no-store' }, 6000);
+                if (nowcastRes && nowcastRes.ok) {
+                    const nowcastText = await nowcastRes.text();
+                    const parsed = parseNowcastText(nowcastText);
+                    if (JSON.stringify(parsed) !== JSON.stringify(globalNowcastData)) {
+                        globalNowcastData = parsed;
+                        safeSetStorage(CACHE_KEY_NOWCAST, JSON.stringify(globalNowcastData));
+                        if (isValidWeatherPayload(globalWeatherData)) {
+                            renderDashboard();
+                        }
+                    }
+                }
+            } catch (e) {
+                // 靜默忽略 nowcast 單次輪詢失敗
             }
-
-            if (highTidesEl) highTidesEl.innerHTML = `${hoursToTimeStr(ht1)} (${highHeight}m)<br>${hoursToTimeStr(ht2)} (${highHeight}m)`;
-            if (lowTidesEl) lowTidesEl.innerHTML = `${hoursToTimeStr(lt1)} (${lowHeight}m)<br>${hoursToTimeStr(lt2)} (${lowHeight}m)`;
         }
 
-        /* 抓取天氣數據（支援背景靜默自動輪詢與快取優先機制） */
+        /* 抓取天氣數據（支援超時控制、單區容錯、背景靜默輪詢與快取優先機制） */
         async function fetchWeatherData(isBackground = false) {
+            if (isFetchingWeather) return;
+            isFetchingWeather = true;
+
             try {
                 if (!isBackground) {
-                    const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
-                    const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
-                    const cachedNowcast = localStorage.getItem(CACHE_KEY_NOWCAST);
-                    const cachedTime = localStorage.getItem(CACHE_TIME_KEY);
+                    const cachedWeather = safeParseJSON(safeGetStorage(CACHE_KEY_WEATHER));
+                    const cachedDistricts = safeParseJSON(safeGetStorage(CACHE_KEY_DISTRICTS));
+                    const cachedNowcast = safeParseJSON(safeGetStorage(CACHE_KEY_NOWCAST));
+                    const cachedTime = parseInt(safeGetStorage(CACHE_TIME_KEY) || '0', 10);
                     const nowTime = Date.now();
 
-                    // 若快取有效（低於3分鐘），獨立呈現畫面，隨後在背景獲取最新數據
-                    if (cachedWeather && cachedDistricts && cachedTime && (nowTime - parseInt(cachedTime) < CACHE_TTL)) {
-                        globalWeatherData = JSON.parse(cachedWeather);
-                        globalDistrictData = JSON.parse(cachedDistricts);
-                        globalNowcastData = cachedNowcast ? JSON.parse(cachedNowcast) : null;
+                    // 若快取有效（低於 5 分鐘），立即呈現畫面，並在背景更新 nowcast
+                    if (isValidWeatherPayload(cachedWeather) && Array.isArray(cachedDistricts) && cachedTime && (nowTime - cachedTime < CACHE_TTL)) {
+                        globalWeatherData = cachedWeather;
+                        globalDistrictData = cachedDistricts;
+                        globalNowcastData = cachedNowcast;
 
                         renderDashboard();
                         renderReports();
+                        showDashboard();
 
-                        document.getElementById('loading').classList.add('hidden');
-                        document.getElementById('dashboard-content').classList.remove('hidden');
-                        observeRevealElements();
-
-                        // 背景執行一次實時抓取以更新數據
-                        fetchWeatherData(true);
+                        isFetchingWeather = false;
+                        fetchNowcastOnly();
                         return;
+                    }
+
+                    // 顯示正在重試時的載入提示
+                    const loadingEl = document.getElementById('loading');
+                    if (loadingEl && !loadingEl.classList.contains('hidden')) {
+                        loadingEl.innerHTML = `
+                            <div class="loader-ring"></div>
+                            <p class="micro">正在取得最新天氣數據...</p>
+                        `;
                     }
                 }
 
                 const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,weather_code,apparent_temperature,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,weather_code,precipitation_probability_max,precipitation_sum&timezone=Asia/Macau&past_days=1`;
 
-                const [weatherRes, nowcastRes, ...districtRes] = await Promise.all([
-                    fetch(weatherUrl),
-                    fetch(`nowcast.csv?t=` + Date.now(), { cache: 'no-store' }).catch(() => null),
-                    ...districtUrls.map(d => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&timezone=Asia/Macau`))
+                const [weatherSettled, nowcastSettled, ...districtSettled] = await Promise.allSettled([
+                    fetchWithTimeout(weatherUrl, {}, 10000),
+                    fetchWithTimeout(`nowcast.csv?t=${Date.now()}`, { cache: 'no-store' }, 6000),
+                    ...districtUrls.map(d =>
+                        fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&current=temperature_2m,weather_code&timezone=Asia/Macau`, {}, 10000)
+                    )
                 ]);
 
-                const newWeatherData = await weatherRes.json();
-                let newNowcastData = null;
+                if (weatherSettled.status !== 'fulfilled' || !weatherSettled.value.ok) {
+                    const status = weatherSettled.status === 'fulfilled' ? weatherSettled.value.status : 'TIMEOUT/NETWORK';
+                    throw new Error(`Main weather API error: ${status}`);
+                }
 
-                if (nowcastRes && nowcastRes.ok) {
-                    const nowcastText = await nowcastRes.text();
+                const newWeatherData = await weatherSettled.value.json();
+                if (!isValidWeatherPayload(newWeatherData)) {
+                    throw new Error('Invalid weather API payload');
+                }
+
+                let newNowcastData = globalNowcastData;
+                if (nowcastSettled.status === 'fulfilled' && nowcastSettled.value.ok) {
+                    const nowcastText = await nowcastSettled.value.text();
                     newNowcastData = parseNowcastText(nowcastText);
                 }
 
-                const newDistrictData = await Promise.all(districtRes.map(res => res.json()));
+                // 單一分區失敗不影響主畫面載入，保留上次分區數據作為備援
+                const newDistrictData = await Promise.all(
+                    districtSettled.map(async (res, idx) => {
+                        if (res.status === 'fulfilled' && res.value.ok) {
+                            try {
+                                const json = await res.value.json();
+                                if (json && json.current) return json;
+                            } catch (e) {}
+                        }
+                        return (globalDistrictData && globalDistrictData[idx]) ? globalDistrictData[idx] : null;
+                    })
+                );
 
                 globalWeatherData = newWeatherData;
                 globalNowcastData = newNowcastData;
                 globalDistrictData = newDistrictData;
+                districtHourlyCache = {}; // 清除舊的分區歷史圖表快取，確保下次展開取得最新數據
 
-                localStorage.setItem(CACHE_KEY_WEATHER, JSON.stringify(globalWeatherData));
-                localStorage.setItem(CACHE_KEY_DISTRICTS, JSON.stringify(globalDistrictData));
-                localStorage.setItem(CACHE_KEY_NOWCAST, JSON.stringify(globalNowcastData));
-                localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+                safeSetStorage(CACHE_KEY_WEATHER, JSON.stringify(globalWeatherData));
+                safeSetStorage(CACHE_KEY_DISTRICTS, JSON.stringify(globalDistrictData));
+                safeSetStorage(CACHE_KEY_NOWCAST, JSON.stringify(globalNowcastData));
+                safeSetStorage(CACHE_TIME_KEY, Date.now().toString());
 
                 renderDashboard();
                 renderReports();
-
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('dashboard-content').classList.remove('hidden');
-                observeRevealElements();
+                showDashboard();
 
             } catch (error) {
                 console.error("無法載入天氣數據：", error);
-                
-                const cachedWeather = localStorage.getItem(CACHE_KEY_WEATHER);
-                const cachedDistricts = localStorage.getItem(CACHE_KEY_DISTRICTS);
-                if (cachedWeather && cachedDistricts && !globalWeatherData) {
-                    globalWeatherData = JSON.parse(cachedWeather);
-                    globalDistrictData = JSON.parse(cachedDistricts);
+
+                const cachedWeather = safeParseJSON(safeGetStorage(CACHE_KEY_WEATHER));
+                const cachedDistricts = safeParseJSON(safeGetStorage(CACHE_KEY_DISTRICTS));
+                const cachedNowcast = safeParseJSON(safeGetStorage(CACHE_KEY_NOWCAST));
+
+                if (isValidWeatherPayload(cachedWeather) && !globalWeatherData) {
+                    globalWeatherData = cachedWeather;
+                    globalDistrictData = Array.isArray(cachedDistricts) ? cachedDistricts : [];
+                    globalNowcastData = cachedNowcast;
                     renderDashboard();
                     renderReports();
-                    document.getElementById('loading').classList.add('hidden');
-                    document.getElementById('dashboard-content').classList.remove('hidden');
-                    observeRevealElements();
+                    showDashboard();
                     return;
                 }
 
@@ -1503,12 +1592,14 @@
                     document.getElementById('loading').innerHTML = `
                         <div class="space-y-4">
                             <i class="fa-solid fa-triangle-exclamation text-4xl" style="color:rgb(var(--c-red-rgb));"></i>
-                            <p class="micro" style="color:rgb(var(--c-red-rgb));">無法載入天氣數據，請檢查網絡連線。</p>
+                            <p class="micro" style="color:rgb(var(--c-red-rgb));">無法載入天氣數據，請檢查網絡連線或稍後再試。</p>
                             <button onclick="fetchWeatherData()" class="btn btn-primary inline-flex items-center gap-2">
                                 <i class="fa-solid fa-rotate-right"></i>重新載入
                             </button>
                         </div>`;
                 }
+            } finally {
+                isFetchingWeather = false;
             }
         }
 
@@ -1539,12 +1630,17 @@
             if (!districtHourlyCache[index]) {
                 try {
                     const d = districtUrls[index];
-                    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&hourly=temperature_2m&timezone=Asia/Macau&past_days=1`);
+                    const res = await fetchWithTimeout(`https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lon}&hourly=temperature_2m&timezone=Asia/Macau&past_days=1`, {}, 10000);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const data = await res.json();
-                    districtHourlyCache[index] = data.hourly;
+                    if (data && data.hourly) {
+                        districtHourlyCache[index] = data.hourly;
+                    }
                     renderDistricts();
                 } catch (e) {
                     console.error("無法載入分區歷史數據：", e);
+                    districtHourlyCache[index] = { error: true };
+                    renderDistricts();
                 }
             }
         }
@@ -1554,8 +1650,14 @@
             updateDateTime();
 
             const data = globalWeatherData;
+            if (!isValidWeatherPayload(data)) return;
+
             const curr = data.current;
-            const isNight = checkIfNight(now, data.daily, 1);
+            const macauDateStr = getMacauDateStr(now);
+            const foundTodayIdx = data.daily.time.findIndex(d => d === macauDateStr);
+            const todayIdx = foundTodayIdx !== -1 ? foundTodayIdx : Math.min(1, data.daily.time.length - 1);
+
+            const isNight = checkIfNight(now, data.daily, todayIdx);
 
             // 1. 處理 currentTemp (支援 nowcast.csv 的 T 類別覆蓋)
             let currentTemp = curr.temperature_2m;
@@ -1563,7 +1665,8 @@
                 currentTemp = globalNowcastData.customTemp;
             }
 
-            const apiWeatherInfo = getWeatherDetails(curr.weather_code, isNight);
+            const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
+            const apiWeatherInfo = getWeatherDetails(curr.weather_code, isNight, humidityVal);
 
             let weatherInfo = { ...apiWeatherInfo };
 
@@ -1593,9 +1696,6 @@
                 }
             }
 
-            const macauDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-            const todayIdx = data.daily.time.findIndex(d => d === macauDateStr) !== -1 ? data.daily.time.findIndex(d => d === macauDateStr) : 1;
-
             let todayMax = Math.round(data.daily.temperature_2m_max[todayIdx]);
             let todayMin = Math.round(data.daily.temperature_2m_min[todayIdx]);
 
@@ -1609,8 +1709,8 @@
             }
 
             if (data.daily.sunrise && data.daily.sunrise[todayIdx] && data.daily.sunset && data.daily.sunset[todayIdx]) {
-                const sunriseDate = new Date(data.daily.sunrise[todayIdx]);
-                const sunsetDate = new Date(data.daily.sunset[todayIdx]);
+                const sunriseDate = parseMacauDate(data.daily.sunrise[todayIdx]);
+                const sunsetDate = parseMacauDate(data.daily.sunset[todayIdx]);
                 const moonriseDate = new Date(sunriseDate.getTime() + 10 * 3600 * 1000);
                 const moonsetDate = new Date(sunriseDate.getTime() - 2 * 3600 * 1000);
 
@@ -1633,7 +1733,6 @@
                 <span class="dim">低: ${todayMin}°</span>
             `;
 
-            const humidityVal = curr.relative_humidity_2m !== undefined ? curr.relative_humidity_2m : 0;
             const humidityCat = getHumidityCategory(humidityVal);
             document.getElementById('current-humidity').innerText = `${humidityVal}%`;
             const humidityBadgeEl = document.getElementById('current-humidity-badge');
@@ -1647,7 +1746,8 @@
             apparentBadgeEl.textContent = apparentCat.label;
             apparentBadgeEl.className = `badge ${isInitialRenderDone ? '' : 'value-pop'} ${apparentCat.class}`;
 
-            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
+            const foundHourIdx = data.hourly.time.findIndex(timeStr => parseMacauDate(timeStr) >= now);
+            const currentHourIndex = foundHourIdx !== -1 ? foundHourIdx : Math.max(0, data.hourly.time.length - 1);
             const next24HourlyTemps = data.hourly.temperature_2m.slice(currentHourIndex, currentHourIndex + 6);
 
             const effectiveMaxTemp = Math.max(currentTemp, ...next24HourlyTemps);
@@ -1717,8 +1817,7 @@
                 });
             }
 
-            /* 2. 渲染系統自動計算的提示 (高溫、低溫、火災危險、自動降雨預警、大風) - 遞增嚴重要程度 */
-            /* 高溫提示分級：28°C(炎熱提示), 32°C(酷熱提示), 35°C(非常酷熱警告), 37°C(極為酷熱特別警告) */
+            /* 2. 渲染系統自動計算的提示 (高溫、低溫、火災危險、自動降雨預警、大風) - 遞增嚴重程度 */
             if (isHot) {
                 let hotBadgeColor = 'b-amber';
                 let hotTitle = '高溫提示：';
@@ -1745,7 +1844,6 @@
                     </div>`;
             }
 
-            /* 低溫提示分級：14°C(清涼提示), 12°C(寒冷提示), 10°C(非常寒冷警告), 8°C(極為寒冷特別警告) */
             if (isCold) {
                 let coldBadgeColor = 'b-green';
                 let coldTitle = '清涼天氣提示：';
@@ -1841,10 +1939,26 @@
             districtContainer.innerHTML = '';
             const districtNames = ['澳門', '氹仔', '路環'];
             const now = new Date();
-            const isNight = checkIfNight(now, globalWeatherData.daily, 1);
+            const macauDateStr = getMacauDateStr(now);
+            const foundTodayIdx = globalWeatherData.daily.time.findIndex(d => d === macauDateStr);
+            const todayIdx = foundTodayIdx !== -1 ? foundTodayIdx : Math.min(1, globalWeatherData.daily.time.length - 1);
+            const isNight = checkIfNight(now, globalWeatherData.daily, todayIdx);
 
-            globalDistrictData.forEach((loc, index) => {
-                const dName = districtNames[index];
+            (globalDistrictData || []).forEach((loc, index) => {
+                const dName = districtNames[index] || `分區 ${index + 1}`;
+                if (!loc || !loc.current) {
+                    const fallbackCard = document.createElement('div');
+                    fallbackCard.className = "tile p-4";
+                    fallbackCard.innerHTML = `
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="micro">${dName}</div>
+                            <span class="micro dim">暫無數據</span>
+                        </div>
+                    `;
+                    districtContainer.appendChild(fallbackCard);
+                    return;
+                }
+
                 const dTemp = Math.round(loc.current.temperature_2m);
                 const dCat = getTempCategory(loc.current.temperature_2m);
                 const dWeather = getWeatherDetails(loc.current.weather_code, isNight);
@@ -1859,12 +1973,19 @@
                                 <i class="fa-solid fa-spinner fa-spin accent mr-1.5"></i> 正在載入歷史溫度趨勢...
                             </div>
                         `;
+                    } else if (hourlyData.error || !Array.isArray(hourlyData.time)) {
+                        chartHtml = `
+                            <div class="chart-block text-center py-4 micro dim">
+                                暫無法載入歷史溫度趨勢
+                            </div>
+                        `;
                     } else {
-                        const currentHourIdx = hourlyData.time.findIndex(t => new Date(t) >= now) || hourlyData.temperature_2m.length - 1;
+                        const foundIdx = hourlyData.time.findIndex(t => parseMacauDate(t) >= now);
+                        const currentHourIdx = foundIdx !== -1 ? foundIdx : Math.max(0, hourlyData.temperature_2m.length - 1);
                         const startIdx = Math.max(0, currentHourIdx - 23);
                         const pastTemps = hourlyData.temperature_2m.slice(startIdx, currentHourIdx + 1).map(t => Math.round(t));
 
-                        if (pastTemps.length > 0) {
+                        if (pastTemps.length > 1) {
                             const cMax = Math.max(...pastTemps) + 1;
                             const cMin = Math.min(...pastTemps) - 1;
                             const range = cMax - cMin || 1;
@@ -1930,7 +2051,8 @@
             container.innerHTML = '';
             const data = globalWeatherData;
             const now = new Date();
-            const currentHourIndex = data.hourly.time.findIndex(timeStr => new Date(timeStr) >= now) || 0;
+            const foundHourIdx = data.hourly.time.findIndex(timeStr => parseMacauDate(timeStr) >= now);
+            const currentHourIndex = foundHourIdx !== -1 ? foundHourIdx : Math.max(0, data.hourly.time.length - 1);
             const limit = currentHourIndex + 24;
 
             const times = data.hourly.time.slice(currentHourIndex, limit);
@@ -1944,12 +2066,12 @@
                 scrollBox.className = isInitialRenderDone ? "flex gap-3 overflow-x-auto pb-2 pt-1" : "flex gap-3 overflow-x-auto pb-2 pt-1 animate-fade-in";
 
                 for (let i = 0; i < times.length; i++) {
-                    const hourDate = new Date(times[i]);
-                    const dateStr = hourDate.toISOString().split('T')[0];
+                    const hourDate = parseMacauDate(times[i]);
+                    const dateStr = times[i].slice(0, 10);
                     const dayIdx = data.daily.time.indexOf(dateStr);
                     const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 1);
-                    const hourIcon = getWeatherDetails(codes[i], hourIsNight);
-                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: false });
+                    const hourIcon = getWeatherDetails(codes[i], hourIsNight, humids[i]);
+                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: 'numeric', hour12: false });
 
                     const card = document.createElement('div');
                     card.className = "tile hour-card flex flex-col items-center justify-between p-3.5 min-w-[5.5rem] flex-shrink-0 text-center";
@@ -1981,12 +2103,12 @@
                 let timesRow = '<div class="flex" style="min-width: 1100px;">';
 
                 for (let i = 0; i < times.length; i++) {
-                    const hourDate = new Date(times[i]);
-                    const dateStr = hourDate.toISOString().split('T')[0];
+                    const hourDate = parseMacauDate(times[i]);
+                    const dateStr = times[i].slice(0, 10);
                     const dayIdx = data.daily.time.indexOf(dateStr);
                     const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 1);
-                    const hourIcon = getWeatherDetails(codes[i], hourIsNight);
-                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { hour: 'numeric', hour12: false });
+                    const hourIcon = getWeatherDetails(codes[i], hourIsNight, humids[i]);
+                    const hourLabel = hourDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: 'numeric', hour12: false });
 
                     iconsRow += `<div class="flex-shrink-0 w-[45px] text-center flex flex-col items-center"><div class="mb-1">${renderIcon(hourIcon.icon, 'w-5 h-5 object-contain', 'text-sm')}</div><span class="num text-[0.625rem] t-accent font-bold">${temps[i]}°</span></div>`;
                     timesRow += `<div class="flex-shrink-0 w-[45px] text-center text-[0.625rem] dim num">${hourLabel}</div>`;
@@ -2022,11 +2144,15 @@
             const dailyContainer = document.getElementById('daily-container');
             dailyContainer.innerHTML = '';
 
-            const startIndex = 1;
+            const macauDateStr = getMacauDateStr(new Date());
+            const foundTodayIdx = data.daily.time.findIndex(d => d === macauDateStr);
+            const startIndex = foundTodayIdx !== -1 ? foundTodayIdx : Math.min(1, data.daily.time.length - 1);
+
             const maxTemps = data.daily.temperature_2m_max.slice(startIndex, startIndex + 7).map(t => Math.round(t));
             const minTemps = data.daily.temperature_2m_min.slice(startIndex, startIndex + 7).map(t => Math.round(t));
             const popMaxs = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max.slice(startIndex, startIndex + 7) : Array(7).fill(0);
             const precipSums = data.daily.precipitation_sum ? data.daily.precipitation_sum.slice(startIndex, startIndex + 7) : Array(7).fill(0);
+            const dayCount = maxTemps.length;
 
             const allVals = [...maxTemps, ...minTemps];
             const chartMax = Math.max(...allVals) + 1;
@@ -2048,19 +2174,20 @@
             let maxPoints = [];
             let minPoints = [];
 
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < dayCount; i++) {
                 const dayIndex = startIndex + i;
                 const dateStr = data.daily.time[dayIndex];
                 const dayIcon = getAdvancedDailyWeatherIcon(dayIndex, data);
 
-                const popVal = Math.round(popMaxs[i]);
+                const popVal = Math.round(popMaxs[i] || 0);
                 const precipSumVal = precipSums[i] || 0;
 
                 const rainColorClass = precipSumVal >= 10 ? 't-blue font-bold' : 'mut';
 
-                const dateObj = new Date(dateStr);
-                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { weekday: 'short' });
-                const monthDay = `${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
+                const dateObj = parseMacauDate(dateStr);
+                const dayName = i === 0 ? '今日' : i === 1 ? '明日' : dateObj.toLocaleDateString('zh-TW', { timeZone: 'Asia/Macau', weekday: 'short' });
+                const [, mStr, dStr] = dateStr.split('-');
+                const monthDay = `${parseInt(mStr, 10)}-${parseInt(dStr, 10)}`;
 
                 const xCenter = i * 100 + 50;
                 maxPoints.push(`${xCenter},${getY(maxTemps[i])}`);
@@ -2122,13 +2249,39 @@
             dailyContainer.appendChild(tableWrapper);
         }
 
-        // 頁面首次載入
-        fetchWeatherData();
+        document.addEventListener("DOMContentLoaded", () => {
+            initReportsData();
+            renderReports();
+            updateDateTime();
+            fetchWeatherData();
+        });
 
-        // 設定 30 秒自動頻繁輪詢背景抓取，實現實時更新且不觸發進場動畫
+        // 每分鐘僅輪詢輕量的 nowcast.csv 並更新時間，避免過度請求 Open-Meteo API
         setInterval(() => {
-            fetchWeatherData(true);
-        }, 30000);
+            updateDateTime();
+            if (document.visibilityState === 'visible') {
+                fetchNowcastOnly();
+            }
+        }, 60 * 1000);
+
+        // 每 5 分鐘輪詢一次 Open-Meteo 天氣數據
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                fetchWeatherData(true);
+            }
+        }, 5 * 60 * 1000);
+
+        // 切換回分頁時若快取已過期則自動更新
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                const cachedTime = parseInt(safeGetStorage(CACHE_TIME_KEY) || '0', 10);
+                if (!cachedTime || Date.now() - cachedTime >= CACHE_TTL) {
+                    fetchWeatherData(true);
+                } else {
+                    fetchNowcastOnly();
+                }
+            }
+        });
     </script>
 </body>
 </html>
