@@ -411,22 +411,18 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <span id="umbrella-6h-meta" class="micro dim num">未來 6 小時降雨預測</span>
-                        <span id="umbrella-badge" class="badge b-green num">1 / 不需要</span>
+                        <span id="umbrella-badge" class="badge b-green">不需要</span>
                     </div>
                 </div>
                 <div class="panel-body space-y-3">
-                    <div class="flex items-center justify-between gap-2 micro">
-                        <span class="t-accent font-bold">不需要</span>
-                        <span id="umbrella-summary" class="dim text-center">未來 6 小時降雨機率低，外出無需攜帶雨具</span>
-                        <span style="color:rgb(var(--c-red-rgb));" class="font-bold">必需</span>
-                    </div>
-                    <div id="umbrella-bar" class="grid grid-cols-5 gap-1.5" role="img" aria-label="建議帶遮指數 1 至 5"></div>
-                    <div class="grid grid-cols-5 gap-1.5 text-center num micro dim">
-                        <span>1</span>
-                        <span>2</span>
-                        <span>3</span>
-                        <span>4</span>
-                        <span>5</span>
+                    <div id="umbrella-summary" class="text-xs mut">未來 6 小時降雨機率低，外出無需攜帶雨具</div>
+                    <div id="umbrella-bar" class="grid grid-cols-5 gap-1.5" role="img" aria-label="建議帶遮指數 不需要 至 必需"></div>
+                    <div id="umbrella-labels" class="grid grid-cols-5 gap-1.5 text-center micro dim">
+                        <span>不需要</span>
+                        <span>可考慮</span>
+                        <span>建議攜帶</span>
+                        <span>極建議</span>
+                        <span>必需</span>
                     </div>
                 </div>
             </section>
@@ -1947,16 +1943,16 @@
             const next6Precip = data.hourly.precipitation ? data.hourly.precipitation.slice(currentHourIndex, currentHourIndex + 6) : [];
 
             const maxPop6h = next6Pops.length > 0 ? Math.max(...next6Pops) : 0;
-            const sumPrecip6h = next6Precip.reduce((sum, val) => sum + (val || 0), 0);
+            const maxPrecip1h = next6Precip.length > 0 ? Math.max(...next6Precip.map(v => v || 0)) : 0;
 
             let level = 1;
-            if (sumPrecip6h >= 10 || (sumPrecip6h >= 5 && maxPop6h >= 70)) {
+            if (maxPrecip1h >= 5.0 || (maxPrecip1h >= 2.5 && maxPop6h >= 70)) {
                 level = 5;
-            } else if (sumPrecip6h >= 3 || (sumPrecip6h >= 1.5 && maxPop6h >= 60)) {
+            } else if (maxPrecip1h >= 2.0 || (maxPrecip1h >= 1.0 && maxPop6h >= 60)) {
                 level = 4;
-            } else if (sumPrecip6h >= 0.8 || (sumPrecip6h >= 0.2 && maxPop6h >= 50)) {
+            } else if (maxPrecip1h >= 0.5 || (maxPrecip1h >= 0.2 && maxPop6h >= 50)) {
                 level = 3;
-            } else if (sumPrecip6h > 0 || maxPop6h >= 30) {
+            } else if (maxPrecip1h > 0 || maxPop6h >= 30) {
                 level = 2;
             }
 
@@ -1982,11 +1978,11 @@
             const info = levelMeta[level];
             const segColors = ['--c-green-rgb', '--c-sky-rgb', '--c-amber-rgb', '--c-orange-rgb', '--c-red-rgb'];
 
-            badgeEl.textContent = `${level} / ${info.label}`;
-            badgeEl.className = `badge ${info.badge} num`;
+            badgeEl.textContent = info.label;
+            badgeEl.className = `badge ${info.badge}`;
 
             if (metaEl) {
-                metaEl.textContent = `6小時最高機率 ${maxPop6h}% · 預估 ${sumPrecip6h.toFixed(1)}mm`;
+                metaEl.textContent = `6小時最高機率 ${maxPop6h}% · 最高時雨量 ${maxPrecip1h.toFixed(1)}mm/h`;
             }
             if (summaryEl) {
                 summaryEl.textContent = info.desc;
@@ -2000,8 +1996,17 @@
                     ? `background: rgb(var(${rgbVar})); opacity: ${isCurrent ? '1' : '0.45'};`
                     : `background: var(--bg-2); border: 1px solid var(--line);`;
                 const ringStyle = isCurrent ? `box-shadow: 0 0 0 1px rgb(var(${rgbVar}));` : '';
-                return `<div class="h-3 transition-all duration-300" style="${bgStyle} ${ringStyle}" title="等級 ${step}: ${levelMeta[step].label}"></div>`;
+                return `<div class="h-3 transition-all duration-300" style="${bgStyle} ${ringStyle}" title="${levelMeta[step].label}"></div>`;
             }).join('');
+
+            const labelsEl = document.getElementById('umbrella-labels');
+            if (labelsEl) {
+                labelsEl.innerHTML = [1, 2, 3, 4, 5].map((step, idx) => {
+                    const isCurrent = step === level;
+                    const style = isCurrent ? `color: rgb(var(${segColors[idx]})); font-weight: 700;` : '';
+                    return `<span style="${style}">${levelMeta[step].label}</span>`;
+                }).join('');
+            }
         }
 
         function renderDistricts() {
