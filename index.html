@@ -1217,7 +1217,10 @@
         }
 
         /* 標準氣象名詞與圖示對應 (符合澳門氣象標準) */
-        function getWeatherDetails(code, isNight = false, humidity = null) {
+        function getWeatherDetails(code, isNight = false, humidity = null, precipitation = null) {
+            if (precipitation !== null && precipitation >= 10) {
+                return { text: '暴雨', icon: 'icon/weather_icon/rainstorm.png' };
+            }
             const symbols = {
                 0: isNight ? { text: '天晴', icon: 'icon/weather_icon/moon.png' } : { text: '天晴', icon: 'icon/weather_icon/sun.png' },
                 1: isNight ? { text: '大致天晴', icon: 'icon/weather_icon/moon.png' } : { text: '大致天晴', icon: 'icon/weather_icon/sun.png' },
@@ -1231,7 +1234,9 @@
                 51: isNight ? { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-night.png' } : { text: '部份時間有陽光', icon: 'icon/weather_icon/partly-sun-day.png' },
                 53: isNight ? { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-night.png' } : { text: '短暫時間有陽光', icon: 'icon/weather_icon/partly-cloud-day.png' },
                 61: { text: '微雨/毛毛雨', icon: 'icon/weather_icon/cloud-drizzle.png' },
+                65: { text: '暴雨', icon: 'icon/weather_icon/rainstorm.png' },
                 80: { text: '驟雨', icon: 'icon/weather_icon/cloud-rain.png' },
+                82: { text: '暴雨', icon: 'icon/weather_icon/rainstorm.png' },
                 95: { text: '雷雨', icon: 'icon/weather_icon/thunder-rain.png' }
             };
             return symbols[code] || { text: '多雲', icon: 'icon/weather_icon/cloud.png' };
@@ -2134,6 +2139,7 @@
             const temps = data.hourly.temperature_2m.slice(currentHourIndex, limit).map(t => Math.round(t));
             const humids = data.hourly.relative_humidity_2m.slice(currentHourIndex, limit);
             const pops = data.hourly.precipitation_probability.slice(currentHourIndex, limit);
+            const precips = data.hourly.precipitation ? data.hourly.precipitation.slice(currentHourIndex, limit) : Array(times.length).fill(0);
             const codes = data.hourly.weather_code.slice(currentHourIndex, limit);
 
             if (currentHourlyMode === 'card') {
@@ -2145,7 +2151,7 @@
                     const dateStr = times[i].slice(0, 10);
                     const dayIdx = data.daily.time.indexOf(dateStr);
                     const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 1);
-                    const hourIcon = getWeatherDetails(codes[i], hourIsNight, humids[i]);
+                    const hourIcon = getWeatherDetails(codes[i], hourIsNight, humids[i], precips[i]);
                     const hourLabel = hourDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: 'numeric', hour12: false });
 
                     const card = document.createElement('div');
@@ -2182,7 +2188,7 @@
                     const dateStr = times[i].slice(0, 10);
                     const dayIdx = data.daily.time.indexOf(dateStr);
                     const hourIsNight = checkIfNight(hourDate, data.daily, dayIdx !== -1 ? dayIdx : 1);
-                    const hourIcon = getWeatherDetails(codes[i], hourIsNight, humids[i]);
+                    const hourIcon = getWeatherDetails(codes[i], hourIsNight, humids[i], precips[i]);
                     const hourLabel = hourDate.toLocaleTimeString('zh-TW', { timeZone: 'Asia/Macau', hour: 'numeric', hour12: false });
 
                     iconsRow += `<div class="flex-shrink-0 w-[45px] text-center flex flex-col items-center"><div class="mb-1">${renderIcon(hourIcon.icon, 'w-5 h-5 object-contain', 'text-sm')}</div><span class="num text-[0.625rem] t-accent font-bold">${temps[i]}°</span></div>`;
